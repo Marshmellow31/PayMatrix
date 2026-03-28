@@ -603,6 +603,4 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more informa
 
 <div align="center">
 
-** [Yash Sejani](https://github.com/YashSejani)**
-
 </div>
