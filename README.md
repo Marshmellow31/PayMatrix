@@ -603,8 +603,6 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more informa
 
 <div align="center">
 
-**Built with ❤️ by [Yash Sejani](https://github.com/YashSejani)**
-
-⭐ **Star this repo if you find it helpful!** ⭐
+** [Yash Sejani](https://github.com/YashSejani)**
 
 </div>
