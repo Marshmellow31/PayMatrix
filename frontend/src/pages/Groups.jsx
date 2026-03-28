@@ -12,12 +12,14 @@ import {
   Plus
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { CreateGroupModal } from "../components/groups/CreateGroupModal";
 
 export const Groups = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { groups } = useSelector((state) => state.groups);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     dispatch(getGroups());
@@ -44,7 +46,10 @@ export const Groups = () => {
         <section className="space-y-6 pt-6">
           <div className="flex justify-between items-center">
             <h2 className="text-3xl font-manrope font-bold text-primary tracking-tight">Your Portfolio</h2>
-            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-background rounded-full text-[10px] uppercase font-bold tracking-widest hover:scale-105 transition-transform">
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-background rounded-full text-[10px] uppercase font-bold tracking-widest hover:scale-105 transition-transform"
+            >
                 <Plus size={14} strokeWidth={3} /> Create Group
             </button>
           </div>
@@ -126,6 +131,10 @@ export const Groups = () => {
           )}
         </div>
       </div>
+      <CreateGroupModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+      />
     </Layout>
   );
 };
