@@ -1,0 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-background text-on-background font-inter antialiased;
+  margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-manrope font-bold;
+}
+
+/* Custom premium elements */
+.glass-panel {
+  @apply bg-surface-container/70 backdrop-blur-[24px] border-none;
+}
+
+.monolith-card {
+  @apply bg-surface-container-high rounded-lg p-6;
+}
+
+.ghost-border {
+  @apply border border-on-surface-variant/15;
+}
+
+/* Hide scrollbar but keep functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
