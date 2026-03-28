@@ -37,11 +37,10 @@ const groupSchema = new mongoose.Schema({
 });
 
 // Generate a random invite code before saving
-groupSchema.pre('save', function (next) {
+groupSchema.pre('save', function () {
   if (!this.inviteCode) {
     this.inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
   }
-  next();
 });
 
 module.exports = mongoose.model('Group', groupSchema);

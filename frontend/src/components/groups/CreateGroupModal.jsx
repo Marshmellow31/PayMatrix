@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { createGroup, reset } from "../../redux/slices/groupSlice";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Map, Home, Heart, Users, Loader2 } from "lucide-react";
-import { Button } from "../common/Button";
+import { Button } from "../common/index";
 
 const categories = [
   { id: 'Trip', icon: Map, color: 'text-blue-400' },
@@ -86,21 +86,24 @@ export const CreateGroupModal = ({ isOpen, onClose }) => {
                   Project Domain
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, category: cat.id })}
-                      className={`flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all ${
-                        formData.category === cat.id 
-                          ? 'bg-primary border-primary text-background' 
-                          : 'bg-surface-container-highest/20 border-on-surface-variant/5 text-on-surface-variant/60 hover:border-on-surface-variant/20'
-                      }`}
-                    >
-                      <cat.icon size={20} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">{cat.id}</span>
-                    </button>
-                  ))}
+                  {categories.map((cat) => {
+                    const Icon = cat.icon;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, category: cat.id })}
+                        className={`flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all ${
+                          formData.category === cat.id 
+                            ? 'bg-primary border-primary text-background' 
+                            : 'bg-surface-container-highest/20 border-on-surface-variant/5 text-on-surface-variant/60 hover:border-on-surface-variant/20'
+                        }`}
+                      >
+                        <Icon size={20} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{cat.id}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
