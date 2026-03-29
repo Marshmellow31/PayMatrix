@@ -78,6 +78,9 @@ exports.addExpense = async (req, res) => {
 
     res.status(201).json(expense);
   } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid Pipeline ID format' });
+    }
     console.error('Add Expense Error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }

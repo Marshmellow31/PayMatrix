@@ -1,4 +1,5 @@
 const Group = require('../models/Group');
+const User = require('../models/User'); // Required for population
 
 // @desc    Create a new group
 // @route   POST /api/groups
@@ -17,6 +18,7 @@ exports.createGroup = async (req, res) => {
 
     res.status(201).json(group);
   } catch (error) {
+    console.error('Create Group Error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -29,6 +31,7 @@ exports.getGroups = async (req, res) => {
     const groups = await Group.find({ members: req.user._id }).populate('members', 'name email');
     res.json(groups);
   } catch (error) {
+    console.error('Get Groups Error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -55,6 +58,7 @@ exports.joinGroup = async (req, res) => {
 
     res.json(group);
   } catch (error) {
+    console.error('Join Group Error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
