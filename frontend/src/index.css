@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================
+   PayMatrix — Digital Obsidian Global Styles
+   ======================================== */
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #131313;
+    color: #e5e2e1;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scrollbar — Digital Obsidian */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0e0e0e;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #353534;
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #474747;
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+  }
+}
+
+@layer components {
+  /* Glass Card */
+  .glass-card {
+    background: rgba(53, 53, 52, 0.4);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 16px;
+  }
+
+  /* Gradient CTA Button */
+  .btn-primary {
+    background: linear-gradient(135deg, #ffffff 0%, #d4d4d4 100%);
+    color: #1a1c1c;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 12px 24px;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 30px rgba(255, 255, 255, 0.08);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.96);
+  }
+
+  /* Secondary Button — Glass */
+  .btn-secondary {
+    background: rgba(53, 53, 52, 0.4);
+    backdrop-filter: blur(12px);
+    color: #e5e2e1;
+    font-weight: 500;
+    border-radius: 8px;
+    padding: 12px 24px;
+    transition: all 0.2s ease;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(53, 53, 52, 0.6);
+  }
+
+  /* Ghost Button */
+  .btn-ghost {
+    background: transparent;
+    color: #c6c6c6;
+    font-weight: 500;
+    border-radius: 8px;
+    padding: 12px 24px;
+    transition: all 0.2s ease;
+  }
+
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+  }
+
+  /* Input Field */
+  .input-field {
+    background: #353534;
+    color: #e5e2e1;
+    border-radius: 8px;
+    padding: 12px 16px;
+    border: none;
+    outline: none;
+    width: 100%;
+    transition: background 0.2s ease;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .input-field:focus {
+    background: #3a3939;
+  }
+
+  .input-field::placeholder {
+    color: #919191;
+  }
+
+  /* Chip / Pill */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: #464747;
+    color: #e3e2e2;
+  }
+
+  /* Card with surface elevation */
+  .elevated-card {
+    background: #2a2a2a;
+    border-radius: 16px;
+    padding: 24px;
+  }
+
+  /* Submerged section */
+  .submerged {
+    background: #0e0e0e;
+    border-radius: 16px;
+  }
+
+  /* Ambient shadow for floating elements */
+  .ambient-shadow {
+    box-shadow: 0 8px 40px rgba(229, 226, 225, 0.04);
+  }
+}
+
+@layer utilities {
+  /* Noise texture overlay for gradient anti-banding */
+  .noise {
+    position: relative;
+  }
+
+  .noise::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.02;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    pointer-events: none;
+    border-radius: inherit;
+  }
+}
