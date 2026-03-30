@@ -59,8 +59,8 @@ const Sidebar = ({ isOpen, onClose }) => {
               transition={{ type: 'spring', damping: 20, stiffness: 200 }}
             >
               <div className="flex items-center justify-between mb-8">
-                <span className="text-xl font-bold font-manrope text-primary">
-                  💸 PayMatrix
+                <span className="text-xl font-bold font-manrope text-primary tracking-tight">
+                  PayMatrix
                 </span>
                 <button
                   onClick={onClose}

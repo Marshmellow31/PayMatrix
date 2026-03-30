@@ -20,8 +20,8 @@ const Header = ({ onToggleSidebar }) => {
             <HiMenu size={22} />
           </button>
           <Link to="/dashboard" className="flex items-center gap-2">
-            <span className="text-xl font-bold font-manrope text-primary">
-              💸 PayMatrix
+            <span className="text-xl font-bold font-manrope text-primary tracking-tight">
+              PayMatrix
             </span>
           </Link>
         </div>
