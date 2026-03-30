@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { HiPlus } from 'react-icons/hi';
+import { Plus } from 'lucide-react';
 import { fetchGroups, createGroup } from '../redux/groupSlice.js';
 import GroupCard from '../components/group/GroupCard.jsx';
 import Modal from '../components/common/Modal.jsx';
@@ -43,7 +43,7 @@ const Groups = () => {
           </p>
         </div>
         <Button onClick={() => setShowModal(true)} className="h-12 px-6">
-          <HiPlus size={20} className="mr-1" /> Establish Group
+          <Plus size={20} className="mr-1" /> Establish Group
         </Button>
       </div>
 

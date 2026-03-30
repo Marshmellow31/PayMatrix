@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { HiTrash } from 'react-icons/hi';
+import * as LucideIcons from 'lucide-react';
 import Avatar from '../common/Avatar.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
@@ -19,10 +20,17 @@ const ExpenseCard = ({ expense, currentUserId, onDelete }) => {
     >
       <div className="flex items-center gap-5 flex-1 min-w-0">
         <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-surface-lowest shadow-inner"
+          className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-surface-lowest shadow-inner"
           style={{ background: `${category?.color || '#ffffff'}10` }}
         >
-          {category?.label?.split(' ')[0] || '📌'}
+          {category?.icon ? (
+            (() => {
+              const IconComponent = LucideIcons[category.icon];
+              return IconComponent ? <IconComponent size={24} style={{ color: category.color }} /> : <LucideIcons.Hash size={24} />;
+            })()
+          ) : (
+            <LucideIcons.Hash size={24} />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <h4 className="text-base font-bold font-manrope text-primary tracking-tight truncate group-hover:text-secondary transition-colors">

@@ -1,25 +1,25 @@
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  HiHome,
-  HiUserGroup,
-  HiClock,
-  HiUser,
-  HiX,
-} from 'react-icons/hi';
+  LayoutDashboard,
+  Users,
+  Activity,
+  User,
+  X,
+} from 'lucide-react';
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: HiHome },
-  { to: '/groups', label: 'Groups', icon: HiUserGroup },
-  { to: '/activity', label: 'Activity', icon: HiClock },
-  { to: '/profile', label: 'Profile', icon: HiUser },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/groups', label: 'Groups', icon: Users },
+  { to: '/activity', label: 'Activity', icon: Activity },
+  { to: '/profile', label: 'Profile', icon: User },
 ];
 
 const Sidebar = ({ isOpen, onClose }) => {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 bg-surface-container-low min-h-screen p-6">
+      <aside className="hidden lg:flex flex-col w-64 bg-surface-container-low/40 backdrop-blur-xl border-r border-outline-variant/5 min-h-screen p-6">
         <nav className="flex flex-col gap-1 mt-4">
           {navItems.map((item) => (
             <NavLink
@@ -52,7 +52,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               onClick={onClose}
             />
             <motion.aside
-              className="fixed top-0 left-0 bottom-0 w-72 bg-surface-container-low z-50 p-6 lg:hidden"
+              className="fixed top-0 left-0 bottom-0 w-72 bg-surface-container-low/80 backdrop-blur-2xl z-50 p-6 lg:hidden shadow-2xl"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
@@ -67,7 +67,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                   className="p-2 rounded-md hover:bg-surface-container text-on-surface-variant"
                   aria-label="Close menu"
                 >
-                  <HiX size={20} />
+                  <X size={20} />
                 </button>
               </div>
               <nav className="flex flex-col gap-1">

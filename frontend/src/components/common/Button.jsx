@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 const variants = {
   primary: 'btn-primary',
   secondary: 'btn-secondary',
+  outline: 'btn-outline',
   ghost: 'btn-ghost',
   danger: 'bg-error-container text-on-error-container font-semibold rounded-md px-6 py-3 hover:opacity-90 transition-opacity',
 };

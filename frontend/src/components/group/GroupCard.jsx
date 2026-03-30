@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { HiUserGroup } from 'react-icons/hi';
+import * as LucideIcons from 'lucide-react';
 import { GROUP_CATEGORIES } from '../../utils/constants.js';
 
 const GroupCard = ({ group }) => {
@@ -15,10 +16,17 @@ const GroupCard = ({ group }) => {
       >
         <div className="flex items-start justify-between mb-4 relative z-10">
           <div
-            className="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-surface-lowest"
+            className="w-12 h-12 rounded-lg flex items-center justify-center bg-surface-lowest"
             style={{ background: `${category?.color || '#ffffff'}10` }}
           >
-            {category?.label?.split(' ')[0] || '📌'}
+            {category?.icon ? (
+              (() => {
+                const IconComponent = LucideIcons[category.icon];
+                return IconComponent ? <IconComponent size={24} style={{ color: category.color }} /> : <LucideIcons.Hash size={24} />;
+              })()
+            ) : (
+              <LucideIcons.Hash size={24} />
+            )}
           </div>
           <div className="chip bg-surface-container-lowest text-on-surface">
             <HiUserGroup size={14} className="opacity-70" />

@@ -67,7 +67,7 @@ const Settlements = () => {
       ) : (
         <div className="flex flex-col gap-4">
           {settlements.map((s) => (
-            <div key={s._id} className="p-4 pr-6 rounded-full bg-surface-container-lowest hover:bg-surface-container-low transition-all duration-300 flex items-center justify-between group shadow-sm hover:shadow-md border border-outline-variant/5">
+            <div key={s._id} className="p-4 pr-6 rounded-full bg-surface-container-lowest hover:bg-surface-container-low transition-all duration-300 flex items-center justify-between group shadow-sm hover:shadow-md">
               <div className="flex items-center gap-4">
                 <Avatar name={s.payer?.name} src={s.payer?.avatar} size="md" className="border-2 border-surface shadow-inner ml-2" />
                 <div>

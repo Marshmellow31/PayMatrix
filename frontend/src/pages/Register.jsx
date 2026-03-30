@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { HiUser, HiMail, HiLockClosed } from 'react-icons/hi';
+import { User, Mail, Lock } from 'lucide-react';
 import useAuth from '../hooks/useAuth.js';
 import Input from '../components/common/Input.jsx';
 import Button from '../components/common/Button.jsx';
@@ -68,9 +68,9 @@ const Register = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-            <Input label="Full Name" name="name" value={form.name} onChange={handleChange} placeholder="John Doe" icon={HiUser} required id="register-name" />
-            <Input label="Email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="you@example.com" icon={HiMail} required id="register-email" />
-            <Input label="Password" name="password" type="password" value={form.password} onChange={handleChange} placeholder="Min 6 characters" icon={HiLockClosed} required id="register-password" />
+            <Input label="Full Name" name="name" value={form.name} onChange={handleChange} placeholder="John Doe" icon={User} required id="register-name" />
+            <Input label="Email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="you@example.com" icon={Mail} required id="register-email" />
+            <Input label="Password" name="password" type="password" value={form.password} onChange={handleChange} placeholder="Min 6 characters" icon={Lock} required id="register-password" />
 
             <div className="mt-2 text-sm text-on-surface-variant font-inter">
               By continuing, you agree to our <a href="#" className="text-primary hover:underline">Terms of Service</a> and <a href="#" className="text-primary hover:underline">Privacy Policy</a>.

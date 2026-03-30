@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { HiMail, HiLockClosed } from 'react-icons/hi';
+import { Mail, Lock, Globe } from 'lucide-react';
 import useAuth from '../hooks/useAuth.js';
 import Input from '../components/common/Input.jsx';
 import Button from '../components/common/Button.jsx';
 import toast from 'react-hot-toast';
 
 const Login = () => {
-  const { login, loading, error } = useAuth();
+  const { login, loading } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
 
   const handleChange = (e) => {
@@ -18,7 +18,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const result = await login(form);
-    if (result.meta.requestStatus === 'rejected') {
+    if (result.meta?.requestStatus === 'rejected') {
       toast.error(result.payload || 'Login failed');
     }
   };
@@ -26,7 +26,7 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       {/* Left Hemisphere - Branding */}
-      <div className="hidden md:flex flex-1 bg-surface-container-lowest p-12 lg:p-24 flex-col justify-between relative overflow-hidden">
+      <div className="hidden md:flex flex-1 bg-surface-container-lowest p-12 lg:p-24 flex-col justify-between relative overflow-hidden noise">
         <div className="relative z-10">
           <h1 className="text-2xl font-bold font-manrope text-primary tracking-tight">
             PayMatrix
@@ -67,6 +67,18 @@ const Login = () => {
              </p>
           </div>
 
+          <div className="flex flex-col gap-4 mb-8">
+            <Button variant="outline" className="w-full h-14 flex items-center justify-center gap-3 text-base">
+              <Globe size={20} />
+              Continue with Google
+            </Button>
+            <div className="flex items-center gap-4 my-2">
+              <div className="h-[1px] flex-1 bg-outline-variant/20" />
+              <span className="text-xs text-outline font-medium uppercase tracking-widest">or email</span>
+              <div className="h-[1px] flex-1 bg-outline-variant/20" />
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             <Input
               label="Email"
@@ -75,7 +87,7 @@ const Login = () => {
               value={form.email}
               onChange={handleChange}
               placeholder="you@example.com"
-              icon={HiMail}
+              icon={Mail}
               required
               id="login-email"
             />
@@ -86,7 +98,7 @@ const Login = () => {
               value={form.password}
               onChange={handleChange}
               placeholder="••••••••"
-              icon={HiLockClosed}
+              icon={Lock}
               required
               id="login-password"
             />
@@ -96,9 +108,12 @@ const Login = () => {
                  <input type="checkbox" id="remember" className="rounded-sm bg-surface-container-highest border-outline text-primary w-4 h-4 cursor-pointer focus:ring-1 focus:ring-primary focus:ring-offset-1 focus:ring-offset-background appearance-none checked:bg-primary checked:before:content-['✓'] checked:before:text-on-primary checked:before:text-xs text-center leading-4" />
                  <label htmlFor="remember" className="text-sm text-on-surface-variant font-inter cursor-pointer">Remember me</label>
                </div>
-               <a href="#" className="text-sm font-medium text-primary hover:text-secondary focus:outline-none transition-colors">
+               <Link 
+                 to="/forgot-password" 
+                 className="text-sm font-medium text-primary hover:text-secondary focus:outline-none transition-colors"
+               >
                  Forgot?
-               </a>
+               </Link>
             </div>
 
             <Button type="submit" loading={loading} className="w-full h-14 text-base">

@@ -10,7 +10,8 @@ import Loader from '../components/common/Loader.jsx';
 import Button from '../components/common/Button.jsx';
 import Modal from '../components/common/Modal.jsx';
 import Input from '../components/common/Input.jsx';
-import { HiPlus, HiUserAdd } from 'react-icons/hi';
+import { Plus, UserPlus } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
 import expenseService from '../services/expenseService.js';
 import groupService from '../services/groupService.js';
@@ -73,8 +74,15 @@ const GroupDetail = () => {
       <div className="submerged mb-10 p-8 lg:p-12 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div className="flex items-center gap-6">
-            <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl bg-surface-lowest shadow-inner" style={{ background: `${category?.color || '#ffffff'}10` }}>
-              {category?.label?.split(' ')[0] || '📌'}
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center bg-surface-lowest shadow-inner" style={{ background: `${category?.color || '#ffffff'}10` }}>
+              {category?.icon ? (
+                (() => {
+                  const IconComponent = LucideIcons[category.icon];
+                  return IconComponent ? <IconComponent size={40} style={{ color: category.color }} /> : <LucideIcons.Hash size={40} />;
+                })()
+              ) : (
+                <LucideIcons.Hash size={40} />
+              )}
             </div>
             <div>
               <h1 className="text-3xl lg:text-4xl font-bold font-manrope text-primary tracking-tight mb-2">{currentGroup.title}</h1>
@@ -84,18 +92,18 @@ const GroupDetail = () => {
           <div className="flex gap-3">
             {isAdmin && (
               <Button variant="ghost" onClick={() => setShowAddMember(true)} className="h-12 w-12 rounded-full p-0 flex items-center justify-center bg-surface-container-low hover:bg-surface-variant transition-colors">
-                <HiUserAdd size={22} className="text-on-surface-variant" />
+                <UserPlus size={22} className="text-on-surface-variant" />
               </Button>
             )}
             <Link to={`/groups/${id}/add-expense`}>
-              <Button className="h-12 px-6 rounded-full font-manrope tracking-wide"><HiPlus size={20} className="mr-2" /> Record Expense</Button>
+              <Button className="h-12 px-6 rounded-full font-manrope tracking-wide"><Plus size={20} className="mr-2" /> Record Expense</Button>
             </Link>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-6 mb-10 border-b border-outline-variant/10 pb-4 overflow-x-auto hide-scrollbar">
+      <div className="flex gap-6 mb-10 pb-4 overflow-x-auto hide-scrollbar">
         {tabs.map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`pb-2 text-base font-semibold font-inter capitalize transition-all whitespace-nowrap relative ${tab === t ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}>
             {t}
