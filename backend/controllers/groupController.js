@@ -493,3 +493,73 @@ export const getGroupBalances = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Leave group
+ * @route   POST /api/v1/groups/:id/leave
+ * @access  Private (members)
+ */
+export const leaveGroup = async (req, res, next) => {
+  try {
+    const group = await Group.findById(req.params.id);
+
+    if (!group) {
+      return next(new ApiError('Group not found', 404));
+    }
+
+    const userId = req.user._id.toString();
+
+    // Admin cannot leave the group (must delete group or transfer ownership - TBD)
+    if (group.admin.toString() === userId) {
+      return next(new ApiError('Only non-admin members can leave the group. Admins must delete the group.', 403));
+    }
+
+    // Check membership
+    const memberIndex = group.members.findIndex(
+      (m) => (m.user._id || m.user).toString() === userId
+    );
+
+    if (memberIndex === -1) {
+      return next(new ApiError('You are not a member of this group', 404));
+    }
+
+    // NEW: Check for outstanding balances before leaving
+    const [expenses, settlements] = await Promise.all([
+      Expense.find({ group: group._id, isDeleted: { $ne: true } }),
+      Settlement.find({ group: group._id })
+    ]);
+
+    const balances = computeGroupBalances(expenses, settlements, group.members);
+    const myBalance = balances[userId] || 0;
+
+    if (Math.abs(myBalance) > 0.01) {
+      return next(new ApiError('You have outstanding balances. Please settle all debts before leaving.', 400));
+    }
+
+    // Remove user from the group using updateOne to avoid validation issues
+    await Group.updateOne(
+      { _id: group._id },
+      { $pull: { members: { user: req.user._id } } }
+    );
+
+    // Log a "member_left" activity
+    await Activity.create({
+      group: group._id,
+      user: req.user._id,
+      type: 'member_left',
+      message: `${req.user.name} left the group`,
+      relatedId: req.user._id,
+    });
+
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`group:${group._id}`).emit('activity:new', {
+        groupId: group._id,
+      });
+    }
+
+    sendSuccess(res, 200, 'You have left the group successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+

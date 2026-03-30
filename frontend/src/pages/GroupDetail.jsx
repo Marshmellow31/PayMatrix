@@ -40,6 +40,8 @@ const GroupDetail = () => {
   const [friends, setFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     dispatch(fetchGroup(id));
@@ -99,6 +101,20 @@ const GroupDetail = () => {
       dispatch(fetchGroup(id));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to add friend');
+    }
+  };
+
+  const handleLeaveGroup = async () => {
+    setLeaving(true);
+    try {
+      await groupService.leaveGroup(id);
+      toast.success('You have left the group');
+      setShowLeaveConfirm(false);
+      navigate('/dashboard');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to leave group. Ensure your balance is zero.');
+    } finally {
+      setLeaving(false);
     }
   };
 
@@ -231,15 +247,28 @@ const GroupDetail = () => {
       )}
 
       {tab === 'members' && (
-        <div className="glass-card p-6 lg:p-10">
-          <MemberList 
-            members={currentGroup.members} 
-            adminId={currentGroup.admin} 
-            balances={balances}
-            groupId={id}
-            onMemberRemoved={() => dispatch(fetchGroup(id))}
-            currentUserId={user?._id}
-          />
+        <div className="flex flex-col gap-6">
+          <div className="glass-card p-6 lg:p-10">
+            <MemberList 
+              members={currentGroup.members} 
+              adminId={currentGroup.admin} 
+              balances={balances}
+              groupId={id}
+              onMemberRemoved={() => dispatch(fetchGroup(id))}
+              currentUserId={user?._id}
+            />
+          </div>
+          
+          {!isAdmin && (
+            <div className="px-1">
+              <button 
+                onClick={() => setShowLeaveConfirm(true)}
+                className="w-full py-4 rounded-2xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 text-xs font-black tracking-[0.2em] uppercase transition-all active:scale-[0.98]"
+              >
+                Exit Cohort
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -386,6 +415,33 @@ const GroupDetail = () => {
           }).catch(() => {});
         }}
       />
+
+      {/* Leave Group Confirmation Modal */}
+      <Modal isOpen={showLeaveConfirm} onClose={() => setShowLeaveConfirm(false)} title="Exit Cohort" size="sm">
+        <div className="flex flex-col gap-6 py-4">
+          <p className="text-sm font-medium text-on-surface-variant font-inter leading-relaxed">
+            Are you sure you want to leave this cohort? This action is permanent. 
+            <br/><br/>
+            You can only exit if your net balance is <span className="text-white font-bold">₹0.00</span>.
+          </p>
+          <div className="flex gap-4 w-full">
+            <button
+              onClick={() => setShowLeaveConfirm(false)}
+              className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white text-xs font-black tracking-[0.2em] uppercase transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleLeaveGroup}
+              disabled={leaving}
+              className="flex-1 py-4 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50"
+            >
+              {leaving ? 'Exiting...' : 'Confirm'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 };

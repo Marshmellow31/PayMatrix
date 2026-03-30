@@ -10,6 +10,7 @@ import {
   joinGroupByCode,
   getGroupActivity,
   getGroupBalances,
+  leaveGroup,
 } from '../controllers/groupController.js';
 
 import { protect } from '../middleware/auth.js';
@@ -36,5 +37,6 @@ router.post('/join/:code', joinGroupByCode);
 
 router.get('/:id/activity', idParamRule, validate, getGroupActivity);
 router.get('/:id/balances', idParamRule, validate, getGroupBalances);
+router.post('/:id/leave', idParamRule, validate, leaveGroup);
 
 export default router;
