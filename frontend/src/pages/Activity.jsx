@@ -11,35 +11,43 @@ const Activity = () => {
   useEffect(() => { dispatch(fetchNotifications()); }, [dispatch]);
 
   return (
-    <div className="max-w-2xl mx-auto animate-fade-in">
-      <div className="flex items-center justify-between mb-8">
+    <div className="max-w-3xl mx-auto animate-fade-in pb-24">
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div>
-          <h1 className="text-2xl font-bold font-manrope text-primary">Activity</h1>
-          {unreadCount > 0 && <p className="text-sm text-on-surface-variant mt-1">{unreadCount} unread</p>}
+          <h1 className="text-4xl lg:text-5xl font-bold font-manrope text-primary tracking-[-0.01em]">
+            Activity Log
+          </h1>
+          {unreadCount > 0 && <p className="text-lg text-on-surface-variant mt-2 font-inter">{unreadCount} unread events</p>}
         </div>
         {unreadCount > 0 && (
-          <Button variant="ghost" onClick={() => dispatch(markAllRead())}>Mark all read</Button>
+          <Button variant="ghost" className="h-12 px-6" onClick={() => dispatch(markAllRead())}>Acknowledge All</Button>
         )}
       </div>
 
       {loading ? <Loader className="py-20" /> : notifications.length === 0 ? (
-        <div className="elevated-card text-center py-16">
-          <p className="text-5xl mb-4">🔔</p>
-          <h3 className="text-lg font-semibold font-manrope text-on-surface mb-2">No activity yet</h3>
-          <p className="text-sm text-on-surface-variant">Notifications will appear here</p>
+        <div className="submerged text-center py-24 px-6 border-none">
+          <h3 className="text-3xl font-bold font-manrope text-primary mb-4 tracking-tight">System is Quiet</h3>
+          <p className="text-lg text-on-surface-variant max-w-sm mx-auto font-inter leading-relaxed">
+            Your network activity and settlement notifications will be logged here.
+          </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-6 relative before:absolute before:inset-y-0 before:left-[11px] before:w-[2px] before:bg-outline-variant/10">
           {notifications.map((notif) => (
             <div
               key={notif._id}
-              className={`elevated-card cursor-pointer transition-colors hover:bg-surface-container-highest ${!notif.read ? 'border-l-2 border-primary' : ''}`}
+              className={`relative pl-8 cursor-pointer group`}
               onClick={() => !notif.read && dispatch(markAsRead(notif._id))}
             >
-              <p className="text-sm text-on-surface">{notif.message}</p>
-              <p className="text-xs text-on-surface-variant mt-1.5">
-                {new Date(notif.createdAt).toLocaleString()}
-              </p>
+              <div className={`absolute left-0 top-1.5 w-6 h-6 rounded-full border-[4px] border-surface flex items-center justify-center transition-colors ${!notif.read ? 'bg-primary' : 'bg-surface-container-high'}`} />
+              <div className="glass-card hover:bg-surface-container-lowest transition-all duration-300 p-6">
+                <p className={`text-base font-inter ${!notif.read ? 'text-primary font-semibold' : 'text-on-surface'}`}>
+                  {notif.message}
+                </p>
+                <p className="text-xs font-semibold text-on-surface-variant mt-3 uppercase tracking-widest font-inter opacity-70">
+                  {new Date(notif.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                </p>
+              </div>
             </div>
           ))}
         </div>

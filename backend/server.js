@@ -1,9 +1,10 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
+
 
 import connectDB from './config/db.js';
 import connectCloudinary from './config/cloudinary.js';
@@ -17,7 +18,7 @@ import settlementRoutes from './routes/settlementRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 
 // Load environment variables
-dotenv.config();
+
 
 // Connect to database
 connectDB();

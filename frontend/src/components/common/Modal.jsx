@@ -24,28 +24,28 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
 
           {/* Modal content */}
           <motion.div
-            className={`relative w-full ${sizes[size]} bg-surface-container-high rounded-lg ambient-shadow z-10`}
+            className={`relative w-full ${sizes[size]} bg-surface-container-lowest rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)] border border-outline-variant/10 z-10 overflow-hidden`}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', damping: 20, stiffness: 200 }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 pt-6 pb-4">
-              <h2 className="text-lg font-semibold font-manrope text-primary">
+            <div className="flex items-center justify-between px-8 pt-8 pb-6">
+              <h2 className="text-2xl font-bold font-manrope text-primary tracking-tight">
                 {title}
               </h2>
               <button
                 onClick={onClose}
-                className="p-2 rounded-md hover:bg-surface-variant transition-colors text-on-surface-variant"
+                className="p-2 rounded-full hover:bg-surface-variant/50 transition-colors text-on-surface-variant"
                 aria-label="Close modal"
               >
-                <HiX size={20} />
+                <HiX size={24} />
               </button>
             </div>
 
             {/* Body */}
-            <div className="px-6 pb-6">{children}</div>
+            <div className="px-8 pb-8">{children}</div>
           </motion.div>
         </div>
       )}

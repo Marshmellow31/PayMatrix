@@ -19,41 +19,44 @@ const Profile = () => {
   };
 
   return (
-    <div className="max-w-lg mx-auto animate-fade-in">
-      <h1 className="text-2xl font-bold font-manrope text-primary mb-8">Profile</h1>
+    <div className="max-w-2xl mx-auto animate-fade-in pb-24">
+      <div className="mb-12 text-center md:text-left">
+        <h1 className="text-4xl lg:text-5xl font-bold font-manrope text-primary tracking-[-0.01em]">Settings & Profile</h1>
+        <p className="text-lg text-on-surface-variant mt-2 font-inter">Manage your account preferences and network identity.</p>
+      </div>
 
-      <div className="glass-card p-8 text-center mb-6">
-        <Avatar name={user?.name} src={user?.avatar} size="xl" className="mx-auto mb-4" />
+      <div className="submerged p-8 lg:p-12 text-center mb-10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+        <Avatar name={user?.name} src={user?.avatar} size="xl" className="mx-auto mb-6 w-24 h-24 text-3xl" />
         {editing ? (
-          <div className="flex gap-2 mb-4 max-w-xs mx-auto">
-            <Input value={name} onChange={(e) => setName(e.target.value)} id="profile-name" />
-            <Button onClick={handleSave}>Save</Button>
+          <div className="flex flex-col sm:flex-row gap-4 mb-6 max-w-sm mx-auto">
+            <Input value={name} onChange={(e) => setName(e.target.value)} id="profile-name" className="flex-1" />
+            <Button onClick={handleSave} className="h-[52px] px-8">Save</Button>
           </div>
         ) : (
-          <h2 className="text-xl font-bold font-manrope text-primary mb-1">{user?.name}</h2>
+          <h2 className="text-3xl font-bold font-manrope text-primary mb-2 tracking-tight">{user?.name}</h2>
         )}
-        <p className="text-sm text-on-surface-variant">{user?.email}</p>
+        <p className="text-base text-on-surface-variant font-inter mb-6">{user?.email}</p>
         {!editing && (
-          <Button variant="ghost" className="mt-4" onClick={() => setEditing(true)}>
-            Edit Name
+          <Button variant="ghost" className="mt-2 h-12 px-6 rounded-full" onClick={() => setEditing(true)}>
+            Edit Identity
           </Button>
         )}
       </div>
 
-      <div className="elevated-card mb-6">
-        <h3 className="text-sm font-medium text-on-surface-variant mb-3 uppercase tracking-wider">Preferences</h3>
-        <div className="flex items-center justify-between py-2">
-          <span className="text-sm text-on-surface">Currency</span>
-          <span className="chip">{user?.preferences?.currency || 'INR'}</span>
+      <div className="glass-card p-8 lg:p-10 mb-10">
+        <h3 className="text-sm font-semibold text-on-surface-variant mb-6 uppercase tracking-widest font-inter">System Preferences</h3>
+        <div className="flex items-center justify-between py-4 border-b border-outline-variant/10">
+          <span className="text-base font-medium font-inter text-on-surface">Default Currency</span>
+          <span className="chip bg-surface-lowest text-primary font-bold">{user?.preferences?.currency || 'INR'}</span>
         </div>
-        <div className="flex items-center justify-between py-2">
-          <span className="text-sm text-on-surface">Theme</span>
-          <span className="chip capitalize">{user?.preferences?.theme || 'dark'}</span>
+        <div className="flex items-center justify-between py-4 border-b border-outline-variant/10">
+          <span className="text-base font-medium font-inter text-on-surface">Interface Theme</span>
+          <span className="chip bg-surface-lowest text-primary font-bold capitalize">{user?.preferences?.theme || 'dark'}</span>
         </div>
       </div>
 
-      <Button variant="danger" className="w-full" onClick={logout}>
-        <HiLogout size={18} /> Sign Out
+      <Button variant="danger" className="w-full h-14 text-base font-bold shadow-lg shadow-error/20 transition-all hover:shadow-error/40" onClick={logout}>
+        <HiLogout size={22} className="mr-2" /> Terminate Session
       </Button>
     </div>
   );

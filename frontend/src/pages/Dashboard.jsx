@@ -22,76 +22,88 @@ const Dashboard = () => {
   const recentActivity = notifications.slice(0, 5);
 
   return (
-    <div className="max-w-6xl mx-auto animate-fade-in">
+    <div className="max-w-6xl mx-auto animate-fade-in pb-24">
       {/* Welcome Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl lg:text-4xl font-bold font-manrope text-primary mb-2">
-          Welcome back, {user?.name?.split(' ')[0]} 👋
-        </h1>
-        <p className="text-on-surface-variant">
-          Here's your expense overview
-        </p>
+      <div className="mb-12 relative rounded-3xl p-8 lg:p-14 overflow-hidden bg-surface-container-lowest border-none noise">
+        <div className="relative z-10 max-w-2xl">
+          <h1 className="text-4xl lg:text-6xl font-bold font-manrope text-primary mb-4 tracking-[-0.02em] leading-tight flex items-center gap-3">
+             Welcome back,<br />{user?.name?.split(' ')[0]}
+          </h1>
+          <p className="text-on-surface-variant font-inter text-lg lg:text-xl">
+             Here is your financial overview for the day.
+          </p>
+        </div>
+        {/* Decorative Element */}
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-primary opacity-[0.03] rounded-full blur-3xl pointer-events-none" />
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        <div className="elevated-card">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-surface-variant/50 flex items-center justify-center">
-              <HiUserGroup size={20} className="text-on-surface-variant" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+        <div className="elevated-card flex flex-col justify-between min-h-[160px]">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-surface-variant/30 flex items-center justify-center">
+              <HiUserGroup size={20} className="text-on-surface" />
             </div>
+            <p className="text-xs text-on-surface-variant uppercase tracking-widest font-semibold font-inter">
+              Active Groups
+            </p>
           </div>
-          <p className="text-2xl font-bold font-manrope text-primary">
+          <p className="text-5xl lg:text-6xl font-bold font-manrope text-primary tracking-tighter">
             {groups.length}
-          </p>
-          <p className="text-xs text-on-surface-variant mt-1 uppercase tracking-wider">
-            Active Groups
           </p>
         </div>
 
-        <div className="elevated-card">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-surface-variant/50 flex items-center justify-center">
-              <HiCurrencyRupee size={20} className="text-on-surface-variant" />
+        <div className="elevated-card flex flex-col justify-between min-h-[160px]">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-surface-variant/30 flex items-center justify-center">
+              <HiCurrencyRupee size={20} className="text-on-surface" />
             </div>
+            <p className="text-xs text-on-surface-variant uppercase tracking-widest font-semibold font-inter">
+              Network Size
+            </p>
           </div>
-          <p className="text-2xl font-bold font-manrope text-primary">
+          <p className="text-5xl lg:text-6xl font-bold font-manrope text-primary tracking-tighter">
             {groups.reduce((acc, g) => acc + (g.members?.length || 0), 0)}
-          </p>
-          <p className="text-xs text-on-surface-variant mt-1 uppercase tracking-wider">
-            Total Members
           </p>
         </div>
 
         <Link
           to="/groups"
-          className="elevated-card flex flex-col items-center justify-center gap-2 hover:bg-surface-container-highest transition-colors col-span-2 lg:col-span-1"
+          className="elevated-card flex flex-col justify-center gap-4 hover:bg-surface-container-highest transition-colors min-h-[160px] group relative overflow-hidden"
         >
-          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-            <HiPlus size={24} className="text-primary" />
+          <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-colors z-10">
+            <HiPlus size={28} className="text-primary group-hover:text-on-primary transition-colors" />
           </div>
-          <p className="text-sm font-medium text-on-surface-variant">
-            Create Group
+          <p className="text-lg font-bold font-manrope text-primary z-10">
+            Establish new group
           </p>
+          <div className="absolute right-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-4 translate-y-4">
+             <HiPlus size={120} className="text-surface-variant/20" />
+          </div>
         </Link>
       </div>
 
       {/* Recent Groups */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold font-manrope text-on-surface">
-            Your Groups
-          </h2>
-          <Link to="/groups" className="text-sm text-on-surface-variant hover:text-primary transition-colors">
-            View all →
+      <div className="mb-16">
+        <div className="flex items-end justify-between mb-8">
+          <div>
+            <h2 className="text-2xl lg:text-3xl font-bold font-manrope text-primary tracking-tight">
+              Active Cohorts
+            </h2>
+            <p className="text-on-surface-variant font-inter mt-1 opacity-80">
+              Your recent shared expense groups
+            </p>
+          </div>
+          <Link to="/groups" className="text-sm font-semibold text-primary hover:text-secondary transition-colors uppercase tracking-wider font-inter">
+            View all
           </Link>
         </div>
 
         {loading ? (
           <Loader className="py-12" />
         ) : groups.length === 0 ? (
-          <div className="elevated-card text-center py-12">
-            <p className="text-on-surface-variant mb-4">No groups yet</p>
+          <div className="submerged text-center py-20 px-6">
+            <p className="text-on-surface-variant mb-6 text-lg font-inter">Your network is currently empty.</p>
             <Link to="/groups">
               <motion.button className="btn-primary" whileTap={{ scale: 0.96 }}>
                 Create Your First Group
@@ -99,7 +111,7 @@ const Dashboard = () => {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {groups.slice(0, 6).map((group) => (
               <GroupCard key={group._id} group={group} />
             ))}
@@ -109,20 +121,23 @@ const Dashboard = () => {
 
       {/* Recent Activity */}
       {recentActivity.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold font-manrope text-on-surface mb-4">
-            Recent Activity
+        <div className="submerged p-8 lg:p-12">
+          <h2 className="text-2xl font-bold font-manrope text-primary mb-8 tracking-tight">
+            Recent Timeline
           </h2>
-          <div className="flex flex-col gap-3">
-            {recentActivity.map((notif) => (
+          <div className="flex flex-col gap-6">
+            {recentActivity.map((notif, index) => (
               <div
                 key={notif._id}
-                className={`elevated-card ${!notif.read ? 'border-l-2 border-primary' : ''}`}
+                className={`flex items-start gap-4 ${index !== recentActivity.length - 1 ? 'border-b border-outline-variant/10 pb-6' : ''}`}
               >
-                <p className="text-sm text-on-surface">{notif.message}</p>
-                <p className="text-xs text-on-surface-variant mt-1">
-                  {new Date(notif.createdAt).toLocaleDateString()}
-                </p>
+                <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${!notif.read ? 'bg-primary shadow-[0_0_12px_rgba(255,255,255,0.8)]' : 'bg-surface-variant'}`} />
+                <div>
+                  <p className={`text-base font-inter ${!notif.read ? 'text-on-surface font-medium' : 'text-on-surface-variant text-sm'}`}>{notif.message}</p>
+                  <p className="text-xs text-outline mt-2 font-inter uppercase tracking-widest">
+                    {new Date(notif.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
               </div>
             ))}
           </div>

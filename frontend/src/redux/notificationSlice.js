@@ -9,7 +9,7 @@ const initialState = {
 
 export const fetchNotifications = createAsyncThunk('notifications/fetchAll', async (_, thunkAPI) => {
   try {
-    const response = await api.get('/v1/notifications');
+    const response = await api.get('/notifications');
     return response.data.data;
   } catch (error) {
     return thunkAPI.rejectWithValue(error.response?.data?.message || 'Failed to fetch');
@@ -18,7 +18,7 @@ export const fetchNotifications = createAsyncThunk('notifications/fetchAll', asy
 
 export const markAsRead = createAsyncThunk('notifications/markRead', async (id, thunkAPI) => {
   try {
-    await api.put(`/v1/notifications/${id}/read`);
+    await api.put(`/notifications/${id}/read`);
     return id;
   } catch (error) {
     return thunkAPI.rejectWithValue(error.response?.data?.message || 'Failed');
@@ -27,7 +27,7 @@ export const markAsRead = createAsyncThunk('notifications/markRead', async (id, 
 
 export const markAllRead = createAsyncThunk('notifications/markAllRead', async (_, thunkAPI) => {
   try {
-    await api.put('/v1/notifications/read-all');
+    await api.put('/notifications/read-all');
     return true;
   } catch (error) {
     return thunkAPI.rejectWithValue(error.response?.data?.message || 'Failed');

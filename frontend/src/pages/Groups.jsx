@@ -32,28 +32,35 @@ const Groups = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto animate-fade-in">
-      <div className="flex items-center justify-between mb-8">
+    <div className="max-w-6xl mx-auto animate-fade-in pb-24">
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div>
-          <h1 className="text-2xl font-bold font-manrope text-primary">Groups</h1>
-          <p className="text-sm text-on-surface-variant mt-1">{groups.length} group{groups.length !== 1 ? 's' : ''}</p>
+          <h1 className="text-4xl lg:text-5xl font-bold font-manrope text-primary tracking-[-0.01em]">
+            Active Cohorts
+          </h1>
+          <p className="text-lg text-on-surface-variant mt-2 font-inter">
+            {groups.length} active group{groups.length !== 1 ? 's' : ''} in your network
+          </p>
         </div>
-        <Button onClick={() => setShowModal(true)}>
-          <HiPlus size={18} /> New Group
+        <Button onClick={() => setShowModal(true)} className="h-12 px-6">
+          <HiPlus size={20} className="mr-1" /> Establish Group
         </Button>
       </div>
 
       {loading ? (
         <Loader className="py-20" />
       ) : groups.length === 0 ? (
-        <div className="elevated-card text-center py-16">
-          <p className="text-5xl mb-4">👥</p>
-          <h3 className="text-lg font-semibold font-manrope text-on-surface mb-2">No groups yet</h3>
-          <p className="text-sm text-on-surface-variant mb-6">Create your first group to start splitting expenses</p>
-          <Button onClick={() => setShowModal(true)}>Create Group</Button>
+        <div className="submerged text-center py-24 px-6 border-none">
+          <h3 className="text-3xl font-bold font-manrope text-primary mb-4 tracking-tight">Your Network is Empty</h3>
+          <p className="text-lg text-on-surface-variant mb-8 max-w-md mx-auto font-inter leading-relaxed">
+            Create your first group to establish a shared expense ledger and start managing finances with clarity.
+          </p>
+          <Button onClick={() => setShowModal(true)} className="h-14 px-8 text-base">
+            Establish Group
+          </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {groups.map((group) => (
             <GroupCard key={group._id} group={group} />
           ))}
@@ -61,18 +68,18 @@ const Groups = () => {
       )}
 
       {/* Create Group Modal */}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Create Group">
-        <form onSubmit={handleCreate} className="flex flex-col gap-5">
-          <Input label="Group Name" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g., Goa Trip 2026" required id="group-title" />
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Establish Group">
+        <form onSubmit={handleCreate} className="flex flex-col gap-6 lg:gap-8 mt-4">
+          <Input label="Cohort Name" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g., Goa Trip 2026" required id="group-title" />
           <div>
-            <label className="block text-sm font-medium text-on-surface-variant mb-2">Category</label>
-            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="input-field appearance-none cursor-pointer">
+            <label className="block text-sm font-medium text-on-surface-variant mb-2 font-inter mt-2">Category focus</label>
+            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="input-field appearance-none cursor-pointer h-[52px]">
               {GROUP_CATEGORIES.map((cat) => (
                 <option key={cat.value} value={cat.value}>{cat.label}</option>
               ))}
             </select>
           </div>
-          <Button type="submit" className="w-full">Create Group</Button>
+          <Button type="submit" className="w-full h-14 mt-4 text-base">Initialize Cohort</Button>
         </form>
       </Modal>
     </div>

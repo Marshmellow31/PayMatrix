@@ -27,7 +27,7 @@ const ExpenseForm = ({ members = [], onSubmit, loading = false }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6 lg:gap-8">
       <Input
         label="Expense Title"
         name="title"
@@ -52,14 +52,14 @@ const ExpenseForm = ({ members = [], onSubmit, loading = false }) => {
       />
 
       <div className="w-full">
-        <label className="block text-sm font-medium text-on-surface-variant mb-2">
+        <label className="block text-sm font-medium text-on-surface-variant mb-2 font-inter mt-2">
           Paid By
         </label>
         <select
           name="paidBy"
           value={form.paidBy}
           onChange={handleChange}
-          className="input-field appearance-none cursor-pointer"
+          className="input-field appearance-none cursor-pointer h-[52px]"
           required
         >
           <option value="">Select payer</option>
@@ -72,14 +72,14 @@ const ExpenseForm = ({ members = [], onSubmit, loading = false }) => {
       </div>
 
       <div className="w-full">
-        <label className="block text-sm font-medium text-on-surface-variant mb-2">
+        <label className="block text-sm font-medium text-on-surface-variant mb-2 font-inter mt-2">
           Category
         </label>
         <select
           name="category"
           value={form.category}
           onChange={handleChange}
-          className="input-field appearance-none cursor-pointer"
+          className="input-field appearance-none cursor-pointer h-[52px]"
         >
           {EXPENSE_CATEGORIES.map((cat) => (
             <option key={cat.value} value={cat.value}>
@@ -98,8 +98,8 @@ const ExpenseForm = ({ members = [], onSubmit, loading = false }) => {
         icon={HiCalendar}
       />
 
-      <div className="w-full">
-        <label className="block text-sm font-medium text-on-surface-variant mb-2">
+      <div className="w-full mt-2">
+        <label className="block text-sm font-medium text-on-surface-variant mb-2 font-inter">
           Notes (optional)
         </label>
         <textarea
@@ -107,27 +107,27 @@ const ExpenseForm = ({ members = [], onSubmit, loading = false }) => {
           value={form.notes}
           onChange={handleChange}
           placeholder="Add a note..."
-          rows={2}
-          className="input-field resize-none"
+          rows={3}
+          className="input-field resize-none py-3"
         />
       </div>
 
       {/* Split preview */}
       {form.amount && members.length > 0 && (
-        <div className="bg-surface-container-lowest rounded-lg p-4">
-          <p className="text-xs font-medium text-on-surface-variant mb-2 uppercase tracking-wider">
+        <div className="elevated-card mt-2">
+          <p className="text-xs font-semibold text-on-surface-variant mb-2 uppercase tracking-widest font-inter">
             Equal Split Preview
           </p>
-          <p className="text-sm text-on-surface">
-            Each person pays{' '}
-            <span className="font-semibold text-primary font-manrope">
+          <div className="flex items-end gap-2">
+            <p className="text-sm text-on-surface font-inter mb-1">Each person pays</p>
+            <span className="text-3xl font-bold text-primary font-manrope tracking-tight leading-none">
               ₹{(parseFloat(form.amount) / members.length).toFixed(2)}
             </span>
-          </p>
+          </div>
         </div>
       )}
 
-      <Button type="submit" loading={loading} className="w-full mt-2">
+      <Button type="submit" loading={loading} className="w-full mt-6 h-14 text-base">
         Add Expense
       </Button>
     </form>

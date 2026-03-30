@@ -51,48 +51,51 @@ const Settlements = () => {
   const debtors = balances.filter((b) => b.balance < 0);
 
   return (
-    <div className="max-w-2xl mx-auto animate-fade-in">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold font-manrope text-primary">Settlements</h1>
-        <Button onClick={() => setShowModal(true)}>Record Payment</Button>
+    <div className="max-w-3xl mx-auto animate-fade-in pb-24">
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+        <div>
+          <h1 className="text-4xl lg:text-5xl font-bold font-manrope text-primary tracking-[-0.01em]">Settlements</h1>
+        </div>
+        <Button onClick={() => setShowModal(true)} className="h-12 px-6">Record Payment</Button>
       </div>
 
       {settlements.length === 0 ? (
-        <div className="elevated-card text-center py-12">
-          <p className="text-on-surface-variant">No settlements yet</p>
+        <div className="submerged text-center py-24 px-6 border-none">
+          <h3 className="text-3xl font-bold font-manrope text-primary mb-4 tracking-tight">Ledger Clear</h3>
+          <p className="text-lg text-on-surface-variant max-w-sm mx-auto font-inter leading-relaxed">Recorded payments between members will appear here.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {settlements.map((s) => (
-            <div key={s._id} className="elevated-card flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar name={s.payer?.name} src={s.payer?.avatar} size="sm" />
+            <div key={s._id} className="p-4 pr-6 rounded-full bg-surface-container-lowest hover:bg-surface-container-low transition-all duration-300 flex items-center justify-between group shadow-sm hover:shadow-md border border-outline-variant/5">
+              <div className="flex items-center gap-4">
+                <Avatar name={s.payer?.name} src={s.payer?.avatar} size="md" className="border-2 border-surface shadow-inner ml-2" />
                 <div>
-                  <p className="text-sm text-on-surface">
-                    <span className="font-medium">{s.payer?.name}</span> paid <span className="font-medium">{s.payee?.name}</span>
+                  <p className="text-base text-on-surface font-inter">
+                    <span className="font-semibold text-primary">{s.payer?.name}</span> paid <span className="font-semibold text-primary">{s.payee?.name}</span>
                   </p>
-                  <p className="text-xs text-on-surface-variant">{new Date(s.createdAt).toLocaleDateString()}</p>
+                  <p className="text-xs text-on-surface-variant font-inter uppercase tracking-widest mt-1 opacity-70">{new Date(s.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
                 </div>
               </div>
-              <p className="text-sm font-bold font-manrope text-green-400">{formatCurrency(s.amount)}</p>
+              <p className="text-xl font-bold font-manrope text-green-400 tracking-tight">{formatCurrency(s.amount)}</p>
             </div>
           ))}
         </div>
       )}
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Record Settlement" size="sm">
-        <form onSubmit={handleSettle} className="flex flex-col gap-4">
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Record Settlement" size="md">
+        <form onSubmit={handleSettle} className="flex flex-col gap-6 mt-4">
           <div>
-            <label className="block text-sm font-medium text-on-surface-variant mb-2">Paid To</label>
-            <select value={form.payee} onChange={(e) => setForm({ ...form, payee: e.target.value })} className="input-field appearance-none cursor-pointer" required>
+            <label className="block text-sm font-medium text-on-surface-variant mb-2 font-inter">Payee (Paid To)</label>
+            <select value={form.payee} onChange={(e) => setForm({ ...form, payee: e.target.value })} className="input-field appearance-none cursor-pointer h-[52px]" required>
               <option value="">Select person</option>
               {balances.filter((b) => b.user?._id !== user?._id).map((b) => (
                 <option key={b.user?._id} value={b.user?._id}>{b.user?.name}</option>
               ))}
             </select>
           </div>
-          <Input label="Amount" type="number" step="0.01" min="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required id="settlement-amount" />
-          <Button type="submit" className="w-full">Record Payment</Button>
+          <Input label="Amount Confirmed" type="number" step="0.01" min="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required id="settlement-amount" />
+          <Button type="submit" className="w-full h-14 mt-4 text-base">Register Payment</Button>
         </form>
       </Modal>
     </div>

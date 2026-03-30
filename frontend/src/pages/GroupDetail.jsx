@@ -68,47 +68,50 @@ const GroupDetail = () => {
   const tabs = ['expenses', 'balances', 'members'];
 
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in">
+    <div className="max-w-4xl mx-auto animate-fade-in pb-24">
       {/* Group Header */}
-      <div className="elevated-card mb-6">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ background: `${category?.color || '#919191'}15` }}>
+      <div className="submerged mb-10 p-8 lg:p-12 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl bg-surface-lowest shadow-inner" style={{ background: `${category?.color || '#ffffff'}10` }}>
               {category?.label?.split(' ')[0] || '📌'}
             </div>
             <div>
-              <h1 className="text-xl font-bold font-manrope text-primary">{currentGroup.title}</h1>
-              <p className="text-sm text-on-surface-variant capitalize">{currentGroup.category} · {currentGroup.members?.length} members</p>
+              <h1 className="text-3xl lg:text-4xl font-bold font-manrope text-primary tracking-tight mb-2">{currentGroup.title}</h1>
+              <p className="text-base text-on-surface-variant uppercase tracking-widest font-inter font-semibold">{currentGroup.category} <span className="mx-2 opacity-50">·</span> {currentGroup.members?.length} members</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             {isAdmin && (
-              <Button variant="ghost" onClick={() => setShowAddMember(true)}>
-                <HiUserAdd size={18} />
+              <Button variant="ghost" onClick={() => setShowAddMember(true)} className="h-12 w-12 rounded-full p-0 flex items-center justify-center bg-surface-container-low hover:bg-surface-variant transition-colors">
+                <HiUserAdd size={22} className="text-on-surface-variant" />
               </Button>
             )}
             <Link to={`/groups/${id}/add-expense`}>
-              <Button><HiPlus size={18} /> Add Expense</Button>
+              <Button className="h-12 px-6 rounded-full font-manrope tracking-wide"><HiPlus size={20} className="mr-2" /> Record Expense</Button>
             </Link>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-surface-container rounded-lg p-1">
+      <div className="flex gap-6 mb-10 border-b border-outline-variant/10 pb-4 overflow-x-auto hide-scrollbar">
         {tabs.map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`flex-1 py-2.5 rounded-md text-sm font-medium capitalize transition-colors ${tab === t ? 'bg-surface-container-high text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}>
+          <button key={t} onClick={() => setTab(t)} className={`pb-2 text-base font-semibold font-inter capitalize transition-all whitespace-nowrap relative ${tab === t ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}>
             {t}
+            {tab === t && (
+              <motion.div layoutId="activeTab" className="absolute bottom-[-17px] left-0 right-0 h-[2px] bg-primary" />
+            )}
           </button>
         ))}
       </div>
 
       {/* Tab Content */}
       {tab === 'expenses' && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {expenseLoading ? <Loader className="py-12" /> : expenses.length === 0 ? (
-            <div className="elevated-card text-center py-12">
-              <p className="text-on-surface-variant">No expenses yet</p>
+            <div className="submerged text-center py-16 border-none">
+              <p className="text-lg font-inter text-on-surface-variant">No expenses yet. Time to split a bill!</p>
             </div>
           ) : expenses.map((expense) => (
             <ExpenseCard key={expense._id} expense={expense} currentUserId={user?._id} onDelete={handleDeleteExpense} />
@@ -117,23 +120,23 @@ const GroupDetail = () => {
       )}
 
       {tab === 'balances' && (
-        <div className="elevated-card">
-          <h3 className="text-sm font-medium text-on-surface-variant mb-4 uppercase tracking-wider">Net Balances</h3>
+        <div className="glass-card p-6 lg:p-10">
+          <h3 className="text-sm font-semibold text-on-surface-variant mb-6 uppercase tracking-widest font-inter">Net Balances</h3>
           <BalanceSummary balances={balances} />
         </div>
       )}
 
       {tab === 'members' && (
-        <div className="elevated-card">
+        <div className="glass-card p-6 lg:p-10">
           <MemberList members={currentGroup.members} adminId={currentGroup.admin} />
         </div>
       )}
 
       {/* Add Member Modal */}
-      <Modal isOpen={showAddMember} onClose={() => setShowAddMember(false)} title="Add Member" size="sm">
-        <form onSubmit={handleAddMember} className="flex flex-col gap-4">
+      <Modal isOpen={showAddMember} onClose={() => setShowAddMember(false)} title="Add Member" size="md">
+        <form onSubmit={handleAddMember} className="flex flex-col gap-6 mt-4">
           <Input label="Member Email" type="email" value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)} placeholder="member@example.com" required id="member-email" />
-          <Button type="submit" className="w-full">Add Member</Button>
+          <Button type="submit" className="w-full h-14 mt-4 text-base">Add Member</Button>
         </form>
       </Modal>
     </div>
