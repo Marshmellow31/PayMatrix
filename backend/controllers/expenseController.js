@@ -35,19 +35,28 @@ export const addExpense = async (req, res, next) => {
 
     const payerId = paidBy || req.user._id;
     
-    // Ensure amount is integer cents
-    const amount = Math.round(parseFloat(rawAmount) * 100);
+    // Ensure amount is 2-decimal float
+    const amount = Math.round(parseFloat(rawAmount) * 100) / 100;
 
     // Filter and de-duplicate participants
     let splitParticipantIds = participants || group.members.map(m => m.user.toString());
     splitParticipantIds = Array.from(new Set(splitParticipantIds.map(id => id.toString())));
 
+    // Sanitize splitData for currency amounts (convert to 2-decimal float)
+    const sanitizedSplitData = { ...splitData };
+    if (splitType === 'exact' && splitData.exactAmounts) {
+      sanitizedSplitData.exactAmounts = {};
+      Object.entries(splitData.exactAmounts).forEach(([userId, val]) => {
+        sanitizedSplitData.exactAmounts[userId] = Math.round(parseFloat(val || 0) * 100) / 100;
+      });
+    }
+
     // Calculate splits via engine
-    const splits = calculateSplits(amount, splitType, splitParticipantIds, splitData);
+    const splits = calculateSplits(amount, splitType, splitParticipantIds, payerId, sanitizedSplitData);
 
     const expense = await Expense.create({
       title,
-      amount, // Stored as cents
+      amount, // Stored as 2-decimal float
       paidBy: payerId,
       group: group._id,
       splitType,
@@ -122,13 +131,13 @@ export const getExpenses = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const [expenses, total] = await Promise.all([
-      Expense.find({ group: req.params.id })
+      Expense.find({ group: req.params.id, isDeleted: { $ne: true } })
         .populate('paidBy', 'name email avatar')
         .populate('splits.user', 'name email avatar')
         .sort({ date: -1, createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      Expense.countDocuments({ group: req.params.id }),
+      Expense.countDocuments({ group: req.params.id, isDeleted: { $ne: true } }),
     ]);
 
     sendSuccess(res, 200, 'Expenses retrieved successfully', {
@@ -207,20 +216,31 @@ export const updateExpense = async (req, res, next) => {
     if (paidBy) expense.paidBy = paidBy;
 
     // Recalculate splits if amount, participants, splitType, or splitData changed
-    const amountChanged = rawAmount !== undefined && Math.round(parseFloat(rawAmount) * 100) !== expense.amount;
+    const currAmount = Math.round(parseFloat(rawAmount) * 100) / 100;
+    const amountChanged = rawAmount !== undefined && currAmount !== expense.amount;
     const participantsChanged = !!participants;
     const splitTypeChanged = !!splitType && splitType !== expense.splitType;
     const splitDataChanged = Object.keys(splitData).length > 0;
 
     if (amountChanged || participantsChanged || splitTypeChanged || splitDataChanged) {
-      if (rawAmount !== undefined) expense.amount = Math.round(parseFloat(rawAmount) * 100);
+      if (rawAmount !== undefined) expense.amount = currAmount;
       if (splitType) expense.splitType = splitType;
 
       let splitParticipantIds = participants || expense.splits.map(s => s.user.toString());
       splitParticipantIds = Array.from(new Set(splitParticipantIds.map(id => id.toString())));
 
+      // Sanitize splitData for currency amounts (convert to 2-decimal float)
+      const sanitizedSplitData = { ...splitData };
+      if (expense.splitType === 'exact' && splitData.exactAmounts) {
+        sanitizedSplitData.exactAmounts = {};
+        Object.entries(splitData.exactAmounts).forEach(([userId, val]) => {
+          sanitizedSplitData.exactAmounts[userId] = Math.round(parseFloat(val || 0) * 100) / 100;
+        });
+      }
+
+      const currentPayerId = paidBy || expense.paidBy;
       // Use engine for new splits
-      expense.splits = calculateSplits(expense.amount, expense.splitType, splitParticipantIds, splitData);
+      expense.splits = calculateSplits(expense.amount, expense.splitType, splitParticipantIds, currentPayerId, sanitizedSplitData);
       
       if (splitData.items) expense.items = splitData.items;
     }
@@ -282,7 +302,10 @@ export const deleteExpense = async (req, res, next) => {
 
     const previousState = expense.toObject();
 
-    await Expense.findByIdAndDelete(req.params.id);
+    expense.isDeleted = true;
+    expense.deletedBy = req.user._id;
+    expense.deletedAt = Date.now();
+    await expense.save();
 
     // Create Audit Log
     await AuditLog.create({
@@ -313,6 +336,65 @@ export const deleteExpense = async (req, res, next) => {
     }
 
     sendSuccess(res, 200, 'Expense deleted successfully');
+  } catch (error) {
+    next(new ApiError(error.message, 400));
+  }
+};
+
+/**
+ * @desc    Restore a deleted expense
+ * @route   PATCH /api/v1/expenses/:id/restore
+ * @access  Private
+ */
+export const restoreExpense = async (req, res, next) => {
+  try {
+    const expense = await Expense.findById(req.params.id);
+    if (!expense) return next(new ApiError('Expense not found', 404));
+
+    const group = await Group.findById(expense.group);
+    const isMember = group.members.some(m => m.user.toString() === req.user._id.toString());
+    if (!isMember) return next(new ApiError('Not authorized', 403));
+
+    if (!expense.isDeleted) return next(new ApiError('Expense is already active', 400));
+
+    expense.isDeleted = false;
+    expense.deletedBy = undefined;
+    expense.deletedAt = undefined;
+    await expense.save();
+
+    // Create Audit Log
+    await AuditLog.create({
+      group: expense.group,
+      expense: expense._id,
+      user: req.user._id,
+      action: 'restore',
+      newState: expense.toObject(),
+      changeSummary: `Expense "${expense.title}" restored by ${req.user.name}`,
+    });
+
+    // Activity Log
+    await Activity.create({
+      group: expense.group,
+      user: req.user._id,
+      type: 'expense_restored',
+      message: `${req.user.name} restored the expense "${expense.title}"`,
+      relatedId: expense._id,
+      amount: expense.amount,
+    });
+
+    const populatedExpense = await Expense.findById(expense._id)
+      .populate('paidBy', 'name email avatar')
+      .populate('splits.user', 'name email avatar');
+
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`group:${expense.group}`).emit('expense:added', {
+        expense: populatedExpense,
+        groupId: expense.group,
+      });
+    }
+
+    sendSuccess(res, 200, 'Expense restored successfully', { expense: populatedExpense });
   } catch (error) {
     next(new ApiError(error.message, 400));
   }

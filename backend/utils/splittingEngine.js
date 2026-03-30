@@ -1,7 +1,6 @@
 /**
  * Splitting Engine for PayMatrix
- * Handles all expense splitting logic using integer arithmetic to avoid floating point errors.
- * All amounts are expected to be in cents/paise (integers).
+ * Handles all expense splitting logic using 2-decimal floating point precision.
  */
 
 export const SplitTypes = {
@@ -12,42 +11,62 @@ export const SplitTypes = {
   ITEMIZED: 'itemized',
 };
 
+// Helper for 2-decimal rounding to prevent float precision drift
+const round2 = (num) => Math.round(num * 100) / 100;
+
+// Sort participants to ensure the payer is always processed LAST to take the rounded diff
+const sortParticipantsForRounding = (participants, payerId) => {
+  return [...participants].sort((a, b) => {
+    if (a.toString() === payerId?.toString()) return 1;
+    if (b.toString() === payerId?.toString()) return -1;
+    return 0;
+  });
+};
+
 /**
  * Main entry point for split calculation
  */
-export const calculateSplits = (totalAmount, splitType, participants, options = {}) => {
-  const amount = Math.round(totalAmount);
+export const calculateSplits = (totalAmount, splitType, participants, payerId, options = {}) => {
+  const amount = round2(parseFloat(totalAmount));
+  const sortedParticipants = sortParticipantsForRounding(participants, payerId);
   
   switch (splitType) {
     case SplitTypes.EQUAL:
-      return calculateEqualSplit(amount, participants);
+      return calculateEqualSplit(amount, sortedParticipants);
     case SplitTypes.EXACT:
       return calculateExactSplit(amount, participants, options.exactAmounts);
     case SplitTypes.PERCENTAGE:
-      return calculatePercentageSplit(amount, participants, options.percentages);
+      return calculatePercentageSplit(amount, sortedParticipants, options.percentages);
     case SplitTypes.SHARES:
-      return calculateSharesSplit(amount, participants, options.shares);
+      return calculateSharesSplit(amount, sortedParticipants, options.shares);
     case SplitTypes.ITEMIZED:
-      return calculateItemizedSplit(amount, participants, options.items);
+      return calculateItemizedSplit(amount, sortedParticipants, options.items); // Passed sorted participants for items
     default:
       throw new Error(`Invalid split type: ${splitType}`);
   }
 };
 
 /**
- * Equal Split: Total / N, with remainder added to the first person
+ * Equal Split: Total / N, rounds UP for non-payers, payer takes smaller remainder
  */
 const calculateEqualSplit = (total, participants) => {
   const n = participants.length;
   if (n === 0) return [];
   
-  const baseAmount = Math.floor(total / n);
-  let remainder = total - (baseAmount * n);
-  
-  return participants.map((userId, index) => ({
-    user: userId,
-    amount: index === 0 ? baseAmount + remainder : baseAmount,
-  }));
+  const exactAmount = total / n;
+  const amountForOthers = Math.ceil(exactAmount * 100) / 100; 
+
+  let distributed = 0;
+  return participants.map((userId, index) => {
+    let amt;
+    if (index === participants.length - 1) {
+      amt = round2(total - distributed);
+    } else {
+      amt = amountForOthers;
+    }
+    distributed = round2(distributed + amt);
+    return { user: userId, amount: amt };
+  });
 };
 
 /**
@@ -56,12 +75,12 @@ const calculateEqualSplit = (total, participants) => {
 const calculateExactSplit = (total, participants, exactAmounts) => {
   let sum = 0;
   const splits = participants.map(userId => {
-    const amt = Math.round(exactAmounts[userId] || 0);
-    sum += amt;
+    const amt = round2(parseFloat(exactAmounts[userId] || 0));
+    sum = round2(sum + amt);
     return { user: userId, amount: amt };
   });
   
-  if (sum !== total) {
+  if (Math.abs(sum - total) > 0.01) {
     throw new Error(`Total amount (${total}) does not match the sum of splits (${sum})`);
   }
   
@@ -82,19 +101,16 @@ const calculatePercentageSplit = (total, participants, percentages) => {
   }
   
   let distributed = 0;
-  const splits = participants.map((userId, index) => {
+  return participants.map((userId, index) => {
     let amt;
     if (index === participants.length - 1) {
-      // Last person gets the rest to avoid rounding leaks
-      amt = total - distributed;
+      amt = round2(total - distributed);
     } else {
-      amt = Math.round((total * percentages[userId]) / 100);
-      distributed += amt;
+      amt = Math.ceil((total * parseFloat(percentages[userId] || 0) / 100) * 100) / 100;
     }
+    distributed = round2(distributed + amt);
     return { user: userId, amount: amt };
   });
-  
-  return splits;
 };
 
 /**
@@ -111,18 +127,16 @@ const calculateSharesSplit = (total, participants, shares) => {
   }
   
   let distributed = 0;
-  const splits = participants.map((userId, index) => {
+  return participants.map((userId, index) => {
     let amt;
     if (index === participants.length - 1) {
-      amt = total - distributed;
+      amt = round2(total - distributed);
     } else {
-      amt = Math.round((total * shares[userId]) / totalShares);
-      distributed += amt;
+      amt = Math.ceil((total * parseInt(shares[userId] || 0, 10) / totalShares) * 100) / 100;
     }
+    distributed = round2(distributed + amt);
     return { user: userId, amount: amt };
   });
-  
-  return splits;
 };
 
 /**
@@ -133,27 +147,35 @@ const calculateItemizedSplit = (total, participants, items) => {
   const userTotals = {};
   participants.forEach(id => userTotals[id] = 0);
   
-  let itemTotal = 0;
   items.forEach(item => {
-    const itemAmt = Math.round(item.amount);
-    itemTotal += itemAmt;
-    
+    const itemAmt = round2(parseFloat(item.amount || 0));
     const count = item.participants.length;
     if (count === 0) return;
     
-    const perPerson = Math.floor(itemAmt / count);
-    let remainder = itemAmt - (perPerson * count);
+    // For itemized, respect the payer context by using the order of the participants array passed in 
+    // which has payer last. We filter the item's participants to match that sorted order.
+    const sortedItemParticipants = participants.filter(pId => 
+      item.participants.some(ip => ip.toString() === pId.toString())
+    );
+
+    const exactAmount = itemAmt / count;
+    const amountForOthers = Math.ceil(exactAmount * 100) / 100;
     
-    item.participants.forEach((userId, index) => {
-      // Initialize if not in participants list (though usually they should be)
-      if (userTotals[userId] === undefined) userTotals[userId] = 0;
+    let itemDistributed = 0;
+    sortedItemParticipants.forEach((userId, index) => {
+      let amt;
+      if (index === sortedItemParticipants.length - 1) {
+        amt = round2(itemAmt - itemDistributed);
+      } else {
+        amt = amountForOthers;
+      }
       
-      userTotals[userId] += (index === 0 ? perPerson + remainder : perPerson);
+      itemDistributed = round2(itemDistributed + amt);
+      
+      if (userTotals[userId] === undefined) userTotals[userId] = 0;
+      userTotals[userId] = round2(userTotals[userId] + amt);
     });
   });
-  
-  // Note: We don't strictly enforce itemTotal == total here,
-  // but it's good practice. Usually total is derived from items.
   
   return participants.map(userId => ({
     user: userId,

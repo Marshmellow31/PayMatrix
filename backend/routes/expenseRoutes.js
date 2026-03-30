@@ -5,6 +5,7 @@ import {
   getExpense,
   updateExpense,
   deleteExpense,
+  restoreExpense,
   getFinancialSummary,
   getSpendingTrends,
 } from '../controllers/expenseController.js';
@@ -30,5 +31,7 @@ router.route('/expenses/:id')
   .get(idParamRule, validate, getExpense)
   .put(idParamRule, validate, updateExpense)
   .delete(idParamRule, validate, deleteExpense);
+
+router.patch('/expenses/:id/restore', idParamRule, validate, restoreExpense);
 
 export default router;

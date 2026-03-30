@@ -14,6 +14,7 @@ const expenseService = {
   },
   updateExpense: (id, data) => api.put(`/expenses/${id}`, data),
   deleteExpense: (id) => api.delete(`/expenses/${id}`),
+  restoreExpense: (id) => api.patch(`/expenses/${id}/restore`),
   getBalances: (groupId) => api.get(`/groups/${groupId}/balances`),
   getSettlements: (groupId) => api.get(`/groups/${groupId}/settlements`),
   getSummary: () => api.get('/expenses/summary'),

@@ -1,9 +1,9 @@
 import Settlement from '../models/Settlement.js';
 import Group from '../models/Group.js';
+import Expense from '../models/Expense.js';
 import Notification from '../models/Notification.js';
 import { sendSuccess, ApiError } from '../utils/apiResponse.js';
-import { calculateBalances } from '../services/balanceService.js';
-
+import { computeGroupBalances } from '../utils/balanceEngine.js';
 /**
  * @desc    Get group balances
  * @route   GET /api/v1/groups/:id/balances
@@ -27,17 +27,21 @@ export const getBalances = async (req, res, next) => {
       return next(new ApiError('You are not a member of this group', 403));
     }
 
-    const memberIds = group.members.map((m) => m.user._id);
-    const balances = await calculateBalances(group._id, memberIds);
+    const [expenses, settlements] = await Promise.all([
+      Expense.find({ group: group._id, isDeleted: { $ne: true } }),
+      Settlement.find({ group: group._id })
+    ]);
+
+    const rawBalances = computeGroupBalances(expenses, settlements, group.members);
 
     // Enrich with user info
-    const enrichedBalances = balances.map((b) => {
+    const enrichedBalances = Object.keys(rawBalances).map((userId) => {
       const member = group.members.find(
-        (m) => m.user._id.toString() === b.userId
+        (m) => m.user._id.toString() === userId
       );
       return {
-        user: member ? member.user : { _id: b.userId },
-        balance: b.balance,
+        user: member ? member.user : { _id: userId },
+        balance: rawBalances[userId],
       };
     });
 
@@ -71,11 +75,13 @@ export const createSettlement = async (req, res, next) => {
 
     const { payee, amount, notes } = req.body;
 
-    if (!payee || !amount) {
+    if (!payee || amount === undefined) {
       return next(new ApiError('Payee and amount are required', 400));
     }
 
-    if (amount <= 0) {
+    const roundedAmount = Math.round(parseFloat(amount) * 100) / 100;
+
+    if (roundedAmount <= 0) {
       return next(new ApiError('Amount must be greater than 0', 400));
     }
 
@@ -90,7 +96,7 @@ export const createSettlement = async (req, res, next) => {
     const settlement = await Settlement.create({
       payer: req.user._id,
       payee,
-      amount,
+      amount: roundedAmount,
       group: group._id,
       notes,
     });

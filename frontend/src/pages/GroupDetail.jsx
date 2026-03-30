@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useOutletContext } from 'react-router-dom';
+import { useParams, Link, useOutletContext, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { fetchGroup } from '../redux/groupSlice.js';
@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 
 const GroupDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { openAddExpense } = useOutletContext();
   const { currentGroup, loading: groupLoading } = useSelector((state) => state.groups);
@@ -91,7 +92,7 @@ const GroupDetail = () => {
   return (
     <div className="max-w-4xl mx-auto animate-fade-in pb-24">
       {/* Group Header */}
-      <div className="submerged mb-10 p-8 lg:p-12 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+      <div className="submerged mb-6 p-6 lg:p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div className="flex items-center gap-6">
             <div className="w-20 h-20 rounded-2xl flex items-center justify-center bg-surface-lowest shadow-inner" style={{ background: `${category?.color || '#ffffff'}10` }}>
@@ -109,28 +110,48 @@ const GroupDetail = () => {
               <p className="text-base text-on-surface-variant uppercase tracking-widest font-inter font-semibold">{currentGroup.category} <span className="mx-2 opacity-50">·</span> {uniqueMembers.length} members</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
-            <ExportActions group={currentGroup} expenses={expenses} balances={balances} />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mt-6 md:mt-0">
             {isAdmin && (
-              <Button variant="ghost" onClick={() => setShowAddMember(true)} className="h-12 w-12 rounded-full p-0 flex items-center justify-center bg-surface-container-low hover:bg-surface-variant transition-colors">
-                <UserPlus size={22} className="text-on-surface-variant" />
-              </Button>
+              <button 
+                onClick={() => setShowAddMember(true)} 
+                className="h-11 px-5 rounded-xl flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 transition-all border border-white/5 active:scale-95 text-[10px] font-bold text-on-surface-variant/60 tracking-wider uppercase"
+              >
+                <UserPlus size={16} /> ADD USERS
+              </button>
             )}
-            <button onClick={() => openAddExpense(id)} className="btn-primary h-12 px-6 rounded-full font-manrope tracking-wide flex items-center gap-2">
-              <Plus size={20} /> Record Expense
-            </button>
+            
+            <div className="flex items-center gap-3 flex-1 sm:flex-none">
+              <button 
+                onClick={() => openAddExpense(id)} 
+                className="btn-primary h-11 px-8 rounded-xl font-manrope font-bold text-sm tracking-wider flex items-center justify-center gap-2 shadow-[0_10px_30px_-5px_rgba(255,255,255,0.1)] active:scale-95 transition-all flex-1 sm:flex-none"
+              >
+                <Plus size={18} /> RECORD EXPENSE
+              </button>
+              
+              <ExportActions group={currentGroup} expenses={expenses} balances={balances} iconOnly={true} />
+            </div>
           </div>
         </div>
       </div>
 
 
       {/* Tabs */}
-      <div className="flex gap-6 mb-10 pb-4 overflow-x-auto hide-scrollbar">
+      <div 
+        className="flex gap-8 mb-6 pb-0 overflow-x-auto hide-scrollbar"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
         {tabs.map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`pb-2 text-base font-semibold font-inter capitalize transition-all whitespace-nowrap relative ${tab === t ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}>
+          <button 
+            key={t} 
+            onClick={() => setTab(t)} 
+            className={`pb-3 text-sm font-bold font-inter capitalize transition-all whitespace-nowrap relative tracking-tight ${tab === t ? 'text-primary' : 'text-on-surface-variant/50 hover:text-on-surface'}`}
+          >
             {t}
             {tab === t && (
-              <motion.div layoutId="activeTab" className="absolute bottom-[-17px] left-0 right-0 h-[2px] bg-primary" />
+              <motion.div 
+                layoutId="activeTab" 
+                className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-full" 
+              />
             )}
           </button>
         ))}
@@ -144,7 +165,13 @@ const GroupDetail = () => {
               <p className="text-lg font-inter text-on-surface-variant">No expenses yet. Time to split a bill!</p>
             </div>
           ) : expenses.map((expense) => (
-            <ExpenseCard key={expense._id} expense={expense} currentUserId={user?._id} onDelete={handleDeleteExpense} />
+            <ExpenseCard 
+              key={expense._id} 
+              expense={expense} 
+              currentUserId={user?._id} 
+              onDelete={handleDeleteExpense} 
+              onEdit={(exp) => openAddExpense(id, exp)}
+            />
           ))}
         </div>
       )}
@@ -168,13 +195,20 @@ const GroupDetail = () => {
                   <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-surface-container-highest/20 border border-white/5">
                     <div className="flex items-center gap-3">
                       <div className="text-left">
-                        <span className="text-xs font-bold text-white">{debt.fromUser.name}</span>
+                        <span className="text-xs font-bold text-white">{debt.fromUser?.name || 'Unknown'}</span>
                         <span className="text-[10px] text-on-surface-variant mx-2">owes</span>
-                        <span className="text-xs font-bold text-white">{debt.toUser.name}</span>
+                        <span className="text-xs font-bold text-white">{debt.toUser?.name || 'Unknown'}</span>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end gap-2">
                       <p className="font-manrope font-black text-primary text-lg">₹{debt.amount.toFixed(2)}</p>
+                      <Button
+                        size="sm"
+                        className="h-8 px-4 text-xs font-bold tracking-wider"
+                        onClick={() => navigate(`/groups/${id}/settlements`, { state: { prefill: debt } })}
+                      >
+                        Settle Now
+                      </Button>
                     </div>
                   </div>
                 ))}

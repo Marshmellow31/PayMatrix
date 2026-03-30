@@ -419,17 +419,30 @@ export const getGroupBalances = async (req, res, next) => {
 
     // Fetch all group data
     const [expenses, settlements] = await Promise.all([
-      Expense.find({ group: group._id }),
+      Expense.find({ group: group._id, isDeleted: { $ne: true } }),
       Settlement.find({ group: group._id })
     ]);
 
     // Compute net positions
-    const netBalances = computeGroupBalances(expenses, settlements, group.members);
+    const rawNetBalances = computeGroupBalances(expenses, settlements, group.members);
     
+    // Transform into the array format the frontend expects
+    const memberMap = new Map(group.members.map(m => [m.user._id.toString(), m.user]));
+    const netBalances = Array.from(memberMap.values()).map(user => ({
+      user,
+      balance: rawNetBalances[user._id.toString()] || 0
+    }));
+
     // Simplify debts if enabled (default true)
     let simplifiedDebts = [];
     if (group.simplifyDebts !== false) {
-      simplifiedDebts = simplifyDebts(netBalances);
+      const rawDebts = simplifyDebts(rawNetBalances);
+      
+      simplifiedDebts = rawDebts.map(debt => ({
+        fromUser: memberMap.get(debt.from),
+        toUser: memberMap.get(debt.to),
+        amount: debt.amount
+      }));
     }
 
     sendSuccess(res, 200, 'Balances retrieved successfully', {

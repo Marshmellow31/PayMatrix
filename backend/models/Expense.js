@@ -77,6 +77,18 @@ const expenseSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    deletedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

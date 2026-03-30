@@ -3,7 +3,7 @@ import { Download, FileText, Table, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { exportToPDF, exportToCSV } from '../../utils/exportUtils';
 
-const ExportActions = ({ group, expenses, balances }) => {
+const ExportActions = ({ group, expenses, balances, iconOnly = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -27,11 +27,18 @@ const ExportActions = ({ group, expenses, balances }) => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-container-high border border-outline-variant/10 text-on-surface hover:bg-surface-variant transition-all text-sm font-medium"
+        className={`flex items-center justify-center rounded-xl bg-surface-container-high border border-outline-variant/10 text-on-surface hover:bg-surface-variant transition-all text-sm font-medium ${
+          iconOnly ? 'w-11 h-11 p-0' : 'gap-2 px-4 py-2 h-11'
+        }`}
+        title="Export Data"
       >
-        <Download size={16} />
-        Export
-        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+        <Download size={iconOnly ? 18 : 16} />
+        {!iconOnly && (
+          <>
+            Export
+            <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+          </>
+        )}
       </button>
 
       <AnimatePresence>

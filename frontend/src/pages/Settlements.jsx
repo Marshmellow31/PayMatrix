@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import expenseService from '../services/expenseService.js';
 import Loader from '../components/common/Loader.jsx';
@@ -12,11 +12,19 @@ import toast from 'react-hot-toast';
 
 const Settlements = () => {
   const { id } = useParams();
+  const location = useLocation();
   const { user } = useSelector((state) => state.auth);
+  
+  const prefill = location.state?.prefill;
+
   const [settlements, setSettlements] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ payee: '', amount: '', notes: '' });
+  const [showModal, setShowModal] = useState(!!prefill);
+  const [form, setForm] = useState({ 
+    payee: prefill?.toUser?._id || '', 
+    amount: prefill?.amount ? prefill.amount.toFixed(2) : '', 
+    notes: prefill ? 'Settled debt' : '' 
+  });
   const [balances, setBalances] = useState([]);
 
   const loadData = async () => {
@@ -40,6 +48,10 @@ const Settlements = () => {
       toast.success('Settlement recorded!');
       setShowModal(false);
       setForm({ payee: '', amount: '', notes: '' });
+      // clear the location state via history replace if possible, but form reset is enough
+      if (window.history.replaceState) {
+        window.history.replaceState({}, document.title);
+      }
       loadData();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed');

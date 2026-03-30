@@ -8,6 +8,7 @@ import Button from '../common/Button.jsx';
 const ExpenseForm = ({ 
   groups = [], 
   initialGroupId = '', 
+  initialData = null,
   onSubmit, 
   loading = false,
   onGroupChange
@@ -35,13 +36,45 @@ const ExpenseForm = ({
   });
 
   useEffect(() => {
-    if (initialGroupId) {
+    if (initialData) {
+      setForm({
+        title: initialData.title || '',
+        amount: initialData.amount.toString() || '',
+        groupId: initialData.group?._id || initialData.group || '',
+        category: initialData.category || 'Other',
+        date: new Date(initialData.date).toISOString().split('T')[0],
+        paidBy: (initialData.paidBy?._id || initialData.paidBy || '').toString(),
+        notes: initialData.notes || '',
+      });
+      setSplitType(initialData.splitType || 'equal');
+      
+      const participantIds = initialData.splits.map(s => (s.user?._id || s.user).toString());
+      setParticipants(participantIds);
+
+      // Reconstruct split data
+      const newPercentages = {};
+      const newExact = {};
+      const newShares = {};
+
+      initialData.splits.forEach(s => {
+        const uid = (s.user?._id || s.user).toString();
+        if (initialData.splitType === 'percentage') newPercentages[uid] = s.percent?.toString() || '';
+        if (initialData.splitType === 'exact') newExact[uid] = s.amount.toString() || '';
+        if (initialData.splitType === 'shares') newShares[uid] = s.shares?.toString() || '1';
+      });
+
+      setSplitData({
+        percentages: newPercentages,
+        exactAmounts: newExact,
+        shares: newShares,
+      });
+    } else if (initialGroupId) {
       setForm(prev => ({ ...prev, groupId: initialGroupId }));
     }
-  }, [initialGroupId]);
+  }, [initialData, initialGroupId]);
 
   useEffect(() => {
-    if (form.groupId) {
+    if (form.groupId && !initialData) {
       const group = groups.find(g => g._id === form.groupId);
       setSelectedGroup(group);
       if (group) {
@@ -74,11 +107,15 @@ const ExpenseForm = ({
         }
       }
       if (onGroupChange) onGroupChange(group);
+    } else if (form.groupId && initialData) {
+      const group = groups.find(g => g._id === form.groupId);
+      setSelectedGroup(group);
+      if (onGroupChange) onGroupChange(group);
     } else {
       setSelectedGroup(null);
       setParticipants([]);
     }
-  }, [form.groupId, groups]);
+  }, [form.groupId, groups, initialData]);
 
 
   const handleChange = (e) => {
@@ -440,7 +477,7 @@ const ExpenseForm = ({
           className="flex-[2] h-14 rounded-3xl font-manrope font-black text-base bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl"
         >
           <LucideIcons.CircleCheck size={20} />
-          Commit Transaction
+          {initialData ? 'Update Transaction' : 'Commit Transaction'}
         </Button>
       </div>
     </motion.div>

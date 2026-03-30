@@ -36,6 +36,24 @@ export const deleteExpense = createAsyncThunk('expenses/delete', async (id, thun
   }
 });
 
+export const restoreExpense = createAsyncThunk('expenses/restore', async (id, thunkAPI) => {
+  try {
+    const response = await expenseService.restoreExpense(id);
+    return response.data.data;
+  } catch (error) {
+    return thunkAPI.rejectWithValue(error.response?.data?.message || 'Failed to restore expense');
+  }
+});
+
+export const updateExpense = createAsyncThunk('expenses/update', async ({ id, data }, thunkAPI) => {
+  try {
+    const response = await expenseService.updateExpense(id, data);
+    return response.data.data;
+  } catch (error) {
+    return thunkAPI.rejectWithValue(error.response?.data?.message || 'Failed to update expense');
+  }
+});
+
 const expenseSlice = createSlice({
   name: 'expenses',
   initialState,
@@ -58,8 +76,17 @@ const expenseSlice = createSlice({
       })
       .addCase(fetchExpenses.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
       .addCase(addExpense.fulfilled, (state, action) => { state.expenses.unshift(action.payload.expense); })
+      .addCase(updateExpense.fulfilled, (state, action) => {
+        const index = state.expenses.findIndex(e => e._id === action.payload.expense._id);
+        if (index !== -1) {
+          state.expenses[index] = action.payload.expense;
+        }
+      })
       .addCase(deleteExpense.fulfilled, (state, action) => {
         state.expenses = state.expenses.filter((e) => e._id !== action.payload);
+      })
+      .addCase(restoreExpense.fulfilled, (state, action) => {
+        state.expenses.unshift(action.payload.expense);
       });
   },
 });

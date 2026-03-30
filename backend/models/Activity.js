@@ -22,6 +22,7 @@ const activitySchema = new mongoose.Schema(
         'member_removed',
         'group_created',
         'settlement_added',
+        'expense_restored',
       ],
       required: true,
     },

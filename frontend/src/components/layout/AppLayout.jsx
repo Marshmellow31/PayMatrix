@@ -8,7 +8,7 @@ import SyncStatus from './SyncStatus.jsx';
 import Modal from '../common/Modal.jsx';
 import ExpenseForm from '../expense/ExpenseForm.jsx';
 import { fetchGroups } from '../../redux/groupSlice.js';
-import { addExpense } from '../../redux/expenseSlice.js';
+import { addExpense, updateExpense } from '../../redux/expenseSlice.js';
 import toast from 'react-hot-toast';
 
 const AppLayout = () => {
@@ -22,6 +22,7 @@ const AppLayout = () => {
   
   const { groups } = useSelector((state) => state.groups);
   const { loading: expenseLoading } = useSelector((state) => state.expenses);
+  const [editingExpense, setEditingExpense] = useState(null);
 
   useEffect(() => {
     dispatch(fetchGroups());
@@ -33,25 +34,31 @@ const AppLayout = () => {
                          location.pathname.includes('/register') ||
                          location.pathname.includes('/forgot-password');
 
-  const openAddExpense = (groupId = '') => {
-    setPreSelectedGroupId(groupId || '');
+  const openAddExpense = (groupId = '', expense = null) => {
+    setPreSelectedGroupId(groupId || (expense ? (expense.group?._id || expense.group) : ''));
+    setEditingExpense(expense);
     setIsAddExpenseOpen(true);
   };
 
   const handleAddExpenseSubmit = async (data) => {
     const groupId = data.groupId;
-    const result = await dispatch(addExpense({ groupId, data }));
+    let result;
+
+    if (editingExpense) {
+      result = await dispatch(updateExpense({ id: editingExpense._id, data }));
+    } else {
+      result = await dispatch(addExpense({ groupId, data }));
+    }
+
     if (result.meta.requestStatus === 'fulfilled') {
-      toast.success('Expense recorded!');
+      toast.success(editingExpense ? 'Expense updated!' : 'Expense recorded!');
       setIsAddExpenseOpen(false);
-      // Optional: Navigate to the group or refresh current view
-      if (location.pathname.includes('/groups/')) {
-        // We are already in a group, maybe no need to navigate
-      } else {
+      setEditingExpense(null);
+      if (!location.pathname.includes('/groups/')) {
         navigate(`/groups/${groupId}`);
       }
     } else {
-      toast.error(result.payload || 'Failed to record expense');
+      toast.error(result.payload || 'Failed to process expense');
     }
   };
 
@@ -78,14 +85,18 @@ const AppLayout = () => {
       {/* Global Add Expense Modal */}
       <Modal 
         isOpen={isAddExpenseOpen} 
-        onClose={() => setIsAddExpenseOpen(false)} 
-        title="Record Transaction"
+        onClose={() => {
+          setIsAddExpenseOpen(false);
+          setEditingExpense(null);
+        }} 
+        title={editingExpense ? "Edit Transaction" : "Record Transaction"}
         size="md"
       >
         <div className="py-2">
           <ExpenseForm 
             groups={groups}
             initialGroupId={preSelectedGroupId}
+            initialData={editingExpense}
             onSubmit={handleAddExpenseSubmit}
             loading={expenseLoading}
           />
