@@ -53,13 +53,13 @@ const ExpenseForm = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-10">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-8 sm:gap-10 w-full relative">
       
       {/* Amount Section */}
       <div className="text-center">
         <p className="font-inter text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-3 opacity-60">Total Amount</p>
         <div className="flex items-center justify-center gap-1 relative">
-          <span className="font-manrope text-4xl font-bold text-on-surface-variant opacity-40 absolute left-0 sm:static">₹</span>
+          <span className="font-manrope text-3xl sm:text-4xl font-bold text-on-surface-variant opacity-40 absolute left-0 sm:static">₹</span>
           <input 
             type="number"
             step="0.01"
@@ -102,11 +102,11 @@ const ExpenseForm = ({
 
       {/* Description */}
       <div className="relative group">
-        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-40 group-focus-within:opacity-100 transition-opacity">
-          <LucideIcons.PenTool size={20} />
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-40 group-focus-within:opacity-100 transition-opacity">
+          <LucideIcons.PenTool size={18} />
         </div>
         <input 
-          className="w-full bg-surface-container-low/50 border border-white/5 rounded-2xl py-5 pl-14 pr-6 text-white font-manrope font-bold text-lg focus:bg-surface-container-high focus:ring-1 focus:ring-white/10 transition-all placeholder:text-on-surface-variant/30" 
+          className="w-full bg-surface-container-low/50 border border-white/5 rounded-2xl py-4 sm:py-5 pl-12 pr-6 text-white font-manrope font-bold text-base sm:text-lg focus:bg-surface-container-high focus:ring-1 focus:ring-white/10 transition-all placeholder:text-on-surface-variant/30" 
           placeholder="What was it for?" 
           type="text"
           name="title"
@@ -119,7 +119,7 @@ const ExpenseForm = ({
       {/* Category Selection */}
       <div className="space-y-4">
         <label className="block text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter px-1 opacity-60 text-center">Category Focus</label>
-        <div className="flex gap-3 overflow-x-auto no-scrollbar justify-start sm:justify-center px-1">
+        <div className="w-full flex gap-2.5 overflow-x-auto no-scrollbar justify-start sm:justify-center">
           {EXPENSE_CATEGORIES.map((cat) => {
             const IconComp = LucideIcons[cat.icon] || LucideIcons.Hash;
             return (
@@ -127,13 +127,13 @@ const ExpenseForm = ({
                 key={cat.value}
                 type="button"
                 onClick={() => handleCategorySelect(cat.value)}
-                className={`flex-shrink-0 px-5 py-3 rounded-full border transition-all text-xs font-bold flex items-center gap-2.5 ${
+                className={`flex-shrink-0 px-4 py-2.5 rounded-full border transition-all text-xs font-bold flex items-center gap-2 ${
                   form.category === cat.value 
                     ? 'bg-white text-black border-white shadow-lg' 
                     : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
                 }`}
               >
-                <IconComp size={14} />
+                <IconComp size={12} />
                 <span className="uppercase tracking-wider">{cat.label}</span>
               </button>
             );
@@ -185,15 +185,17 @@ const ExpenseForm = ({
       </div>
 
       {/* Submit */}
-      <Button 
-        type="submit" 
-        loading={loading} 
-        disabled={!form.groupId}
-        className="w-full h-18 rounded-3xl font-manrope font-black text-lg bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl mt-4"
-      >
-        <LucideIcons.CircleCheck size={24} />
-        Record Transaction
-      </Button>
+      <div className="mt-4 sm:mt-6">
+        <Button 
+          type="submit" 
+          loading={loading} 
+          disabled={!form.groupId}
+          className="w-full h-16 sm:h-18 rounded-3xl font-manrope font-black text-lg bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl"
+        >
+          <LucideIcons.CircleCheck size={24} />
+          Record Transaction
+        </Button>
+      </div>
     </form>
   );
 };

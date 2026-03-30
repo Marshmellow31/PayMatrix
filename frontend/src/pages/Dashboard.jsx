@@ -199,14 +199,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* High-Impact Add Expense FAB */}
-      <Link 
-        to="/add-expense"
-        className="fixed bottom-28 right-8 sm:bottom-12 sm:right-12 w-16 h-16 bg-white text-black rounded-full shadow-[0_20px_50px_rgba(255,255,255,0.3)] flex items-center justify-center active:scale-90 transition-all z-40 hover:rotate-90 duration-500 border-4 border-black"
-      >
-        <Plus size={32} strokeWidth={3} />
-      </Link>
-
     </div>
   );
 };

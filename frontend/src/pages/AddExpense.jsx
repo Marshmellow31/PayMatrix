@@ -36,13 +36,13 @@ const AddExpense = () => {
   if (groupsLoading && groups.length === 0) return <Loader className="py-20" />;
 
   return (
-    <main className="min-h-screen bg-background text-white relative overflow-hidden flex flex-col pt-4 pb-12 px-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-background text-white relative flex flex-col pt-6 pb-12">
       {/* Ambient Background Glows */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-white/5 blur-[100px] pointer-events-none" />
 
       {/* Header */}
-      <header className="flex items-center justify-between mb-10 relative z-10">
+      <header className="flex items-center justify-between mb-8 sm:mb-10 relative z-10 px-5 sm:px-8">
         <button 
           onClick={() => navigate(-1)}
           className="w-12 h-12 rounded-2xl bg-surface-container-low/50 border border-white/5 flex items-center justify-center hover:bg-surface-container-high transition-colors"
@@ -57,8 +57,8 @@ const AddExpense = () => {
       </header>
 
       {/* Main Form Canvas */}
-      <div className="w-full max-w-lg mx-auto relative z-10 flex-1">
-        <div className="glass-panel rounded-[2.5rem] p-8 sm:p-10 border border-white/5 shadow-2xl relative overflow-hidden mb-8">
+      <div className="w-full max-w-lg mx-auto relative z-10 px-5 sm:px-8 flex-1 flex flex-col">
+        <div className="glass-panel w-full rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-10 border border-white/5 shadow-2xl overflow-hidden mb-8 text-center flex-1">
           <ExpenseForm
             groups={groups}
             initialGroupId={initialGroupId}
