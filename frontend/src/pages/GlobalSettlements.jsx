@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { ArrowUpRight, ArrowDownRight, Wallet, ChevronRight } from 'lucide-react';
 import { fetchGroups } from '../redux/groupSlice.js';
 import expenseService from '../services/expenseService.js';
 import Loader from '../components/common/Loader.jsx';
@@ -60,59 +62,101 @@ const GlobalSettlements = () => {
   const totalOweUrl = groupsWithBalances.reduce((acc, g) => g.myBalance < 0 ? acc + Math.abs(g.myBalance) : acc, 0);
 
   return (
-    <div className="max-w-3xl mx-auto animate-fade-in pb-24">
-      <div className="flex flex-col mb-12 gap-2">
-        <h1 className="text-4xl lg:text-5xl font-bold font-manrope text-primary tracking-[-0.01em]">
-          Settlements
-        </h1>
-        <p className="text-lg text-on-surface-variant font-inter">Manage your balances across all your groups.</p>
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="max-w-4xl mx-auto px-4 py-6 pb-28 space-y-6"
+    >
+      {/* High-Contrast Header & Metrics */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between px-1 gap-6 sm:gap-0">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl sm:text-4xl font-black font-manrope text-white tracking-tighter leading-tight italic">
+            Settlements
+          </h1>
+          <p className="text-[10px] sm:text-[12px] text-white/40 font-black uppercase tracking-[0.3em]">
+            Global Portfolio Position
+          </p>
+        </div>
+        
+        {/* Large Visible Metrics Row */}
+        <div className="flex gap-8 sm:gap-6 border-t sm:border-t-0 sm:border-l border-white/5 pt-4 sm:pt-0 sm:pl-6">
+          <div className="flex flex-col items-start sm:items-end group">
+            <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] group-hover:text-white/40 transition-colors">Net Positive</span>
+            <span className="text-2xl font-black font-manrope text-white tracking-tight">
+              {formatCurrency(totalOwedUrl)}
+            </span>
+          </div>
+          <div className="flex flex-col items-start sm:items-end border-l sm:border-l-0 border-white/5 pl-8 sm:pl-0">
+            <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Net Payable</span>
+            <span className="text-2xl font-black font-manrope text-white/40 tracking-tight">
+              {formatCurrency(totalOweUrl)}
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        <div className="glass-card p-6 border-b-4 border-green-500/50">
-          <p className="text-sm font-semibold text-on-surface-variant uppercase tracking-widest mb-2">You are owed</p>
-          <p className="text-3xl font-black font-manrope text-green-400 tracking-tight">{formatCurrency(totalOwedUrl)}</p>
+      <div className="h-px bg-white/10 w-full" />
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-[11px] font-black font-manrope text-white/30 uppercase tracking-[0.4em]">
+            Active Groups
+          </h3>
         </div>
-        <div className="glass-card p-6 border-b-4 border-red-500/50">
-          <p className="text-sm font-semibold text-on-surface-variant uppercase tracking-widest mb-2">You owe</p>
-          <p className="text-3xl font-black font-manrope text-red-400 tracking-tight">{formatCurrency(totalOweUrl)}</p>
+
+        <div className="space-y-2">
+          {groupsWithBalances.length === 0 ? (
+            <div className="py-20 flex items-center justify-center border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
+              <p className="text-sm text-white/20 font-medium">No active debts</p>
+            </div>
+          ) : (
+            groupsWithBalances.map((group, idx) => {
+              const isPositive = group.myBalance > 0;
+              return (
+                <motion.div
+                  key={group._id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.03 }}
+                >
+                  <Link 
+                    to={`/groups/${group._id}`}
+                    className="group px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.07] hover:border-white/20 flex items-center justify-between transition-all duration-300 shadow-xl"
+                  >
+                    <div className="flex items-center gap-5">
+                      {/* Logo container - higher contrast icon */}
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black font-manrope text-base border
+                        ${isPositive 
+                          ? 'bg-white text-black border-white' 
+                          : 'bg-white/10 text-white/60 border-white/10'
+                        }`}
+                      >
+                        {group.title.substring(0, 1).toUpperCase()}
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <p className="text-base font-black text-white font-manrope truncate max-w-[160px] sm:max-w-none group-hover:text-white">
+                          {group.title}
+                        </p>
+                        <p className={`text-[10px] font-black tracking-[0.2em] ${isPositive ? 'text-white/40' : 'text-white/20'}`}>
+                          {isPositive ? 'RECEIVABLE' : 'PAYABLE'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <p className={`text-xl font-black font-manrope ${isPositive ? 'text-white' : 'text-white/60'}`}>
+                        {isPositive ? '+' : '-'}{formatCurrency(Math.abs(group.myBalance))}
+                      </p>
+                      <ChevronRight size={18} className="text-white/10 group-hover:text-white/50 transition-colors" />
+                    </div>
+                  </Link>
+                </motion.div>
+              );
+            })
+          )}
         </div>
       </div>
-
-      <h3 className="text-lg font-bold font-manrope text-primary tracking-tight mb-4">Groups with outstanding balances</h3>
-
-      {groupsWithBalances.length === 0 ? (
-        <div className="submerged text-center py-20 px-6 border-none">
-          <h3 className="text-2xl font-bold font-manrope text-primary mb-3">All Settled Up!</h3>
-          <p className="text-base text-on-surface-variant max-w-sm mx-auto font-inter">You have no outstanding balances in any of your groups.</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {groupsWithBalances.map(group => (
-            <Link 
-              key={group._id} 
-              to={`/groups/${group._id}`}
-              className="p-5 rounded-3xl bg-surface-container hover:bg-surface-container-high transition-all duration-300 flex items-center justify-between group shadow-sm"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center font-bold text-primary font-manrope text-lg">
-                  {group.title.substring(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-on-surface font-manrope">{group.title}</p>
-                  <p className="text-sm text-on-surface-variant mt-1 font-inter">
-                    {group.myBalance > 0 ? 'They owe you' : 'You owe them'}
-                  </p>
-                </div>
-              </div>
-              <p className={`text-xl font-bold font-manrope ${group.myBalance > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {group.myBalance > 0 ? '+' : '-'}{formatCurrency(Math.abs(group.myBalance))}
-              </p>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
+    </motion.div>
   );
 };
 

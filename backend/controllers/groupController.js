@@ -16,9 +16,20 @@ import { sendSuccess, ApiError } from '../utils/apiResponse.js';
 export const createGroup = async (req, res, next) => {
 
   try {
-    const { title, category, currency, simplifyDebts, defaultSplit } = req.body;
-
+    const { title, category, currency, simplifyDebts, defaultSplit, members } = req.body;
     const inviteCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+
+    // Initial members: just the admin
+    const groupMembers = [{ user: req.user._id, role: 'admin' }];
+
+    // Add selected friends if provided
+    if (members && Array.isArray(members)) {
+      members.forEach(memberId => {
+        if (memberId !== req.user._id.toString()) {
+          groupMembers.push({ user: memberId, role: 'member' });
+        }
+      });
+    }
 
     const group = await Group.create({
       title,
@@ -27,7 +38,7 @@ export const createGroup = async (req, res, next) => {
       simplifyDebts,
       defaultSplit,
       admin: req.user._id,
-      members: [{ user: req.user._id, role: 'admin' }],
+      members: groupMembers,
       inviteCode,
     });
 
@@ -83,6 +94,12 @@ export const getGroup = async (req, res, next) => {
 
     if (!group) {
       return next(new ApiError('Group not found', 404));
+    }
+
+    // Fix missing invite code on the fly
+    if (!group.inviteCode) {
+      group.inviteCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+      await Group.updateOne({ _id: group._id }, { $set: { inviteCode: group.inviteCode } });
     }
 
     // Check if user is a member
@@ -181,29 +198,37 @@ export const addMember = async (req, res, next) => {
       return next(new ApiError('Only the group admin can add members', 403));
     }
 
-    const { email } = req.body;
+    const { email, userId } = req.body;
 
-    if (!email) {
-      return next(new ApiError('Please provide a member email', 400));
+    if (!email && !userId) {
+      return next(new ApiError('Please provide a member email or user ID', 400));
     }
 
-    const userToAdd = await User.findOne({ email });
+    let userToAdd;
+    if (userId) {
+      userToAdd = await User.findById(userId);
+    } else {
+      userToAdd = await User.findOne({ email });
+    }
 
     if (!userToAdd) {
-      return next(new ApiError('User with that email not found', 404));
+      return next(new ApiError('User not found', 404));
     }
 
-    // Check if already a member (robust check)
+    // Check if already a member
     const alreadyMember = group.members.some(
-      (m) => (m.user._id || m.user).toString() === userToAdd._id.toString()
+      (m) => (m.user && (m.user._id || m.user).toString() === userToAdd._id.toString())
     );
 
     if (alreadyMember) {
       return next(new ApiError('User is already a member of this group', 400));
     }
 
-    group.members.push({ user: userToAdd._id, role: 'member' });
-    await group.save();
+    // Use updateOne with $push to bypass validation issues seen in .save()
+    await Group.updateOne(
+      { _id: group._id },
+      { $push: { members: { user: userToAdd._id, role: 'member' } } }
+    );
 
     // Create a group activity log
     await Activity.create({

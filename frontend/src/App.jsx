@@ -18,6 +18,7 @@ import Activity from './pages/Activity.jsx';
 import Profile from './pages/Profile.jsx';
 import Analytics from './pages/Analytics.jsx';
 import JoinGroup from './pages/JoinGroup.jsx';
+import Friends from './pages/Friends.jsx';
 import NotFound from './pages/NotFound.jsx';
 
 
@@ -90,6 +91,7 @@ function App() {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/friends" element={<Friends />} />
         <Route path="/groups" element={<Groups />} />
         <Route path="/groups/:id" element={<GroupDetail />} />
         <Route path="/groups/:id/add-expense" element={<AddExpense />} />

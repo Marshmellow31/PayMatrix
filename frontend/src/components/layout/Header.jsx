@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { Bell, Menu } from 'lucide-react';
+import { Bell, Menu, BarChart3 } from 'lucide-react';
 import Avatar from '../common/Avatar.jsx';
 
 const Header = ({ onToggleSidebar }) => {
@@ -28,6 +28,13 @@ const Header = ({ onToggleSidebar }) => {
 
         {/* Right — Notifications + Profile */}
         <div className="flex items-center gap-3">
+          <Link
+            to="/analytics"
+            className="p-2 rounded-md hover:bg-surface-container transition-colors text-on-surface-variant"
+            aria-label="Analytics"
+          >
+            <BarChart3 size={22} />
+          </Link>
           <Link
             to="/activity"
             className="relative p-2 rounded-md hover:bg-surface-container transition-colors text-on-surface-variant"

@@ -12,6 +12,7 @@ import Button from '../components/common/Button.jsx';
 import Loader from '../components/common/Loader.jsx';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
 import toast from 'react-hot-toast';
+import friendService from '../services/friendService.js';
 
 const Groups = () => {
   const dispatch = useDispatch();
@@ -20,10 +21,12 @@ const Groups = () => {
   const { openAddExpense } = useOutletContext();
   const { groups, loading } = useSelector((state) => state.groups);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ title: '', category: 'Other' });
+  const [form, setForm] = useState({ title: '', category: 'Other', members: [] });
+  const [friends, setFriends] = useState([]);
 
   useEffect(() => { 
     dispatch(fetchGroups()); 
+    fetchFriends();
     
     // Check if we should open the modal (from nav links)
     const params = new URLSearchParams(location.search);
@@ -32,16 +35,38 @@ const Groups = () => {
     }
   }, [dispatch, location.search]);
 
+  const fetchFriends = async () => {
+    try {
+      const res = await friendService.getFriends();
+      setFriends(res.data.data.friends);
+    } catch (error) {
+      console.error('Failed to load friends');
+    }
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
+    // Prepare data: self is added automatically by backend, but we send selected friends
     const result = await dispatch(createGroup(form));
     if (result.meta.requestStatus === 'fulfilled') {
-      toast.success('Group created!');
+      toast.success('Cohort Established!');
       setShowModal(false);
-      setForm({ title: '', category: 'Other' });
+      setForm({ title: '', category: 'Other', members: [] });
     } else {
       toast.error(result.payload || 'Failed to create group');
     }
+  };
+
+  const toggleFriend = (friendId) => {
+    setForm(prev => {
+      const isSelected = prev.members.includes(friendId);
+      return {
+        ...prev,
+        members: isSelected 
+          ? prev.members.filter(id => id !== friendId) 
+          : [...prev.members, friendId]
+      };
+    });
   };
 
   return (
@@ -100,12 +125,11 @@ const Groups = () => {
 
       {/* Create Group Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Establish Group">
-        <form onSubmit={handleCreate} className="flex flex-col gap-10">
+        <form onSubmit={handleCreate} className="flex flex-col gap-8">
           <div className="text-center py-4">
-            <p className="font-label text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-4 opacity-60">Cohort Identity</p>
             <input 
               className="bg-transparent border-none text-center font-headline text-3xl font-bold text-white focus:ring-0 placeholder:text-neutral-700 w-full tracking-tighter sm:text-4xl" 
-              placeholder="Name your group" 
+              placeholder="Cohort Name" 
               value={form.title} 
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               required
@@ -113,36 +137,66 @@ const Groups = () => {
             />
           </div>
 
-          <div>
-            <label className="block text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-6 font-label text-center opacity-60">Category focus</label>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar justify-start sm:justify-center px-2">
+          <div className="space-y-4">
+            <label className="block text-[10px] uppercase tracking-[0.2em] font-black text-white/30 font-label">Select Category</label>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
               {GROUP_CATEGORIES.map((cat) => (
                 <button
                   key={cat.value}
                   type="button"
                   onClick={() => setForm({ ...form, category: cat.value })}
-                  className={`flex-shrink-0 px-6 py-3 rounded-full border transition-all text-[11px] font-bold flex items-center gap-2.5 ${
+                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl border transition-all text-[11px] font-bold flex items-center gap-2 ${
                     form.category === cat.value 
-                      ? 'bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.1)]' 
-                      : 'bg-neutral-800/50 border-white/5 text-neutral-400 hover:bg-neutral-700/50 hover:text-white'
+                      ? 'bg-white text-black border-white' 
+                      : 'bg-white/[0.03] border-white/5 text-white/40 hover:text-white'
                   }`}
                 >
                   {(() => {
                     const IconComp = LucideIcons[cat.icon] || LucideIcons.Hash;
                     return <IconComp size={14} />;
                   })()}
-                  <span className="uppercase tracking-wider">{cat.label}</span>
+                  <span>{cat.label}</span>
                 </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <label className="block text-[10px] uppercase tracking-[0.2em] font-black text-white/30 font-label">Add from Friends</label>
+            <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto no-scrollbar pr-1">
+              {friends.length === 0 ? (
+                <p className="col-span-2 text-[10px] text-white/10 font-bold uppercase tracking-widest py-4 bg-white/[0.01] rounded-xl text-center border border-dashed border-white/5">
+                  No friends identified
+                </p>
+              ) : (
+                friends.map((friend) => (
+                  <button
+                    key={friend._id}
+                    type="button"
+                    onClick={() => toggleFriend(friend._id)}
+                    className={`flex items-center gap-3 p-3 rounded-2xl border transition-all text-left ${
+                      form.members.includes(friend._id)
+                        ? 'bg-white text-black border-white shadow-xl'
+                        : 'bg-white/[0.02] border-white/5 text-white/40 hover:bg-white/[0.05]'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${
+                      form.members.includes(friend._id) ? 'bg-black text-white' : 'bg-white/5'
+                    }`}>
+                      {friend.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-[11px] font-bold truncate">{friend.name}</span>
+                  </button>
+                )
               ))}
             </div>
           </div>
 
           <Button 
             type="submit" 
-            className="w-full h-16 rounded-full font-headline font-bold text-lg bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-xl"
+            className="w-full h-14 rounded-2xl font-black text-sm uppercase tracking-widest bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-xl"
           >
-            <LucideIcons.PlusCircle size={20} />
-            Initialize Cohort
+            Launch Cohort
           </Button>
         </form>
       </Modal>

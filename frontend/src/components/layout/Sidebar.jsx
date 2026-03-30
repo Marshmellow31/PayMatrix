@@ -3,19 +3,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   Users,
-  Activity,
+  LayoutGrid,
   User,
   X,
-  Plus,
-  BarChart3,
-  WalletCards
+  Wallet,
+  BarChart3
 } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/groups', label: 'Groups', icon: Users },
-  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/settlements', label: 'Settlements', icon: WalletCards },
+  { to: '/friends', label: 'Friends', icon: Users },
+  { to: '/groups', label: 'Groups', icon: LayoutGrid },
+  { to: '/settlements', label: 'Settlements', icon: Wallet },
   { to: '/profile', label: 'Profile', icon: User },
 ];
 

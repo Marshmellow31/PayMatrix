@@ -19,6 +19,7 @@ import * as LucideIcons from 'lucide-react';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
 import expenseService from '../services/expenseService.js';
 import groupService from '../services/groupService.js';
+import friendService from '../services/friendService.js';
 import toast from 'react-hot-toast';
 
 const GroupDetail = () => {
@@ -36,6 +37,9 @@ const GroupDetail = () => {
   const [showAddMember, setShowAddMember] = useState(false);
   const [showSettleUp, setShowSettleUp] = useState(false);
   const [memberEmail, setMemberEmail] = useState('');
+  const [friends, setFriends] = useState([]);
+  const [loadingFriends, setLoadingFriends] = useState(false);
+  const [selectedFriend, setSelectedFriend] = useState(null);
 
   useEffect(() => {
     dispatch(fetchGroup(id));
@@ -53,6 +57,20 @@ const GroupDetail = () => {
     loadBalances();
   }, [id, expenses]);
 
+  useEffect(() => {
+    if (showAddMember) {
+      setLoadingFriends(true);
+      setSelectedFriend(null);
+      friendService.getFriends()
+        .then(res => {
+          // Filter out friends already in the group
+          const currentMemberIds = new Set(currentGroup.members.map(m => (m.user?._id || m.user).toString()));
+          setFriends(res.data.data.friends.filter(f => !currentMemberIds.has(f._id)));
+        })
+        .finally(() => setLoadingFriends(false));
+    }
+  }, [showAddMember, currentGroup]);
+
   const handleDeleteExpense = async (expenseId) => {
     const result = await dispatch(deleteExpense(expenseId));
     if (result.meta.requestStatus === 'fulfilled') toast.success('Expense deleted');
@@ -68,6 +86,19 @@ const GroupDetail = () => {
       dispatch(fetchGroup(id));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to add member');
+    }
+  };
+
+  const handleAddFriend = async () => {
+    if (!selectedFriend) return;
+    try {
+      await groupService.addMember(id, { userId: selectedFriend._id });
+      toast.success('Friend added to group!');
+      setShowAddMember(false);
+      setSelectedFriend(null);
+      dispatch(fetchGroup(id));
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add friend');
     }
   };
 
@@ -222,36 +253,119 @@ const GroupDetail = () => {
       {/* Add Member Modal */}
       <Modal isOpen={showAddMember} onClose={() => setShowAddMember(false)} title="Add Member" size="md">
         <div className="flex flex-col gap-8 py-4">
+          
+          {/* Quick Selection for Friends */}
+          <div className="flex flex-col gap-3">
+            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">
+              Select From Friends
+            </h4>
+            
+            {selectedFriend ? (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.04] border border-white/5"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
+                    <p className="text-sm font-black text-black">
+                      {selectedFriend.name.substring(0,1).toUpperCase()}
+                    </p>
+                  </div>
+                  <div className="flex flex-col">
+                    <p className="text-sm font-black text-white">{selectedFriend.name}</p>
+                    <p className="text-[10px] font-bold text-white/40 uppercase">Add to group?</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setSelectedFriend(null)}
+                    className="h-10 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase text-white transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleAddFriend}
+                    className="h-10 px-6 rounded-xl bg-white text-black hover:bg-white/90 text-[10px] font-black uppercase transition-all shadow-xl"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </motion.div>
+            ) : loadingFriends ? (
+              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                {[1,2,3].map(i => (
+                  <div key={i} className="w-12 h-12 rounded-full bg-white/5 animate-pulse shrink-0" />
+                ))}
+              </div>
+            ) : friends.length > 0 ? (
+              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                {friends.map(friend => (
+                  <button 
+                    key={friend._id}
+                    onClick={() => setSelectedFriend(friend)}
+                    className="flex flex-col items-center gap-2 group shrink-0"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 group-hover:bg-primary group-hover:border-primary flex items-center justify-center transition-all">
+                      <p className="text-sm font-black font-manrope group-hover:text-black">
+                        {friend.name.substring(0,1).toUpperCase()}
+                      </p>
+                    </div>
+                    <span className="text-[9px] font-bold text-white/40 group-hover:text-white uppercase truncate w-14 text-center">
+                      {friend.name.split(' ')[0]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-white/20 font-bold uppercase tracking-widest bg-white/[0.02] border border-dashed border-white/5 p-4 rounded-xl text-center">
+                No available friends to add
+              </p>
+            )}
+          </div>
+
+          <div className="h-[1px] bg-white/5 w-full -my-2" />
+
           <form onSubmit={handleAddMember} className="flex flex-col gap-4">
-            <h4 className="text-sm font-semibold text-on-surface-variant uppercase tracking-widest font-inter mb-2">Invite by Email</h4>
+            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">Invite by Email</h4>
             <div className="flex gap-3 items-end">
               <div className="flex-1">
-                <Input type="email" value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)} placeholder="member@example.com" required id="member-email" />
+                <Input 
+                  type="email" 
+                  value={memberEmail} 
+                  onChange={(e) => setMemberEmail(e.target.value)} 
+                  placeholder="member@example.com" 
+                  required 
+                  id="member-email" 
+                  className="h-14 bg-white/[0.03]"
+                />
               </div>
-              <Button type="submit" className="h-14 px-6 rounded-2xl">Add</Button>
+              <Button type="submit" className="h-14 px-8 rounded-2xl bg-white text-black font-black uppercase text-[10px] tracking-widest">
+                Add
+              </Button>
             </div>
           </form>
 
-          <div className="h-[1px] bg-outline-variant/10 w-full" />
+          <div className="h-[1px] bg-white/5 w-full -my-2" />
 
           <div className="flex flex-col gap-4">
-            <h4 className="text-sm font-semibold text-on-surface-variant uppercase tracking-widest font-inter">Share Invite Link</h4>
-            <p className="text-xs text-on-surface-variant/70 font-inter leading-relaxed">
-              Anyone with this link can join the group. Use it to quickly onboard multiple members.
-            </p>
-            
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface-container-highest/30 border border-white/5">
+            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">Share Invite Link</h4>
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
               <div className="flex-1 overflow-hidden">
-                <p className="text-sm font-mono text-on-surface truncate opacity-60">
-                  {`${window.location.origin}/join/${currentGroup.inviteCode}`}
+                <p className="text-sm font-mono text-white/40 truncate">
+                  {currentGroup?.inviteCode 
+                    ? `${window.location.origin}/join/${currentGroup.inviteCode}`
+                    : 'Generating invite link...'
+                  }
                 </p>
               </div>
               <Button 
                 variant="ghost" 
                 onClick={handleCopyLink}
-                className="h-10 w-10 p-0 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all shrink-0"
+                disabled={!currentGroup?.inviteCode}
+                className="h-11 w-11 p-0 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all shrink-0"
               >
-                <LucideIcons.Copy size={18} className="text-primary" />
+                <LucideIcons.Copy size={20} className="text-white" />
               </Button>
             </div>
           </div>
