@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import Group from '../models/Group.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
+import Activity from '../models/Activity.js';
 import { sendSuccess, ApiError } from '../utils/apiResponse.js';
 
 /**
@@ -25,6 +26,15 @@ export const createGroup = async (req, res, next) => {
       admin: req.user._id,
       members: [{ user: req.user._id, role: 'admin' }],
       inviteCode,
+    });
+
+    // Create group activity log
+    await Activity.create({
+      group: group._id,
+      user: req.user._id,
+      type: 'group_created',
+      message: `${req.user.name} created the group "${title}"`,
+      relatedId: group._id,
     });
 
 
@@ -180,9 +190,9 @@ export const addMember = async (req, res, next) => {
       return next(new ApiError('User with that email not found', 404));
     }
 
-    // Check if already a member
+    // Check if already a member (robust check)
     const alreadyMember = group.members.some(
-      (m) => m.user.toString() === userToAdd._id.toString()
+      (m) => (m.user._id || m.user).toString() === userToAdd._id.toString()
     );
 
     if (alreadyMember) {
@@ -191,6 +201,22 @@ export const addMember = async (req, res, next) => {
 
     group.members.push({ user: userToAdd._id, role: 'member' });
     await group.save();
+
+    // Create a group activity log
+    await Activity.create({
+      group: group._id,
+      user: req.user._id,
+      type: 'member_added',
+      message: `${req.user.name} added ${userToAdd.name} to the group`,
+      relatedId: userToAdd._id,
+    });
+
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`group:${group._id}`).emit('activity:new', {
+        groupId: group._id,
+      });
+    }
 
     // Create notification for added user
     await Notification.create({
@@ -247,6 +273,22 @@ export const removeMember = async (req, res, next) => {
     group.members.splice(memberIndex, 1);
     await group.save();
 
+    // Create a group activity log
+    await Activity.create({
+      group: group._id,
+      user: req.user._id,
+      type: 'member_removed',
+      message: `${req.user.name} removed a member from the group`,
+      relatedId: userId,
+    });
+
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`group:${group._id}`).emit('activity:new', {
+        groupId: group._id,
+      });
+    }
+
     // Create notification for removed user
     await Notification.create({
       user: userId,
@@ -282,9 +324,9 @@ export const joinGroupByCode = async (req, res, next) => {
       return next(new ApiError('Invalid invite code', 404));
     }
 
-    // Check if already a member
+    // Check if already a member (robust check)
     const alreadyMember = group.members.some(
-      (m) => m.user.toString() === req.user._id.toString()
+      (m) => (m.user._id || m.user).toString() === req.user._id.toString()
     );
 
     if (alreadyMember) {
@@ -293,6 +335,22 @@ export const joinGroupByCode = async (req, res, next) => {
 
     group.members.push({ user: req.user._id, role: 'member' });
     await group.save();
+
+    // Create a group activity log
+    await Activity.create({
+      group: group._id,
+      user: req.user._id,
+      type: 'member_added',
+      message: `${req.user.name} joined the group via code`,
+      relatedId: req.user._id,
+    });
+
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`group:${group._id}`).emit('activity:new', {
+        groupId: group._id,
+      });
+    }
 
     // Create notification for admin
     await Notification.create({
@@ -304,6 +362,39 @@ export const joinGroupByCode = async (req, res, next) => {
     });
 
     sendSuccess(res, 200, 'Joined group successfully', { groupId: group._id });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get group activity log
+ * @route   GET /api/v1/groups/:id/activity
+ * @access  Private (members only)
+ */
+export const getGroupActivity = async (req, res, next) => {
+  try {
+    const group = await Group.findById(req.params.id);
+
+    if (!group) {
+      return next(new ApiError('Group not found', 404));
+    }
+
+    // Check if user is a member
+    const isMember = group.members.some(
+      (m) => (m.user._id || m.user).toString() === req.user._id.toString()
+    );
+
+    if (!isMember) {
+      return next(new ApiError('Not authorized to view this group activity', 403));
+    }
+
+    const activity = await Activity.find({ group: req.params.id })
+      .populate('user', 'name avatar')
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    sendSuccess(res, 200, 'Group activity retrieved successfully', { activity });
   } catch (error) {
     next(error);
   }

@@ -25,7 +25,7 @@ const expenseSchema = new mongoose.Schema(
     },
     splitType: {
       type: String,
-      enum: ['equal', 'exact', 'percentage'],
+      enum: ['equal', 'exact', 'percentage', 'shares', 'itemized'],
       default: 'equal',
     },
     splits: [
@@ -36,10 +36,18 @@ const expenseSchema = new mongoose.Schema(
           required: true,
         },
         amount: {
-          type: Number,
+          type: Number, // Integer in cents
           required: true,
         },
       },
+    ],
+    // For itemized splits
+    items: [
+      {
+        name: { type: String, trim: true },
+        amount: { type: Number }, // Integer in cents
+        participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      }
     ],
     category: {
       type: String,

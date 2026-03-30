@@ -1,6 +1,9 @@
 import Expense from '../models/Expense.js';
 import Group from '../models/Group.js';
 import Notification from '../models/Notification.js';
+import Activity from '../models/Activity.js';
+import AuditLog from '../models/AuditLog.js';
+import { calculateSplits, SplitTypes } from '../utils/splittingEngine.js';
 import { sendSuccess, ApiError } from '../utils/apiResponse.js';
 
 /**
@@ -24,7 +27,7 @@ export const addExpense = async (req, res, next) => {
       return next(new ApiError('You are not a member of this group', 403));
     }
 
-    const { title, amount, paidBy, category, date, notes, receipt } = req.body;
+    const { title, amount, paidBy, category, date, notes, receipt, participants } = req.body;
 
     // Use paidBy from body or default to current user
     const payerId = paidBy || req.user._id;
@@ -37,20 +40,43 @@ export const addExpense = async (req, res, next) => {
       return next(new ApiError('Payer must be a group member', 400));
     }
 
-    // Compute equal split across all group members
-    const memberCount = group.members.length;
+    // Determine who is involved in the split
+    let splitParticipants = group.members;
+    if (participants && Array.isArray(participants) && participants.length > 0) {
+      // Filter group members to only include those in the participants list
+      splitParticipants = group.members.filter(m => 
+        participants.includes(m.user.toString())
+      );
+    }
+
+    // De-duplicate participants to ensure accurate split count
+    const uniqueParticipantsMap = new Map();
+    splitParticipants.forEach(m => {
+      const id = (m.user?._id || m.user).toString();
+      if (!uniqueParticipantsMap.has(id)) {
+        uniqueParticipantsMap.set(id, m);
+      }
+    });
+    const uniqueParticipants = Array.from(uniqueParticipantsMap.values());
+
+    if (uniqueParticipants.length === 0) {
+      return next(new ApiError('At least one valid group member must be selected for the split', 400));
+    }
+
+    // Compute equal split across unique selected participants
+    const memberCount = uniqueParticipants.length;
     const splitAmount = Math.round((amount / memberCount) * 100) / 100;
 
     // Handle rounding difference
     let remainder = Math.round((amount - splitAmount * memberCount) * 100) / 100;
 
-    const splits = group.members.map((member, index) => {
+    const splits = uniqueParticipants.map((member, index) => {
       let userSplit = splitAmount;
       if (index === 0 && remainder !== 0) {
         userSplit = Math.round((splitAmount + remainder) * 100) / 100;
       }
       return {
-        user: member.user,
+        user: (member.user?._id || member.user),
         amount: userSplit,
       };
     });
@@ -88,6 +114,28 @@ export const addExpense = async (req, res, next) => {
       await Notification.insertMany(notifications);
     }
 
+    // Create a group activity log
+    await Activity.create({
+      group: group._id,
+      user: req.user._id,
+      type: 'expense_added',
+      message: `${req.user.name} added "${title}" (${amount}) in "${group.title}"`,
+      relatedId: expense._id,
+      amount: amount,
+    });
+
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`group:${group._id}`).emit('expense:added', {
+        expense: populatedExpense,
+        groupId: group._id,
+      });
+      // Emit activity update
+      io.to(`group:${group._id}`).emit('activity:new', {
+        groupId: group._id,
+      });
+    }
+
     sendSuccess(res, 201, 'Expense added successfully', { expense: populatedExpense });
   } catch (error) {
     next(error);
@@ -122,7 +170,7 @@ export const getExpenses = async (req, res, next) => {
       Expense.find({ group: req.params.id })
         .populate('paidBy', 'name email avatar')
         .populate('splits.user', 'name email avatar')
-        .sort({ date: -1 })
+        .sort({ date: -1, createdAt: -1 })
         .skip(skip)
         .limit(limit),
       Expense.countDocuments({ group: req.params.id }),
@@ -179,7 +227,7 @@ export const updateExpense = async (req, res, next) => {
 
     const group = await Group.findById(expense.group);
 
-    const { title, amount, paidBy, category, date, notes, receipt } = req.body;
+    const { title, amount, paidBy, category, date, notes, receipt, participants } = req.body;
 
     if (title) expense.title = title;
     if (category) expense.category = category;
@@ -188,30 +236,85 @@ export const updateExpense = async (req, res, next) => {
     if (receipt !== undefined) expense.receipt = receipt;
     if (paidBy) expense.paidBy = paidBy;
 
-    // Recalculate splits if amount changed
-    if (amount && amount !== expense.amount) {
-      expense.amount = amount;
+    // Recalculate splits if amount OR participants changed
+    if ((amount && amount !== expense.amount) || participants) {
+      if (amount) expense.amount = amount;
 
-      const memberCount = group.members.length;
-      const splitAmount = Math.round((amount / memberCount) * 100) / 100;
-      let remainder = Math.round((amount - splitAmount * memberCount) * 100) / 100;
+      let splitParticipants = [];
+      if (participants && Array.isArray(participants) && participants.length > 0) {
+        // Use provided participants
+        splitParticipants = group.members.filter(m => 
+          participants.includes(m.user.toString())
+        );
+      } else {
+        // Maintain existing unique participants if they are still group members
+        const currentParticipantIds = expense.splits.map(s => (s.user?._id || s.user).toString());
+        splitParticipants = group.members.filter(m => 
+          currentParticipantIds.includes((m.user?._id || m.user).toString())
+        );
+      }
 
-      expense.splits = group.members.map((member, index) => {
+      // De-duplicate
+      const uniqueParticipantsMap = new Map();
+      splitParticipants.forEach(m => {
+        const id = (m.user?._id || m.user).toString();
+        if (!uniqueParticipantsMap.has(id)) {
+          uniqueParticipantsMap.set(id, m);
+        }
+      });
+      let uniqueParticipants = Array.from(uniqueParticipantsMap.values());
+
+      // Default back to all members if somehow no participants were found
+      if (uniqueParticipants.length === 0) {
+          const allMembersMap = new Map();
+          group.members.forEach(m => {
+              const id = (m.user?._id || m.user).toString();
+              if (!allMembersMap.has(id)) allMembersMap.set(id, m);
+          });
+          uniqueParticipants = Array.from(allMembersMap.values());
+      }
+
+      const memberCount = uniqueParticipants.length;
+      const splitAmount = Math.round((expense.amount / memberCount) * 100) / 100;
+      let remainder = Math.round((expense.amount - splitAmount * memberCount) * 100) / 100;
+
+      expense.splits = uniqueParticipants.map((member, index) => {
         let userSplit = splitAmount;
         if (index === 0 && remainder !== 0) {
           userSplit = Math.round((splitAmount + remainder) * 100) / 100;
         }
-        return { user: member.user, amount: userSplit };
+        return { user: (member.user?._id || member.user), amount: userSplit };
       });
     }
 
     await expense.save();
 
-    const updatedExpense = await Expense.findById(expense._id)
+    // Create a group activity log
+    await Activity.create({
+      group: expense.group,
+      user: req.user._id,
+      type: 'expense_updated',
+      message: `${req.user.name} updated "${expense.title}" now (${expense.amount})`,
+      relatedId: expense._id,
+      amount: expense.amount,
+    });
+
+    const populatedExpense = await Expense.findById(expense._id)
       .populate('paidBy', 'name email avatar')
       .populate('splits.user', 'name email avatar');
 
-    sendSuccess(res, 200, 'Expense updated successfully', { expense: updatedExpense });
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`group:${expense.group}`).emit('expense:updated', {
+        expense: updatedExpense,
+        groupId: expense.group,
+      });
+      io.to(`group:${expense.group}`).emit('activity:new', {
+        groupId: expense.group,
+      });
+    }
+
+    sendSuccess(res, 200, 'Expense updated successfully', { expense: populatedExpense });
   } catch (error) {
     next(error);
   }
@@ -231,6 +334,27 @@ export const deleteExpense = async (req, res, next) => {
     }
 
     await Expense.findByIdAndDelete(req.params.id);
+
+    // Create a group activity log
+    await Activity.create({
+      group: expense.group,
+      user: req.user._id,
+      type: 'expense_deleted',
+      message: `${req.user.name} removed expense "${expense.title}"`,
+      relatedId: expense._id,
+      amount: expense.amount,
+    });
+
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`group:${expense.group}`).emit('expense:deleted', {
+        expenseId: expense._id,
+        groupId: expense.group,
+      });
+      io.to(`group:${expense.group}`).emit('activity:new', {
+        groupId: expense.group,
+      });
+    }
 
     sendSuccess(res, 200, 'Expense deleted successfully');
   } catch (error) {
@@ -282,6 +406,42 @@ export const getFinancialSummary = async (req, res, next) => {
       netBalance,
       categories,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get spending trends (last 30 days)
+ * @route   GET /api/v1/expenses/trends
+ * @access  Private
+ */
+export const getSpendingTrends = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const days = parseInt(req.query.days, 10) || 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const trends = await Expense.aggregate([
+      {
+        $match: {
+          'splits.user': userId,
+          date: { $gte: startDate },
+        },
+      },
+      { $unwind: '$splits' },
+      { $match: { 'splits.user': userId } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$date' } },
+          amount: { $sum: '$splits.amount' },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    sendSuccess(res, 200, 'Spending trends retrieved', { trends });
   } catch (error) {
     next(error);
   }

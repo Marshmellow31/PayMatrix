@@ -8,6 +8,14 @@ const GroupCard = ({ group }) => {
   const category = GROUP_CATEGORIES.find((c) => c.value === group.category);
   const IconComponent = category?.icon ? LucideIcons[category.icon] || Hash : Hash;
 
+  // De-duplicate members by user ID
+  const uniqueMembers = Array.from(new Map(
+    (group.members || []).map(m => {
+      const id = (m.user?._id || m.user || '').toString();
+      return [id, m];
+    })
+  ).values());
+
   // Simulate a balance since it's not currently provided by the list API
   // In a real scenario, this would be computed or part of the group object
   const balance = group.balance || 0; 
@@ -26,7 +34,7 @@ const GroupCard = ({ group }) => {
             </h3>
             <div className="flex items-center gap-2">
               <span className="text-on-surface-variant text-[10px] font-bold tracking-[0.15em] uppercase opacity-60">
-                {group.category} • {group.members?.length || 0} Members
+                {group.category} • {uniqueMembers.length} Members
               </span>
             </div>
           </div>
@@ -42,7 +50,7 @@ const GroupCard = ({ group }) => {
 
         <div className="flex justify-between items-center relative z-10">
           <div className="flex -space-x-2">
-            {group.members?.slice(0, 3).map((member, idx) => (
+            {uniqueMembers.slice(0, 3).map((member, idx) => (
               <div 
                 key={member.user?._id || idx} 
                 className="w-8 h-8 rounded-full border-2 border-surface-container-low overflow-hidden bg-surface-container-high shadow-lg"
@@ -60,9 +68,9 @@ const GroupCard = ({ group }) => {
                 )}
               </div>
             ))}
-            {group.members?.length > 3 && (
+            {uniqueMembers.length > 3 && (
               <div className="w-8 h-8 rounded-full bg-surface-container-highest border-2 border-surface-container-low flex items-center justify-center shadow-lg">
-                <span className="text-[10px] font-bold text-white">+{group.members.length - 3}</span>
+                <span className="text-[10px] font-bold text-white">+{uniqueMembers.length - 3}</span>
               </div>
             )}
           </div>

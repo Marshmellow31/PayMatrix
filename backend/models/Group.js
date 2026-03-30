@@ -69,5 +69,22 @@ const groupSchema = new mongoose.Schema(
 // Index for fast member lookups
 groupSchema.index({ 'members.user': 1 });
 
+// Pre-save hook to ensure member uniqueness
+groupSchema.pre('save', function (next) {
+  if (this.isModified('members')) {
+    const uniqueUserIds = new Set();
+    this.members = this.members.filter((member) => {
+      if (!member.user) return false;
+      const userId = (member.user?._id || member.user).toString();
+      if (uniqueUserIds.has(userId)) {
+        return false;
+      }
+      uniqueUserIds.add(userId);
+      return true;
+    });
+  }
+  next();
+});
+
 const Group = mongoose.model('Group', groupSchema);
 export default Group;

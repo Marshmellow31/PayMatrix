@@ -6,6 +6,7 @@ import {
   updateExpense,
   deleteExpense,
   getFinancialSummary,
+  getSpendingTrends,
 } from '../controllers/expenseController.js';
 import { protect } from '../middleware/auth.js';
 import { createExpenseRules, idParamRule, validate } from '../middleware/validator.js';
@@ -15,8 +16,9 @@ const router = express.Router();
 // All routes are protected
 router.use(protect);
 
-// Expense summary route
+// Expense summary and trends routes
 router.get('/expenses/summary', getFinancialSummary);
+router.get('/expenses/trends', getSpendingTrends);
 
 // Group-scoped expense routes
 router.route('/groups/:id/expenses')

@@ -16,6 +16,7 @@ import AddExpense from './pages/AddExpense.jsx';
 import Settlements from './pages/Settlements.jsx';
 import Activity from './pages/Activity.jsx';
 import Profile from './pages/Profile.jsx';
+import Analytics from './pages/Analytics.jsx';
 import JoinGroup from './pages/JoinGroup.jsx';
 import NotFound from './pages/NotFound.jsx';
 
@@ -93,6 +94,7 @@ function App() {
         <Route path="/groups/:id" element={<GroupDetail />} />
         <Route path="/groups/:id/add-expense" element={<AddExpense />} />
         <Route path="/add-expense" element={<AddExpense />} />
+        <Route path="/analytics" element={<Analytics />} />
         <Route path="/groups/:id/settlements" element={<Settlements />} />
         <Route path="/activity" element={<Activity />} />
         <Route path="/profile" element={<Profile />} />

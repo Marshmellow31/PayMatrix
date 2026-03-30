@@ -1,9 +1,22 @@
 import Avatar from '../common/Avatar.jsx';
 
 const MemberList = ({ members = [], adminId }) => {
+  // De-duplicate members by user ID for visual consistency
+  const uniqueMembers = [];
+  const seenIds = new Set();
+  
+  members.forEach(member => {
+    const user = member.user || member;
+    const userId = (user._id || user).toString();
+    if (!seenIds.has(userId)) {
+      seenIds.add(userId);
+      uniqueMembers.push(member);
+    }
+  });
+
   return (
     <div className="flex flex-col gap-3">
-      {members.map((member) => {
+      {uniqueMembers.map((member) => {
         const user = member.user || member;
         const isAdmin = (user._id || user) === adminId;
 

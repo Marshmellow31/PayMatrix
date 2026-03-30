@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
@@ -11,16 +12,21 @@ const ExpenseForm = ({
   loading = false,
   onGroupChange
 }) => {
+  const { user } = useSelector((state) => state.auth);
+
   const [form, setForm] = useState({
     title: '',
     amount: '',
     groupId: initialGroupId,
     category: 'Other',
     date: new Date().toISOString().split('T')[0],
+    paidBy: user?._id || '',
     notes: '',
   });
 
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [step, setStep] = useState(1);
+  const [participants, setParticipants] = useState([]); // Array of user IDs
 
   useEffect(() => {
     if (initialGroupId) {
@@ -32,9 +38,27 @@ const ExpenseForm = ({
     if (form.groupId) {
       const group = groups.find(g => g._id === form.groupId);
       setSelectedGroup(group);
+      if (group) {
+        // Initialize unique participants
+        const allMemberIds = group.members.map(m => (m.user?._id || m.user).toString());
+        const uniqueMemberIds = Array.from(new Set(allMemberIds));
+        
+        setParticipants(uniqueMemberIds);
+
+        // Ensure paidBy is valid and defaults to unique user
+        if (!form.paidBy || !uniqueMemberIds.includes(form.paidBy)) {
+          const currentUserId = user?._id?.toString();
+          if (uniqueMemberIds.includes(currentUserId)) {
+            setForm(prev => ({ ...prev, paidBy: currentUserId }));
+          } else if (uniqueMemberIds.length > 0) {
+            setForm(prev => ({ ...prev, paidBy: uniqueMemberIds[0] }));
+          }
+        }
+      }
       if (onGroupChange) onGroupChange(group);
     } else {
       setSelectedGroup(null);
+      setParticipants([]);
     }
   }, [form.groupId, groups]);
 
@@ -52,18 +76,48 @@ const ExpenseForm = ({
     localStorage.setItem('lastGroupId', id);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!form.groupId) return;
-    onSubmit({
-      ...form,
-      amount: parseFloat(form.amount || 0),
+  const toggleParticipant = (userId) => {
+    setParticipants(prev => {
+      if (prev.includes(userId)) {
+        if (prev.length === 1) return prev; // Don't allow 0 participants
+        return prev.filter(id => id !== userId);
+      }
+      return [...prev, userId];
     });
   };
 
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-8 sm:gap-10 w-full relative">
-      
+  const handleNext = () => {
+    if (!form.amount || !form.title || !form.groupId) return;
+    setStep(2);
+  };
+
+  const handleSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (!form.groupId || participants.length === 0) return;
+    onSubmit({
+      ...form,
+      amount: parseFloat(form.amount || 0),
+      participants: participants,
+      paidBy: form.paidBy,
+    });
+  };
+
+  // Get unique members for the split list
+  const uniqueMembers = Array.from(new Map(
+    (selectedGroup?.members || []).map(m => {
+      const id = (m.user?._id || m.user || '').toString();
+      return [id, m];
+    })
+  ).values());
+
+  const renderStep1 = () => (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 1.05 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className="flex flex-col gap-8 w-full"
+    >
       {/* Amount Section */}
       <div className="text-center">
         <p className="font-inter text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-3 opacity-60">Total Amount</p>
@@ -83,7 +137,7 @@ const ExpenseForm = ({
         </div>
       </div>
 
-      {/* Group Selector (Horizontal Scroll) */}
+      {/* Group Selector */}
       {!initialGroupId && (
         <div className="space-y-4">
            <label className="block text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter px-1 opacity-60">Pick a Cohort</label>
@@ -150,38 +204,6 @@ const ExpenseForm = ({
         </div>
       </div>
 
-      {/* Split Preview (If Group & Amount Exist) */}
-      <AnimatePresence>
-        {selectedGroup && form.amount && (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="glass-card p-6 rounded-3xl border border-white/5 flex items-center justify-between"
-          >
-            <div className="flex -space-x-3 overflow-hidden">
-              {selectedGroup.members.slice(0, 4).map((m, i) => (
-                <div key={i} className="inline-block h-8 w-8 rounded-full ring-2 ring-background bg-surface-container-high flex items-center justify-center text-[10px] font-bold text-white">
-                  {m.user?.name[0] || '?'}
-                </div>
-              ))}
-              {selectedGroup.members.length > 4 && (
-                <div className="inline-block h-8 w-8 rounded-full ring-2 ring-background bg-surface-variant flex items-center justify-center text-[10px] font-bold text-white uppercase">
-                  +{selectedGroup.members.length - 4}
-                </div>
-              )}
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-50 mb-0.5">Equal Share</p>
-              <p className="font-manrope font-black text-xl text-white">
-                ₹{(parseFloat(form.amount) / selectedGroup.members.length).toFixed(2)}
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Date & Note Buttons (Visual cues) */}
       <div className="flex items-center justify-center gap-8">
         <button type="button" className="flex items-center gap-2 text-on-surface-variant hover:text-white transition-colors">
           <LucideIcons.Calendar size={16} />
@@ -193,19 +215,144 @@ const ExpenseForm = ({
         </button>
       </div>
 
-      {/* Submit */}
-      <div className="mt-4 sm:mt-6">
+      <div className="mt-4">
         <Button 
-          type="submit" 
-          loading={loading} 
-          disabled={!form.groupId}
-          className="w-full h-16 sm:h-18 rounded-3xl font-manrope font-black text-lg bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl"
+          type="button"
+          onClick={handleNext}
+          disabled={!form.groupId || !form.amount || !form.title}
+          className="w-full h-16 rounded-3xl font-manrope font-black text-lg bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl"
+        >
+          Next
+          <LucideIcons.ChevronRight size={24} />
+        </Button>
+      </div>
+    </motion.div>
+  );
+
+  const renderStep2 = () => (
+    <motion.div 
+      initial={{ opacity: 0, scale: 1.05 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className="flex flex-col gap-6 w-full"
+    >
+      {/* Paid By Selection */}
+      <div className="space-y-4">
+        <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60 px-1">Paid By</label>
+        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+          {uniqueMembers.map(member => {
+            const userId = (member.user?._id || member.user || '').toString();
+            const isSelected = form.paidBy === userId;
+            return (
+              <button
+                key={`payer-${userId}`}
+                type="button"
+                onClick={() => setForm({ ...form, paidBy: userId })}
+                className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-2xl border transition-all ${
+                  isSelected 
+                    ? 'bg-white text-black border-white shadow-lg' 
+                    : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
+                }`}
+              >
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${isSelected ? 'bg-black text-white' : 'bg-white/10 text-white'}`}>
+                  {member.user?.name?.[0] || '?'}
+                </div>
+                <span className="font-manrope font-bold text-xs whitespace-nowrap">{member.user?.name?.split(' ')[0]}</span>
+                {isSelected && <LucideIcons.Check size={14} />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">Split with</label>
+          <span className="text-[10px] font-bold text-primary uppercase tracking-widest">{participants.length} Selected</span>
+        </div>
+        
+        <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+          {uniqueMembers.map(member => {
+            const user = member.user?._id || member.user;
+            const userId = user.toString();
+            const isSelected = participants.includes(userId);
+            
+            return (
+              <button
+                key={userId}
+                type="button"
+                onClick={() => toggleParticipant(userId)}
+                className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                  isSelected 
+                    ? 'bg-surface-container-high border-white/20' 
+                    : 'bg-surface-container-low/30 border-transparent opacity-40'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-surface-container-highest text-white border border-white/10`}>
+                    {member.user?.name?.[0] || '?'}
+                  </div>
+                  <div className="text-left">
+                    <p className="font-manrope font-bold text-sm text-white">{member.user?.name}</p>
+                    <p className="text-[10px] text-on-surface-variant font-inter">{member.user?.email}</p>
+                  </div>
+                </div>
+                {isSelected ? (
+                  <LucideIcons.CheckCircle2 size={20} className="text-primary" />
+                ) : (
+                  <LucideIcons.Circle size={20} className="text-on-surface-variant" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Split Preview */}
+      <div className="glass-card p-6 rounded-3xl border border-white/5 flex items-center justify-between">
+        <div>
+          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-50 mb-0.5">Equal Share</p>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xs text-on-surface-variant">₹</span>
+            <span className="font-manrope font-black text-2xl text-white">
+              {(parseFloat(form.amount || 0) / participants.length).toFixed(2)}
+            </span>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-50 mb-0.5">Total Participants</p>
+          <p className="font-manrope font-bold text-lg text-white">{participants.length}</p>
+        </div>
+      </div>
+
+      <div className="flex gap-4 mt-4">
+        <Button 
+          type="button" 
+          onClick={() => setStep(1)}
+          className="flex-1 h-16 rounded-3xl font-manrope font-bold text-white bg-surface-container-high hover:bg-surface-container-highest transition-all"
+        >
+          Back
+        </Button>
+        <Button 
+          type="button"
+          onClick={handleSubmit}
+          loading={loading}
+          className="flex-[2] h-16 rounded-3xl font-manrope font-black text-lg bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl"
         >
           <LucideIcons.CircleCheck size={24} />
           Record Transaction
         </Button>
       </div>
-    </form>
+    </motion.div>
+  );
+
+  return (
+    <div className="w-full">
+      <AnimatePresence mode="popLayout" initial={false}>
+        {step === 1 ? renderStep1() : renderStep2()}
+      </AnimatePresence>
+    </div>
   );
 };
 

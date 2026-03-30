@@ -1,0 +1,89 @@
+import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CloudOff, RefreshCcw, CheckCircle2, Cloud } from 'lucide-react';
+import { db } from '../../services/db';
+
+const SyncStatus = () => {
+  const [online, setOnline] = useState(navigator.onLine);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    const updatePendingCount = async () => {
+      const count = await db.pendingExpenses.count();
+      setPendingCount(count);
+      
+      // Artificial delay to show "Syncing" state visually when coming back online
+      if (online && count > 0) {
+        setIsSyncing(true);
+        setTimeout(() => {
+          setIsSyncing(false);
+          db.pendingExpenses.count().then(setPendingCount);
+        }, 3000);
+      }
+    };
+
+    updatePendingCount();
+    const interval = setInterval(updatePendingCount, 5000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
+    };
+  }, [online]);
+
+  return (
+    <AnimatePresence>
+      {(!online || pendingCount > 0 || isSyncing) && (
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 50 }}
+          className="fixed bottom-24 lg:bottom-10 right-6 z-[60]"
+        >
+          <div className="glass-pill px-4 py-2 flex items-center gap-3 shadow-2xl border border-white/5">
+            {!online ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                <CloudOff size={16} className="text-amber-500" />
+                <span className="text-xs font-semibold text-on-surface">Offline Mode</span>
+                {pendingCount > 0 && (
+                  <span className="text-[10px] bg-amber-500/10 px-2 py-0.5 rounded-full text-amber-500 border border-amber-500/20">
+                    {pendingCount} Pending
+                  </span>
+                )}
+              </>
+            ) : isSyncing ? (
+              <>
+                <RefreshCcw size={16} className="text-primary animate-spin" />
+                <span className="text-xs font-semibold text-on-surface">Syncing Changes...</span>
+              </>
+            ) : pendingCount > 0 ? (
+              <>
+                <Cloud size={16} className="text-primary" />
+                <span className="text-xs font-semibold text-on-surface">Saving to Cloud</span>
+                <span className="text-[10px] bg-primary/10 px-2 py-0.5 rounded-full text-primary border border-primary/20">
+                  {pendingCount} Left
+                </span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={16} className="text-emerald-500" />
+                <span className="text-xs font-semibold text-on-surface">All Synced</span>
+              </>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+export default SyncStatus;

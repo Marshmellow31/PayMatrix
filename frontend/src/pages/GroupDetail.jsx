@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { fetchGroup } from '../redux/groupSlice.js';
 import { fetchExpenses, deleteExpense } from '../redux/expenseSlice.js';
 import MemberList from '../components/group/MemberList.jsx';
+import ActivityFeed from '../components/group/ActivityFeed.jsx';
+import ExportActions from '../components/group/ExportActions.jsx';
 import ExpenseCard from '../components/expense/ExpenseCard.jsx';
 import BalanceSummary from '../components/balance/BalanceSummary.jsx';
 import Loader from '../components/common/Loader.jsx';
@@ -74,7 +76,15 @@ const GroupDetail = () => {
 
   const category = GROUP_CATEGORIES.find((c) => c.value === currentGroup.category);
   const isAdmin = currentGroup.admin === user?._id;
-  const tabs = ['expenses', 'balances', 'members'];
+  const tabs = ['expenses', 'balances', 'members', 'logs'];
+
+  // De-duplicate members for accurate count
+  const uniqueMembers = Array.from(new Map(
+    (currentGroup.members || []).map(m => {
+      const id = (m.user?._id || m.user || '').toString();
+      return [id, m];
+    })
+  ).values());
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in pb-24">
@@ -94,10 +104,11 @@ const GroupDetail = () => {
             </div>
             <div>
               <h1 className="text-3xl lg:text-4xl font-bold font-manrope text-primary tracking-tight mb-2">{currentGroup.title}</h1>
-              <p className="text-base text-on-surface-variant uppercase tracking-widest font-inter font-semibold">{currentGroup.category} <span className="mx-2 opacity-50">·</span> {currentGroup.members?.length} members</p>
+              <p className="text-base text-on-surface-variant uppercase tracking-widest font-inter font-semibold">{currentGroup.category} <span className="mx-2 opacity-50">·</span> {uniqueMembers.length} members</p>
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
+            <ExportActions group={currentGroup} expenses={expenses} balances={balances} />
             {isAdmin && (
               <Button variant="ghost" onClick={() => setShowAddMember(true)} className="h-12 w-12 rounded-full p-0 flex items-center justify-center bg-surface-container-low hover:bg-surface-variant transition-colors">
                 <UserPlus size={22} className="text-on-surface-variant" />
@@ -146,6 +157,13 @@ const GroupDetail = () => {
       {tab === 'members' && (
         <div className="glass-card p-6 lg:p-10">
           <MemberList members={currentGroup.members} adminId={currentGroup.admin} />
+        </div>
+      )}
+
+      {tab === 'logs' && (
+        <div className="glass-card p-6 lg:p-10">
+          <h3 className="text-sm font-semibold text-on-surface-variant mb-10 uppercase tracking-widest font-inter">Recent Activity</h3>
+          <ActivityFeed groupId={id} />
         </div>
       )}
 

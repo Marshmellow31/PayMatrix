@@ -4,12 +4,17 @@ import * as LucideIcons from 'lucide-react';
 import Avatar from '../common/Avatar.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
+import { format, isToday } from 'date-fns';
 
 const ExpenseCard = ({ expense, currentUserId, onDelete }) => {
   const category = EXPENSE_CATEGORIES.find((c) => c.value === expense.category);
   const userSplit = expense.splits?.find(
     (s) => (s.user?._id || s.user) === currentUserId
   );
+
+  const displayDate = isToday(new Date(expense.date)) 
+    ? `Today, ${format(new Date(expense.createdAt || expense.date), 'HH:mm')}`
+    : format(new Date(expense.date), 'MMM dd, HH:mm');
 
   return (
     <motion.div
@@ -36,12 +41,18 @@ const ExpenseCard = ({ expense, currentUserId, onDelete }) => {
           <h4 className="text-base font-bold font-manrope text-primary tracking-tight truncate group-hover:text-secondary transition-colors">
             {expense.title}
           </h4>
-          <p className="text-xs text-on-surface-variant font-inter mt-1 tracking-wide">
-            Paid by{' '}
-            <span className="text-on-surface font-semibold">
-              {expense.paidBy?.name || 'Unknown'}
-            </span>
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-[10px] text-on-surface-variant font-inter uppercase tracking-widest opacity-60">
+              Paid by{' '}
+              <span className="text-on-surface font-black">
+                {expense.paidBy?.name || 'Unknown'}
+              </span>
+            </p>
+            <span className="w-1 h-1 rounded-full bg-white/10" />
+            <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">
+              {displayDate}
+            </p>
+          </div>
         </div>
       </div>
 

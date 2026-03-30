@@ -1,14 +1,16 @@
 import 'dotenv/config';
 import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 
-
 import connectDB from './config/db.js';
 import connectCloudinary from './config/cloudinary.js';
 import errorHandler from './middleware/errorHandler.js';
+import initializeSocket from './socket/index.js';
 
 // Route imports
 import authRoutes from './routes/authRoutes.js';
@@ -17,9 +19,6 @@ import expenseRoutes from './routes/expenseRoutes.js';
 import settlementRoutes from './routes/settlementRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 
-// Load environment variables
-
-
 // Connect to database
 connectDB();
 
@@ -27,6 +26,22 @@ connectDB();
 connectCloudinary();
 
 const app = express();
+const server = http.createServer(app);
+
+// Configure Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+});
+
+// Initialize Socket event handlers
+initializeSocket(io);
+
+// Export io for use in controllers (using a simple global or passing it)
+app.set('socketio', io);
 
 // --- Middleware Stack ---
 
@@ -68,7 +83,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // 404 handler
-app.all('*path', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: `Route ${req.originalUrl} not found`,
@@ -81,7 +96,7 @@ app.use(errorHandler);
 // --- Start Server ---
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`
   ┌─────────────────────────────────────────┐
   │                                         │
@@ -90,9 +105,10 @@ app.listen(PORT, () => {
   │   Port:        ${PORT}                      │
   │   Environment: ${process.env.NODE_ENV || 'development'}          │
   │   API Base:    /api/v1                  │
+  │   Real-Time:   Enabled (Socket.IO)      │
   │                                         │
   └─────────────────────────────────────────┘
   `);
 });
 
-export default app;
+export { app, server, io };

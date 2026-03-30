@@ -7,12 +7,13 @@ import {
   User,
   X,
   Plus,
+  BarChart3,
 } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/groups', label: 'Groups', icon: Users },
-  { to: '/groups?add=true', label: 'Add', icon: Plus },
+  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/activity', label: 'Activity', icon: Activity },
   { to: '/profile', label: 'Profile', icon: User },
 ];
