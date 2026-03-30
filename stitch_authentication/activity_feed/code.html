@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "secondary-fixed-dim": "#ababab",
+              "on-tertiary-container": "#000000",
+              "on-primary-container": "#000000",
+              "primary-fixed-dim": "#454747",
+              "tertiary-fixed-dim": "#474746",
+              "on-secondary-fixed-variant": "#3a3c3c",
+              "primary-fixed": "#5d5f5f",
+              "surface-tint": "#c6c6c7",
+              "background": "#131313",
+              "outline-variant": "#474747",
+              "secondary-fixed": "#c7c6c6",
+              "surface-container-highest": "#353534",
+              "on-primary-fixed": "#ffffff",
+              "on-background": "#e5e2e1",
+              "tertiary-container": "#929090",
+              "tertiary": "#e5e2e1",
+              "surface-container-high": "#2a2a2a",
+              "primary-container": "#d4d4d4",
+              "on-surface": "#e5e2e1",
+              "on-error": "#690005",
+              "primary": "#ffffff",
+              "inverse-on-surface": "#313030",
+              "on-tertiary-fixed-variant": "#e5e2e1",
+              "surface-variant": "#353534",
+              "surface-dim": "#131313",
+              "inverse-surface": "#e5e2e1",
+              "on-tertiary": "#1c1b1b",
+              "on-error-container": "#ffdad6",
+              "on-primary": "#1a1c1c",
+              "on-secondary-container": "#e3e2e2",
+              "surface-bright": "#3a3939",
+              "secondary": "#c7c6c6",
+              "on-primary-fixed-variant": "#e2e2e2",
+              "on-tertiary-fixed": "#ffffff",
+              "surface-container": "#201f1f",
+              "surface-container-lowest": "#0e0e0e",
+              "secondary-container": "#464747",
+              "inverse-primary": "#5d5f5f",
+              "on-secondary": "#1a1c1c",
+              "surface": "#131313",
+              "surface-container-low": "#1c1b1b",
+              "on-secondary-fixed": "#1a1c1c",
+              "on-surface-variant": "#c6c6c6",
+              "outline": "#919191",
+              "tertiary-fixed": "#5f5e5e",
+              "error": "#ffb4ab",
+              "error-container": "#93000a"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .glass-card {
+        background: rgba(42, 42, 42, 0.4);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+      .timeline-line {
+        background: linear-gradient(to bottom, transparent, #474747 15%, #474747 85%, transparent);
+      }
+      body {
+        background-color: #131313;
+        background-image: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 70%);
+      }
+    </style>
+</head>
+<body class="font-body text-on-surface antialiased min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-neutral-900/60 backdrop-blur-xl bg-gradient-to-b from-white/5 to-transparent shadow-none">
+<div class="font-manrope font-extrabold text-xl tracking-tighter text-white">PayMatrix</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-white hover:opacity-80 transition-opacity">search</button>
+<div class="h-8 w-8 rounded-full overflow-hidden bg-surface-container-highest">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="close-up portrait of a professional man with a neutral expression and clean modern lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1klxK0NNVv9_QUjiiL0tZP3Yks2uMX6cGLEnvMQWVhQY7vf6ZClAMhCJ6Ewxp3gtr-GZ82mlTSBO4TRCALXfp8sc3PJNSpldhRzXs8Edf_W4POz9Za2_VE2KmrZ2YEaZZ54pOvrVmgp9aiGIC7qrUB9mIspxrIhnC7Vw9kdu0EXnVoYRzFQfwd4LuITf2LrrTj_WFCn6HnmOrDkQhHS9vvApQeJHYrKc4rA9OQereCkRbv7w8N_s1zBJkhm65Io5SSEiTblqSVQ"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-24 pb-32 px-6 max-w-3xl mx-auto relative">
+<!-- Header Section -->
+<section class="mb-12">
+<h1 class="font-headline font-bold text-4xl text-white tracking-tight">Activity</h1>
+<p class="text-on-surface-variant font-medium mt-2">Your financial narrative, curated.</p>
+</section>
+<!-- Timeline Container -->
+<div class="relative">
+<!-- Decorative Vertical Line -->
+<div class="absolute left-6 top-0 bottom-0 w-px timeline-line hidden md:block"></div>
+<!-- Date Group: Today -->
+<div class="mb-12 relative">
+<h2 class="font-headline font-extrabold text-6xl text-surface-container-highest opacity-30 mb-8 select-none">Today</h2>
+<div class="space-y-6">
+<!-- Activity Item 1: Receipt -->
+<div class="glass-card rounded-xl p-5 flex items-center gap-5 transition-transform duration-200 ease-out hover:scale-[1.01]">
+<div class="w-12 h-12 rounded-full bg-primary flex items-center justify-center shrink-0 shadow-lg">
+<span class="material-symbols-outlined text-on-primary" data-icon="receipt_long">receipt_long</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<h3 class="font-headline font-bold text-white">Apple Store Purchase</h3>
+<span class="text-white font-bold">-$1,299.00</span>
+</div>
+<div class="flex justify-between items-end mt-1">
+<p class="text-on-surface-variant text-sm">Electronics &amp; Software</p>
+<span class="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">14:20</span>
+</div>
+</div>
+</div>
+<!-- Activity Item 2: Group Change -->
+<div class="glass-card rounded-xl p-5 flex items-center gap-5 transition-transform duration-200 ease-out hover:scale-[1.01]">
+<div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-white" data-icon="group">group</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<h3 class="font-headline font-bold text-white">New Member in "Europe Trip"</h3>
+<span class="material-symbols-outlined text-on-surface-variant text-sm" data-icon="more_horiz">more_horiz</span>
+</div>
+<div class="flex justify-between items-end mt-1">
+<p class="text-on-surface-variant text-sm">Sarah Jenkins joined the group</p>
+<span class="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">09:15</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Date Group: Yesterday -->
+<div class="mb-12 relative">
+<h2 class="font-headline font-extrabold text-6xl text-surface-container-highest opacity-30 mb-8 select-none">Yesterday</h2>
+<div class="space-y-6">
+<!-- Activity Item 3: Incoming Transfer -->
+<div class="glass-card rounded-xl p-5 flex items-center gap-5 transition-transform duration-200 ease-out hover:scale-[1.01]">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest border border-outline-variant/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-white" data-icon="south_west">south_west</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<h3 class="font-headline font-bold text-white">Transfer from External Account</h3>
+<span class="text-primary font-bold">+$2,500.00</span>
+</div>
+<div class="flex justify-between items-end mt-1">
+<p class="text-on-surface-variant text-sm">J.P. Morgan Chase ****9201</p>
+<span class="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">18:45</span>
+</div>
+</div>
+</div>
+<!-- Activity Item 4: Subscription -->
+<div class="glass-card rounded-xl p-5 flex items-center gap-5 transition-transform duration-200 ease-out hover:scale-[1.01]">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="auto_renew">autorenew</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<h3 class="font-headline font-bold text-white">Netflix Subscription</h3>
+<span class="text-white font-bold">-$19.99</span>
+</div>
+<div class="flex justify-between items-end mt-1">
+<p class="text-on-surface-variant text-sm">Entertainment</p>
+<span class="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">00:01</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Date Group: Sept 12 -->
+<div class="mb-12 relative">
+<h2 class="font-headline font-extrabold text-6xl text-surface-container-highest opacity-30 mb-8 select-none">Sept 12</h2>
+<div class="space-y-6">
+<!-- Activity Item 5: Split Bill -->
+<div class="glass-card rounded-xl p-5 flex items-center gap-5 transition-transform duration-200 ease-out hover:scale-[1.01]">
+<div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-white" data-icon="call_split">call_split</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<h3 class="font-headline font-bold text-white">Dinner at The Ivy</h3>
+<span class="text-white font-bold">-$42.50</span>
+</div>
+<div class="flex justify-between items-end mt-1">
+<p class="text-on-surface-variant text-sm">Split between 4 people</p>
+<span class="text-on-surface-variant text-[10px] font-medium uppercase tracking-widest">21:30</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Load More State -->
+<div class="flex justify-center mt-8">
+<button class="px-8 py-3 bg-surface-container-high rounded-full font-headline font-bold text-sm text-white hover:bg-surface-bright transition-colors duration-200">
+                View Archive
+            </button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-4 bg-neutral-900/80 backdrop-blur-2xl bg-neutral-800/50 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] pb-safe">
+<a class="flex flex-col items-center justify-center text-neutral-500 hover:text-neutral-300 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-inter text-[10px] font-medium tracking-wide uppercase mt-1">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-neutral-500 hover:text-neutral-300 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-inter text-[10px] font-medium tracking-wide uppercase mt-1">Groups</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white scale-110 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+<span class="font-inter text-[10px] font-medium tracking-wide uppercase mt-1">Activity</span>
+</a>
+<a class="flex flex-col items-center justify-center text-neutral-500 hover:text-neutral-300 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-inter text-[10px] font-medium tracking-wide uppercase mt-1">Profile</span>
+</a>
+</nav>
+</body></html>

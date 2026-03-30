@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "secondary-fixed-dim": "#ababab",
+              "on-tertiary-container": "#000000",
+              "on-primary-container": "#000000",
+              "primary-fixed-dim": "#454747",
+              "tertiary-fixed-dim": "#474746",
+              "on-secondary-fixed-variant": "#3a3c3c",
+              "primary-fixed": "#5d5f5f",
+              "surface-tint": "#c6c6c7",
+              "background": "#131313",
+              "outline-variant": "#474747",
+              "secondary-fixed": "#c7c6c6",
+              "surface-container-highest": "#353534",
+              "on-primary-fixed": "#ffffff",
+              "on-background": "#e5e2e1",
+              "tertiary-container": "#929090",
+              "tertiary": "#e5e2e1",
+              "surface-container-high": "#2a2a2a",
+              "primary-container": "#d4d4d4",
+              "on-surface": "#e5e2e1",
+              "on-error": "#690005",
+              "primary": "#ffffff",
+              "inverse-on-surface": "#313030",
+              "on-tertiary-fixed-variant": "#e5e2e1",
+              "surface-variant": "#353534",
+              "surface-dim": "#131313",
+              "inverse-surface": "#e5e2e1",
+              "on-tertiary": "#1c1b1b",
+              "on-error-container": "#ffdad6",
+              "on-primary": "#1a1c1c",
+              "on-secondary-container": "#e3e2e2",
+              "surface-bright": "#3a3939",
+              "secondary": "#c7c6c6",
+              "on-primary-fixed-variant": "#e2e2e2",
+              "on-tertiary-fixed": "#ffffff",
+              "surface-container": "#201f1f",
+              "surface-container-lowest": "#0e0e0e",
+              "secondary-container": "#464747",
+              "inverse-primary": "#5d5f5f",
+              "on-secondary": "#1a1c1c",
+              "surface": "#131313",
+              "surface-container-low": "#1c1b1b",
+              "on-secondary-fixed": "#1a1c1c",
+              "on-surface-variant": "#c6c6c6",
+              "outline": "#919191",
+              "tertiary-fixed": "#5f5e5e",
+              "error": "#ffb4ab",
+              "error-container": "#93000a"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { background-color: #131313; color: #e5e2e1; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(42, 42, 42, 0.4); backdrop-filter: blur(16px); }
+        .grain-overlay {
+            pointer-events: none;
+            position: fixed;
+            inset: 0;
+            z-index: 99;
+            opacity: 0.02;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+    </style>
+</head>
+<body class="font-body selection:bg-primary/30">
+<div class="grain-overlay"></div>
+<!-- Top Navigation Bar (Shared Component: TopAppBar) -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-neutral-900/60 backdrop-blur-xl bg-gradient-to-b from-white/5 to-transparent">
+<div class="flex items-center gap-4">
+<button class="hover:opacity-80 transition-opacity active:scale-95 duration-200 ease-out">
+<span class="material-symbols-outlined text-white">arrow_back</span>
+</button>
+<h1 class="font-manrope font-extrabold text-xl tracking-tighter text-white">Europe Trip ‘24</h1>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-neutral-400 hover:text-white cursor-pointer">settings</span>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-white/10">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="close-up portrait of a professional man with a neutral background and soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsSDh0QL2jEdoJfeuLbnEbMxzmeJBXOrd77TwQzoF0I1y2d8BcN1lCuy__vSBZanx_6GWQ62PAj2UMx_G9Oq0Cv_je6sZuajm2QJ_MxracoZbvR2FItUu7farkui1pj04Ccub7cUBOSTF8gQoEkDiLebymlP215J2ergdvsjTBTgD-AqApDJ8ZaUFtDoeooxhbi-h7QpzQ7WA0DCBqOXgIIa6zNt60A6R2-61h-q0qtNQw0xFf9Zp1KuiFPRcf26T7bettyE5zTw"/>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-2xl mx-auto min-h-screen">
+<!-- Balance Summary Section -->
+<section class="mb-12">
+<div class="flex justify-between items-end mb-6">
+<div>
+<p class="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-1">Group Balance</p>
+<h2 class="font-headline text-5xl font-bold text-white tracking-tighter">$1,240.50</h2>
+</div>
+<div class="text-right">
+<p class="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-1">Your Share</p>
+<p class="font-headline text-xl font-bold text-white">+$420.15</p>
+</div>
+</div>
+<!-- Quick Stats Bento Grid -->
+<div class="grid grid-cols-2 gap-4">
+<div class="surface-container-high p-5 rounded-xl border border-white/5 glass-card">
+<span class="material-symbols-outlined text-primary-container mb-3" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+<p class="text-xs text-on-surface-variant mb-1">Total Spent</p>
+<p class="font-headline font-bold text-lg text-white">$4,820.00</p>
+</div>
+<div class="surface-container-high p-5 rounded-xl border border-white/5 glass-card">
+<span class="material-symbols-outlined text-primary-container mb-3" style="font-variation-settings: 'FILL' 1;">group</span>
+<p class="text-xs text-on-surface-variant mb-1">Active Members</p>
+<p class="font-headline font-bold text-lg text-white">6 People</p>
+</div>
+</div>
+</section>
+<!-- Timeline Header -->
+<div class="flex items-center justify-between mb-8">
+<h3 class="font-headline text-lg font-bold text-white">Expense Timeline</h3>
+<button class="text-xs font-medium text-on-surface-variant hover:text-white flex items-center gap-1 transition-colors">
+                Recent First <span class="material-symbols-outlined text-[14px]">expand_more</span>
+</button>
+</div>
+<!-- Expense Timeline -->
+<div class="space-y-6 relative">
+<!-- Continuous vertical line (minimalist) -->
+<div class="absolute left-6 top-0 bottom-0 w-[1px] bg-gradient-to-b from-white/10 via-white/5 to-transparent"></div>
+<!-- Expense Card 1 -->
+<div class="relative pl-14 group">
+<div class="absolute left-[21px] top-6 w-2.5 h-2.5 rounded-full bg-primary border-[3px] border-background z-10"></div>
+<div class="surface-container-high p-5 rounded-xl border border-white/5 glass-card group-hover:bg-surface-bright transition-all duration-300">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="font-headline font-bold text-white text-base mb-1">Airbnb - Barcelona</h4>
+<p class="text-xs text-on-surface-variant">Today • 2:45 PM</p>
+</div>
+<div class="text-right">
+<p class="font-headline font-bold text-white">$840.00</p>
+<span class="inline-block px-2 py-0.5 mt-1 bg-secondary-container rounded-full text-[10px] text-on-secondary-container uppercase tracking-wider font-medium">Travel</span>
+</div>
+</div>
+<div class="pt-4 border-t border-white/5 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center border border-white/10 overflow-hidden">
+<img alt="Member Avatar" class="w-full h-full object-cover" data-alt="smiling man with glasses and casual shirt in a brightly lit studio environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4pRcquxNG1QtVYhPNYhGw9pB1Kw8-2gREfuyIuBO38qWyzkRqGj_Hq-r8GsJeErmUe3IcnfxZCTRyHbg174AGWeU5-1bmFfTw547r3xAUZu5YWlX2cEqLeXQichRLRpjMsN7Sy1J5YePC0w8WY7cqbIE_0MWVNN-tac_9v_BkZgq3g3Pnh6rXvcW6v2rR9VAaltmO9LD61-uiGyVApBT_7-bYTGIpobUOc_gfGXTVMEYnsQnjwA7Fvg_fqZCumYlSDi9BsM7GLQ"/>
+</div>
+<p class="text-[11px]"><span class="text-on-surface-variant">Paid by</span> <span class="text-white font-medium">Marcus</span></p>
+</div>
+<div class="flex -space-x-2">
+<div class="w-6 h-6 rounded-full border-2 border-surface-container-high bg-neutral-700 flex items-center justify-center text-[10px] font-bold">+5</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Expense Card 2 -->
+<div class="relative pl-14 group">
+<div class="absolute left-[21px] top-6 w-2.5 h-2.5 rounded-full bg-neutral-700 border-[3px] border-background z-10"></div>
+<div class="surface-container-high p-5 rounded-xl border border-white/5 glass-card group-hover:bg-surface-bright transition-all duration-300">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="font-headline font-bold text-white text-base mb-1">Dinner at El Nacional</h4>
+<p class="text-xs text-on-surface-variant">Yesterday • 9:15 PM</p>
+</div>
+<div class="text-right">
+<p class="font-headline font-bold text-white">$156.40</p>
+<span class="inline-block px-2 py-0.5 mt-1 bg-secondary-container rounded-full text-[10px] text-on-secondary-container uppercase tracking-wider font-medium">Food</span>
+</div>
+</div>
+<div class="pt-4 border-t border-white/5 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center border border-white/10 overflow-hidden text-[10px]">
+<img alt="Member Avatar" class="w-full h-full object-cover" data-alt="portrait of a confident woman with professional attire against a blurred minimalist interior background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvhzoUcDKZpJtNpLGBNptDDqkkFTh27xlLm3pDmeRgpDw7UeZCxKHHLJOU32CLtgBF6GCdEuxmNUaQGayG5AU__r1_DBxre-DfLA2x1mTTOqO4U7O9zWtVxFcsynE6Ls4l_REAYKFnQCpiRQICUGpR2QzTUXwdhTPw5Vqn6ai8DQ3BRwopLB1RVRDpTXyDqixjpLzio3Z1BwKDfwGHHaE4gLuh7rdHfVT6jBxNo5tHePxuGpOVqdnv1k2j_dwqzWj7PFL1SCLX-g"/>
+</div>
+<p class="text-[11px]"><span class="text-on-surface-variant">Paid by</span> <span class="text-white font-medium">Sarah</span></p>
+</div>
+<p class="text-[11px]"><span class="text-on-surface-variant">Split with</span> <span class="text-white font-medium">You, Marcus</span></p>
+</div>
+</div>
+</div>
+<!-- Expense Card 3 -->
+<div class="relative pl-14 group">
+<div class="absolute left-[21px] top-6 w-2.5 h-2.5 rounded-full bg-neutral-700 border-[3px] border-background z-10"></div>
+<div class="surface-container-high p-5 rounded-xl border border-white/5 glass-card group-hover:bg-surface-bright transition-all duration-300">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="font-headline font-bold text-white text-base mb-1">Museum Tickets</h4>
+<p class="text-xs text-on-surface-variant">Aug 14 • 11:00 AM</p>
+</div>
+<div class="text-right">
+<p class="font-headline font-bold text-white">$45.00</p>
+<span class="inline-block px-2 py-0.5 mt-1 bg-secondary-container rounded-full text-[10px] text-on-secondary-container uppercase tracking-wider font-medium">Leisure</span>
+</div>
+</div>
+<div class="pt-4 border-t border-white/5 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center border border-white/10 overflow-hidden">
+<span class="material-symbols-outlined text-[14px]">person</span>
+</div>
+<p class="text-[11px]"><span class="text-on-surface-variant">Paid by</span> <span class="text-white font-medium">You</span></p>
+</div>
+<p class="text-[11px] text-white font-medium">Settled</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-28 right-6 w-14 h-14 bg-primary text-on-primary rounded-full shadow-[0_8px_32px_rgba(255,255,255,0.2)] flex items-center justify-center z-40 active:scale-90 transition-transform duration-150">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+<!-- Bottom Navigation Bar (Shared Component: BottomNavBar) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-4 bg-neutral-900/80 backdrop-blur-2xl bg-neutral-800/50 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] pb-safe">
+<a class="flex flex-col items-center justify-center text-neutral-500 hover:text-neutral-300 transition-colors" href="#">
+<span class="material-symbols-outlined mb-1">dashboard</span>
+<span class="font-inter text-[10px] font-medium tracking-wide uppercase">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white scale-110 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">group</span>
+<span class="font-inter text-[10px] font-medium tracking-wide uppercase">Groups</span>
+</a>
+<a class="flex flex-col items-center justify-center text-neutral-500 hover:text-neutral-300 transition-colors" href="#">
+<span class="material-symbols-outlined mb-1">receipt_long</span>
+<span class="font-inter text-[10px] font-medium tracking-wide uppercase">Activity</span>
+</a>
+<a class="flex flex-col items-center justify-center text-neutral-500 hover:text-neutral-300 transition-colors" href="#">
+<span class="material-symbols-outlined mb-1">person</span>
+<span class="font-inter text-[10px] font-medium tracking-wide uppercase">Profile</span>
+</a>
+</nav>
+</body></html>

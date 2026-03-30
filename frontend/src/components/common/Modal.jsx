@@ -24,7 +24,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
 
           {/* Modal content */}
           <motion.div
-            className={`relative w-full ${sizes[size]} bg-surface-container-lowest rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)] border border-outline-variant/10 z-10 overflow-hidden`}
+            className={`relative w-full ${sizes[size]} bg-neutral-900/90 backdrop-blur-3xl rounded-[2rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] border border-white/5 z-10 overflow-hidden`}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}

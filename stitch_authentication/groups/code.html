@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "secondary-fixed-dim": "#ababab",
+              "on-tertiary-container": "#000000",
+              "on-primary-container": "#000000",
+              "primary-fixed-dim": "#454747",
+              "tertiary-fixed-dim": "#474746",
+              "on-secondary-fixed-variant": "#3a3c3c",
+              "primary-fixed": "#5d5f5f",
+              "surface-tint": "#c6c6c7",
+              "background": "#131313",
+              "outline-variant": "#474747",
+              "secondary-fixed": "#c7c6c6",
+              "surface-container-highest": "#353534",
+              "on-primary-fixed": "#ffffff",
+              "on-background": "#e5e2e1",
+              "tertiary-container": "#929090",
+              "tertiary": "#e5e2e1",
+              "surface-container-high": "#2a2a2a",
+              "primary-container": "#d4d4d4",
+              "on-surface": "#e5e2e1",
+              "on-error": "#690005",
+              "primary": "#ffffff",
+              "inverse-on-surface": "#313030",
+              "on-tertiary-fixed-variant": "#e5e2e1",
+              "surface-variant": "#353534",
+              "surface-dim": "#131313",
+              "inverse-surface": "#e5e2e1",
+              "on-tertiary": "#1c1b1b",
+              "on-error-container": "#ffdad6",
+              "on-primary": "#1a1c1c",
+              "on-secondary-container": "#e3e2e2",
+              "surface-bright": "#3a3939",
+              "secondary": "#c7c6c6",
+              "on-primary-fixed-variant": "#e2e2e2",
+              "on-tertiary-fixed": "#ffffff",
+              "surface-container": "#201f1f",
+              "surface-container-lowest": "#0e0e0e",
+              "secondary-container": "#464747",
+              "inverse-primary": "#5d5f5f",
+              "on-secondary": "#1a1c1c",
+              "surface": "#131313",
+              "surface-container-low": "#1c1b1b",
+              "on-secondary-fixed": "#1a1c1c",
+              "on-surface-variant": "#c6c6c6",
+              "outline": "#919191",
+              "tertiary-fixed": "#5f5e5e",
+              "error": "#ffb4ab",
+              "error-container": "#93000a"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {
+              "DEFAULT": "0.25rem",
+              "lg": "0.5rem",
+              "xl": "0.75rem",
+              "2xl": "1.5rem",
+              "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style>.material-symbols-outlined {
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr
+    }
+.glass-card {
+    background: rgba(42, 42, 42, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px)
+    }
+.noise-bg {
+    background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuD5IHSku4SF4Asg8nGT1xr2YuTKRRyjWu835sNLC3KC4qIhQOl_UEEfyuGh3zsnA91TimSqB_3ydoOzYOH3hehmK7qh04BNVc_c-GyrwwVKjrrWWsMmPVlciOncJL42_tnA6bKHgXiNUEUOCOekdf8ozwPEy2tvKi9zcEA2wKy3KIytdcuBdLore3t1JXIh5nWK1Y4OgYGkgB6w4VQgjMpVHJp9kqciyYu-MvAYBBX-d8QZzpCo-fMCAk7zM9tGQ1XHs5vfm4XhzA);
+    opacity: 0.02;
+    pointer-events: none
+    }</style>
+</head>
+<body class="bg-background text-on-background font-body selection:bg-primary selection:text-on-primary min-h-screen">
+<div class="fixed inset-0 noise-bg z-[1]"></div>
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-neutral-900/60 backdrop-blur-xl bg-gradient-to-b from-white/5 to-transparent">
+<div class="font-headline font-extrabold text-xl tracking-tighter text-white">PayMatrix</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined text-white" data-icon="search">search</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container-high border border-outline-variant/20">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="Close up portrait of a young professional man with short dark hair and a neutral expression in studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAclX8dXsjVgq666sHJWfhqJk3H40U0tCiNitL4opR2ZXHA09r9xNLo-8LlCrCXfI2G-XGwxY-HV2oI_nrefVEbrnnoL9vaILgn3C_2I08WAsHNar0BcTWw9kr-PrWhG8hWXqKafwTKfci__4w5IZvPDVUMbOJn2AuCtn0_B7aVGqZT4xvKyV0cBbHqHROEU2zaj4jmbjVJp988P4Q5InuA31uk7xnj9We1C8PY71o7ZptUVVSH5x2Ht0CpCC8yrQoPVCGohtMPLA"/>
+</div>
+</div>
+</header>
+<main class="relative z-10 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+<!-- Section Header -->
+<div class="mb-10">
+<h1 class="font-headline text-3xl font-bold text-white mb-2">Groups</h1>
+<p class="text-on-surface-variant text-sm tracking-wide">Manage shared expenses and collective balances</p>
+</div>
+<!-- Groups List -->
+<div class="flex flex-col gap-6">
+<!-- Group Card 1 -->
+<div class="glass-card rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:bg-neutral-800/50 group cursor-pointer border border-white/5">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="font-headline text-xl font-bold text-white mb-1">Ski Trip 2024</h3>
+<span class="text-on-surface-variant text-[10px] font-medium tracking-widest uppercase">Travel • 8 Members</span>
+</div>
+<div class="text-right">
+<p class="text-on-surface-variant text-[10px] font-medium tracking-widest uppercase mb-1">Your Balance</p>
+<p class="font-headline text-xl font-bold text-white">+$420.50</p>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex -space-x-3">
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-low overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="portrait of a smiling woman with long brown hair in soft natural light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfpw50wcNGEvs1N2omImXoKTuFM3UIG4HK977sKmxKjSU-LNotz4lYPF1KnWjQ17lnAfk-IfFIvt5B2D0u8eqjFWoGTDTYD8DR7zdu83nQraZnAmDljaR0XJ6Xuyy-Sl51y4ZmZ5sQBSzBGFtrGzenzE4Cms_n_LfdbZraIZ95tWsV5aZSfl7ivbSjMYkEK2sPFRxM1o8ExA-jCxbd76g2iuSCPm3OVbOq3XWO2cv6J6ptH8ons3fS8ou-FFvBvbQmeIEuuhcSpw"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-low overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="headshot of a man with light beard and short hair against a grey background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDEF9m_ve3OnRdDV3S1TNagTJAJcvQs5P43W_tbDKuLaFmgdzjA-ub34uhYbbTi-ocGz8E_YNPQpZfMgBH7rY0mU2QlXHfwAObpz5r8TnsWeOtRa9bMquKXYJVWcHbNNElIKFIeVlleq_C-gV2YLWT-HdbjtsDy2WTmKYK4waYsw34vQmSv-ysbG4WhrT9HoFyiYxSsZLe0oWpxzX9kWzn0pRiM9NLywxUaFwO9BeG5s13MJXQoSzo0LjbTcDDHkU0-VLGpZA8G0Q"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-low overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="businesswoman in professional attire smiling warmly" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhoyBbEszR1s0YT5Q7q6gY5sRaOEH1PkFuh1t-nnWnRrpa9Jx8glMocCifslhxLbt2zOWY5mJjXJKS6EIMtdQWMLDjKPND0j2A6zGWOCKTWkA_-T6KXsGaxJJGsMrGQ_s9ggmVOr1BzItuQYv0ABB5wiSrq0_ohh1BSGqEuRuqLS5RAMljwFaALNCR5DHGIjGmZNlEcfsom0obxPNh87KQK4N-AGtC4PcuVN0WieY4g3KQvw1bezGWWJSeBN-vdHap8NVXOtE5AQ"/>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border-2 border-surface-container-low flex items-center justify-center">
+<span class="text-[10px] font-bold text-white">+5</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-white transition-colors" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<!-- Group Card 2 -->
+<div class="glass-card rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:bg-neutral-800/50 group cursor-pointer border border-white/5">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="font-headline text-xl font-bold text-white mb-1">Apartment 4B</h3>
+<span class="text-on-surface-variant text-[10px] font-medium tracking-widest uppercase">Household • 3 Members</span>
+</div>
+<div class="text-right">
+<p class="text-on-surface-variant text-[10px] font-medium tracking-widest uppercase mb-1">Your Balance</p>
+<p class="font-headline text-xl font-bold text-error">-$12.00</p>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex -space-x-3">
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-low overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="close up profile of a man with sunglasses and cinematic street lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJFhP8gDj5Lrmje40MCyE9u0zxa1M9zN5PUOKocID5_E8R3Cn06Ao09Im17lDZXdgXTU7PBApHBeVqVY09yJpcDVlVIbkeWo2J73LnpNVMAHi0ayoucFtfs9UwsnPms75c_elpuigjMbP_5hF81jpF4Hof077h4aH1XJVKbNiyofen7prS8nDDr5As8u_yCYo2YeSHlUfdVq_Bahm0mbWuDJVhdRNYCYy77MlcLgIs_IXxTG-dkIvX3h2hgyTASfggvNcPpymJlg"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-low overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="soft portrait of a woman with red hair looking thoughtfully off camera" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzwNjt2YtE2mMpiaU7nvLBCVJjWnPGCfskCiRoey5uVm4vA511CYv2bEKMB5YweVtsorInP1dIMwhXfTJCDoEb2wX1FJEW3BU9vPIyMrHd49nZjRCLlPSUKbBErzpR2sOfWAT0hu0eovq55V9C7sOBhgohqdGjcpx20mo2GRHvAe5qMzGjhhtc62tV1BOtqxYRDHlessYQ_KyYW9LlXAqC7H5FSkqXFDqRSSF7MRv32DtJWi8Ww7OKblQ4P2qryfMEDrvIOjgxXw"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-low overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="friendly man with glasses and casual sweater in bright indoor setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpmnaJ6_vdiA60SZ_PO85Rp8p32zAV214rY2CZnrILwHPnrJttzqchd8hUF673GGnCUeVpPgA26HMHYoSnXKok7NFUPsIjCoRU-aVx7nlmXQow-3eGzeIGqmdouXEClpCaV0UT2D86Z5sCPLxFPsyONFqZKuITnEKgwW_CWGuznEa6ySq2azuhFDVxNS-SKtLXvEh_Zuwdpxpw6R4DDaUlMG1lObJV6NQJX5fSqk7KCSD9KF-3aARN4rsUQ8YKkyNbztldNY3RCg"/>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-white transition-colors" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<!-- Group Card 3 -->
+<div class="glass-card rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:bg-neutral-800/50 group cursor-pointer border border-white/5">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="font-headline text-xl font-bold text-white mb-1">Weekly Football</h3>
+<span class="text-on-surface-variant text-[10px] font-medium tracking-widest uppercase">Sports • 12 Members</span>
+</div>
+<div class="text-right">
+<p class="text-on-surface-variant text-[10px] font-medium tracking-widest uppercase mb-1">Your Balance</p>
+<p class="font-headline text-xl font-bold text-white">$0.00</p>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex -space-x-3">
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-low overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="professional man in a suit with a modern architectural background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBnOlpO18Qr_uw65BC11Wpy7PjuSVDUxh2KftybGixUwv72L2STixzfjQttkmqdvbwv2GxPpX3pOdBkJTV4cZN5xww0MulkAfR-oHqa6e0ekhqIxdyNFntO8BTI8dY_MEZwm6npXhwlssfusLjcZ5LQPWkyLq4uRn3as20v9gOo3Jts9BfkcjaVim9IpIQfUFIhhCapke5jaLZVLxL8HxGd3mZxCvf9naXyKltED0YibCZCKDVOMNayRu3oVJjbwEUGxMd53LLzpg"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-low overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="woman with headphones and stylish outfit in urban setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbpI5CBKFg5MySboMqKQrPLMjjVgJoYTmGdgxcchZgCpFx3DfRhaxs-t1EKYS6y_tcqZF--gEIAItwQzabqL_WbGI3IUvskkTCO-zX1e3R6UjIwjo4lCFk99BpZ8zNgYtcrI0heHz0xVdILOYs377AxaFyH0S2IwL4HA1fYW9quh6UZ0McP-qgnNm6zfPVVQiDNTPXylZis8C_Nxh_6MDrbBJCiwzHWZqx4dAmVrMSwAzmC1BYAtAFuazxp76cXt3W5s6WRlS_cg"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-low overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="confident man leaning against a wall in bright natural light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVoNSI9ATA8dyiUG4buxpwu24eSnG8GcBifhHLLikljVLo7RIF4gWPzxAuduYk4lJHFWgM7XUXXc32sKuZbBd8OZwmItw8tQODXCEFqkgTOdmWfgdShUmmZl-ONFhUB-2ZVaJZ027uMtwLsvfhPYFwmkxMwWnCjHH2oX_e7euW0s1H1AKG1XzwjASlQ-YmLAwyjuBvhkeOg_1znWWxYPeR-sGQtQG8n9eyhsExkkd2cRV85tOXgIEkXQ_9ilU507y7_OYpSYD3qw"/>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border-2 border-surface-container-low flex items-center justify-center">
+<span class="text-[10px] font-bold text-white">+9</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-white transition-colors" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+</div>
+<!-- Add Group Floating Button (Contextual) -->
+<div class="fixed bottom-28 right-6 z-40">
+<button class="h-14 w-14 rounded-full bg-primary text-on-primary shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="group_add">group_add</span>
+</button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-4 bg-neutral-900/80 backdrop-blur-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.5)] bg-neutral-800/50">
+<a class="flex flex-col items-center justify-center text-neutral-500 hover:text-neutral-300 transition-colors" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="dashboard">dashboard</span>
+<span class="font-inter text-[10px] font-medium tracking-wide uppercase">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white scale-110 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="group" style="font-variation-settings: 'FILL' 1;">group</span>
+<span class="font-inter text-[10px] font-medium tracking-wide uppercase">Groups</span>
+</a>
+<a class="flex flex-col items-center justify-center text-neutral-500 hover:text-neutral-300 transition-colors" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="receipt_long">receipt_long</span>
+<span class="font-inter text-[10px] font-medium tracking-wide uppercase">Activity</span>
+</a>
+<a class="flex flex-col items-center justify-center text-neutral-500 hover:text-neutral-300 transition-colors" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="person">person</span>
+<span class="font-inter text-[10px] font-medium tracking-wide uppercase">Profile</span>
+</a>
+</nav>
+<!-- Ambient Glow Background Decoration -->
+<div class="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none"></div>
+<div class="fixed bottom-[10%] right-[-5%] w-[30%] h-[30%] bg-surface-container-highest/20 blur-[100px] rounded-full pointer-events-none"></div>
+</body></html>

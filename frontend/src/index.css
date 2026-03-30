@@ -54,12 +54,21 @@
 }
 
 @layer components {
-  /* Glass Card */
+  /* Glass Card - Refined for Digital Obsidian */
   .glass-card {
-    background: rgba(53, 53, 52, 0.4);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-radius: 16px;
+    background: rgba(42, 42, 42, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 1.5rem; /* xl/2xl consistent with system */
+  }
+
+  /* Glass Panel - For Modals and Drawers */
+  .glass-panel {
+    background: rgba(28, 27, 27, 0.7);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   /* Glass Pill Navigation */
@@ -82,9 +91,10 @@
     background: linear-gradient(135deg, #ffffff 0%, #d4d4d4 100%);
     color: #1a1c1c;
     font-weight: 600;
-    border-radius: 8px;
-    padding: 12px 24px;
+    border-radius: 9999px;
+    padding: 14px 32px;
     transition: all 0.2s ease;
+    letter-spacing: -0.01em;
   }
 
   .btn-primary:hover {
@@ -116,8 +126,8 @@
     background: transparent;
     color: #c6c6c6;
     font-weight: 500;
-    border-radius: 8px;
-    padding: 12px 24px;
+    border-radius: 9999px;
+    padding: 14px 32px;
     transition: all 0.2s ease;
   }
 
@@ -128,18 +138,16 @@
 
   /* Social Auth Button */
   .btn-outline {
-    background: transparent;
-    border: 1px solid #474747;
+    background: rgba(255, 255, 255, 0.04);
     color: #ffffff;
     font-weight: 500;
-    border-radius: 8px;
-    padding: 12px 24px;
+    border-radius: 9999px;
+    padding: 14px 32px;
     transition: all 0.2s ease;
   }
 
   .btn-outline:hover {
-    background: rgba(255, 255, 255, 0.03);
-    border-color: #919191;
+    background: rgba(255, 255, 255, 0.08);
   }
 
   /* Input Field */
@@ -210,5 +218,14 @@
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
     pointer-events: none;
     border-radius: inherit;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

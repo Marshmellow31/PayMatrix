@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PayMatrix - Add Expense</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "secondary-fixed-dim": "#ababab",
+                        "on-tertiary-container": "#000000",
+                        "on-primary-container": "#000000",
+                        "primary-fixed-dim": "#454747",
+                        "tertiary-fixed-dim": "#474746",
+                        "on-secondary-fixed-variant": "#3a3c3c",
+                        "primary-fixed": "#5d5f5f",
+                        "surface-tint": "#c6c6c7",
+                        "background": "#131313",
+                        "outline-variant": "#474747",
+                        "secondary-fixed": "#c7c6c6",
+                        "surface-container-highest": "#353534",
+                        "on-primary-fixed": "#ffffff",
+                        "on-background": "#e5e2e1",
+                        "tertiary-container": "#929090",
+                        "tertiary": "#e5e2e1",
+                        "surface-container-high": "#2a2a2a",
+                        "primary-container": "#d4d4d4",
+                        "on-surface": "#e5e2e1",
+                        "on-error": "#690005",
+                        "primary": "#ffffff",
+                        "inverse-on-surface": "#313030",
+                        "on-tertiary-fixed-variant": "#e5e2e1",
+                        "surface-variant": "#353534",
+                        "surface-dim": "#131313",
+                        "inverse-surface": "#e5e2e1",
+                        "on-tertiary": "#1c1b1b",
+                        "on-error-container": "#ffdad6",
+                        "on-primary": "#1a1c1c",
+                        "on-secondary-container": "#e3e2e2",
+                        "surface-bright": "#3a3939",
+                        "secondary": "#c7c6c6",
+                        "on-primary-fixed-variant": "#e2e2e2",
+                        "on-tertiary-fixed": "#ffffff",
+                        "surface-container": "#201f1f",
+                        "surface-container-lowest": "#0e0e0e",
+                        "secondary-container": "#464747",
+                        "inverse-primary": "#5d5f5f",
+                        "on-secondary": "#1a1c1c",
+                        "surface": "#131313",
+                        "surface-container-low": "#1c1b1b",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-surface-variant": "#c6c6c6",
+                        "outline": "#919191",
+                        "tertiary-fixed": "#5f5e5e",
+                        "error": "#ffb4ab",
+                        "error-container": "#93000a"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(28, 27, 27, 0.7);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #474747;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-background font-body text-on-background selection:bg-primary selection:text-on-primary">
+<!-- Top App Bar (Shared Component Strategy) -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-neutral-900/60 backdrop-blur-xl bg-gradient-to-b from-white/5 to-transparent">
+<div class="flex items-center gap-4">
+<button class="hover:opacity-80 transition-opacity p-2">
+<span class="material-symbols-outlined text-white">close</span>
+</button>
+<span class="font-manrope font-extrabold text-xl tracking-tighter text-white">PayMatrix</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="font-manrope font-bold text-lg text-white">Add Expense</span>
+<img alt="User profile avatar" class="w-8 h-8 rounded-full border border-outline-variant/30" data-alt="Professional headshot of a person with clean studio lighting and neutral background for profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5gn282gTZU0PLF0wH4X13PQd5ihNFbUhJxCLFP-o6sDFjJsl4sIeLiZYdH5AQFujswWR2hJidYynMMgE6MQMrFInjb6ZHIoc7DD2VZa_5P58PPmjFf8nUAlpEf5df9zb3-KAT6j7M2vXc4ZQLwNs0vMJ2ed6KFi_MNWbac3S-YK6dMpDGsdMNubVMXjMw057gw0Wxh5W2xYDK-eza0v1BYAl__DkynFc6C_hbQMIm3aFgEgGS41J4WJHmdOaTVUMzh-NxvjoIUw"/>
+</div>
+</header>
+<!-- Main Content Canvas (Focused Journey) -->
+<main class="min-h-screen pt-20 pb-10 px-4 md:px-0 flex flex-col items-center justify-start relative overflow-hidden">
+<!-- Ambient Decorative Background -->
+<div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-[120px] pointer-events-none"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-tertiary/5 blur-[100px] pointer-events-none"></div>
+<!-- Add Expense Glass Modal -->
+<div class="w-full max-w-lg glass-panel rounded-[2rem] p-6 md:p-8 shadow-2xl border border-outline-variant/20 relative z-10">
+<!-- Amount Input Section -->
+<div class="text-center mb-8">
+<p class="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-2">Total Amount</p>
+<div class="flex items-center justify-center gap-1">
+<span class="font-headline text-4xl font-bold text-on-surface-variant opacity-50">$</span>
+<input class="bg-transparent border-none text-center font-headline text-6xl font-bold text-white focus:ring-0 placeholder:text-surface-container-highest w-full max-w-[280px]" placeholder="0.00" type="text"/>
+</div>
+</div>
+<!-- Description & Category -->
+<div class="grid grid-cols-1 gap-4 mb-8">
+<div class="relative">
+<div class="absolute left-4 top-1/2 -translate-y-1/2">
+<span class="material-symbols-outlined text-on-surface-variant">description</span>
+</div>
+<input class="w-full bg-surface-container-low border-none rounded-xl py-4 pl-12 pr-4 text-on-surface focus:bg-surface-container-high transition-colors placeholder:text-on-surface-variant/40" placeholder="What was it for?" type="text"/>
+</div>
+<div class="flex gap-2 overflow-x-auto custom-scrollbar pb-2">
+<button class="flex-shrink-0 px-4 py-2 rounded-full bg-surface-container-high border border-outline-variant/20 text-sm font-medium flex items-center gap-2 hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined text-sm">restaurant</span>
+<span>Food</span>
+</button>
+<button class="flex-shrink-0 px-4 py-2 rounded-full bg-surface-container-high border border-outline-variant/20 text-sm font-medium flex items-center gap-2 hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined text-sm">directions_car</span>
+<span>Transport</span>
+</button>
+<button class="flex-shrink-0 px-4 py-2 rounded-full bg-surface-container-high border border-outline-variant/20 text-sm font-medium flex items-center gap-2 hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined text-sm">shopping_bag</span>
+<span>Shopping</span>
+</button>
+<button class="flex-shrink-0 px-4 py-2 rounded-full bg-surface-container-high border border-outline-variant/20 text-sm font-medium flex items-center gap-2 hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined text-sm">more_horiz</span>
+</button>
+</div>
+</div>
+<!-- Split Selector -->
+<div class="mb-8">
+<div class="flex items-center justify-between mb-4 px-1">
+<h3 class="font-headline text-lg font-bold text-white">Split with</h3>
+<button class="text-xs font-label uppercase tracking-wider text-primary hover:opacity-80 transition-opacity">Select All</button>
+</div>
+<div class="flex gap-4 overflow-x-auto custom-scrollbar pb-4">
+<!-- Person 1 -->
+<div class="flex flex-col items-center gap-2 group cursor-pointer">
+<div class="relative">
+<img alt="Person 1" class="w-14 h-14 rounded-full border-2 border-primary object-cover p-0.5" data-alt="Close up of smiling young woman with natural light for user profile bubble" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAt1FKi6K7aO1mG3h1SZ1BtfqKGBokjmFHPTQYvFPSM6XHQnSt_4yj9rZdY4Gq6frSUqjMBhVpVjh5xdRBHQvsCsc9ZZLDpT-wLS2idIRECwPrPT84i-vKFgL4NsMLODpmBYMA_gOZsLFbIfjWosej2fjQkfFddfkZ174cIiw_BxTxupjyOpqz2_ZCqBu3_DG8QM57eHKT1kP3P6Hp4J53AQSL4MVRHsKo8ix55u3L971w9gJ8R6dHgXhZaqbqrgd8kyzTlJbz_hw"/>
+<div class="absolute -bottom-1 -right-1 bg-primary text-on-primary rounded-full p-0.5 border-2 border-surface">
+<span class="material-symbols-outlined text-[12px] block" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+</div>
+<span class="text-[10px] font-medium text-white">You</span>
+</div>
+<!-- Person 2 -->
+<div class="flex flex-col items-center gap-2 group cursor-pointer">
+<div class="relative">
+<img alt="Person 2" class="w-14 h-14 rounded-full border-2 border-transparent hover:border-outline-variant/50 object-cover transition-all" data-alt="Portrait of a friendly man with beard and clean lighting for user profile bubble" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA21DDVrH8XORky_l7wB8xIojvhsRCueWIUnKznEqr-nAipgrv_zW0SGkKBSh3bBe_qB-b4EzqIHDSnwVQZ8ztlSg0B7CRXsqo0a2itgrd7CSrBIR7-XLjq83rLmUJocx7fF_pUzowS3KFvtMtEsL5kKgbrL9P1adI1aCq9xXg5SBD7dwaLvh7WfiUEPoSo5_01tKMGeO1vV4j7gS__PhRMBPIhcyd2rdJoBRAjTHNcgbeF_HFvX2SxGYhlo4B1VOZTWNenw8poDA"/>
+</div>
+<span class="text-[10px] font-medium text-on-surface-variant">David</span>
+</div>
+<!-- Person 3 -->
+<div class="flex flex-col items-center gap-2 group cursor-pointer">
+<div class="relative">
+<img alt="Person 3" class="w-14 h-14 rounded-full border-2 border-transparent hover:border-outline-variant/50 object-cover transition-all" data-alt="Fashionable young woman with city bokeh background for user profile bubble" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAU_Lkmqe1FKMSHiGhKl-fGyPGMAeN2nxN1YPABOEM3Nqme7Uz0kzW_hSdry_gNm3cBXb6_9xe-zaEwZQmvYD1WYNvzKR1TmwxW491Q9FJWL7DVmCQCqN0FLec7-HdyTedT65n383hXWa9hcn8pY4USl0Tr1vUATsnM0mBMQAltehv4FEP73KtBnB3zmVfiCE8dIWXptdMq0GLCxqalGYfhAW9lAuBsDLMQ145ztYkIxhQ6iHn9RGA_0j9axfjiekYarM_Fnp-FA"/>
+</div>
+<span class="text-[10px] font-medium text-on-surface-variant">Sarah</span>
+</div>
+<!-- Person 4 -->
+<div class="flex flex-col items-center gap-2 group cursor-pointer">
+<div class="relative">
+<img alt="Person 4" class="w-14 h-14 rounded-full border-2 border-transparent hover:border-outline-variant/50 object-cover transition-all" data-alt="Smiling man in professional attire with soft focus background for user profile bubble" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBoyMaQn-YxlZYVhUmSRWXNQDmvE3Flp4xovKdP02L9OaO183XOjh2gCihK3TjnoyxQpQTVbWdqm8jLphD1jL5iHStJTG9rge2gINIRhGw6yVifTCivLd-E_OKdFXNY5mFPigH1TF6EWTR94Uvdcj-V0IR7ai5CRxVh61cDTKnz9qStGsZhfjL4xIDcHKX2jv6okAQg_QQ_68WZt1MHLUj7FlraqQ5wq0x_opcuUp69TjzcJYqrmewmArtpNSp3qT4343qFdHjeZg"/>
+</div>
+<span class="text-[10px] font-medium text-on-surface-variant">Mike</span>
+</div>
+<!-- Add New -->
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-14 h-14 rounded-full border-2 border-dashed border-outline-variant flex items-center justify-center hover:bg-surface-container-high transition-all">
+<span class="material-symbols-outlined text-outline">person_add</span>
+</div>
+<span class="text-[10px] font-medium text-on-surface-variant">Add</span>
+</button>
+</div>
+</div>
+<!-- Split Method Toggle -->
+<div class="mb-10 bg-surface-container-lowest/50 rounded-2xl p-1 flex">
+<button class="flex-1 py-3 text-sm font-bold bg-primary text-on-primary rounded-xl transition-all shadow-lg shadow-white/5">
+                    Equal
+                </button>
+<button class="flex-1 py-3 text-sm font-medium text-on-surface-variant hover:text-white transition-all">
+                    Exact
+                </button>
+<button class="flex-1 py-3 text-sm font-medium text-on-surface-variant hover:text-white transition-all">
+                    %
+                </button>
+</div>
+<!-- Action Buttons -->
+<div class="space-y-4">
+<button class="w-full bg-primary text-on-primary py-5 rounded-2xl font-headline font-bold text-lg hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
+                    Create Expense
+                </button>
+<div class="flex items-center justify-center gap-6">
+<button class="flex items-center gap-2 text-on-surface-variant hover:text-white transition-colors">
+<span class="material-symbols-outlined text-lg">calendar_today</span>
+<span class="text-xs font-medium">Today</span>
+</button>
+<button class="flex items-center gap-2 text-on-surface-variant hover:text-white transition-colors">
+<span class="material-symbols-outlined text-lg">group</span>
+<span class="text-xs font-medium">Vacation Group</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Visual Context: Underlying Content (Simulated) -->
+<div class="w-full max-w-4xl mt-12 px-6 opacity-30 pointer-events-none filter blur-[2px]">
+<h4 class="font-headline text-2xl font-bold mb-6">Recent Activity</h4>
+<div class="space-y-6">
+<div class="flex items-center justify-between p-6 rounded-2xl bg-surface-container-high">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-white">restaurant</span>
+</div>
+<div>
+<p class="font-bold">Team Lunch</p>
+<p class="text-xs text-on-surface-variant">Oct 24 • Paid by You</p>
+</div>
+</div>
+<p class="font-bold text-xl">$142.50</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Navigation Shell Suppression:
+         This is a task-focused screen (Add Expense). 
+         As per the "Destination Rule", the BottomNavBar is excluded 
+         to focus the user journey on the transaction. -->
+</body></html>

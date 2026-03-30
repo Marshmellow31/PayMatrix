@@ -14,7 +14,7 @@ const Header = ({ onToggleSidebar }) => {
         <div className="flex items-center gap-3">
           <button
             onClick={onToggleSidebar}
-            className="lg:hidden p-2 rounded-md hover:bg-surface-container transition-colors text-on-surface-variant"
+            className="hidden p-2 rounded-md hover:bg-surface-container transition-colors text-on-surface-variant"
             aria-label="Toggle menu"
           >
             <Menu size={22} />

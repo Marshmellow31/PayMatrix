@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { motion } from 'framer-motion';
 import { fetchGroup } from '../redux/groupSlice.js';
 import { fetchExpenses, deleteExpense } from '../redux/expenseSlice.js';
 import MemberList from '../components/group/MemberList.jsx';

@@ -34,9 +34,6 @@ const BottomNav = () => {
                 ) : (
                   <item.icon size={22} strokeWidth={1.5} />
                 )}
-                <span className={`text-[8px] font-bold uppercase tracking-tighter mt-1 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0'}`}>
-                  {item.label}
-                </span>
               </div>
             )}
           </NavLink>

@@ -4,7 +4,7 @@ import useAuth from '../hooks/useAuth.js';
 import Avatar from '../components/common/Avatar.jsx';
 import Button from '../components/common/Button.jsx';
 import Input from '../components/common/Input.jsx';
-import { HiLogout } from 'react-icons/hi';
+import { LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Profile = () => {
@@ -20,24 +20,24 @@ const Profile = () => {
 
   return (
     <div className="max-w-2xl mx-auto animate-fade-in pb-24">
-      <div className="mb-12 text-center md:text-left">
-        <h1 className="text-4xl lg:text-5xl font-bold font-manrope text-primary tracking-[-0.01em]">Settings & Profile</h1>
-        <p className="text-lg text-on-surface-variant mt-2 font-inter">Manage your account preferences and network identity.</p>
+      <div className="mb-10 text-center md:text-left">
+        <h1 className="text-3xl lg:text-4xl font-bold font-manrope text-primary tracking-[-0.02em]">Settings & Profile</h1>
+        <p className="text-base text-on-surface-variant mt-2 font-inter opacity-70">Manage your account preferences and network identity.</p>
       </div>
 
-      <div className="submerged p-8 lg:p-12 text-center mb-10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
-        <Avatar name={user?.name} src={user?.avatar} size="xl" className="mx-auto mb-6 w-24 h-24 text-3xl" />
+      <div className="submerged p-6 lg:p-10 text-center mb-8 shadow-sm">
+        <Avatar name={user?.name} src={user?.avatar} size="lg" className="mx-auto mb-4 w-18 h-18 text-2xl" />
         {editing ? (
-          <div className="flex flex-col sm:flex-row gap-4 mb-6 max-w-sm mx-auto">
+          <div className="flex flex-col sm:flex-row gap-4 mb-4 max-w-sm mx-auto">
             <Input value={name} onChange={(e) => setName(e.target.value)} id="profile-name" className="flex-1" />
-            <Button onClick={handleSave} className="h-[52px] px-8">Save</Button>
+            <Button onClick={handleSave} className="h-11 px-6">Save</Button>
           </div>
         ) : (
-          <h2 className="text-3xl font-bold font-manrope text-primary mb-2 tracking-tight">{user?.name}</h2>
+          <h2 className="text-2xl font-bold font-manrope text-primary mb-1 tracking-tight">{user?.name}</h2>
         )}
-        <p className="text-base text-on-surface-variant font-inter mb-6">{user?.email}</p>
+        <p className="text-sm text-on-surface-variant font-inter mb-4">{user?.email}</p>
         {!editing && (
-          <Button variant="ghost" className="mt-2 h-12 px-6 rounded-full" onClick={() => setEditing(true)}>
+          <Button variant="ghost" className="mt-1 h-10 px-5 rounded-full text-xs" onClick={() => setEditing(true)}>
             Edit Identity
           </Button>
         )}
@@ -55,8 +55,8 @@ const Profile = () => {
         </div>
       </div>
 
-      <Button variant="danger" className="w-full h-14 text-base font-bold shadow-lg shadow-error/20 transition-all hover:shadow-error/40" onClick={logout}>
-        <HiLogout size={22} className="mr-2" /> Terminate Session
+      <Button variant="danger" className="w-full h-12 text-sm font-bold shadow-sm transition-all" onClick={logout}>
+        <LogOut size={18} className="mr-2" /> Terminate Session
       </Button>
     </div>
   );

@@ -237,3 +237,52 @@ export const deleteExpense = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Get financial summary (Owe/Owed/Categories)
+ * @route   GET /api/v1/expenses/summary
+ * @access  Private
+ */
+export const getFinancialSummary = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+
+    // Aggregate You Are Owed (Others owe you)
+    const owedToMe = await Expense.aggregate([
+      { $match: { paidBy: userId } },
+      { $unwind: '$splits' },
+      { $match: { 'splits.user': { $ne: userId } } },
+      { $group: { _id: null, total: { $sum: '$splits.amount' } } },
+    ]);
+
+    // Aggregate You Owe (You owe others)
+    const iOwe = await Expense.aggregate([
+      { $match: { paidBy: { $ne: userId }, 'splits.user': userId } },
+      { $unwind: '$splits' },
+      { $match: { 'splits.user': userId } },
+      { $group: { _id: null, total: { $sum: '$splits.amount' } } },
+    ]);
+
+    // Category Breakdown (Overall spending)
+    const categories = await Expense.aggregate([
+      { $match: { 'splits.user': userId } },
+      { $unwind: '$splits' },
+      { $match: { 'splits.user': userId } },
+      { $group: { _id: '$category', amount: { $sum: '$splits.amount' } } },
+      { $sort: { amount: -1 } },
+    ]);
+
+    const totalOwed = owedToMe[0]?.total || 0;
+    const totalOwe = iOwe[0]?.total || 0;
+    const netBalance = totalOwed - totalOwe;
+
+    sendSuccess(res, 200, 'Financial summary retrieved', {
+      totalOwed,
+      totalOwe,
+      netBalance,
+      categories,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

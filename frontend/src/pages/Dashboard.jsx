@@ -1,148 +1,207 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Plus, Users, IndianRupee } from 'lucide-react';
+import { Plus, Users, ArrowUpRight, ArrowDownLeft, PieChart, ChevronRight, Filter } from 'lucide-react';
 import { fetchGroups } from '../redux/groupSlice.js';
 import { fetchNotifications } from '../redux/notificationSlice.js';
+import expenseService from '../services/expenseService.js';
 import Loader from '../components/common/Loader.jsx';
-import GroupCard from '../components/group/GroupCard.jsx';
 
 const Dashboard = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { groups, loading } = useSelector((state) => state.groups);
+  const { groups, loading: groupsLoading } = useSelector((state) => state.groups);
   const { notifications } = useSelector((state) => state.notifications);
+  const [summary, setSummary] = useState(null);
+  const [loadingSummary, setLoadingSummary] = useState(true);
 
   useEffect(() => {
     dispatch(fetchGroups());
     dispatch(fetchNotifications());
+    
+    const getSummary = async () => {
+      try {
+        const res = await expenseService.getSummary();
+        setSummary(res.data.data);
+      } catch (err) {
+        console.error('Failed to fetch summary:', err);
+      } finally {
+        setLoadingSummary(false);
+      }
+    };
+    getSummary();
   }, [dispatch]);
 
   const recentActivity = notifications.slice(0, 5);
+  const topGroups = groups.slice(0, 3);
+
+  if (groupsLoading && loadingSummary) return <Loader />;
 
   return (
-    <div className="max-w-6xl mx-auto animate-fade-in pb-24">
-      {/* Welcome Header */}
-      <div className="mb-12 relative rounded-3xl p-8 lg:p-14 overflow-hidden bg-surface-container-lowest border-none noise">
-        <div className="relative z-10 max-w-2xl">
-          <h1 className="text-5xl lg:text-7xl font-bold font-manrope text-primary mb-6 tracking-[-0.03em] leading-[1.1] flex items-center gap-3">
-             Welcome back,<br />{user?.name?.split(' ')[0]}
-          </h1>
-          <p className="text-on-surface-variant font-inter text-lg lg:text-xl">
-             Here is your financial overview for the day.
-          </p>
-        </div>
-        {/* Decorative Element */}
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-primary opacity-[0.03] rounded-full blur-3xl pointer-events-none" />
-      </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-12 pb-32">
+      
+      {/* Hero Balance Section */}
+      <motion.section 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-2 mt-8"
+      >
+        <p className="font-inter text-on-surface-variant text-[10px] font-bold tracking-[0.2em] uppercase opacity-70">
+          Total Liquidity
+        </p>
+        <h1 className="font-manrope font-extrabold text-[3rem] sm:text-[4rem] lg:text-[5rem] leading-[1.1] tracking-[-0.04em] text-white">
+          <span className="opacity-40 tracking-normal mr-1">₹</span>
+          {Math.abs(summary?.netBalance || 0).toLocaleString()}
+          <span className="text-on-surface-variant opacity-30">.00</span>
+        </h1>
+      </motion.section>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-        <div className="elevated-card flex flex-col justify-between min-h-[160px]">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-surface-variant/30 flex items-center justify-center">
-              <Users size={20} className="text-on-surface" />
-            </div>
-            <p className="text-xs text-on-surface-variant uppercase tracking-widest font-semibold font-inter">
-              Active Groups
-            </p>
-          </div>
-          <p className="text-5xl lg:text-6xl font-bold font-manrope text-primary tracking-tighter">
-            {groups.length}
-          </p>
-        </div>
-
-        <div className="elevated-card flex flex-col justify-between min-h-[160px]">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-surface-variant/30 flex items-center justify-center">
-              <IndianRupee size={20} className="text-on-surface" />
-            </div>
-            <p className="text-xs text-on-surface-variant uppercase tracking-widest font-semibold font-inter">
-              Network Size
-            </p>
-          </div>
-          <p className="text-5xl lg:text-6xl font-bold font-manrope text-primary tracking-tighter">
-            {groups.reduce((acc, g) => acc + (g.members?.length || 0), 0)}
-          </p>
-        </div>
-
-        <Link
-          to="/groups"
-          className="elevated-card flex flex-col justify-center gap-4 hover:bg-surface-container-highest transition-colors min-h-[160px] group relative overflow-hidden"
+      {/* Bento Grid Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* You Owe Card */}
+        <motion.div 
+          whileHover={{ scale: 0.98 }}
+          className="glass-card p-6 rounded-2xl border border-white/5 cursor-pointer relative overflow-hidden group"
         >
-          <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-colors z-10">
-            <Plus size={28} className="text-primary group-hover:text-on-primary transition-colors" />
+          <div className="flex justify-between items-start mb-6">
+            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+              <ArrowUpRight size={20} className="text-on-surface-variant" />
+            </div>
+            <span className="font-inter text-[10px] font-bold tracking-widest uppercase text-on-surface-variant opacity-60">Debt Status</span>
           </div>
-          <p className="text-lg font-bold font-manrope text-primary z-10">
-            Establish new group
-          </p>
-          <div className="absolute right-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-4 translate-y-4">
-             <Plus size={120} className="text-surface-variant/20" />
+          <h3 className="font-manrope font-bold text-lg text-white/60 mb-1">You Owe</h3>
+          <p className="font-manrope text-2xl font-black text-white">₹{summary?.totalOwe?.toLocaleString() || '0'}</p>
+          <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+            <ArrowUpRight size={120} />
           </div>
-        </Link>
-      </div>
+        </motion.div>
 
-      {/* Recent Groups */}
-      <div className="mb-16">
-        <div className="flex items-end justify-between mb-8">
-          <div>
-            <h2 className="text-2xl lg:text-3xl font-bold font-manrope text-primary tracking-tight">
-              Active Cohorts
-            </h2>
-            <p className="text-on-surface-variant font-inter mt-1 opacity-80">
-              Your recent shared expense groups
-            </p>
+        {/* You Are Owed Card */}
+        <motion.div 
+          whileHover={{ scale: 0.98 }}
+          className="glass-card p-6 rounded-2xl border border-white/5 cursor-pointer relative overflow-hidden group"
+        >
+          <div className="flex justify-between items-start mb-6">
+            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+              <ArrowDownLeft size={20} className="text-on-surface-variant" />
+            </div>
+            <span className="font-inter text-[10px] font-bold tracking-widest uppercase text-on-surface-variant opacity-60">Pending Returns</span>
           </div>
-          <Link to="/groups" className="text-sm font-semibold text-primary hover:text-secondary transition-colors uppercase tracking-wider font-inter">
-            View all
-          </Link>
+          <h3 className="font-manrope font-bold text-lg text-white/60 mb-1">You Are Owed</h3>
+          <p className="font-manrope text-2xl font-black text-white">₹{summary?.totalOwed?.toLocaleString() || '0'}</p>
+          <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+            <ArrowDownLeft size={120} />
+          </div>
+        </motion.div>
+
+        {/* Overview Card */}
+        <div className="glass-card p-6 rounded-2xl border border-white/5 relative overflow-hidden">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-manrope font-bold text-lg text-white">Overview</h3>
+            <PieChart size={18} className="text-on-surface-variant opacity-50" />
+          </div>
+          <div className="flex items-center gap-5">
+            <div className="relative w-16 h-16 flex-shrink-0">
+               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path className="text-white/5" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                <path className="text-white" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeDasharray="65, 100" strokeLinecap="round" strokeWidth="3" />
+              </svg>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-white tracking-tight">
+                {summary?.categories?.[0]?._id || 'General'}
+              </p>
+              <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter opacity-50">Primary Cost</p>
+            </div>
+          </div>
         </div>
-
-        {loading ? (
-          <Loader className="py-12" />
-        ) : groups.length === 0 ? (
-          <div className="submerged text-center py-20 px-6">
-            <p className="text-on-surface-variant mb-6 text-lg font-inter">Your network is currently empty.</p>
-            <Link to="/groups">
-              <motion.button className="btn-primary" whileTap={{ scale: 0.96 }}>
-                Create Your First Group
-              </motion.button>
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {groups.slice(0, 6).map((group) => (
-              <GroupCard key={group._id} group={group} />
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Recent Activity */}
-      {recentActivity.length > 0 && (
-        <div className="submerged p-8 lg:p-12">
-          <h2 className="text-2xl font-bold font-manrope text-primary mb-8 tracking-tight">
-            Recent Timeline
-          </h2>
-          <div className="flex flex-col gap-6">
-            {recentActivity.map((notif, index) => (
-              <div
-                key={notif._id}
-                className="flex items-start gap-5"
+      {/* Asymmetric Layout: Groups and Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 sm:gap-16">
+        
+        {/* Top Groups Column */}
+        <div className="lg:col-span-4 space-y-8">
+          <div className="flex items-center justify-between">
+            <h2 className="font-manrope font-black text-xl text-white tracking-tight">Active Cohorts</h2>
+            <Link to="/groups" className="text-[10px] font-bold tracking-[0.2em] uppercase text-on-surface-variant hover:text-white transition-colors">See All</Link>
+          </div>
+          
+          <div className="space-y-1">
+            {topGroups.map((group, idx) => (
+              <Link 
+                to={`/groups/${group._id}`}
+                key={group._id} 
+                className={`flex items-center gap-5 group cursor-pointer py-5 transition-all ${idx !== topGroups.length - 1 ? 'border-b border-white/5' : ''}`}
               >
-                <div className={`w-2.5 h-2.5 mt-1.5 rounded-full flex-shrink-0 ${!notif.read ? 'bg-primary shadow-[0_0_15px_rgba(255,255,255,0.6)]' : 'bg-surface-variant/40'}`} />
+                <div className="w-12 h-12 rounded-xl bg-surface-container-high overflow-hidden flex-shrink-0 border border-white/5">
+                  <div className="w-full h-full bg-gradient-to-br from-white/10 to-transparent flex items-center justify-center font-manrope font-bold text-white text-lg">
+                    {group.title[0]}
+                  </div>
+                </div>
                 <div className="flex-1">
-                  <p className={`text-base font-inter ${!notif.read ? 'text-on-surface font-semibold tracking-tight' : 'text-on-surface-variant font-medium'}`}>{notif.message}</p>
-                  <p className="text-[10px] text-outline mt-1 font-inter uppercase tracking-[0.2em] opacity-60 font-bold">
-                    {new Date(notif.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  <p className="font-manrope font-bold text-white text-base leading-none mb-1 group-hover:translate-x-1 transition-transform">{group.title}</p>
+                  <p className="text-[10px] font-bold font-inter text-on-surface-variant uppercase tracking-widest opacity-50">
+                    {group.members?.length || 0} Members
                   </p>
                 </div>
-              </div>
+                <ChevronRight size={18} className="text-on-surface-variant opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+              </Link>
             ))}
+
+            {groups.length === 0 && (
+               <div className="py-10 text-center glass-card rounded-2xl border border-dashed border-white/10">
+                <p className="text-on-surface-variant text-sm font-inter">No active cohorts yet.</p>
+               </div>
+            )}
           </div>
         </div>
-      )}
+
+        {/* Recent Activity Column */}
+        <div className="lg:col-span-8 space-y-8">
+          <div className="flex items-center justify-between">
+            <h2 className="font-manrope font-black text-xl text-white tracking-tight">Recent Timeline</h2>
+            <Filter size={18} className="text-on-surface-variant opacity-50 cursor-pointer hover:text-white transition-colors" />
+          </div>
+
+          <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
+            <div className="divide-y divide-white/5">
+              {recentActivity.map((notif) => (
+                <div key={notif._id} className="p-6 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer group">
+                  <div className="flex items-center gap-5">
+                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/60 group-hover:text-white transition-colors">
+                      <Plus size={20} />
+                    </div>
+                    <div>
+                      <p className="font-manrope font-bold text-white text-base leading-tight mb-0.5">{notif.message}</p>
+                      <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-50">
+                        {new Date(notif.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              ))}
+
+              {recentActivity.length === 0 && (
+                <div className="p-20 text-center">
+                  <p className="text-on-surface-variant text-sm font-inter">Timeline is quiet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Hero FAB Replacement (Visual cue only, Groups page has the primary FAB) */}
+      <Link 
+        to="/groups"
+        className="fixed bottom-28 right-8 sm:bottom-12 sm:right-12 w-14 h-14 bg-white text-black rounded-full shadow-[0_20px_50px_rgba(255,255,255,0.2)] flex items-center justify-center active:scale-90 transition-all z-40 hover:rotate-90 duration-500"
+      >
+        <Plus size={28} strokeWidth={3} />
+      </Link>
+
     </div>
   );
 };
