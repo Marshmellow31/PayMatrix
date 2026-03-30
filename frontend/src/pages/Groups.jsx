@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
@@ -14,11 +15,21 @@ import toast from 'react-hot-toast';
 
 const Groups = () => {
   const dispatch = useDispatch();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { groups, loading } = useSelector((state) => state.groups);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ title: '', category: 'Other' });
 
-  useEffect(() => { dispatch(fetchGroups()); }, [dispatch]);
+  useEffect(() => { 
+    dispatch(fetchGroups()); 
+    
+    // Check if we should open the modal (from nav links)
+    const params = new URLSearchParams(location.search);
+    if (params.get('add') === 'true') {
+      setShowModal(true);
+    }
+  }, [dispatch, location.search]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -35,9 +46,18 @@ const Groups = () => {
   return (
     <div className="max-w-3xl mx-auto animate-fade-in pb-32 px-6">
       <div className="mb-10 pt-8">
-        <h1 className="font-headline text-3xl font-bold text-white mb-2 tracking-tight">
-          Groups
-        </h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="font-headline text-3xl font-bold text-white tracking-tight">
+            Groups
+          </h1>
+          <button 
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-all"
+          >
+            <LucideIcons.Plus size={16} />
+            <span className="text-[10px] uppercase tracking-widest font-bold">New Cohort</span>
+          </button>
+        </div>
         <p className="text-on-surface-variant text-sm tracking-wide font-inter opacity-70">
           Manage shared expenses and collective balances
         </p>
@@ -66,13 +86,13 @@ const Groups = () => {
         </div>
       )}
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button - Now for Add Expense */}
       <div className="fixed bottom-28 right-6 z-40 lg:right-[calc(50%-22rem)]">
         <button 
-          onClick={() => setShowModal(true)}
+          onClick={() => navigate('/add-expense')}
           className="h-14 w-14 rounded-full bg-primary text-on-primary shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform duration-200"
         >
-          <LucideIcons.UserPlus size={24} />
+          <LucideIcons.Plus size={24} />
         </button>
       </div>
 

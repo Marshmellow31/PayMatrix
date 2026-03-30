@@ -125,7 +125,12 @@ const Dashboard = () => {
         <div className="lg:col-span-4 space-y-8">
           <div className="flex items-center justify-between">
             <h2 className="font-manrope font-black text-xl text-white tracking-tight">Active Cohorts</h2>
-            <Link to="/groups" className="text-[10px] font-bold tracking-[0.2em] uppercase text-on-surface-variant hover:text-white transition-colors">See All</Link>
+            <div className="flex items-center gap-4">
+              <Link to="/groups?add=true" className="p-1.5 rounded-lg bg-white/5 border border-white/5 text-on-surface-variant hover:text-white transition-colors">
+                <Plus size={16} />
+              </Link>
+              <Link to="/groups" className="text-[10px] font-bold tracking-[0.2em] uppercase text-on-surface-variant hover:text-white transition-colors">See All</Link>
+            </div>
           </div>
           
           <div className="space-y-1">
@@ -194,12 +199,12 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Hero FAB Replacement (Visual cue only, Groups page has the primary FAB) */}
+      {/* High-Impact Add Expense FAB */}
       <Link 
-        to="/groups"
-        className="fixed bottom-28 right-8 sm:bottom-12 sm:right-12 w-14 h-14 bg-white text-black rounded-full shadow-[0_20px_50px_rgba(255,255,255,0.2)] flex items-center justify-center active:scale-90 transition-all z-40 hover:rotate-90 duration-500"
+        to="/add-expense"
+        className="fixed bottom-28 right-8 sm:bottom-12 sm:right-12 w-16 h-16 bg-white text-black rounded-full shadow-[0_20px_50px_rgba(255,255,255,0.3)] flex items-center justify-center active:scale-90 transition-all z-40 hover:rotate-90 duration-500 border-4 border-black"
       >
-        <Plus size={28} strokeWidth={3} />
+        <Plus size={32} strokeWidth={3} />
       </Link>
 
     </div>

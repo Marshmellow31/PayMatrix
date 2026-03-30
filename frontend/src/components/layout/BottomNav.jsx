@@ -4,7 +4,7 @@ import { Home, Users, Plus, Bell, User } from 'lucide-react';
 const navItems = [
   { to: '/dashboard', label: 'Home', icon: Home },
   { to: '/groups', label: 'Groups', icon: Users },
-  { to: '/groups/new', label: 'Add', icon: Plus, isAction: true },
+  { to: '/add-expense', label: 'Add', icon: Plus, isAction: true },
   { to: '/activity', label: 'Activity', icon: Bell },
   { to: '/profile', label: 'Profile', icon: User },
 ];

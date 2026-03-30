@@ -6,11 +6,13 @@ import {
   Activity,
   User,
   X,
+  Plus,
 } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/groups', label: 'Groups', icon: Users },
+  { to: '/groups?add=true', label: 'Add', icon: Plus },
   { to: '/activity', label: 'Activity', icon: Activity },
   { to: '/profile', label: 'Profile', icon: User },
 ];

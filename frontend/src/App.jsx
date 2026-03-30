@@ -85,6 +85,7 @@ function App() {
         <Route path="/groups" element={<Groups />} />
         <Route path="/groups/:id" element={<GroupDetail />} />
         <Route path="/groups/:id/add-expense" element={<AddExpense />} />
+        <Route path="/add-expense" element={<AddExpense />} />
         <Route path="/groups/:id/settlements" element={<Settlements />} />
         <Route path="/activity" element={<Activity />} />
         <Route path="/profile" element={<Profile />} />
