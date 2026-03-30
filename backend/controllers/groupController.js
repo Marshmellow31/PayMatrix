@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import Group from '../models/Group.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
@@ -9,8 +10,11 @@ import { sendSuccess, ApiError } from '../utils/apiResponse.js';
  * @access  Private
  */
 export const createGroup = async (req, res, next) => {
+
   try {
     const { title, category, currency, simplifyDebts, defaultSplit } = req.body;
+
+    const inviteCode = crypto.randomBytes(4).toString('hex').toUpperCase();
 
     const group = await Group.create({
       title,
@@ -20,7 +24,9 @@ export const createGroup = async (req, res, next) => {
       defaultSplit,
       admin: req.user._id,
       members: [{ user: req.user._id, role: 'admin' }],
+      inviteCode,
     });
+
 
     const populatedGroup = await Group.findById(group._id).populate(
       'members.user',
@@ -260,3 +266,46 @@ export const removeMember = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Join group via invite code
+ * @route   POST /api/v1/groups/join/:code
+ * @access  Private
+ */
+export const joinGroupByCode = async (req, res, next) => {
+  try {
+    const { code } = req.params;
+
+    const group = await Group.findOne({ inviteCode: code });
+
+    if (!group) {
+      return next(new ApiError('Invalid invite code', 404));
+    }
+
+    // Check if already a member
+    const alreadyMember = group.members.some(
+      (m) => m.user.toString() === req.user._id.toString()
+    );
+
+    if (alreadyMember) {
+      return next(new ApiError('You are already a member of this group', 400));
+    }
+
+    group.members.push({ user: req.user._id, role: 'member' });
+    await group.save();
+
+    // Create notification for admin
+    await Notification.create({
+      user: group.admin,
+      type: 'member_added',
+      message: `${req.user.name} joined "${group.title}" via link`,
+      relatedGroup: group._id,
+      triggeredBy: req.user._id,
+    });
+
+    sendSuccess(res, 200, 'Joined group successfully', { groupId: group._id });
+  } catch (error) {
+    next(error);
+  }
+};
+

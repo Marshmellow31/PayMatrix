@@ -64,6 +64,12 @@ const GroupDetail = () => {
     }
   };
 
+  const handleCopyLink = () => {
+    const link = `${window.location.origin}/join/${currentGroup.inviteCode}`;
+    navigator.clipboard.writeText(link);
+    toast.success('Invite link copied to clipboard!');
+  };
+
   if (groupLoading || !currentGroup) return <Loader className="py-20" />;
 
   const category = GROUP_CATEGORIES.find((c) => c.value === currentGroup.category);
@@ -97,7 +103,9 @@ const GroupDetail = () => {
                 <UserPlus size={22} className="text-on-surface-variant" />
               </Button>
             )}
-            <Button onClick={() => openAddExpense(id)} className="h-12 px-6 rounded-full font-manrope tracking-wide"><Plus size={20} className="mr-2" /> Record Expense</Button>
+            <button onClick={() => openAddExpense(id)} className="btn-primary h-12 px-6 rounded-full font-manrope tracking-wide flex items-center gap-2">
+              <Plus size={20} /> Record Expense
+            </button>
           </div>
         </div>
       </div>
@@ -143,10 +151,41 @@ const GroupDetail = () => {
 
       {/* Add Member Modal */}
       <Modal isOpen={showAddMember} onClose={() => setShowAddMember(false)} title="Add Member" size="md">
-        <form onSubmit={handleAddMember} className="flex flex-col gap-6 mt-4">
-          <Input label="Member Email" type="email" value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)} placeholder="member@example.com" required id="member-email" />
-          <Button type="submit" className="w-full h-14 mt-4 text-base">Add Member</Button>
-        </form>
+        <div className="flex flex-col gap-8 py-4">
+          <form onSubmit={handleAddMember} className="flex flex-col gap-4">
+            <h4 className="text-sm font-semibold text-on-surface-variant uppercase tracking-widest font-inter mb-2">Invite by Email</h4>
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <Input type="email" value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)} placeholder="member@example.com" required id="member-email" />
+              </div>
+              <Button type="submit" className="h-14 px-6 rounded-2xl">Add</Button>
+            </div>
+          </form>
+
+          <div className="h-[1px] bg-outline-variant/10 w-full" />
+
+          <div className="flex flex-col gap-4">
+            <h4 className="text-sm font-semibold text-on-surface-variant uppercase tracking-widest font-inter">Share Invite Link</h4>
+            <p className="text-xs text-on-surface-variant/70 font-inter leading-relaxed">
+              Anyone with this link can join the group. Use it to quickly onboard multiple members.
+            </p>
+            
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface-container-highest/30 border border-white/5">
+              <div className="flex-1 overflow-hidden">
+                <p className="text-sm font-mono text-on-surface truncate opacity-60">
+                  {`${window.location.origin}/join/${currentGroup.inviteCode}`}
+                </p>
+              </div>
+              <Button 
+                variant="ghost" 
+                onClick={handleCopyLink}
+                className="h-10 w-10 p-0 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all shrink-0"
+              >
+                <LucideIcons.Copy size={18} className="text-primary" />
+              </Button>
+            </div>
+          </div>
+        </div>
       </Modal>
     </div>
   );

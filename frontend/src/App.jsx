@@ -16,7 +16,9 @@ import AddExpense from './pages/AddExpense.jsx';
 import Settlements from './pages/Settlements.jsx';
 import Activity from './pages/Activity.jsx';
 import Profile from './pages/Profile.jsx';
+import JoinGroup from './pages/JoinGroup.jsx';
 import NotFound from './pages/NotFound.jsx';
+
 
 /**
  * Protected route wrapper
@@ -71,6 +73,11 @@ function App() {
             <ResetPassword />
           </PublicRoute>
         }
+      />
+
+      <Route
+        path="/join/:code"
+        element={<JoinGroup />}
       />
 
       {/* Protected Routes — inside AppLayout */}

@@ -10,7 +10,13 @@ const useAuth = () => {
   const handleLogin = async (credentials) => {
     const result = await dispatch(login(credentials));
     if (result.meta.requestStatus === 'fulfilled') {
-      navigate('/dashboard');
+      const pendingCode = localStorage.getItem('pendingInviteCode');
+      if (pendingCode) {
+        localStorage.removeItem('pendingInviteCode');
+        navigate(`/groups/join/${pendingCode}`);
+      } else {
+        navigate('/dashboard');
+      }
     }
     return result;
   };
@@ -18,10 +24,17 @@ const useAuth = () => {
   const handleRegister = async (userData) => {
     const result = await dispatch(register(userData));
     if (result.meta.requestStatus === 'fulfilled') {
-      navigate('/dashboard');
+      const pendingCode = localStorage.getItem('pendingInviteCode');
+      if (pendingCode) {
+        localStorage.removeItem('pendingInviteCode');
+        navigate(`/groups/join/${pendingCode}`);
+      } else {
+        navigate('/dashboard');
+      }
     }
     return result;
   };
+
 
   const handleLogout = () => {
     dispatch(logout());
