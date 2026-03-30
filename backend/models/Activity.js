@@ -23,6 +23,7 @@ const activitySchema = new mongoose.Schema(
         'group_created',
         'settlement_added',
         'expense_restored',
+        'member_left',
       ],
       required: true,
     },
