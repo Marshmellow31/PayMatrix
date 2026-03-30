@@ -30,6 +30,7 @@ const GroupDetail = () => {
 
   const [tab, setTab] = useState('expenses');
   const [balances, setBalances] = useState([]);
+  const [simplifiedDebts, setSimplifiedDebts] = useState([]);
   const [showAddMember, setShowAddMember] = useState(false);
   const [memberEmail, setMemberEmail] = useState('');
 
@@ -42,7 +43,8 @@ const GroupDetail = () => {
     const loadBalances = async () => {
       try {
         const res = await expenseService.getBalances(id);
-        setBalances(res.data.data.balances);
+        setBalances(res.data.data.balances || []);
+        setSimplifiedDebts(res.data.data.simplifiedDebts || []);
       } catch (err) { /* silent */ }
     };
     loadBalances();
@@ -148,9 +150,40 @@ const GroupDetail = () => {
       )}
 
       {tab === 'balances' && (
-        <div className="glass-card p-6 lg:p-10">
-          <h3 className="text-sm font-semibold text-on-surface-variant mb-6 uppercase tracking-widest font-inter">Net Balances</h3>
-          <BalanceSummary balances={balances} />
+        <div className="flex flex-col gap-6">
+          <div className="glass-card p-6 lg:p-10">
+            <h3 className="text-sm font-semibold text-on-surface-variant mb-6 uppercase tracking-widest font-inter">Net Balances</h3>
+            <BalanceSummary balances={balances} />
+          </div>
+
+          {simplifiedDebts.length > 0 && (
+            <div className="glass-card p-6 lg:p-10 border-primary/20 bg-primary/5">
+              <div className="flex items-center gap-3 mb-6">
+                <LucideIcons.Sparkles className="text-primary" size={20} />
+                <h3 className="text-sm font-bold text-white uppercase tracking-widest font-inter">Suggested Settlements</h3>
+              </div>
+              
+              <div className="space-y-3">
+                {simplifiedDebts.map((debt, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-surface-container-highest/20 border border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="text-left">
+                        <span className="text-xs font-bold text-white">{debt.fromUser.name}</span>
+                        <span className="text-[10px] text-on-surface-variant mx-2">owes</span>
+                        <span className="text-xs font-bold text-white">{debt.toUser.name}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-manrope font-black text-primary text-lg">₹{debt.amount.toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-6 text-[10px] text-on-surface-variant font-inter italic opacity-60">
+                Min-flow algorithm is active. These transactions will settle all debts with the fewest steps possible.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

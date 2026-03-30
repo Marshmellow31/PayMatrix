@@ -27,6 +27,12 @@ const ExpenseForm = ({
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [step, setStep] = useState(1);
   const [participants, setParticipants] = useState([]); // Array of user IDs
+  const [splitType, setSplitType] = useState('equal');
+  const [splitData, setSplitData] = useState({
+    percentages: {},
+    exactAmounts: {},
+    shares: {},
+  });
 
   useEffect(() => {
     if (initialGroupId) {
@@ -39,13 +45,25 @@ const ExpenseForm = ({
       const group = groups.find(g => g._id === form.groupId);
       setSelectedGroup(group);
       if (group) {
-        // Initialize unique participants
         const allMemberIds = group.members.map(m => (m.user?._id || m.user).toString());
         const uniqueMemberIds = Array.from(new Set(allMemberIds));
-        
         setParticipants(uniqueMemberIds);
 
-        // Ensure paidBy is valid and defaults to unique user
+        // Initialize split data for all members
+        const initialPercentages = {};
+        const initialExact = {};
+        const initialShares = {};
+        uniqueMemberIds.forEach(id => {
+          initialPercentages[id] = (100 / uniqueMemberIds.length).toFixed(2);
+          initialExact[id] = '';
+          initialShares[id] = '1';
+        });
+        setSplitData({
+          percentages: initialPercentages,
+          exactAmounts: initialExact,
+          shares: initialShares,
+        });
+
         if (!form.paidBy || !uniqueMemberIds.includes(form.paidBy)) {
           const currentUserId = user?._id?.toString();
           if (uniqueMemberIds.includes(currentUserId)) {
@@ -67,6 +85,13 @@ const ExpenseForm = ({
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const handleSplitDataChange = (userId, value, field) => {
+    setSplitData(prev => ({
+      ...prev,
+      [field]: { ...prev[field], [userId]: value }
+    }));
+  };
+
   const handleCategorySelect = (cat) => {
     setForm({ ...form, category: cat });
   };
@@ -79,7 +104,7 @@ const ExpenseForm = ({
   const toggleParticipant = (userId) => {
     setParticipants(prev => {
       if (prev.includes(userId)) {
-        if (prev.length === 1) return prev; // Don't allow 0 participants
+        if (prev.length === 1) return prev; 
         return prev.filter(id => id !== userId);
       }
       return [...prev, userId];
@@ -94,11 +119,18 @@ const ExpenseForm = ({
   const handleSubmit = (e) => {
     if (e) e.preventDefault();
     if (!form.groupId || participants.length === 0) return;
+    
     onSubmit({
       ...form,
       amount: parseFloat(form.amount || 0),
       participants: participants,
       paidBy: form.paidBy,
+      splitType,
+      splitData: {
+        percentages: splitType === 'percentage' ? splitData.percentages : undefined,
+        exactAmounts: splitType === 'exact' ? splitData.exactAmounts : undefined,
+        shares: splitType === 'shares' ? splitData.shares : undefined,
+      }
     });
   };
 
@@ -109,6 +141,27 @@ const ExpenseForm = ({
       return [id, m];
     })
   ).values());
+
+  const calculatePreviewAmount = (userId) => {
+    const total = parseFloat(form.amount || 0);
+    if (!participants.includes(userId)) return 0;
+
+    switch (splitType) {
+      case 'equal':
+        return total / participants.length;
+      case 'percentage':
+        const pct = parseFloat(splitData.percentages[userId] || 0);
+        return (total * pct) / 100;
+      case 'exact':
+        return parseFloat(splitData.exactAmounts[userId] || 0);
+      case 'shares':
+        const userShares = parseInt(splitData.shares[userId] || 0);
+        const totalShares = participants.reduce((sum, id) => sum + parseInt(splitData.shares[id] || 0), 0);
+        return totalShares > 0 ? (total * userShares) / totalShares : 0;
+      default:
+        return 0;
+    }
+  };
 
   const renderStep1 = () => (
     <motion.div 
@@ -205,14 +258,10 @@ const ExpenseForm = ({
       </div>
 
       <div className="flex items-center justify-center gap-8">
-        <button type="button" className="flex items-center gap-2 text-on-surface-variant hover:text-white transition-colors">
+        <div className="flex items-center gap-2 text-on-surface-variant">
           <LucideIcons.Calendar size={16} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Today</span>
-        </button>
-        <button type="button" className="flex items-center gap-2 text-on-surface-variant hover:text-white transition-colors">
-          <LucideIcons.MessageSquare size={16} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Add Notes</span>
-        </button>
+          <span className="text-[10px] font-bold uppercase tracking-widest">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric'})}</span>
+        </div>
       </div>
 
       <div className="mt-4">
@@ -266,71 +315,121 @@ const ExpenseForm = ({
         </div>
       </div>
 
+      {/* Split Type Selector */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">Split with</label>
-          <span className="text-[10px] font-bold text-primary uppercase tracking-widest">{participants.length} Selected</span>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-          {uniqueMembers.map(member => {
-            const user = member.user?._id || member.user;
-            const userId = user.toString();
-            const isSelected = participants.includes(userId);
-            
+        <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60 px-1">Split Method</label>
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { id: 'equal', icon: 'Divide' },
+            { id: 'exact', icon: 'Target' },
+            { id: 'percentage', icon: 'Percent' },
+            { id: 'shares', icon: 'Users' },
+          ].map(type => {
+            const Icon = LucideIcons[type.icon];
+            const isSelected = splitType === type.id;
             return (
               <button
-                key={userId}
+                key={type.id}
                 type="button"
-                onClick={() => toggleParticipant(userId)}
-                className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                onClick={() => setSplitType(type.id)}
+                className={`flex flex-col items-center justify-center py-5 rounded-2xl border transition-all ${
                   isSelected 
-                    ? 'bg-surface-container-high border-white/20' 
-                    : 'bg-surface-container-low/30 border-transparent opacity-40'
+                    ? 'bg-white text-black border-white shadow-xl scale-[1.02]' 
+                    : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-surface-container-highest text-white border border-white/10`}>
-                    {member.user?.name?.[0] || '?'}
-                  </div>
-                  <div className="text-left">
-                    <p className="font-manrope font-bold text-sm text-white">{member.user?.name}</p>
-                    <p className="text-[10px] text-on-surface-variant font-inter">{member.user?.email}</p>
-                  </div>
-                </div>
-                {isSelected ? (
-                  <LucideIcons.CheckCircle2 size={20} className="text-primary" />
-                ) : (
-                  <LucideIcons.Circle size={20} className="text-on-surface-variant" />
-                )}
+                <Icon size={22} />
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Split Preview */}
-      <div className="glass-card p-6 rounded-3xl border border-white/5 flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-50 mb-0.5">Equal Share</p>
-          <div className="flex items-baseline gap-1">
-            <span className="text-xs text-on-surface-variant">₹</span>
-            <span className="font-manrope font-black text-2xl text-white">
-              {(parseFloat(form.amount || 0) / participants.length).toFixed(2)}
-            </span>
-          </div>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">Distribution Preview</label>
+          <span className="text-[10px] font-bold text-primary uppercase tracking-widest">{participants.length} Active</span>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-50 mb-0.5">Total Participants</p>
-          <p className="font-manrope font-bold text-lg text-white">{participants.length}</p>
+        
+        <div className="grid grid-cols-1 gap-2 max-h-[260px] overflow-y-auto pr-2 custom-scrollbar">
+          {uniqueMembers.map(member => {
+            const userId = (member.user?._id || member.user).toString();
+            const isSelected = participants.includes(userId);
+            const previewAmt = calculatePreviewAmount(userId);
+            
+            return (
+              <div
+                key={userId}
+                className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
+                  isSelected 
+                    ? 'bg-white/5 border-white/10' 
+                    : 'bg-transparent border-transparent opacity-30'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleParticipant(userId)}
+                  className="flex items-center gap-3 flex-1 text-left"
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs bg-surface-container-highest text-white border border-white/10`}>
+                    {member.user?.name?.[0] || '?'}
+                  </div>
+                  <div>
+                    <p className="font-manrope font-bold text-xs text-white">{member.user?.name}</p>
+                    <p className="text-[10px] text-on-surface-variant font-inter">₹{previewAmt.toFixed(2)}</p>
+                  </div>
+                </button>
+
+                {isSelected && (
+                  <div className="flex items-center gap-2">
+                    {splitType === 'percentage' && (
+                      <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg">
+                        <input 
+                          type="number"
+                          className="w-10 bg-transparent border-none outline-none text-right font-manrope font-bold text-xs p-0 focus:ring-0"
+                          value={splitData.percentages[userId] || ''}
+                          onChange={(e) => handleSplitDataChange(userId, e.target.value, 'percentages')}
+                        />
+                        <span className="text-[10px] opacity-40 font-bold">%</span>
+                      </div>
+                    )}
+                    {splitType === 'exact' && (
+                      <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg">
+                        <span className="text-[10px] opacity-40 font-bold">₹</span>
+                        <input 
+                          type="number"
+                          className="w-16 bg-transparent border-none outline-none text-right font-manrope font-bold text-xs p-0 focus:ring-0"
+                          value={splitData.exactAmounts[userId] || ''}
+                          placeholder="0.00"
+                          onChange={(e) => handleSplitDataChange(userId, e.target.value, 'exactAmounts')}
+                        />
+                      </div>
+                    )}
+                    {splitType === 'shares' && (
+                      <div className="flex items-center gap-2 bg-white/5 px-2 py-1 rounded-lg">
+                         <input 
+                          type="number"
+                          className="w-8 bg-transparent border-none outline-none text-center font-manrope font-bold text-xs p-0 focus:ring-0"
+                          value={splitData.shares[userId] || '1'}
+                          onChange={(e) => handleSplitDataChange(userId, e.target.value, 'shares')}
+                        />
+                         <span className="text-[10px] opacity-40 font-bold">PTS</span>
+                      </div>
+                    )}
+                    <LucideIcons.CheckCircle2 size={16} className="text-primary" />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div className="flex gap-4 mt-4">
+      <div className="flex gap-4 mt-2">
         <Button 
-          type="button" 
+          variant="outline"
           onClick={() => setStep(1)}
-          className="flex-1 h-16 rounded-3xl font-manrope font-bold text-white bg-surface-container-high hover:bg-surface-container-highest transition-all"
+          className="flex-1 h-14 rounded-3xl font-manrope font-bold text-white border-white/20 bg-transparent hover:bg-white/5 transition-all"
         >
           Back
         </Button>
@@ -338,10 +437,10 @@ const ExpenseForm = ({
           type="button"
           onClick={handleSubmit}
           loading={loading}
-          className="flex-[2] h-16 rounded-3xl font-manrope font-black text-lg bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl"
+          className="flex-[2] h-14 rounded-3xl font-manrope font-black text-base bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl"
         >
-          <LucideIcons.CircleCheck size={24} />
-          Record Transaction
+          <LucideIcons.CircleCheck size={20} />
+          Commit Transaction
         </Button>
       </div>
     </motion.div>

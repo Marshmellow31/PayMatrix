@@ -1,8 +1,11 @@
 import crypto from 'crypto';
 import Group from '../models/Group.js';
 import User from '../models/User.js';
+import Expense from '../models/Expense.js';
+import Settlement from '../models/Settlement.js';
 import Notification from '../models/Notification.js';
 import Activity from '../models/Activity.js';
+import { computeGroupBalances, simplifyDebts } from '../utils/balanceEngine.js';
 import { sendSuccess, ApiError } from '../utils/apiResponse.js';
 
 /**
@@ -397,6 +400,45 @@ export const getGroupActivity = async (req, res, next) => {
     sendSuccess(res, 200, 'Group activity retrieved successfully', { activity });
   } catch (error) {
     next(error);
+  }
+};
+
+/**
+ * @desc    Get group balances and simplified debts
+ * @route   GET /api/v1/groups/:id/balances
+ * @access  Private (members only)
+ */
+export const getGroupBalances = async (req, res, next) => {
+  try {
+    const group = await Group.findById(req.params.id).populate('members.user', 'name avatar email');
+    if (!group) return next(new ApiError('Group not found', 404));
+
+    // Check membership
+    const isMember = group.members.some(m => m.user._id.toString() === req.user._id.toString());
+    if (!isMember) return next(new ApiError('Not authorized', 403));
+
+    // Fetch all group data
+    const [expenses, settlements] = await Promise.all([
+      Expense.find({ group: group._id }),
+      Settlement.find({ group: group._id })
+    ]);
+
+    // Compute net positions
+    const netBalances = computeGroupBalances(expenses, settlements, group.members);
+    
+    // Simplify debts if enabled (default true)
+    let simplifiedDebts = [];
+    if (group.simplifyDebts !== false) {
+      simplifiedDebts = simplifyDebts(netBalances);
+    }
+
+    sendSuccess(res, 200, 'Balances retrieved successfully', {
+      balances: netBalances,
+      simplifiedDebts,
+      members: group.members
+    });
+  } catch (error) {
+    next(new ApiError(error.message, 500));
   }
 };
 

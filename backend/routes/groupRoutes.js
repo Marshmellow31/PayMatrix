@@ -9,6 +9,7 @@ import {
   removeMember,
   joinGroupByCode,
   getGroupActivity,
+  getGroupBalances,
 } from '../controllers/groupController.js';
 
 import { protect } from '../middleware/auth.js';
@@ -34,5 +35,6 @@ router.delete('/:id/members/:userId', idParamRule, validate, removeMember);
 router.post('/join/:code', joinGroupByCode);
 
 router.get('/:id/activity', idParamRule, validate, getGroupActivity);
+router.get('/:id/balances', idParamRule, validate, getGroupBalances);
 
 export default router;
