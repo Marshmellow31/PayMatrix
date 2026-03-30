@@ -3,6 +3,7 @@ import {
   getBalances,
   createSettlement,
   getSettlements,
+  getUserSettlementPlan,
 } from '../controllers/settlementController.js';
 import { protect } from '../middleware/auth.js';
 import { idParamRule, validate } from '../middleware/validator.js';
@@ -18,5 +19,7 @@ router.get('/:id/balances', idParamRule, validate, getBalances);
 router.route('/:id/settlements')
   .post(idParamRule, validate, createSettlement)
   .get(idParamRule, validate, getSettlements);
+
+router.get('/:id/settlements/:userId', idParamRule, validate, getUserSettlementPlan);
 
 export default router;

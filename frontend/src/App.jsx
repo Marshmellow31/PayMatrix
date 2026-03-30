@@ -13,7 +13,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Groups from './pages/Groups.jsx';
 import GroupDetail from './pages/GroupDetail.jsx';
 import AddExpense from './pages/AddExpense.jsx';
-import Settlements from './pages/Settlements.jsx';
+import GlobalSettlements from './pages/GlobalSettlements.jsx';
 import Activity from './pages/Activity.jsx';
 import Profile from './pages/Profile.jsx';
 import Analytics from './pages/Analytics.jsx';
@@ -95,7 +95,8 @@ function App() {
         <Route path="/groups/:id/add-expense" element={<AddExpense />} />
         <Route path="/add-expense" element={<AddExpense />} />
         <Route path="/analytics" element={<Analytics />} />
-        <Route path="/groups/:id/settlements" element={<Settlements />} />
+
+        <Route path="/settlements" element={<GlobalSettlements />} />
         <Route path="/activity" element={<Activity />} />
         <Route path="/profile" element={<Profile />} />
       </Route>

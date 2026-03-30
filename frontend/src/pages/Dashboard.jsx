@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Link } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Plus, Users, ArrowUpRight, ArrowDownLeft, PieChart, ChevronRight, Filter } from 'lucide-react';
+import { Plus, Users, ArrowUpRight, ArrowDownLeft, PieChart, ChevronRight, Filter, Wallet, WifiOff } from 'lucide-react';
 import { fetchGroups } from '../redux/groupSlice.js';
 import { fetchNotifications } from '../redux/notificationSlice.js';
 import expenseService from '../services/expenseService.js';
@@ -10,11 +10,14 @@ import Loader from '../components/common/Loader.jsx';
 
 const Dashboard = () => {
   const dispatch = useDispatch();
+  const { openAddExpense } = useOutletContext();
   const { user } = useSelector((state) => state.auth);
   const { groups, loading: groupsLoading } = useSelector((state) => state.groups);
   const { notifications } = useSelector((state) => state.notifications);
   const [summary, setSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
+
+  const [isOffline, setIsOffline] = useState(typeof window !== 'undefined' ? !navigator.onLine : false);
 
   useEffect(() => {
     dispatch(fetchGroups());
@@ -31,16 +34,36 @@ const Dashboard = () => {
       }
     };
     getSummary();
+
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [dispatch]);
 
   const recentActivity = notifications.slice(0, 5);
   const topGroups = groups.slice(0, 3);
 
-  if (groupsLoading && loadingSummary) return <Loader />;
+  if (groupsLoading && loadingSummary && !isOffline) return <Loader />;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-12 pb-32">
       
+      {isOffline && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl p-4 flex items-center justify-center gap-3 font-manrope font-bold mt-4"
+        >
+          <WifiOff size={20} />
+          <span>You are currently offline. Changes will be synced automatically when connection is restored.</span>
+        </motion.div>
+      )}
+
       {/* Hero Balance Section */}
       <motion.section 
         initial={{ opacity: 0, y: 20 }}
@@ -50,11 +73,20 @@ const Dashboard = () => {
         <p className="font-inter text-on-surface-variant text-[10px] font-bold tracking-[0.2em] uppercase opacity-70">
           Total Liquidity
         </p>
-        <h1 className="font-manrope font-extrabold text-[3rem] sm:text-[4rem] lg:text-[5rem] leading-[1.1] tracking-[-0.04em] text-white">
-          <span className="opacity-40 tracking-normal mr-1">₹</span>
-          {Math.abs(summary?.netBalance || 0).toLocaleString()}
-          <span className="text-on-surface-variant opacity-30">.00</span>
-        </h1>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+          <h1 className="font-manrope font-extrabold text-[3rem] sm:text-[4rem] lg:text-[5rem] leading-[1.1] tracking-[-0.04em] text-white">
+            <span className="opacity-40 tracking-normal mr-1">₹</span>
+            {Math.abs(summary?.netBalance || 0).toLocaleString()}
+            <span className="text-on-surface-variant opacity-30">.00</span>
+          </h1>
+          
+          <button 
+            onClick={() => openAddExpense()} 
+            className="h-14 px-8 rounded-2xl bg-white text-black font-manrope font-bold text-sm tracking-widest flex items-center justify-center gap-3 hover:bg-white/90 transition-all active:scale-95 shadow-xl shadow-white/5 mb-2"
+          >
+            <Plus size={20} strokeWidth={3} /> RECORD EXPENSE
+          </button>
+        </div>
       </motion.section>
 
       {/* Bento Grid Stats */}

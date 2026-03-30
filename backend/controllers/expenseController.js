@@ -98,6 +98,7 @@ export const addExpense = async (req, res, next) => {
         expense: populatedExpense,
         groupId: group._id,
       });
+      io.to(`group:${group._id}`).emit('activity:new');
     }
 
     sendSuccess(res, 201, 'Expense added successfully', { expense: populatedExpense });
@@ -278,6 +279,7 @@ export const updateExpense = async (req, res, next) => {
         expense: populatedExpense,
         groupId: expense.group,
       });
+      io.to(`group:${expense.group}`).emit('activity:new');
     }
 
     sendSuccess(res, 200, 'Expense updated successfully', { expense: populatedExpense });
@@ -333,6 +335,7 @@ export const deleteExpense = async (req, res, next) => {
         expenseId: expense._id,
         groupId: expense.group,
       });
+      io.to(`group:${expense.group}`).emit('activity:new');
     }
 
     sendSuccess(res, 200, 'Expense deleted successfully');
@@ -392,6 +395,7 @@ export const restoreExpense = async (req, res, next) => {
         expense: populatedExpense,
         groupId: expense.group,
       });
+      io.to(`group:${expense.group}`).emit('activity:new');
     }
 
     sendSuccess(res, 200, 'Expense restored successfully', { expense: populatedExpense });

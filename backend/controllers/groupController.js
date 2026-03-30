@@ -265,6 +265,19 @@ export const removeMember = async (req, res, next) => {
       return next(new ApiError('Cannot remove the group admin', 400));
     }
 
+    // NEW: Check for outstanding balances before removal
+    const [expenses, settlements] = await Promise.all([
+      Expense.find({ group: group._id, isDeleted: { $ne: true } }),
+      Settlement.find({ group: group._id })
+    ]);
+
+    const balances = computeGroupBalances(expenses, settlements, group.members);
+    const memberBalance = balances[userId] || 0;
+
+    if (Math.abs(memberBalance) > 0.01) { // Floating point safety
+      return next(new ApiError('User has outstanding balances. They must settle before removal.', 400));
+    }
+
     const memberIndex = group.members.findIndex(
       (m) => m.user.toString() === userId
     );

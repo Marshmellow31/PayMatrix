@@ -18,6 +18,7 @@ import groupRoutes from './routes/groupRoutes.js';
 import expenseRoutes from './routes/expenseRoutes.js';
 import settlementRoutes from './routes/settlementRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import syncRoutes from './routes/syncRoutes.js';
 
 // Connect to database
 connectDB();
@@ -72,6 +73,7 @@ app.use('/api/v1/groups', groupRoutes);
 app.use('/api/v1', expenseRoutes);
 app.use('/api/v1/groups', settlementRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/sync', syncRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

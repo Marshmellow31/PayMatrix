@@ -25,13 +25,13 @@ export const exportToPDF = (group, expenses, balances) => {
   doc.text('Balance Summary', 14, 50);
 
   const balanceData = balances.map((b) => [
-    b.user?.name || 'Unknown',
+    `${b.user?.name || 'Unknown'} (${b.user?.email || 'N/A'})`,
     (b.balance || 0) >= 0 ? `+ INR ${(b.balance || 0).toLocaleString()}` : `- INR ${Math.abs(b.balance || 0).toLocaleString()}`
   ]);
 
   autoTable(doc, {
     startY: 55,
-    head: [['Member', 'Net Balance']],
+    head: [['Member (ID)', 'Net Balance']],
     body: balanceData,
     theme: 'grid',
     headStyles: { fillStyle: 'F', fillColor: [0, 0, 0], textColor: [255, 255, 255] },
@@ -47,7 +47,7 @@ export const exportToPDF = (group, expenses, balances) => {
     new Date(e.date).toLocaleDateString(),
     e.title || 'Untitled Expense',
     e.category,
-    e.paidBy?.name || 'Unknown',
+    `${e.paidBy?.name || 'Unknown'} (${e.paidBy?.email || 'N/A'})`,
     `INR ${e.amount.toLocaleString()}`
   ]);
 
@@ -78,7 +78,7 @@ export const exportToCSV = (group, expenses) => {
     Date: new Date(e.date).toLocaleDateString(),
     Title: e.title || 'Untitled',
     Category: e.category,
-    'Paid By': e.paidBy?.name || 'Unknown',
+    'Paid By': `${e.paidBy?.name || 'Unknown'} (${e.paidBy?.email || 'N/A'})`,
     Amount: e.amount,
     'Split Type': e.splitType,
   }));

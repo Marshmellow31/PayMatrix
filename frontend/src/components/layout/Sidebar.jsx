@@ -8,13 +8,14 @@ import {
   X,
   Plus,
   BarChart3,
+  WalletCards
 } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/groups', label: 'Groups', icon: Users },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/activity', label: 'Activity', icon: Activity },
+  { to: '/settlements', label: 'Settlements', icon: WalletCards },
   { to: '/profile', label: 'Profile', icon: User },
 ];
 

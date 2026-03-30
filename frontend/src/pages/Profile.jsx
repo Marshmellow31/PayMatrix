@@ -8,14 +8,22 @@ import { LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Profile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name || '');
 
-  const handleSave = () => {
-    // Would dispatch updateProfile here
-    toast.success('Profile updated');
-    setEditing(false);
+  const handleSave = async () => {
+    try {
+      const result = await updateProfile({ name });
+      if (result.meta.requestStatus === 'fulfilled') {
+        toast.success('Profile updated');
+        setEditing(false);
+      } else {
+        toast.error(result.payload || 'Update failed');
+      }
+    } catch (err) {
+      toast.error('An unexpected error occurred');
+    }
   };
 
   return (

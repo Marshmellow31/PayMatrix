@@ -2,8 +2,9 @@ import Settlement from '../models/Settlement.js';
 import Group from '../models/Group.js';
 import Expense from '../models/Expense.js';
 import Notification from '../models/Notification.js';
+import Activity from '../models/Activity.js';
 import { sendSuccess, ApiError } from '../utils/apiResponse.js';
-import { computeGroupBalances } from '../utils/balanceEngine.js';
+import { computeGroupBalances, simplifyDebts } from '../utils/balanceEngine.js';
 /**
  * @desc    Get group balances
  * @route   GET /api/v1/groups/:id/balances
@@ -47,6 +48,69 @@ export const getBalances = async (req, res, next) => {
 
     sendSuccess(res, 200, 'Balances retrieved successfully', {
       balances: enrichedBalances,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get user specific settlement plan (who they owe and how much)
+ * @route   GET /api/v1/groups/:id/settlements/:userId
+ * @access  Private
+ */
+export const getUserSettlementPlan = async (req, res, next) => {
+  try {
+    const group = await Group.findById(req.params.id).populate(
+      'members.user',
+      'name email avatar'
+    );
+
+    if (!group) {
+      return next(new ApiError('Group not found', 404));
+    }
+
+    // Verify requesting user is a member
+    const isRequestingMember = group.members.some(
+      (m) => m.user._id.toString() === req.user._id.toString()
+    );
+    if (!isRequestingMember) {
+      return next(new ApiError('You are not a member of this group', 403));
+    }
+
+    const targetUserId = req.params.userId === 'me' ? req.user._id.toString() : req.params.userId;
+
+    const [expenses, settlements] = await Promise.all([
+      Expense.find({ group: group._id, isDeleted: { $ne: true } }),
+      Settlement.find({ group: group._id })
+    ]);
+
+    const rawBalances = computeGroupBalances(expenses, settlements, group.members);
+    const allSimplifiedDebts = simplifyDebts(rawBalances);
+
+    console.log('--- GET SETTLEMENT PLAN DEBUG ---');
+    console.log('targetUserId:', targetUserId);
+    console.log('rawBalances:', rawBalances);
+    console.log('allSimplifiedDebts:', allSimplifiedDebts);
+
+    // Filter debts where the target user is the debtor
+    const userDebts = allSimplifiedDebts.filter(debt => debt.from.toString() === targetUserId);
+    console.log('userDebts:', userDebts);
+
+    let total_owe = 0;
+    const userSettlements = userDebts.map(debt => {
+      total_owe += debt.amount;
+      const creditor = group.members.find(m => m.user._id.toString() === debt.to.toString())?.user;
+      return {
+        to: debt.to,
+        name: creditor ? creditor.name : 'Unknown',
+        amount: debt.amount
+      };
+    });
+
+    sendSuccess(res, 200, 'User settlement plan retrieved successfully', {
+      total_owe: Math.round(total_owe * 100) / 100,
+      settlements: userSettlements,
     });
   } catch (error) {
     next(error);
@@ -113,6 +177,21 @@ export const createSettlement = async (req, res, next) => {
       relatedGroup: group._id,
       triggeredBy: req.user._id,
     });
+
+    // Create Activity Log
+    await Activity.create({
+      group: group._id,
+      user: req.user._id,
+      type: 'settlement_added',
+      message: `${req.user.name} paid ₹${amount} to ${populatedSettlement.payee.name}`,
+      relatedId: settlement._id,
+      amount: roundedAmount,
+    });
+
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`group:${group._id}`).emit('activity:new');
+    }
 
     sendSuccess(res, 201, 'Settlement recorded successfully', {
       settlement: populatedSettlement,

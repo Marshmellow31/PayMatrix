@@ -13,7 +13,8 @@ import Loader from '../components/common/Loader.jsx';
 import Button from '../components/common/Button.jsx';
 import Modal from '../components/common/Modal.jsx';
 import Input from '../components/common/Input.jsx';
-import { Plus, UserPlus } from 'lucide-react';
+import SettleUpModal from '../components/group/SettleUpModal.jsx';
+import { Plus, UserPlus, WalletCards } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
 import expenseService from '../services/expenseService.js';
@@ -33,6 +34,7 @@ const GroupDetail = () => {
   const [balances, setBalances] = useState([]);
   const [simplifiedDebts, setSimplifiedDebts] = useState([]);
   const [showAddMember, setShowAddMember] = useState(false);
+  const [showSettleUp, setShowSettleUp] = useState(false);
   const [memberEmail, setMemberEmail] = useState('');
 
   useEffect(() => {
@@ -107,25 +109,36 @@ const GroupDetail = () => {
             </div>
             <div>
               <h1 className="text-3xl lg:text-4xl font-bold font-manrope text-primary tracking-tight mb-2">{currentGroup.title}</h1>
-              <p className="text-base text-on-surface-variant uppercase tracking-widest font-inter font-semibold">{currentGroup.category} <span className="mx-2 opacity-50">·</span> {uniqueMembers.length} members</p>
+              <div className="flex items-center justify-between gap-3 mt-1">
+                <p className="text-xs text-on-surface-variant uppercase tracking-[0.2em] font-inter font-bold opacity-60">
+                  {currentGroup.category} <span className="mx-2 opacity-50">·</span> {uniqueMembers.length} members
+                </p>
+                {isAdmin && (
+                  <button 
+                    onClick={() => setShowAddMember(true)} 
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/5 active:scale-95 text-on-surface-variant group ml-auto"
+                    title="Add Member"
+                  >
+                    <UserPlus size={18} className="group-hover:text-primary transition-colors" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mt-6 md:mt-0">
-            {isAdmin && (
-              <button 
-                onClick={() => setShowAddMember(true)} 
-                className="h-11 px-5 rounded-xl flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 transition-all border border-white/5 active:scale-95 text-[10px] font-bold text-on-surface-variant/60 tracking-wider uppercase"
-              >
-                <UserPlus size={16} /> ADD USERS
-              </button>
-            )}
+          <div className="flex flex-col gap-4 mt-6 md:mt-0 w-full md:w-auto">
+            <button 
+              onClick={() => openAddExpense(id)} 
+              className="h-12 w-full md:w-80 rounded-2xl font-manrope font-bold text-xs tracking-[0.2em] flex items-center justify-center gap-3 bg-white text-black hover:bg-white/90 transition-all shadow-[0_20px_40px_-10px_rgba(255,255,255,0.1)] active:scale-[0.98] uppercase"
+            >
+              <Plus size={18} strokeWidth={3} /> RECORD EXPENSE
+            </button>
             
-            <div className="flex items-center gap-3 flex-1 sm:flex-none">
+            <div className="flex items-center gap-3">
               <button 
-                onClick={() => openAddExpense(id)} 
-                className="btn-primary h-11 px-8 rounded-xl font-manrope font-bold text-sm tracking-wider flex items-center justify-center gap-2 shadow-[0_10px_30px_-5px_rgba(255,255,255,0.1)] active:scale-95 transition-all flex-1 sm:flex-none"
+                onClick={() => setShowSettleUp(true)} 
+                className="h-12 px-6 rounded-2xl font-manrope font-bold text-xs tracking-widest flex items-center justify-center gap-3 bg-surface-container-highest/40 text-on-surface hover:bg-surface-container-highest/60 transition-all border border-white/5 active:scale-95 flex-1 md:flex-none uppercase"
               >
-                <Plus size={18} /> RECORD EXPENSE
+                <WalletCards size={18} className="text-primary" /> SETTLE UP
               </button>
               
               <ExportActions group={currentGroup} expenses={expenses} balances={balances} iconOnly={true} />
@@ -183,47 +196,19 @@ const GroupDetail = () => {
             <BalanceSummary balances={balances} />
           </div>
 
-          {simplifiedDebts.length > 0 && (
-            <div className="glass-card p-6 lg:p-10 border-primary/20 bg-primary/5">
-              <div className="flex items-center gap-3 mb-6">
-                <LucideIcons.Sparkles className="text-primary" size={20} />
-                <h3 className="text-sm font-bold text-white uppercase tracking-widest font-inter">Suggested Settlements</h3>
-              </div>
-              
-              <div className="space-y-3">
-                {simplifiedDebts.map((debt, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-surface-container-highest/20 border border-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className="text-left">
-                        <span className="text-xs font-bold text-white">{debt.fromUser?.name || 'Unknown'}</span>
-                        <span className="text-[10px] text-on-surface-variant mx-2">owes</span>
-                        <span className="text-xs font-bold text-white">{debt.toUser?.name || 'Unknown'}</span>
-                      </div>
-                    </div>
-                    <div className="text-right flex flex-col items-end gap-2">
-                      <p className="font-manrope font-black text-primary text-lg">₹{debt.amount.toFixed(2)}</p>
-                      <Button
-                        size="sm"
-                        className="h-8 px-4 text-xs font-bold tracking-wider"
-                        onClick={() => navigate(`/groups/${id}/settlements`, { state: { prefill: debt } })}
-                      >
-                        Settle Now
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-6 text-[10px] text-on-surface-variant font-inter italic opacity-60">
-                Min-flow algorithm is active. These transactions will settle all debts with the fewest steps possible.
-              </p>
-            </div>
-          )}
         </div>
       )}
 
       {tab === 'members' && (
         <div className="glass-card p-6 lg:p-10">
-          <MemberList members={currentGroup.members} adminId={currentGroup.admin} />
+          <MemberList 
+            members={currentGroup.members} 
+            adminId={currentGroup.admin} 
+            balances={balances}
+            groupId={id}
+            onMemberRemoved={() => dispatch(fetchGroup(id))}
+            currentUserId={user?._id}
+          />
         </div>
       )}
 
@@ -272,6 +257,21 @@ const GroupDetail = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Settle Up Modal */}
+      <SettleUpModal 
+        isOpen={showSettleUp} 
+        onClose={() => setShowSettleUp(false)} 
+        groupId={id} 
+        userId="me"
+        onSettled={() => {
+          // Re-fetch balances after a settlement
+          expenseService.getBalances(id).then(res => {
+            setBalances(res.data.data.balances || []);
+            setSimplifiedDebts(res.data.data.simplifiedDebts || []);
+          }).catch(() => {});
+        }}
+      />
     </div>
   );
 };

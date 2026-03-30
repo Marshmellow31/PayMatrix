@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Users, Plus, Bell, User, BarChart3 } from 'lucide-react';
+import { Home, Users, Bell, User, BarChart3, WalletCards } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', label: 'Home', icon: Home },
   { to: '/groups', label: 'Groups', icon: Users },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/activity', label: 'Activity', icon: Bell },
+  { to: '/settlements', label: 'Settlements', icon: WalletCards },
   { to: '/profile', label: 'Profile', icon: User },
 ];
 
