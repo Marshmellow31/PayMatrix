@@ -7,9 +7,19 @@ node_modules/
 # Environment
 .env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.env.local
 
-# Build
+# Template (uncomment to ignore)
+# .env.example
+
+# Build outputs
 dist/
+dist-ssr/
+*.local
 build/
 
 # IDE
