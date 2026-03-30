@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
@@ -17,6 +17,7 @@ const Groups = () => {
   const dispatch = useDispatch();
   const location = useLocation();
   const navigate = useNavigate();
+  const { openAddExpense } = useOutletContext();
   const { groups, loading } = useSelector((state) => state.groups);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ title: '', category: 'Other' });
@@ -89,12 +90,13 @@ const Groups = () => {
       {/* Floating Action Button - Now for Add Expense */}
       <div className="fixed bottom-28 right-6 z-40 lg:right-[calc(50%-22rem)]">
         <button 
-          onClick={() => navigate('/add-expense')}
+          onClick={() => openAddExpense()}
           className="h-14 w-14 rounded-full bg-primary text-on-primary shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform duration-200"
         >
           <LucideIcons.Plus size={24} />
         </button>
       </div>
+
 
       {/* Create Group Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Establish Group">

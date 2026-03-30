@@ -23,12 +23,21 @@ const ExpenseForm = ({
   const [selectedGroup, setSelectedGroup] = useState(null);
 
   useEffect(() => {
+    if (initialGroupId) {
+      setForm(prev => ({ ...prev, groupId: initialGroupId }));
+    }
+  }, [initialGroupId]);
+
+  useEffect(() => {
     if (form.groupId) {
       const group = groups.find(g => g._id === form.groupId);
       setSelectedGroup(group);
       if (onGroupChange) onGroupChange(group);
+    } else {
+      setSelectedGroup(null);
     }
   }, [form.groupId, groups]);
+
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });

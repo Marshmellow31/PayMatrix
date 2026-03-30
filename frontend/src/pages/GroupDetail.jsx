@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useOutletContext } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { fetchGroup } from '../redux/groupSlice.js';
@@ -21,6 +21,7 @@ import toast from 'react-hot-toast';
 const GroupDetail = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
+  const { openAddExpense } = useOutletContext();
   const { currentGroup, loading: groupLoading } = useSelector((state) => state.groups);
   const { expenses, loading: expenseLoading } = useSelector((state) => state.expenses);
   const { user } = useSelector((state) => state.auth);
@@ -96,12 +97,11 @@ const GroupDetail = () => {
                 <UserPlus size={22} className="text-on-surface-variant" />
               </Button>
             )}
-            <Link to={`/groups/${id}/add-expense`}>
-              <Button className="h-12 px-6 rounded-full font-manrope tracking-wide"><Plus size={20} className="mr-2" /> Record Expense</Button>
-            </Link>
+            <Button onClick={() => openAddExpense(id)} className="h-12 px-6 rounded-full font-manrope tracking-wide"><Plus size={20} className="mr-2" /> Record Expense</Button>
           </div>
         </div>
       </div>
+
 
       {/* Tabs */}
       <div className="flex gap-6 mb-10 pb-4 overflow-x-auto hide-scrollbar">

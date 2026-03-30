@@ -4,7 +4,6 @@ import { Home, Users, Plus, Bell, User } from 'lucide-react';
 const navItems = [
   { to: '/dashboard', label: 'Home', icon: Home },
   { to: '/groups', label: 'Groups', icon: Users },
-  { to: '/add-expense', label: 'Add', icon: Plus, isAction: true },
   { to: '/activity', label: 'Activity', icon: Bell },
   { to: '/profile', label: 'Profile', icon: User },
 ];
@@ -18,9 +17,7 @@ const BottomNav = () => {
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
-              `flex items-center justify-center w-14 h-14 rounded-full transition-all duration-300 relative ${
-                item.isAction ? 'z-10' : ''
-              }`
+              `flex items-center justify-center w-14 h-14 rounded-full transition-all duration-300 relative`
             }
           >
             {({ isActive }) => (
@@ -42,5 +39,7 @@ const BottomNav = () => {
     </nav>
   );
 };
+
+
 
 export default BottomNav;
