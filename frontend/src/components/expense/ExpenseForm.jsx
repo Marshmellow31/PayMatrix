@@ -37,32 +37,41 @@ const ExpenseForm = ({
 
   useEffect(() => {
     if (initialData) {
+      // Safely parse date — offline expenses may have a raw ISO string or Date object
+      let dateStr = new Date().toISOString().split('T')[0];
+      try {
+        const parsed = new Date(initialData.date);
+        if (!isNaN(parsed.getTime())) {
+          dateStr = parsed.toISOString().split('T')[0];
+        }
+      } catch (_) {}
+
       setForm({
         title: initialData.title || '',
-        amount: initialData.amount.toString() || '',
-        groupId: initialData.group?._id || initialData.group || '',
+        amount: (initialData.amount || '').toString(),
+        groupId: initialData.group?._id || initialData.group || initialData.groupId || '',
         category: initialData.category || 'Other',
-        date: new Date(initialData.date).toISOString().split('T')[0],
+        date: dateStr,
         paidBy: (initialData.paidBy?._id || initialData.paidBy || '').toString(),
         notes: initialData.notes || '',
       });
       setSplitType(initialData.splitType || 'equal');
-      
-      const participantIds = initialData.splits.map(s => (s.user?._id || s.user).toString());
+
+      // Guard: offline expenses may not have splits yet
+      const splits = initialData.splits || [];
+      const participantIds = splits.map(s => (s.user?._id || s.user).toString()).filter(Boolean);
       setParticipants(participantIds);
 
-      // Reconstruct split data
+      // Reconstruct split data from server expense
       const newPercentages = {};
       const newExact = {};
       const newShares = {};
-
-      initialData.splits.forEach(s => {
+      splits.forEach(s => {
         const uid = (s.user?._id || s.user).toString();
         if (initialData.splitType === 'percentage') newPercentages[uid] = s.percent?.toString() || '';
         if (initialData.splitType === 'exact') newExact[uid] = s.amount.toString() || '';
         if (initialData.splitType === 'shares') newShares[uid] = s.shares?.toString() || '1';
       });
-
       setSplitData({
         percentages: newPercentages,
         exactAmounts: newExact,
@@ -72,6 +81,7 @@ const ExpenseForm = ({
       setForm(prev => ({ ...prev, groupId: initialGroupId }));
     }
   }, [initialData, initialGroupId]);
+
 
   useEffect(() => {
     if (form.groupId && !initialData) {
@@ -110,12 +120,18 @@ const ExpenseForm = ({
     } else if (form.groupId && initialData) {
       const group = groups.find(g => g._id === form.groupId);
       setSelectedGroup(group);
+      // If editing an offline expense (no splits loaded), populate participants from group
+      if (group && participants.length === 0) {
+        const allMemberIds = group.members.map(m => (m.user?._id || m.user).toString());
+        setParticipants(Array.from(new Set(allMemberIds)));
+      }
       if (onGroupChange) onGroupChange(group);
     } else {
       setSelectedGroup(null);
       setParticipants([]);
     }
   }, [form.groupId, groups, initialData]);
+
 
 
   const handleChange = (e) => {

@@ -27,6 +27,16 @@ const settlementSchema = new mongoose.Schema(
       trim: true,
       maxlength: 200,
     },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+    idempotencyKey: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
   },
   {
     timestamps: true,

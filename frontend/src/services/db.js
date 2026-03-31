@@ -49,6 +49,16 @@ export const updateOperation = async (id, changes) => {
   return await db.operationQueue.update(id, changes);
 };
 
+// Lookup a queued operation by its business-level operation_id
+export const getOperationByOperationId = async (operation_id) => {
+  return await db.operationQueue.where('operation_id').equals(operation_id).first();
+};
+
+// Replace an operation's payload in-place (used to coalesce offline edits)
+export const updateOperationPayload = async (id, payload) => {
+  return await db.operationQueue.update(id, { payload });
+};
+
 // Helper to invalidate specific API cache entries
 export const invalidateCache = async (url) => {
   return await db.apiCache.delete(url);

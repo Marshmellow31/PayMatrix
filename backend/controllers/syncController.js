@@ -1,6 +1,8 @@
 import Expense from '../models/Expense.js';
 import Group from '../models/Group.js';
 import User from '../models/User.js';
+import Settlement from '../models/Settlement.js';
+import FriendRequest from '../models/FriendRequest.js';
 import AuditLog from '../models/AuditLog.js';
 import Activity from '../models/Activity.js';
 import Notification from '../models/Notification.js';
@@ -35,6 +37,15 @@ export const processSyncQueue = async (req, res, next) => {
             const group = await Group.findById(groupId);
             if (!group) throw new Error('Group not found');
 
+            // --- Idempotency Check: prevent duplicate creation from repeated sync attempts ---
+            const existingExpense = await Expense.findOne({ idempotencyKey: op.operation_id });
+            if (existingExpense) {
+              console.log(`[Sync] Skipping duplicate expense create for operation ${op.operation_id}`);
+              success.push(op.operation_id);
+              server_updates.push({ operation_id: op.operation_id, server_id: existingExpense._id, entity: 'expense' });
+              continue;
+            }
+
             const payerId = paidBy || req.user._id;
             const amount = Math.round(parseFloat(rawAmount) * 100) / 100;
 
@@ -54,7 +65,8 @@ export const processSyncQueue = async (req, res, next) => {
             const expense = await Expense.create({
               title, amount, paidBy: payerId, group: group._id, splitType, splits,
               items: splitData.items || [], category: category || 'Other',
-              date: date || Date.now(), notes, receipt, syncId: op.operation_id // store for idempotency if schema supports it, otherwise it ignores it
+              date: date || Date.now(), notes, receipt,
+              idempotencyKey: op.operation_id  // Store for idempotency checks
             });
 
             await AuditLog.create({
@@ -204,6 +216,118 @@ export const processSyncQueue = async (req, res, next) => {
                 relatedGroup: group._id, triggeredBy: req.user._id,
               });
             }
+            success.push(op.operation_id);
+
+          } else if (op.type === 'remove_member') {
+            const { groupId, userId } = op.payload;
+            const group = await Group.findById(groupId);
+            if (!group) throw new Error('Group not found');
+            if (group.admin.toString() !== req.user._id.toString()) throw new Error('Not admin');
+
+            group.members = group.members.filter(m => m.user.toString() !== userId);
+            await group.save();
+            success.push(op.operation_id);
+
+          } else if (op.type === 'leave') {
+            const { groupId } = op.payload;
+            const group = await Group.findById(groupId);
+            if (!group) throw new Error('Group not found');
+
+            group.members = group.members.filter(m => m.user.toString() !== req.user._id.toString());
+            await group.save();
+
+            await Activity.create({
+              group: group._id, user: req.user._id, type: 'member_left',
+              message: `${req.user.name} left "${group.title}" via Sync`,
+              relatedId: req.user._id,
+            });
+            success.push(op.operation_id);
+
+          } else if (op.type === 'update') {
+            const { id: groupId, ...updateData } = op.payload;
+            const group = await Group.findById(groupId);
+            if (!group) throw new Error('Group not found');
+            if (group.admin.toString() !== req.user._id.toString()) throw new Error('Not admin');
+
+            Object.assign(group, updateData);
+            await group.save();
+            success.push(op.operation_id);
+
+          } else if (op.type === 'delete') {
+            const { id: groupId } = op.payload;
+            const group = await Group.findById(groupId);
+            if (!group) throw new Error('Group not found');
+            if (group.admin.toString() !== req.user._id.toString()) throw new Error('Not admin');
+
+            await Group.deleteOne({ _id: groupId });
+            success.push(op.operation_id);
+          }
+
+        } else if (op.entity === 'settlement') {
+          if (op.type === 'create') {
+            const { groupId, payerId, payeeId, amount, description } = op.payload;
+
+            // Idempotency: avoid duplicate settlements
+            const existingSettlement = await Settlement.findOne({ idempotencyKey: op.operation_id });
+            if (existingSettlement) {
+              success.push(op.operation_id);
+              continue;
+            }
+
+            const group = await Group.findById(groupId);
+            if (!group) throw new Error('Group not found');
+
+            const settlement = await Settlement.create({
+              group: groupId,
+              payer: payerId || req.user._id,
+              payee: payeeId,
+              amount: Math.round(parseFloat(amount) * 100) / 100,
+              description: description || 'Settled up',
+              idempotencyKey: op.operation_id,
+            });
+
+            await Activity.create({
+              group: groupId, user: req.user._id, type: 'settlement_created',
+              message: `${req.user.name} settled up ₹${amount} via Sync`,
+              relatedId: settlement._id, amount: settlement.amount,
+            });
+
+            success.push(op.operation_id);
+            server_updates.push({ operation_id: op.operation_id, server_id: settlement._id, entity: 'settlement' });
+          }
+
+        } else if (op.entity === 'expense' && op.type === 'restore') {
+          const { id: expenseId } = op.payload;
+          const expense = await Expense.findById(expenseId);
+          if (!expense) throw new Error('Expense not found');
+
+          expense.isDeleted = false;
+          expense.deletedBy = undefined;
+          expense.deletedAt = undefined;
+          await expense.save();
+
+          await AuditLog.create({
+            group: expense.group, expense: expense._id, user: req.user._id,
+            action: 'restore',
+            changeSummary: `[SYNC] Expense "${expense.title}" restored by ${req.user.name}`,
+          });
+          success.push(op.operation_id);
+
+        } else if (op.entity === 'friend_request') {
+          if (op.type === 'create') {
+            const { receiverId } = op.payload;
+            const existing = await FriendRequest.findOne({
+              sender: req.user._id, receiver: receiverId,
+              status: { $in: ['pending', 'accepted'] }
+            });
+            if (!existing) {
+              await FriendRequest.create({ sender: req.user._id, receiver: receiverId });
+            }
+            success.push(op.operation_id);
+
+          } else if (op.type === 'update') {
+            const { requestId, status } = op.payload;
+            await FriendRequest.findByIdAndUpdate(requestId, { status });
             success.push(op.operation_id);
           }
         }

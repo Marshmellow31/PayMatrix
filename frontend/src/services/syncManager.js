@@ -7,10 +7,14 @@ import { removeOfflineExpense } from '../redux/expenseSlice.js';
 class SyncManager {
   constructor() {
     this.isSyncing = false;
-    this.init();
+    this._initialized = false;
   }
 
   init() {
+    // Guard against double-init (constructor + main.jsx both call this)
+    if (this._initialized) return;
+    this._initialized = true;
+
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => this.sync());
       // Try sync on load
@@ -26,39 +30,40 @@ class SyncManager {
   }
 
   async sync(silent = false) {
+    // Set flag IMMEDIATELY — before any await — to prevent concurrent calls
     if (this.isSyncing || !navigator.onLine) return;
-
-    const pending = await getPendingOperations();
-    const now = new Date().getTime();
-    
-    // Only attempt to sync those that haven't permanently failed AND pass the backoff threshold
-    const toSync = pending.filter(op => {
-        if ((op.retryCount || 0) >= 5) return false;
-        
-        // Exponential backoff: 0ms, 1min, 3min, 7min, 15min
-        const backoffMs = (Math.pow(2, op.retryCount || 0) - 1) * 60000;
-        const opTime = new Date(op.timestamp).getTime();
-        
-        return now >= (opTime + backoffMs);
-    });
-    
-    if (toSync.length === 0) return;
-
     this.isSyncing = true;
-    console.log(`Syncing ${toSync.length} offline operations...`);
-
-    let syncToast;
-    if (!silent) {
-        syncToast = toast.loading(`Syncing ${toSync.length} offline changes...`, {
-            style: {
-                background: '#000000',
-                color: '#ffffff',
-                border: '1px solid #333',
-            }
-        });
-    }
 
     try {
+      const pending = await getPendingOperations();
+      const now = new Date().getTime();
+      
+      // Only attempt to sync those that haven't permanently failed AND pass the backoff threshold
+      const toSync = pending.filter(op => {
+          if ((op.retryCount || 0) >= 5) return false;
+          
+          // Exponential backoff: 0ms, 1min, 3min, 7min, 15min
+          const backoffMs = (Math.pow(2, op.retryCount || 0) - 1) * 60000;
+          const opTime = new Date(op.timestamp).getTime();
+          
+          return now >= (opTime + backoffMs);
+      });
+      
+      if (toSync.length === 0) return; // finally block will reset isSyncing
+
+      console.log(`Syncing ${toSync.length} offline operations...`);
+
+      let syncToast;
+      if (!silent) {
+          syncToast = toast.loading(`Syncing ${toSync.length} offline changes...`, {
+              style: {
+                  background: '#000000',
+                  color: '#ffffff',
+                  border: '1px solid #333',
+              }
+          });
+      }
+
       // Send batch to server
       const response = await api.post('/sync', { operations: toSync });
       const { success, failed, server_updates } = response.data.data;
@@ -112,7 +117,7 @@ class SyncManager {
     } catch (error) {
       console.error('Global sync error:', error);
       if (!silent) {
-          toast.error('Network error during sync.', { id: syncToast });
+          toast.error('Network error during sync.');
       }
     } finally {
       this.isSyncing = false;
