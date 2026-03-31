@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
+import { API_URL } from '../utils/constants';
 import Loader from '../components/common/Loader.jsx';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
@@ -31,7 +32,7 @@ const JoinGroup = () => {
             Authorization: `Bearer ${token}`,
           },
         };
-        const response = await axios.post(`/api/v1/groups/join/${code}`, {}, config);
+        const response = await axios.post(`${API_URL}/groups/join/${code}`, {}, config);
         setStatus('success');
         setGroupData(response.data.data);
         toast.success('Successfully joined the cohort!');
