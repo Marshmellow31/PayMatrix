@@ -56,15 +56,15 @@ export const login = createAsyncThunk(
   }
 );
 
+import { fetchWithCache } from '../utils/fetchWithCache.js';
+
 // Get current user
 export const getMe = createAsyncThunk('auth/getMe', async (_, thunkAPI) => {
-  try {
-    const response = await authService.getMe();
-    return response.data.data;
-  } catch (error) {
-    const message = error.response?.data?.message || 'Failed to get profile';
-    return thunkAPI.rejectWithValue(message);
-  }
+  return fetchWithCache(
+    '/users/me',
+    thunkAPI,
+    () => authService.getMe()
+  );
 });
 
 // Update profile

@@ -77,6 +77,11 @@ const expenseSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    idempotencyKey: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
     isDeleted: {
       type: Boolean,
       default: false,

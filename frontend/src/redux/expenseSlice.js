@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import expenseService from '../services/expenseService.js';
+import { fetchWithCache } from '../utils/fetchWithCache.js';
 
 const initialState = {
   expenses: [],
@@ -10,12 +11,11 @@ const initialState = {
 };
 
 export const fetchExpenses = createAsyncThunk('expenses/fetchAll', async ({ groupId, page = 1 }, thunkAPI) => {
-  try {
-    const response = await expenseService.getExpenses(groupId, page);
-    return response.data.data;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.response?.data?.message || 'Failed to fetch expenses');
-  }
+  return fetchWithCache(
+    `/groups/${groupId}/expenses?page=${page}`,
+    thunkAPI,
+    () => expenseService.getExpenses(groupId, page)
+  );
 });
 
 export const addExpense = createAsyncThunk('expenses/add', async ({ groupId, data }, thunkAPI) => {

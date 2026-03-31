@@ -1,51 +1,95 @@
 import api from './api.js';
-import { queueOperation } from './db.js';
+import { queueOperation, invalidateCache, invalidateCachePrefix } from './db.js';
 
 const expenseService = {
   getExpenses: (groupId, page = 1) => api.get(`/groups/${groupId}/expenses?page=${page}`),
   getExpense: (id) => api.get(`/expenses/${id}`),
   addExpense: async (groupId, data) => {
+    const operation_id = `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const payload = { ...data, idempotencyKey: operation_id };
+
+    // Always invalidate the local expense/balance cache before mutating
+    await invalidateCachePrefix(`/groups/${groupId}/expenses`);
+    await invalidateCache(`/groups/${groupId}/balances`);
+    await invalidateCache('/expenses/summary');
+
     if (!navigator.onLine) {
       console.log('Offline detected, saving expense to IndexedDB...');
-      await queueOperation('create', 'expense', { ...data, groupId });
-      return { data: { offline: true, message: 'Expense saved locally. It will sync when you are back online.', expense: { ...data, _id: `temp_${Date.now()}` } } };
+      await queueOperation('create', 'expense', { ...payload, groupId }, operation_id);
+      return { 
+        data: { 
+          status: 'success', 
+          message: 'Expense saved locally. It will sync when online.', 
+          data: { expense: { ...payload, _id: operation_id, offline: true } } 
+        } 
+      };
     }
     try {
-        return await api.post(`/groups/${groupId}/expenses`, data);
+        return await api.post(`/groups/${groupId}/expenses`, payload);
     } catch (err) {
         if (!err.response || err.message === 'Network Error') {
-            await queueOperation('create', 'expense', { ...data, groupId });
-            return { data: { offline: true, message: 'Network error. Expense queued for sync.', expense: { ...data, _id: `temp_${Date.now()}` } } };
+            await queueOperation('create', 'expense', { ...payload, groupId }, operation_id);
+            return { 
+              data: { 
+                status: 'success', 
+                message: 'Network error. Expense queued for sync.', 
+                data: { expense: { ...payload, _id: operation_id, offline: true } } 
+              } 
+            };
         }
         throw err;
     }
   },
   updateExpense: async (id, data) => {
+    const operation_id = `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const payload = { ...data, idempotencyKey: operation_id };
+    const groupId = data.groupId;
+
+    if (groupId) {
+      await invalidateCachePrefix(`/groups/${groupId}/expenses`);
+      await invalidateCache(`/groups/${groupId}/balances`);
+    }
+    await invalidateCache('/expenses/summary');
+
     if (!navigator.onLine) {
-      await queueOperation('update', 'expense', { ...data, id });
-      return { data: { offline: true, message: 'Update queued for sync.' } };
+      await queueOperation('update', 'expense', { ...payload, id }, operation_id);
+      return { 
+        data: { 
+          status: 'success', 
+          message: 'Update queued for sync.', 
+          data: { expense: { ...payload, _id: id, offline: true } } 
+        } 
+      };
     }
     try {
-        return await api.put(`/expenses/${id}`, data);
+        return await api.put(`/expenses/${id}`, payload);
     } catch (err) {
         if (!err.response || err.message === 'Network Error') {
-            await queueOperation('update', 'expense', { ...data, id });
-            return { data: { offline: true, message: 'Network error. Update queued.' } };
+            await queueOperation('update', 'expense', { ...payload, id }, operation_id);
+            return { 
+              data: { 
+                status: 'success', 
+                message: 'Network error. Update queued.', 
+                data: { expense: { ...payload, _id: id, offline: true } } 
+              } 
+            };
         }
         throw err;
     }
   },
   deleteExpense: async (id) => {
+    await invalidateCache('/expenses/summary');
+
     if (!navigator.onLine) {
       await queueOperation('delete', 'expense', { id });
-      return { data: { offline: true, message: 'Delete queued for sync.' } };
+      return { data: { status: 'success', message: 'Delete queued for sync.' } };
     }
     try {
         return await api.delete(`/expenses/${id}`);
     } catch (err) {
         if (!err.response || err.message === 'Network Error') {
             await queueOperation('delete', 'expense', { id });
-            return { data: { offline: true, message: 'Network error. Delete queued.' } };
+            return { data: { status: 'success', message: 'Network error. Delete queued.' } };
         }
         throw err;
     }

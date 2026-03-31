@@ -7,13 +7,14 @@ const initialState = {
   loading: false,
 };
 
+import { fetchWithCache } from '../utils/fetchWithCache.js';
+
 export const fetchNotifications = createAsyncThunk('notifications/fetchAll', async (_, thunkAPI) => {
-  try {
-    const response = await api.get('/notifications');
-    return response.data.data;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.response?.data?.message || 'Failed to fetch');
-  }
+  return fetchWithCache(
+    '/notifications',
+    thunkAPI,
+    () => api.get('/notifications')
+  );
 });
 
 export const markAsRead = createAsyncThunk('notifications/markRead', async (id, thunkAPI) => {

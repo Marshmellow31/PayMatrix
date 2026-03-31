@@ -90,7 +90,7 @@ const Dashboard = () => {
       </motion.section>
 
       {/* Bento Grid Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* You Owe Card */}
         <motion.div 
           whileHover={{ scale: 0.98 }}
@@ -126,28 +126,6 @@ const Dashboard = () => {
             <ArrowDownLeft size={120} />
           </div>
         </motion.div>
-
-        {/* Overview Card */}
-        <div className="glass-card p-6 rounded-2xl border border-white/5 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-manrope font-bold text-lg text-white">Overview</h3>
-            <PieChart size={18} className="text-on-surface-variant opacity-50" />
-          </div>
-          <div className="flex items-center gap-5">
-            <div className="relative w-16 h-16 flex-shrink-0">
-               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <path className="text-white/5" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                <path className="text-white" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeDasharray="65, 100" strokeLinecap="round" strokeWidth="3" />
-              </svg>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-bold text-white tracking-tight">
-                {summary?.categories?.[0]?._id || 'General'}
-              </p>
-              <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter opacity-50">Primary Cost</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Asymmetric Layout: Groups and Activity */}

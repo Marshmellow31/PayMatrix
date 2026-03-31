@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import FriendRequest from '../models/FriendRequest.js';
 import Expense from '../models/Expense.js';
 import Settlement from '../models/Settlement.js';
+import Notification from '../models/Notification.js';
 import { sendSuccess, ApiError } from '../utils/apiResponse.js';
 
 /**
@@ -79,6 +80,19 @@ export const sendFriendRequest = async (req, res, next) => {
       receiver: receiverId,
     });
 
+    // Notify receiver
+    await Notification.create({
+      user: receiverId,
+      type: 'friend_request',
+      message: `${req.user.name} sent you a friend request`,
+      triggeredBy: req.user._id,
+    });
+
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`user:${receiverId}`).emit('update_notifications');
+    }
+
     sendSuccess(res, 201, 'Friend request sent', { friendRequest });
   } catch (error) {
     next(error);
@@ -136,8 +150,19 @@ export const respondToRequest = async (req, res, next) => {
       
       request.status = 'accepted';
       await request.save();
-      // Optionally delete the request after accepting
-      // await request.deleteOne();
+
+      // Notify sender that request was accepted
+      await Notification.create({
+        user: request.sender,
+        type: 'friend_accepted',
+        message: `${req.user.name} accepted your friend request`,
+        triggeredBy: req.user._id,
+      });
+
+      const io = req.app.get('socketio');
+      if (io) {
+        io.to(`user:${request.sender}`).emit('update_notifications');
+      }
     } else {
       request.status = 'declined';
       await request.save();

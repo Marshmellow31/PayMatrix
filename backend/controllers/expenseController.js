@@ -23,8 +23,19 @@ export const addExpense = async (req, res, next) => {
       receipt, 
       participants, 
       splitType = 'equal',
-      splitData = {} // percentages, shares, exactAmounts, items
+      splitData = {}, // percentages, shares, exactAmounts, items
+      idempotencyKey  // Added field
     } = req.body;
+
+    // --- Idempotency Check ---
+    if (idempotencyKey) {
+      const existingExpense = await Expense.findOne({ idempotencyKey })
+        .populate('paidBy', 'name email avatar')
+        .populate('splits.user', 'name email avatar');
+      if (existingExpense) {
+        return sendSuccess(res, 200, 'Expense already processed', { expense: existingExpense });
+      }
+    }
 
     const group = await Group.findById(req.params.id);
     if (!group) return next(new ApiError('Group not found', 404));
@@ -66,6 +77,7 @@ export const addExpense = async (req, res, next) => {
       date: date || Date.now(),
       notes,
       receipt,
+      idempotencyKey,
     });
 
     // Create Audit Log

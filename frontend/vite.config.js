@@ -34,6 +34,29 @@ export default defineConfig({
           },
         ],
       },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Critical for PWA: serve cached index.html for ALL routes when offline
+        navigateFallback: 'index.html',
+        // Auto-clean stale caches on update
+        cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 365 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
+      },
       devOptions: {
         enabled: true,
         type: 'module',
@@ -42,6 +65,7 @@ export default defineConfig({
   ],
   server: {
     port: 5080,
+    host: true,
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

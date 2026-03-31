@@ -13,7 +13,16 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
     (s) => (s.user?._id || s.user) === currentUserId
   );
 
-  const loggedTime = format(new Date(expense.createdAt), 'p, MMM dd');
+  // Safely derive display time; offline expenses may lack createdAt
+  let loggedTime = 'Just now';
+  try {
+    const rawDate = expense.createdAt || expense.date || new Date();
+    const parsed = new Date(rawDate);
+    if (!isNaN(parsed.getTime())) {
+      loggedTime = format(parsed, 'p, MMM dd');
+    }
+  } catch (_) { /* silently keep 'Just now' */ }
+
 
   return (
     <motion.div

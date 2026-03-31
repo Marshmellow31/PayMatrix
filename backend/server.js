@@ -30,10 +30,18 @@ connectCloudinary();
 const app = express();
 const server = http.createServer(app);
 
+// --- Multi-Origin CORS Configuration ---
+const allowedOrigins = [
+  'http://localhost:5080',
+  'http://127.0.0.1:5080',
+  'http://192.168.1.7:5080',
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
 // Configure Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -53,7 +61,15 @@ app.use(helmet());
 // CORS
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://192.168.1.')) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );

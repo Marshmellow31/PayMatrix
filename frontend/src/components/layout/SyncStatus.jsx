@@ -60,7 +60,7 @@ const SyncStatus = () => {
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 50 }}
-          className="fixed bottom-24 lg:bottom-10 right-6 z-[60]"
+          className="fixed top-20 sm:top-24 right-5 sm:right-8 z-[60]"
           onClick={pendingCount > 0 && online ? handleManualSync : undefined}
         >
           <div className="glass-pill px-4 py-2 flex items-center gap-3 shadow-2xl border border-white/5 cursor-pointer hover:bg-white/5 transition-colors">

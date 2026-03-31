@@ -6,6 +6,7 @@ import expenseService from '../../services/expenseService';
 import { restoreExpense } from '../../redux/expenseSlice';
 import { format } from 'date-fns';
 import { io } from 'socket.io-client';
+import { SOCKET_URL } from '../../utils/constants.js';
 import toast from 'react-hot-toast';
 
 const ActivityFeed = ({ groupId }) => {
@@ -29,7 +30,7 @@ const ActivityFeed = ({ groupId }) => {
     fetchActivity();
 
     // Socket listener for real-time updates
-    const socket = io(import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000');
+    const socket = io(SOCKET_URL);
     socket.emit('join:group', groupId);
     
     socket.on('activity:new', () => {

@@ -18,6 +18,8 @@ const notificationSchema = new mongoose.Schema(
         'member_removed',
         'group_updated',
         'reminder',
+        'friend_request',
+        'friend_accepted',
       ],
       required: true,
     },

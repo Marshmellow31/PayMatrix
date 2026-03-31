@@ -1,10 +1,11 @@
 import api from './api.js';
-import { queueOperation } from './db.js';
+import { queueOperation, invalidateCache } from './db.js';
 
 const groupService = {
   getGroups: () => api.get('/groups'),
   getGroup: (id) => api.get(`/groups/${id}`),
   createGroup: async (data) => {
+      await invalidateCache('/groups');
       if (!navigator.onLine) {
           await queueOperation('create', 'group', data);
           return { data: { offline: true, message: 'Group creation queued for sync.', group: { ...data, _id: `temp_${Date.now()}` } } };
@@ -22,6 +23,7 @@ const groupService = {
   updateGroup: (id, data) => api.put(`/groups/${id}`, data),
   deleteGroup: (id) => api.delete(`/groups/${id}`),
   addMember: async (groupId, data) => {
+      await invalidateCache(`/groups/${groupId}`);
       if (!navigator.onLine) {
           await queueOperation('add_member', 'group', { ...data, groupId });
           return { data: { offline: true, message: 'Member addition queued for sync.' } };

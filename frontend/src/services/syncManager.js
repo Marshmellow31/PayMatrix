@@ -27,8 +27,18 @@ class SyncManager {
     if (this.isSyncing || !navigator.onLine) return;
 
     const pending = await getPendingOperations();
-    // Only attempt to sync those that haven't permanently failed
-    const toSync = pending.filter(op => (op.retryCount || 0) < 5);
+    const now = new Date().getTime();
+    
+    // Only attempt to sync those that haven't permanently failed AND pass the backoff threshold
+    const toSync = pending.filter(op => {
+        if ((op.retryCount || 0) >= 5) return false;
+        
+        // Exponential backoff: 0ms, 1min, 3min, 7min, 15min
+        const backoffMs = (Math.pow(2, op.retryCount || 0) - 1) * 60000;
+        const opTime = new Date(op.timestamp).getTime();
+        
+        return now >= (opTime + backoffMs);
+    });
     
     if (toSync.length === 0) return;
 

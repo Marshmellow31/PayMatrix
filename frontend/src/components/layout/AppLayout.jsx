@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import ErrorBoundary from '../common/ErrorBoundary.jsx';
 import Header from './Header.jsx';
 import Sidebar from './Sidebar.jsx';
 import BottomNav from './BottomNav.jsx';
@@ -74,8 +75,10 @@ const AppLayout = () => {
           />
         )}
 
-        <main className={`flex-1 ${!isFocusJourney ? 'p-4 lg:p-8 pb-24 lg:pb-8 min-h-[calc(100vh-80px)]' : 'min-h-screen flex flex-col'}`}>
-          <Outlet context={{ openAddExpense }} />
+        <main className={`flex-1 ${!isFocusJourney ? 'p-4 lg:p-8 pb-32 lg:pb-8 min-h-[calc(100vh-80px)]' : 'min-h-screen flex flex-col'}`}>
+          <ErrorBoundary>
+            <Outlet context={{ openAddExpense }} />
+          </ErrorBoundary>
         </main>
       </div>
 
