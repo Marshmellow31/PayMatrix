@@ -1,6 +1,6 @@
 <div align="center">
 
-# 💸 PayMatrix
+# PayMatrix
 
 ### _Smart Expense Sharing — Simplified._
 
