@@ -65,13 +65,25 @@ const expenseSlice = createSlice({
     clearExpenseError: (state) => {
       state.error = null;
     },
+    // Called by SyncManager after a successful sync to remove the offline placeholder
+    removeOfflineExpense: (state, action) => {
+      const operationId = action.payload;
+      state.expenses = state.expenses.filter(e => e._id !== operationId);
+    },
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchExpenses.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(fetchExpenses.fulfilled, (state, action) => {
         state.loading = false;
-        state.expenses = action.payload.expenses;
+        // Replace state with server data, stripping any offline placeholders (offline: true)
+        const serverExpenses = (action.payload.expenses || []).filter(e => !e.offline);
+        // Preserve any pending offline placeholders that haven't synced yet
+        const offlinePlaceholders = state.expenses.filter(e => e.offline);
+        // Merge: offline placeholders go to top, then real server data (deduped by _id)
+        const serverIds = new Set(serverExpenses.map(e => e._id));
+        const uniqueOffline = offlinePlaceholders.filter(e => !serverIds.has(e._id));
+        state.expenses = [...uniqueOffline, ...serverExpenses];
         state.pagination = action.payload.pagination;
       })
       .addCase(fetchExpenses.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
@@ -91,5 +103,5 @@ const expenseSlice = createSlice({
   },
 });
 
-export const { clearExpenses, clearExpenseError } = expenseSlice.actions;
+export const { clearExpenses, clearExpenseError, removeOfflineExpense } = expenseSlice.actions;
 export default expenseSlice.reducer;

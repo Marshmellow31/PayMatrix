@@ -1,6 +1,8 @@
-import { getPendingOperations, deleteOperation, updateOperation } from './db.js';
+import { getPendingOperations, deleteOperation, updateOperation, invalidateCachePrefix, invalidateCache } from './db.js';
 import api from './api.js';
 import toast from 'react-hot-toast';
+import store from '../redux/store.js';
+import { removeOfflineExpense } from '../redux/expenseSlice.js';
 
 class SyncManager {
   constructor() {
@@ -67,6 +69,17 @@ class SyncManager {
           if (matchingOp) {
              await deleteOperation(matchingOp.id);
              console.log(`Synced operation: ${matchingOp.type} ${matchingOp.entity}`);
+             
+             // If this was an offline expense creation, remove the placeholder from Redux
+             // and purge the expense list cache so the next fetch returns fresh server data
+             if (matchingOp.type === 'create' && matchingOp.entity === 'expense') {
+                 store.dispatch(removeOfflineExpense(matchingOp.operation_id));
+                 const groupId = matchingOp.payload?.groupId;
+                 if (groupId) {
+                     await invalidateCachePrefix(`/groups/${groupId}/expenses`);
+                     await invalidateCache(`/groups/${groupId}/balances`);
+                 }
+             }
           }
       }
 

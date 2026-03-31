@@ -46,6 +46,13 @@ const GroupDetail = () => {
   useEffect(() => {
     dispatch(fetchGroup(id));
     dispatch(fetchExpenses({ groupId: id }));
+
+    // After a background sync completes, refetch to replace offline placeholders with real data
+    const handleSyncComplete = () => {
+      dispatch(fetchExpenses({ groupId: id }));
+    };
+    window.addEventListener('syncComplete', handleSyncComplete);
+    return () => window.removeEventListener('syncComplete', handleSyncComplete);
   }, [dispatch, id]);
 
   useEffect(() => {
