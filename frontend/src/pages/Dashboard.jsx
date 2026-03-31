@@ -55,12 +55,14 @@ const Dashboard = () => {
       
       {isOffline && (
         <motion.div 
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl p-4 flex items-center justify-center gap-3 font-manrope font-bold mt-4"
+          className="flex justify-center mt-2"
         >
-          <WifiOff size={20} />
-          <span>You are currently offline. Changes will be synced automatically when connection is restored.</span>
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/10 text-on-surface-variant text-[11px] font-bold font-inter tracking-wide">
+            <WifiOff size={13} className="opacity-60" />
+            Offline — changes will sync when reconnected
+          </span>
         </motion.div>
       )}
 

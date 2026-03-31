@@ -3,7 +3,8 @@ import { useParams, Link, useOutletContext, useNavigate } from 'react-router-dom
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { fetchGroup } from '../redux/groupSlice.js';
-import { fetchExpenses, deleteExpense } from '../redux/expenseSlice.js';
+import { fetchExpenses, deleteExpense, clearExpenses, hydrateOfflineExpenses } from '../redux/expenseSlice.js';
+import { deleteGroup } from '../redux/groupSlice.js';
 import MemberList from '../components/group/MemberList.jsx';
 import ActivityFeed from '../components/group/ActivityFeed.jsx';
 import ExportActions from '../components/group/ExportActions.jsx';
@@ -14,7 +15,7 @@ import Button from '../components/common/Button.jsx';
 import Modal from '../components/common/Modal.jsx';
 import Input from '../components/common/Input.jsx';
 import SettleUpModal from '../components/group/SettleUpModal.jsx';
-import { Plus, UserPlus, WalletCards } from 'lucide-react';
+import { Plus, UserPlus, WalletCards, Trash2 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
 import expenseService from '../services/expenseService.js';
@@ -42,14 +43,24 @@ const GroupDetail = () => {
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
 
   useEffect(() => {
+    // 1. Clear any stale expenses from a previous group immediately
+    dispatch(clearExpenses());
+
+    // 2. Fetch the group data and the current group's expenses
     dispatch(fetchGroup(id));
     dispatch(fetchExpenses({ groupId: id }));
 
-    // After a background sync completes, refetch to replace offline placeholders with real data
+    // 3. Hydrate offline placeholders from IndexedDB in case the PWA was restarted
+    dispatch(hydrateOfflineExpenses(id));
+
+    // 4. After a background sync completes, refetch to replace offline placeholders with real data
     const handleSyncComplete = () => {
       dispatch(fetchExpenses({ groupId: id }));
+      dispatch(hydrateOfflineExpenses(id));
     };
     window.addEventListener('syncComplete', handleSyncComplete);
     return () => window.removeEventListener('syncComplete', handleSyncComplete);
@@ -122,6 +133,24 @@ const GroupDetail = () => {
       toast.error(err.response?.data?.message || 'Failed to leave group. Ensure your balance is zero.');
     } finally {
       setLeaving(false);
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    setDeletingGroup(true);
+    try {
+      const result = await dispatch(deleteGroup(id));
+      if (result.meta.requestStatus === 'fulfilled') {
+        toast.success('Group deleted successfully');
+        navigate('/groups');
+      } else {
+        toast.error(result.payload || 'Failed to delete group');
+      }
+    } catch (err) {
+      toast.error('Failed to delete group');
+    } finally {
+      setDeletingGroup(false);
+      setShowDeleteGroupConfirm(false);
     }
   };
 
@@ -266,6 +295,7 @@ const GroupDetail = () => {
             />
           </div>
           
+          {/* Non-admin: Leave group */}
           {!isAdmin && (
             <div className="px-1">
               <button 
@@ -274,6 +304,28 @@ const GroupDetail = () => {
               >
                 Exit Cohort
               </button>
+            </div>
+          )}
+
+          {/* Admin: Delete group (danger zone) */}
+          {isAdmin && (
+            <div className="px-1 mt-2">
+              <div className="rounded-2xl border border-red-500/10 bg-red-500/[0.03] p-5">
+                <p className="text-[10px] font-black text-red-500/60 uppercase tracking-[0.2em] mb-3">Danger Zone</p>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-white/80">Delete This Group</p>
+                    <p className="text-[11px] text-white/30 mt-0.5 font-inter">Permanently removes the group and all its data.</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowDeleteGroupConfirm(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0"
+                  >
+                    <Trash2 size={14} />
+                    Delete
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -444,6 +496,47 @@ const GroupDetail = () => {
               className="flex-1 py-4 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50"
             >
               {leaving ? 'Exiting...' : 'Confirm'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Group Confirmation Modal */}
+      <Modal isOpen={showDeleteGroupConfirm} onClose={() => setShowDeleteGroupConfirm(false)} title="Delete Group" size="sm">
+        <div className="flex flex-col gap-6 py-4">
+          <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/10">
+            <p className="text-sm font-medium text-on-surface-variant font-inter leading-relaxed">
+              Are you sure you want to permanently delete{' '}
+              <span className="text-white font-bold">"{currentGroup?.title}"</span>?
+              <br/><br/>
+              This will remove the group and all associated data. 
+              <span className="text-red-400 font-semibold"> This action cannot be undone.</span>
+            </p>
+          </div>
+          <div className="flex gap-4 w-full">
+            <button
+              onClick={() => setShowDeleteGroupConfirm(false)}
+              disabled={deletingGroup}
+              className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteGroup}
+              disabled={deletingGroup}
+              className="flex-1 py-4 rounded-2xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {deletingGroup ? (
+                <>
+                  <div className="w-3 h-3 border border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 size={12} />
+                  Delete Forever
+                </>
+              )}
             </button>
           </div>
         </div>
