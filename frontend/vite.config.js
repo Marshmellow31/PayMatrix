@@ -35,6 +35,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 5000000,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         // Critical for PWA: serve cached index.html for ALL routes when offline
         navigateFallback: 'index.html',
