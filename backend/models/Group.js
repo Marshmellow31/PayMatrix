@@ -70,7 +70,7 @@ const groupSchema = new mongoose.Schema(
 groupSchema.index({ 'members.user': 1 });
 
 // Pre-save hook to ensure member uniqueness
-groupSchema.pre('save', function (next) {
+groupSchema.pre('save', function () {
   if (this.isModified('members')) {
     const uniqueUserIds = new Set();
     this.members = this.members.filter((member) => {
@@ -83,7 +83,6 @@ groupSchema.pre('save', function (next) {
       return true;
     });
   }
-  next();
 });
 
 const Group = mongoose.model('Group', groupSchema);
