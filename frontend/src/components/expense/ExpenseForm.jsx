@@ -27,6 +27,7 @@ const ExpenseForm = ({
 
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [participants, setParticipants] = useState([]); // Array of user IDs
   const [splitType, setSplitType] = useState('equal');
   const [splitData, setSplitData] = useState({
@@ -169,22 +170,28 @@ const ExpenseForm = ({
     setStep(2);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!form.groupId || participants.length === 0) return;
-    
-    onSubmit({
-      ...form,
-      amount: parseFloat(form.amount || 0),
-      participants: participants,
-      paidBy: form.paidBy,
-      splitType,
-      splitData: {
-        percentages: splitType === 'percentage' ? splitData.percentages : undefined,
-        exactAmounts: splitType === 'exact' ? splitData.exactAmounts : undefined,
-        shares: splitType === 'shares' ? splitData.shares : undefined,
-      }
-    });
+    if (loading || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
+        ...form,
+        amount: parseFloat(form.amount || 0),
+        participants: participants,
+        paidBy: form.paidBy,
+        splitType,
+        splitData: {
+          percentages: splitType === 'percentage' ? splitData.percentages : undefined,
+          exactAmounts: splitType === 'exact' ? splitData.exactAmounts : undefined,
+          shares: splitType === 'shares' ? splitData.shares : undefined,
+        }
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Get unique members for the split list
@@ -489,7 +496,7 @@ const ExpenseForm = ({
         <Button 
           type="button"
           onClick={handleSubmit}
-          loading={loading}
+          loading={loading || isSubmitting}
           className="flex-[2] h-14 rounded-3xl font-manrope font-black text-base bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl"
         >
           <LucideIcons.CircleCheck size={20} />

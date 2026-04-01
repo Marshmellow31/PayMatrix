@@ -5,7 +5,6 @@ import ErrorBoundary from '../common/ErrorBoundary.jsx';
 import Header from './Header.jsx';
 import Sidebar from './Sidebar.jsx';
 import BottomNav from './BottomNav.jsx';
-import SyncStatus from './SyncStatus.jsx';
 import Modal from '../common/Modal.jsx';
 import ExpenseForm from '../expense/ExpenseForm.jsx';
 import { fetchGroups } from '../../redux/groupSlice.js';
@@ -91,7 +90,6 @@ const AppLayout = () => {
       </div>
 
       {!isFocusJourney && <BottomNav />}
-      <SyncStatus />
 
       {/* Global Add Expense Modal */}
       <Modal 

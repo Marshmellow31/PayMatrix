@@ -31,7 +31,7 @@ const GroupDetail = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { openAddExpense } = useOutletContext();
-  const { currentGroup, loading: groupLoading } = useSelector((state) => state.groups);
+  const { currentGroup, groups, loading: groupLoading } = useSelector((state) => state.groups);
   const { expenses = [], loading: expenseLoading } = useSelector((state) => state.expenses);
   const { user } = useSelector((state) => state.auth);
 
@@ -67,8 +67,9 @@ const GroupDetail = () => {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       // Build a UID→name lookup from the already-loaded group members
+      const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
       const memberMap = {};
-      (currentGroup?.members || []).forEach(m => {
+      (activeGrp?.members || []).forEach(m => {
         const uid = m.user?._id || m.user?.uid || '';
         if (uid) memberMap[uid] = m.user?.name || m.user?.email || 'Member';
       });
@@ -115,12 +116,13 @@ const GroupDetail = () => {
 
   // High-performance local balance calculation — purely reactive to store/state updates
   const { netBalances, balanceList, debts } = useMemo(() => {
-    if (!currentGroup || !id) return { netBalances: {}, balanceList: [], debts: [] };
+    const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
+    if (!activeGrp || !id) return { netBalances: {}, balanceList: [], debts: [] };
 
-    const calculatedBalances = computeGroupBalances(expenses, settlements, currentGroup.members);
+    const calculatedBalances = computeGroupBalances(expenses, settlements, activeGrp.members);
     
     const list = Object.keys(calculatedBalances).map(uid => {
-      const member = currentGroup.members.find(m => {
+      const member = activeGrp.members.find(m => {
         const mid = m.user?._id || m.user?.uid || m.user;
         return (mid || '').toString() === uid;
       });
@@ -137,7 +139,7 @@ const GroupDetail = () => {
       balanceList: list, 
       debts: calculatedDebts 
     };
-  }, [expenses, settlements, currentGroup, id]);
+  }, [expenses, settlements, currentGroup, groups, id]);
 
   const balances = balanceList;
   const simplifiedDebts = debts;
@@ -149,12 +151,14 @@ const GroupDetail = () => {
       friendService.getFriends()
         .then(res => {
           // Filter out friends already in the group
-          const currentMemberIds = new Set(currentGroup.members.map(m => (m.user?._id || m.user).toString()));
+          const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
+          if (!activeGrp) return;
+          const currentMemberIds = new Set(activeGrp.members.map(m => (m.user?._id || m.user).toString()));
           setFriends(res.data.data.friends.filter(f => !currentMemberIds.has(f._id)));
         })
         .finally(() => setLoadingFriends(false));
     }
-  }, [showAddMember, currentGroup]);
+  }, [showAddMember, currentGroup, groups, id]);
 
   const handleDeleteExpense = async (expenseId) => {
     const result = await dispatch(deleteExpense({ id: expenseId, groupId: id }));
@@ -219,24 +223,21 @@ const GroupDetail = () => {
     }
   };
 
-  const handleCopyLink = () => {
-    const link = `${window.location.origin}/join/${currentGroup.inviteCode}`;
-    navigator.clipboard.writeText(link);
-    toast.success('Invite link copied to clipboard!');
-  };
+  const activeGroup = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
 
-  if (groupLoading || !currentGroup) return <Loader className="py-20" />;
+  if ((!activeGroup || activeGroup._id !== id) && groupLoading) return <Loader className="py-20" />;
+  if (!activeGroup || activeGroup._id !== id) return <Loader className="py-20" />;
 
-  const category = GROUP_CATEGORIES.find((c) => c.value === currentGroup.category);
-  const isAdmin = currentGroup.admin === user?._id;
+  const category = GROUP_CATEGORIES.find((c) => c.value === activeGroup.category);
+  const isAdmin = activeGroup.admin === user?._id;
   const tabs = ['expenses', 'balances', 'members', 'logs'];
 
   // De-duplicate members for accurate count
   const uniqueMembers = Array.from(new Map(
-    (currentGroup.members || []).map(m => {
+    (activeGroup.members || []).map(m => {
       const u = m.user || m;
-      const id = (u?._id || u?.uid || u || '').toString();
-      return [id, m];
+      const idStr = (u?._id || u?.uid || u || '').toString();
+      return [idStr, m];
     })
   ).values());
 
@@ -257,10 +258,10 @@ const GroupDetail = () => {
               )}
             </div>
             <div>
-              <h1 className="text-3xl lg:text-4xl font-bold font-manrope text-primary tracking-tight mb-2">{currentGroup.title}</h1>
+              <h1 className="text-3xl lg:text-4xl font-bold font-manrope text-primary tracking-tight mb-2">{activeGroup.title}</h1>
               <div className="flex items-center justify-between gap-3 mt-1">
                 <p className="text-xs text-on-surface-variant uppercase tracking-[0.2em] font-inter font-bold opacity-60">
-                  {currentGroup.category} <span className="mx-2 opacity-50">·</span> {uniqueMembers.length} members
+                  {activeGroup.category} <span className="mx-2 opacity-50">·</span> {uniqueMembers.length} members
                 </p>
                 {isAdmin && (
                   <button 
@@ -290,7 +291,7 @@ const GroupDetail = () => {
                 <WalletCards size={18} className="text-primary" /> SETTLE UP
               </button>
               
-              <ExportActions group={currentGroup} expenses={expenses} balances={balances} iconOnly={true} />
+              <ExportActions group={activeGroup} expenses={expenses} balances={balances} iconOnly={true} />
             </div>
           </div>
         </div>
@@ -352,8 +353,8 @@ const GroupDetail = () => {
         <div className="flex flex-col gap-6">
           <div className="glass-card p-6 lg:p-10">
             <MemberList 
-              members={currentGroup.members} 
-              adminId={currentGroup.admin} 
+              members={activeGroup.members} 
+              adminId={activeGroup.admin} 
               balances={balances}
               groupId={id}
               onMemberRemoved={() => dispatch(fetchGroup(id))}
@@ -507,16 +508,20 @@ const GroupDetail = () => {
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
               <div className="flex-1 overflow-hidden">
                 <p className="text-sm font-mono text-white/40 truncate">
-                  {currentGroup?.inviteCode 
-                    ? `${window.location.origin}/join/${currentGroup.inviteCode}`
+                  {activeGroup?.inviteCode 
+                    ? `${window.location.origin}/join/${activeGroup.inviteCode}`
                     : 'Generating invite link...'
                   }
                 </p>
               </div>
               <Button 
                 variant="ghost" 
-                onClick={handleCopyLink}
-                disabled={!currentGroup?.inviteCode}
+                onClick={() => {
+                  const link = `${window.location.origin}/join/${activeGroup.inviteCode}`;
+                  navigator.clipboard.writeText(link);
+                  toast.success('Invite link copied to clipboard!');
+                }}
+                disabled={!activeGroup?.inviteCode}
                 className="h-11 w-11 p-0 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all shrink-0"
               >
                 <LucideIcons.Copy size={20} className="text-white" />
@@ -573,7 +578,7 @@ const GroupDetail = () => {
           <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/10">
             <p className="text-sm font-medium text-on-surface-variant font-inter leading-relaxed">
               Are you sure you want to permanently delete{' '}
-              <span className="text-white font-bold">"{currentGroup?.title}"</span>?
+              <span className="text-white font-bold">"{activeGroup?.title}"</span>?
               <br/><br/>
               This will remove the group and all associated data. 
               <span className="text-red-400 font-semibold"> This action cannot be undone.</span>
