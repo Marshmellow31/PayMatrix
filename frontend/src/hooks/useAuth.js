@@ -5,7 +5,7 @@ import { login, register, logout, getMe, updateProfile } from '../redux/authSlic
 const useAuth = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { user, token, loading, error } = useSelector((state) => state.auth);
+  const { user, loading, error } = useSelector((state) => state.auth);
 
   const handleLogin = async (credentials) => {
     const result = await dispatch(login(credentials));
@@ -13,7 +13,7 @@ const useAuth = () => {
       const pendingCode = localStorage.getItem('pendingInviteCode');
       if (pendingCode) {
         localStorage.removeItem('pendingInviteCode');
-        navigate(`/groups/join/${pendingCode}`);
+        navigate(`/join/${pendingCode}`);
       } else {
         navigate('/dashboard');
       }
@@ -27,7 +27,7 @@ const useAuth = () => {
       const pendingCode = localStorage.getItem('pendingInviteCode');
       if (pendingCode) {
         localStorage.removeItem('pendingInviteCode');
-        navigate(`/groups/join/${pendingCode}`);
+        navigate(`/join/${pendingCode}`);
       } else {
         navigate('/dashboard');
       }
@@ -51,10 +51,9 @@ const useAuth = () => {
 
   return {
     user,
-    token,
     loading,
     error,
-    isAuthenticated: !!token,
+    isAuthenticated: !!user,
     login: handleLogin,
     register: handleRegister,
     logout: handleLogout,

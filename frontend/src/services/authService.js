@@ -26,6 +26,7 @@ const authService = {
       name: name,
       nameLowerCase: name?.toLowerCase(),
       email: email,
+      friends: [],
       createdAt: new Date().toISOString()
     };
     await setDoc(doc(db, 'users', user.uid), userData);
@@ -39,8 +40,12 @@ const authService = {
     const user = userCredential.user;
     
     const userDoc = await getDoc(doc(db, 'users', user.uid));
-    const userData = userDoc.exists() ? userDoc.data() : { _id: user.uid, uid: user.uid, email, name: user.displayName };
+    const userData = userDoc.exists() ? userDoc.data() : { _id: user.uid, uid: user.uid, email, name: user.displayName, friends: [] };
     if (!userData._id) userData._id = user.uid; // Migration check
+    if (!userData.friends) {
+      userData.friends = [];
+      await updateDoc(doc(db, 'users', user.uid), { friends: [] });
+    }
     
     return { user: userData, token: user.accessToken };
   },
@@ -58,7 +63,8 @@ const authService = {
       email: user.email, 
       name: user.displayName, 
       nameLowerCase: user.displayName?.toLowerCase(),
-      photoURL: user.photoURL 
+      photoURL: user.photoURL,
+      friends: []
     };
     
     if (!userDoc.exists()) {
@@ -71,6 +77,10 @@ const authService = {
       if (!userData.nameLowerCase && userData.name) {
         userData.nameLowerCase = userData.name.toLowerCase();
         await updateDoc(userDocRef, { nameLowerCase: userData.nameLowerCase });
+      }
+      if (!userData.friends) {
+        userData.friends = [];
+        await updateDoc(userDocRef, { friends: [] });
       }
     }
     

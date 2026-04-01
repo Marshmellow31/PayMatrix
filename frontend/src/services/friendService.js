@@ -1,7 +1,7 @@
 import { db, auth } from '../config/firebase.js';
 import { 
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, 
-  query, where, arrayUnion, arrayRemove 
+  query, where, arrayUnion, arrayRemove, limit 
 } from 'firebase/firestore';
 
 // Helper to mimic Axios response

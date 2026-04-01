@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { UserPlus, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import Button from '../components/common/Button.jsx';
+import groupService from '../services/groupService.js';
 
 const JoinGroup = () => {
   const { code } = useParams();
