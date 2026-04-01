@@ -39,7 +39,7 @@ service cloud.firestore {
     match /groups/{groupId} {
       allow read: if isSignedIn() && (
         request.auth.uid in resource.data.members || 
-        (resource.data.get('historicalMembers', []) != [] && request.auth.uid in resource.data.historicalMembers) ||
+        request.auth.uid in resource.data.get('historicalMembers', []) ||
         request.query.limit <= 100
       );
       allow create: if isSignedIn();
@@ -83,7 +83,7 @@ service cloud.firestore {
 
     // Notifications
     match /notifications/{notificationId} {
-      allow read, delete: if isSignedIn() && request.auth.uid == resource.data.to;
+      allow read, update, delete: if isSignedIn() && request.auth.uid == resource.data.to;
       allow create: if isSignedIn();
     }
   }

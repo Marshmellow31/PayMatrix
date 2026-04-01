@@ -52,8 +52,33 @@ const notificationSlice = createSlice({
   initialState,
   reducers: {
     setNotifications: (state, action) => {
-      state.notifications = action.payload;
-      state.unreadCount = action.payload.filter(n => !n.read).length;
+      const incoming = action.payload; // Unread notifications from the real-time listener
+      
+      // Merge logic: 
+      // 1. Start with all incoming (unread) notifications
+      // 2. Add existing notifications that are already marked as 'read'
+      // 3. If an existing notification was 'unread' but isn't in the incoming list, 
+      //    it means it was marked read on another device/session, so we keep it as 'read'.
+      
+      const existing = state.notifications;
+      const merged = [...incoming];
+      
+      existing.forEach(old => {
+        const isInIncoming = incoming.some(inc => inc._id === old._id);
+        if (!isInIncoming) {
+          // If it's not in the unread list anymore, it must be read.
+          merged.push({ ...old, read: true });
+        }
+      });
+      
+      // De-duplicate by ID (in case of overlaps) and sort by date
+      const uniqueMap = new Map();
+      merged.forEach(m => uniqueMap.set(m._id, m));
+      
+      state.notifications = Array.from(uniqueMap.values())
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      
+      state.unreadCount = incoming.length;
     }
   },
   extraReducers: (builder) => {

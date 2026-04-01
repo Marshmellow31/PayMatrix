@@ -1,7 +1,7 @@
 import { db, auth } from '../config/firebase.js';
 import { 
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, 
-  query, where, arrayUnion, arrayRemove 
+  query, where, arrayUnion, arrayRemove, limit 
 } from 'firebase/firestore';
 
 // Helper to mimic Axios response
@@ -72,7 +72,11 @@ const groupService = {
     if (!userId) throw new Error("Authentication required");
     
     // Fetch all groups where user was ever a member
-    const q = query(collection(db, 'groups'), where('historicalMembers', 'array-contains', userId));
+    const q = query(
+      collection(db, 'groups'), 
+      where('historicalMembers', 'array-contains', userId),
+      limit(50)
+    );
     const querySnapshot = await getDocs(q);
     
     const allGroups = await Promise.all(querySnapshot.docs.map(doc => groupService.expandGroupData(doc)));

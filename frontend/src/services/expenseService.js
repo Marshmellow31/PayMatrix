@@ -279,12 +279,13 @@ const expenseService = {
         
         // Trigger notification for the recipient
         if (userId !== data.payee) {
-          createNotification(data.payee, {
-            type: 'settlement_received',
-            message: `${actorName} settled ₹${amount.toFixed(2)} with you.`,
-            groupId,
-            relatedId: docRef.id
-          }).catch(() => {});
+          createNotification(
+            data.payee, 
+            `${actorName} settled ₹${amount.toFixed(2)} with you.`, 
+            'settlement_received', 
+            docRef.id, 
+            groupId
+          ).catch(() => {});
         }
       } catch (err) {
         console.warn("Background task failure:", err);
