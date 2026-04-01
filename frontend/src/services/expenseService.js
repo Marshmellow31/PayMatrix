@@ -1,7 +1,7 @@
 import { db, auth } from '../config/firebase.js';
 import { 
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, 
-  query, where, orderBy, limit
+  query, where, orderBy, limit, getDocFromCache
 } from 'firebase/firestore';
 import { calculateSplits } from '../utils/balanceEngine.js';
 
@@ -20,6 +20,19 @@ const clean = (obj) => {
     }
   });
   return newObj;
+};
+
+// Helper for non-blocking name resolution in activity logs (prioritizes speed)
+const getStoredName = async (uid, fallback = 'Member') => {
+  if (!uid) return fallback;
+  try {
+    const snap = await getDocFromCache(doc(db, 'users', uid));
+    if (snap.exists() && snap.data().name) return snap.data().name;
+    if (snap.exists() && snap.data().email) return snap.data().email;
+  } catch (_) {
+    // Cache miss or offline error
+  }
+  return fallback;
 };
 
 const expenseService = {
@@ -42,20 +55,11 @@ const expenseService = {
   addExpense: async (groupId, data, userId) => {
     if (!userId) throw new Error("Authentication required to record transactions.");
 
-    // Resolve payer name at write time so it's always available in real-time listeners
-    let paidByName = 'Member';
-    try {
-      const payerUid = data.paidBy || userId;
-      const payerDoc = await getDoc(doc(db, 'users', payerUid));
-      if (payerDoc.exists()) paidByName = payerDoc.data().name || payerDoc.data().email || 'Member';
-    } catch (_) {}
-
-    // Resolve current user name for log
-    let actorName = 'Someone';
-    try {
-      const actorDoc = await getDoc(doc(db, 'users', userId));
-      if (actorDoc.exists()) actorName = actorDoc.data().name || actorDoc.data().email || 'Someone';
-    } catch (_) {}
+    // Non-blocking metadata lookups (doesn't wait for server)
+    const [paidByName, actorName] = await Promise.all([
+      getStoredName(data.paidBy || userId, 'Member'),
+      getStoredName(userId, 'Someone')
+    ]);
 
     // Calculate splits array from form structure before saving
     const splits = calculateSplits(data.amount, data.splitType || 'equal', data.splitData || {}, data.participants || []);
@@ -90,23 +94,11 @@ const expenseService = {
     const userId = data.admin; // actor doing the update
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
 
-    // Resolve payer name at write time
-    let paidByName = data.paidByName || 'Member';
-    if (data.paidBy && !data.paidByName) {
-      try {
-        const payerDoc = await getDoc(doc(db, 'users', data.paidBy));
-        if (payerDoc.exists()) paidByName = payerDoc.data().name || payerDoc.data().email || 'Member';
-      } catch (_) {}
-    }
-
-    // Resolve actor name for log
-    let actorName = 'Someone';
-    if (userId) {
-      try {
-        const actorDoc = await getDoc(doc(db, 'users', userId));
-        if (actorDoc.exists()) actorName = actorDoc.data().name || actorDoc.data().email || 'Someone';
-      } catch (_) {}
-    }
+    // Resolve payer and actor names non-blockingly
+    const [paidByName, actorName] = await Promise.all([
+      data.paidByName ? Promise.resolve(data.paidByName) : getStoredName(data.paidBy, 'Member'),
+      getStoredName(userId, 'Someone')
+    ]);
 
     // Re-calculate splits if amount or split configuration changed
     const splits = calculateSplits(data.amount, data.splitType, data.splitData || {}, data.participants || []);
@@ -138,19 +130,13 @@ const expenseService = {
   deleteExpense: async (id, groupId, userId) => {
     if (!groupId) throw new Error("deleteExpense requires groupId");
 
-    // Fetch title before deleting for the log
+    // Resolve expense title and actor name non-blockingly
     let expenseTitle = 'an expense';
-    let actorName = 'Someone';
     try {
-      const expDoc = await getDoc(doc(db, 'groups', groupId, 'expenses', id));
-      if (expDoc.exists()) expenseTitle = expDoc.data().title || 'an expense';
+      const expSnap = await getDocFromCache(doc(db, 'groups', groupId, 'expenses', id));
+      if (expSnap.exists()) expenseTitle = expSnap.data().title || 'an expense';
     } catch (_) {}
-    if (userId) {
-      try {
-        const actorDoc = await getDoc(doc(db, 'users', userId));
-        if (actorDoc.exists()) actorName = actorDoc.data().name || 'Someone';
-      } catch (_) {}
-    }
+    const actorName = await getStoredName(userId, 'Someone');
 
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
     await deleteDoc(docRef);
@@ -200,7 +186,7 @@ const expenseService = {
   },
 
   createSettlement: async (groupId, data, userId) => {
-    if (!userId) throw new Error("Authentication required to settle up.");
+    const actorName = await getStoredName(userId, 'Someone');
     const payload = { 
         ...data, 
         payer: userId, // Ensure payer field is present for engine
@@ -208,6 +194,17 @@ const expenseService = {
         createdAt: new Date().toISOString() 
     };
     const docRef = await addDoc(collection(db, 'groups', groupId, 'settlements'), payload);
+
+    // Activity log for settlement
+    await addDoc(collection(db, 'groups', groupId, 'logs'), {
+      type: 'settlement_added',
+      message: `${actorName} recorded a settlement (₹${parseFloat(data.amount || 0).toFixed(2)})`,
+      actorId: userId,
+      actorName,
+      relatedId: docRef.id,
+      createdAt: new Date().toISOString(),
+    }).catch(() => {});
+
     return wrap({ settlement: { _id: docRef.id, ...payload } }, 'Settlement recorded');
   },
 
