@@ -46,10 +46,12 @@ const expenseService = {
     return wrap({ expenses, totalPages: 1, currentPage: 1 });
   },
 
-  getExpense: async (id) => {
-     // Since expense is a subcollection in our new model, we shouldn't fetch by global ID alone.
-     // However if we must, we'd need collection group queries. Let's assume this isn't used heavily.
-     throw new Error("getExpense requires groupId in Firestore model");
+  getExpense: async (groupId, id) => {
+    if (!groupId || !id) throw new Error("groupId and id are required for getExpense");
+    const docRef = doc(db, 'groups', groupId, 'expenses', id);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) throw new Error("Expense not found");
+    return wrap({ expense: { _id: docSnap.id, ...docSnap.data() } });
   },
 
   addExpense: async (groupId, data, userId) => {
@@ -249,15 +251,17 @@ const expenseService = {
       const { computeGroupBalances } = await import('../utils/balanceEngine.js');
 
       for (const groupId of groupIds) {
+        // Optimization: Fetch all expenses and settlements for this group
+        // This is still heavy, but we limit it to the current group's subcollections.
         const [expSnap, stlSnap] = await Promise.all([
           getDocs(collection(db, 'groups', groupId, 'expenses')),
           getDocs(collection(db, 'groups', groupId, 'settlements'))
         ]);
 
-        const expenses = expSnap.docs.map(d => d.data());
-        const settlements = stlSnap.docs.map(d => d.data());
+        const expenses = expSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
+        const settlements = stlSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
         
-        // Calculate category totals for all expenses I participated in (paid or split)
+        // Calculate category totals
         expenses.forEach(exp => {
           const isParticipant = exp.participants?.includes(userId) || exp.paidBy === userId;
           if (isParticipant && exp.category) {
@@ -265,7 +269,10 @@ const expenseService = {
           }
         });
 
-        const balances = computeGroupBalances(expenses, settlements, (groupSnap.docs.find(d => d.id === groupId).data().members || []).map(uid => ({ uid })));
+        // Use balance engine for reactive calculations
+        const groupDoc = groupSnap.docs.find(d => d.id === groupId);
+        const members = groupDoc.data().members || [];
+        const balances = computeGroupBalances(expenses, settlements, members.map(uid => ({ uid: uid })));
         const myBalance = balances[userId] || 0;
 
         if (myBalance > 0) totalOwed += myBalance;

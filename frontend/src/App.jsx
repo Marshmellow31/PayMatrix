@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './config/firebase.js';
 import { setUser } from './redux/authSlice.js';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import Loader from './components/common/Loader.jsx';
 
 // Layout
@@ -49,24 +49,47 @@ function App() {
 
   useEffect(() => {
     // Listen for Firebase Auth state changes
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // User is logged in, fetch their profile from Firestore
-        try {
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          const userData = userDoc.exists() 
-            ? userDoc.data() 
-            : { uid: firebaseUser.uid, email: firebaseUser.email, name: firebaseUser.displayName };
-          
-          dispatch(setUser(userData));
-        } catch (error) {
-          console.error("Error syncing auth state:", error);
+        // User is logged in, set up real-time listener for their profile
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        
+        // Listen for document changes
+        const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const userData = docSnap.data();
+            // Ensure legacy _id remains for backward compatibility in slices
+            dispatch(setUser({ _id: docSnap.id, ...userData }));
+          } else {
+            // User exists in Auth but not Firestore? (Shouldn't happen often)
+            dispatch(setUser({ 
+              _id: firebaseUser.uid, 
+              uid: firebaseUser.uid, 
+              email: firebaseUser.email, 
+              name: firebaseUser.displayName 
+            }));
+          }
+        }, (error) => {
+          console.error("Profile snapshot error:", error);
+        });
+
+        // Store profile unsubscriber to clean up when auth state changes again
+        window._unsubscribeProfile = unsubscribeProfile;
+      } else {
+        // User logged out
+        if (window._unsubscribeProfile) {
+          window._unsubscribeProfile();
+          window._unsubscribeProfile = null;
         }
+        dispatch(setUser(null));
       }
       setInitializing(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (window._unsubscribeProfile) window._unsubscribeProfile();
+    };
   }, [dispatch]);
 
   if (initializing) {

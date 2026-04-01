@@ -1,5 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import api from '../services/api.js';
+import { db } from '../config/firebase.js';
+import { 
+  collection, query, where, getDocs, updateDoc, doc, writeBatch 
+} from 'firebase/firestore';
 
 const initialState = {
   notifications: [],
@@ -7,10 +10,15 @@ const initialState = {
   loading: false,
 };
 
-export const fetchNotifications = createAsyncThunk('notifications/fetchAll', async (_, thunkAPI) => {
+// Note: In a real-time app, we'll call setNotifications from a listener in App.jsx or Dashboard.jsx
+export const fetchNotifications = createAsyncThunk('notifications/fetchAll', async (userId, thunkAPI) => {
   try {
-    // Legacy API is gone, returning empty for now
-    return { data: { notifications: [], unreadCount: 0 } };
+    if (!userId) return { notifications: [], unreadCount: 0 };
+    const q = query(collection(db, 'notifications'), where('to', '==', userId));
+    const snap = await getDocs(q);
+    const notifications = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    const unreadCount = notifications.filter(n => !n.read).length;
+    return { notifications, unreadCount };
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message || 'Failed to fetch notifications');
   }
@@ -18,33 +26,43 @@ export const fetchNotifications = createAsyncThunk('notifications/fetchAll', asy
 
 export const markAsRead = createAsyncThunk('notifications/markRead', async (id, thunkAPI) => {
   try {
-    await api.put(`/notifications/${id}/read`);
+    const docRef = doc(db, 'notifications', id);
+    await updateDoc(docRef, { read: true });
     return id;
   } catch (error) {
-    return thunkAPI.rejectWithValue(error.message || 'Failed');
+    return thunkAPI.rejectWithValue(error.message || 'Failed to mark as read');
   }
 });
 
-export const markAllRead = createAsyncThunk('notifications/markAllRead', async (_, thunkAPI) => {
+export const markAllRead = createAsyncThunk('notifications/markAllRead', async (userId, thunkAPI) => {
   try {
-    await api.put('/notifications/read-all');
+    const q = query(collection(db, 'notifications'), where('to', '==', userId), where('read', '==', false));
+    const snap = await getDocs(q);
+    const batch = writeBatch(db);
+    snap.docs.forEach(d => batch.update(d.ref, { read: true }));
+    await batch.commit();
     return true;
   } catch (error) {
-    return thunkAPI.rejectWithValue(error.response?.data?.message || 'Failed');
+    return thunkAPI.rejectWithValue(error.message || 'Failed to mark all as read');
   }
 });
 
 const notificationSlice = createSlice({
   name: 'notifications',
   initialState,
-  reducers: {},
+  reducers: {
+    setNotifications: (state, action) => {
+      state.notifications = action.payload;
+      state.unreadCount = action.payload.filter(n => !n.read).length;
+    }
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchNotifications.pending, (state) => { state.loading = true; })
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.loading = false;
-        state.notifications = action.payload.data?.notifications || [];
-        state.unreadCount = action.payload.data?.unreadCount || 0;
+        state.notifications = action.payload.notifications;
+        state.unreadCount = action.payload.unreadCount;
       })
       .addCase(fetchNotifications.rejected, (state) => { state.loading = false; })
       .addCase(markAsRead.fulfilled, (state, action) => {
@@ -53,12 +71,9 @@ const notificationSlice = createSlice({
           notif.read = true;
           state.unreadCount = Math.max(0, state.unreadCount - 1);
         }
-      })
-      .addCase(markAllRead.fulfilled, (state) => {
-        state.notifications.forEach((n) => { n.read = true; });
-        state.unreadCount = 0;
       });
   },
 });
 
+export const { setNotifications } = notificationSlice.actions;
 export default notificationSlice.reducer;

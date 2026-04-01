@@ -26,26 +26,54 @@ const Dashboard = () => {
     if (!user?._id && !user?.uid) return;
     const userId = user._id || user.uid;
 
-    dispatch(fetchNotifications());
-    
-    // Real-time listener for groups
-    const q = query(
+    // 1. Real-time listener for groups
+    const qGroups = query(
       collection(db, 'groups'), 
       where('members', 'array-contains', userId)
     );
-
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
+    const unsubscribeGroups = onSnapshot(qGroups, async (snapshot) => {
       try {
         const expandedGroups = (await Promise.all(
           snapshot.docs.map(doc => groupService.expandGroupData(doc))
-        )).filter(Boolean); // Robust check for null/invalid group expansion
+        )).filter(Boolean);
         dispatch(setGroups(expandedGroups));
       } catch (err) {
         console.error("Error expanding group snapshot:", err);
       }
+    }, (err) => {
+      console.error("Dashboard group snapshot error (likely permission or index):", err);
     });
 
-    const getSummary = async () => {
+    // 2. Real-time listener for notifications
+    const qNotifs = query(
+      collection(db, 'notifications'),
+      where('to', '==', userId),
+      where('read', '==', false)
+    );
+    const unsubscribeNotifs = onSnapshot(qNotifs, (snapshot) => {
+      const liveNotifs = snapshot.docs.map(d => ({ _id: d.id, ...d.data() }));
+      dispatch({ type: 'notifications/setNotifications', payload: liveNotifs });
+    });
+
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      unsubscribeGroups();
+      unsubscribeNotifs();
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [dispatch, user?._id, user?.uid]);
+
+  // 3. Reactive summary - updates whenever groups change
+  useEffect(() => {
+    if (!user?._id && !user?.uid) return;
+    
+    const updateSummary = async () => {
+      setLoadingSummary(true);
       try {
         const res = await expenseService.getSummary();
         setSummary(res.data.data);
@@ -55,18 +83,9 @@ const Dashboard = () => {
         setLoadingSummary(false);
       }
     };
-    getSummary();
 
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      unsubscribe();
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [dispatch, user?._id, user?.uid]);
+    updateSummary();
+  }, [groups.length, user?._id, user?.uid]);
 
   const recentActivity = notifications.slice(0, 5);
   const topGroups = groups.slice(0, 3);

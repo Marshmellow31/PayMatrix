@@ -17,33 +17,52 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Disable pull-to-refresh and swipe navigation gestures */
+    overscroll-behavior: none;
+    height: 100%;
+    width: 100%;
+    position: fixed;
+    overflow: hidden;
   }
 
   body {
     background-color: #131313;
     color: #e5e2e1;
     font-family: 'Inter', sans-serif;
-    min-height: 100vh;
+    min-height: 100%;
+    width: 100%;
+    overflow-y: auto;
     overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    
+    /* App-like feel: disable selection and callouts */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    
+    /* Disable pull-to-refresh */
+    overscroll-behavior-y: none;
+    
+    /* Disable double-tap to zoom */
+    touch-action: manipulation;
   }
 
-  /* Scrollbar — Digital Obsidian */
+  /* Re-enable selection for inputs and specific content */
+  input, textarea, [contenteditable="true"], .selectable-text {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Global Scrollbar Hide — Digital Obsidian */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    display: none;
+    width: 0;
+    height: 0;
   }
 
-  ::-webkit-scrollbar-track {
-    background: #0e0e0e;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: #353534;
-    border-radius: 9999px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #474747;
+  * {
+    -ms-overflow-style: none; /* IE/Edge */
+    scrollbar-width: none;    /* Firefox */
   }
 
   /* Selection */

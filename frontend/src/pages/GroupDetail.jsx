@@ -2,10 +2,10 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link, useOutletContext, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc } from 'firebase/firestore';
 import { db } from '../config/firebase.js';
 import { fetchGroup } from '../redux/groupSlice.js';
-import { deleteExpense, clearExpenses } from '../redux/expenseSlice.js';
+import { deleteExpense, clearExpenses, setExpenses } from '../redux/expenseSlice.js';
 import { deleteGroup } from '../redux/groupSlice.js';
 import MemberList from '../components/group/MemberList.jsx';
 import ActivityFeed from '../components/group/ActivityFeed.jsx';
@@ -51,70 +51,53 @@ const GroupDetail = () => {
   const [deletingGroup, setDeletingGroup] = useState(false);
 
   useEffect(() => {
+    if (!id) return;
+
     // 1. Clear any stale expenses from a previous group immediately
     dispatch(clearExpenses());
 
-    // 2. Fetch the group data
-    dispatch(fetchGroup(id));
-  }, [dispatch, id]);
+    // 2. Real-time listener for Group Metadata (Title, Members, Admin)
+    const unsubscribeGroup = onSnapshot(doc(db, 'groups', id), (docSnap) => {
+      if (docSnap.exists()) {
+        const groupData = { _id: docSnap.id, ...docSnap.data() };
+        dispatch({ type: 'groups/fetchGroup/fulfilled', payload: { data: { group: groupData } } });
+      }
+    }, (err) => {
+      console.error("Group metadata snapshot error:", err);
+    });
 
-  useEffect(() => {
-    if (!id) return;
-
-    // Real-time listener for expenses — ordered by creation time newest first
-    const q = query(
+    // 3. Real-time listener for Expenses
+    const qExpenses = query(
       collection(db, 'groups', id, 'expenses'),
       orderBy('createdAt', 'desc')
     );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      // Build a UID→name lookup from the already-loaded group members
-      const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
-      const memberMap = {};
-      (activeGrp?.members || []).forEach(m => {
-        const uid = m.user?._id || m.user?.uid || '';
-        if (uid) memberMap[uid] = m.user?.name || m.user?.email || 'Member';
-      });
-
-      const liveExpenses = snapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return {
-          _id: docSnap.id,
-          ...data,
-          // Resolve payer name at render time — prefer stored name, fallback to member map
-          paidByName: data.paidByName || memberMap[data.paidBy] || 'Member',
-        };
-      });
-
-      dispatch({ type: 'expenses/setExpenses', payload: liveExpenses });
-    }, (error) => {
-      console.error("Snapshot error:", error);
+    const unsubscribeExpenses = onSnapshot(qExpenses, (snapshot) => {
+      const liveExpenses = snapshot.docs.map(docSnap => ({
+        _id: docSnap.id,
+        ...docSnap.data()
+      }));
+      dispatch(setExpenses({ expenses: liveExpenses, groupId: id }));
     });
 
-    return () => unsubscribe();
-  }, [id, dispatch, currentGroup]);
-
-  useEffect(() => {
-    if (!id) return;
-
-    // Real-time listener for settlements
-    const q = query(
+    // 4. Real-time listener for Settlements
+    const qSettlements = query(
       collection(db, 'groups', id, 'settlements'),
       orderBy('createdAt', 'desc')
     );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeSettlements = onSnapshot(qSettlements, (snapshot) => {
       const liveSettlements = snapshot.docs.map(doc => ({
         _id: doc.id,
         ...doc.data()
       }));
       setSettlements(liveSettlements);
-    }, (error) => {
-      console.error("Settlement snapshot error:", error);
     });
 
-    return () => unsubscribe();
-  }, [id]);
+    return () => {
+      unsubscribeGroup();
+      unsubscribeExpenses();
+      unsubscribeSettlements();
+    };
+  }, [id, dispatch]);
 
   // High-performance local balance calculation — purely reactive to store/state updates
   const { netBalances, balanceList, debts } = useMemo(() => {
@@ -149,7 +132,7 @@ const GroupDetail = () => {
     if (!activeGrp || activeGrp.inviteCode || !user) return;
     
     // Only admins can generate the initial invite code for legacy groups
-    const isAdmin = activeGrp.admin === (user._id || user.uid);
+    const isAdmin = activeGrp.admin === (user?._id || user?.uid);
     if (isAdmin && isOnline) {
       const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
       groupService.updateGroup(id, { inviteCode: newCode })
@@ -170,7 +153,7 @@ const GroupDetail = () => {
           // Filter out friends already in the group
           const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
           if (!activeGrp) return;
-          const currentMemberIds = new Set(activeGrp.members.map(m => (m.user?._id || m.user).toString()));
+          const currentMemberIds = new Set(activeGrp.members.map(m => (m.user?._id || m.user).toString()).filter(m => m && typeof m === 'string' && m !== 'undefined'));
           setFriends(res.data.data.friends.filter(f => !currentMemberIds.has(f._id)));
         })
         .finally(() => setLoadingFriends(false));
@@ -246,7 +229,7 @@ const GroupDetail = () => {
   if (!activeGroup || activeGroup._id !== id) return <div className="text-center py-20 opacity-50 font-inter">Identifying Cohort...</div>;
 
   const category = GROUP_CATEGORIES.find((c) => c.value === activeGroup.category);
-  const isAdmin = activeGroup.admin === user?._id;
+  const isAdmin = activeGroup.admin === (user?._id || user?.uid);
   const tabs = ['expenses', 'balances', 'members', 'logs'];
 
   // De-duplicate members for accurate count
@@ -560,11 +543,8 @@ const GroupDetail = () => {
         groupId={id} 
         userId={user?.uid || user?._id}
         onSettled={() => {
-          // Re-fetch balances after a settlement
-          expenseService.getBalances(id).then(res => {
-            setBalances(res.data.data.balances || []);
-            setSimplifiedDebts(res.data.data.simplifiedDebts || []);
-          }).catch(() => {});
+          // No manual fetch needed anymore, snapshot listeners handle reactivity
+          toast.success("Accounts reconciled");
         }}
       />
 

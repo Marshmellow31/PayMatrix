@@ -17,31 +17,32 @@ const groupService = {
     const memberIds = data.members || [];
     
     const memberPromises = memberIds.map(async (item) => {
-      // Handle both raw UIDs and object structures { user: { _id }, role }
-      const uid = (item && typeof item === 'object') ? (item.user?._id || item.uid || item._id) : item;
+      // 1. Resolve UID (handle raw strings, objects {user:{_id}}, or legacy keys)
+      let uid = (item && typeof item === 'object') ? (item.user?._id || item.uid || item._id) : item;
       
-      if (!uid || typeof uid !== 'string') {
+      // 2. Strict validation: Must be a non-empty string
+      if (!uid || typeof uid !== 'string' || uid === 'undefined') {
         const groupId = groupDoc.id || data._id;
-        console.warn(`[DATADOG] Invalid UID found in group members (Group ID: ${groupId}):`, uid);
+        console.warn(`[DATADOG] Skipping invalid member ID in group ${groupId}:`, uid);
         return null;
       }
 
-      // 1. Check local memory cache first for instant resolution
+      // 3. Check memory cache for performance
       if (userCache[uid]) {
         return { user: { ...userCache[uid], _id: uid }, role: 'member' };
       }
       
       try {
-        // 2. Fetch from Firestore (automatic cache fallback if configured)
+        // 4. Fetch from Firestore
         const uDoc = await getDoc(doc(db, 'users', uid));
-        const uData = uDoc.exists() ? uDoc.data() : { _id: uid, uid: uid, name: 'Member' };
+        const uData = uDoc.exists() ? uDoc.data() : { name: 'Cohort Member', email: 'Member' };
         
-        // 3. Populate memory cache
-        userCache[uid] = uData;
-        
-        return { user: { ...uData, _id: uid }, role: 'member' };
+        const resolvedUser = { ...uData, _id: uid, uid: uid };
+        userCache[uid] = resolvedUser;
+        return { user: resolvedUser, role: 'member' };
       } catch (err) {
-        console.warn(`Failed to resolve user ${uid} metadata:`, err);
+        // Log specific error but don't crash — fallback to skeleton data
+        console.warn(`Fallback for user ${uid} (likely permission or missing doc):`, err.code || err.message);
         return { user: { _id: uid, uid: uid, name: 'Member' }, role: 'member' };
       }
     });
@@ -81,11 +82,11 @@ const groupService = {
     const rawMembers = data.members || [];
     const sanitizedMemberIds = rawMembers
       .map(m => (m && typeof m === 'object') ? (m._id || m.user?._id || m.uid) : m)
-      .filter(m => m && typeof m === 'string');
+      .filter(m => m && typeof m === 'string' && m !== 'undefined');
 
     const groupData = {
       ...data,
-      members: Array.from(new Set([...sanitizedMemberIds, userId])).filter(Boolean), // Ensure creator is member and filter leftovers
+      members: Array.from(new Set([...sanitizedMemberIds, userId])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
       admin: userId,
       inviteCode: Math.random().toString(36).substring(2, 10).toUpperCase(), // Generate short unique invite code
       createdAt: new Date().toISOString()
@@ -118,10 +119,9 @@ const groupService = {
       userIdToAdd = snap.docs[0].id;
     }
 
-    // Ensure we only store the UID string
     const finalUid = (userIdToAdd && typeof userIdToAdd === 'object') ? (userIdToAdd._id || userIdToAdd.uid) : userIdToAdd;
 
-    if (!finalUid || typeof finalUid !== 'string') throw new Error("Invalid member data provided.");
+    if (!finalUid || typeof finalUid !== 'string' || finalUid === 'undefined') throw new Error("Invalid member data provided.");
 
     await updateDoc(docRef, {
       members: arrayUnion(finalUid)

@@ -148,36 +148,40 @@ const friendService = {
         let totalTurnover = 0;
 
         for (const group of mutualGroups) {
-          const [expSnap, stlSnap] = await Promise.all([
-            getDocs(collection(db, 'groups', group.id, 'expenses')),
-            getDocs(collection(db, 'groups', group.id, 'settlements'))
-          ]);
+          try {
+            const [expSnap, stlSnap] = await Promise.all([
+              getDocs(collection(db, 'groups', group.id, 'expenses')),
+              getDocs(collection(db, 'groups', group.id, 'settlements'))
+            ]);
 
-          const expenses = expSnap.docs.map(d => d.data());
-          const settlements = stlSnap.docs.map(d => d.data());
-          
-          // Calculate net balance between me and this friend in this group
-          // This requires a more specific calculation from balanceEngine if available,
-          // but for now we can approximate by seeing how much I owe/am owed globally in this group 
-          // and attributing it if it's a 1-on-1 interaction.
-          // Better: Calculate mutual debt specifically.
-          
-          expenses.forEach(exp => {
-            const myShare = exp.splits?.[userId] || 0;
-            const friendShare = exp.splits?.[fId] || 0;
+            const expenses = expSnap.docs.map(d => d.data());
+            const settlements = stlSnap.docs.map(d => d.data());
             
-            if (exp.paidBy === userId) netBalance += friendShare;
-            if (exp.paidBy === fId) netBalance -= myShare;
-            
-            if (exp.paidBy === userId || exp.paidBy === fId || exp.participants?.includes(userId) || exp.participants?.includes(fId)) {
-                totalTurnover += parseFloat(exp.amount || 0);
-            }
-          });
+            expenses.forEach(exp => {
+              const splits = exp.splits || {};
+              const myShare = parseFloat(splits[userId] || 0);
+              const friendShare = parseFloat(splits[fId] || 0);
+              
+              if (exp.paidBy === userId) netBalance += friendShare;
+              if (exp.paidBy === fId) netBalance -= myShare;
+              
+              const isRelevant = exp.paidBy === userId || exp.paidBy === fId || 
+                               (exp.participants || []).includes(userId) || 
+                               (exp.participants || []).includes(fId);
+                               
+              if (isRelevant) {
+                  totalTurnover += parseFloat(exp.amount || 0);
+              }
+            });
 
-          settlements.forEach(stl => {
-            if (stl.from === userId && stl.to === fId) netBalance -= parseFloat(stl.amount || 0);
-            if (stl.from === fId && stl.to === userId) netBalance += parseFloat(stl.amount || 0);
-          });
+            settlements.forEach(stl => {
+              const amt = parseFloat(stl.amount || 0);
+              if (stl.from === userId && stl.to === fId) netBalance -= amt;
+              if (stl.from === fId && stl.to === userId) netBalance += amt;
+            });
+          } catch (err) {
+            console.warn(`Error processing mutual group ${group.id}:`, err);
+          }
         }
 
         return {
