@@ -226,7 +226,9 @@ const Dashboard = () => {
                       <Plus size={20} />
                     </div>
                     <div>
-                      <p className="font-manrope font-bold text-white text-base leading-tight mb-0.5">{notif.message}</p>
+                      <p className="font-manrope font-bold text-white text-base leading-tight mb-0.5">
+                        {typeof notif.message === 'string' ? notif.message : (notif.message?.message || "Notification action performed")}
+                      </p>
                       <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-50">
                         {new Date(notif.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </p>

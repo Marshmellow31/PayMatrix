@@ -90,7 +90,9 @@ const ActivityFeed = ({ groupId }) => {
             <div className="flex flex-col gap-1 pt-1 flex-1 min-w-0">
               <div className="flex items-start justify-between gap-4">
                 <p className={`text-sm font-inter leading-relaxed ${isUpdate ? 'text-error font-medium' : 'text-on-surface-variant'}`}>
-                  {activity.message || `${activity.actorName || 'Someone'} performed an action`}
+                  {typeof activity.message === 'string' 
+                    ? activity.message 
+                    : (activity.message?.message || `${activity.actorName || 'Someone'} performed an action`)}
                   {parseFloat(activity.amount || 0) > 10000 && (
                     <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[9px] font-black uppercase tracking-tighter border border-amber-500/20 animate-pulse">
                       SENSITIVE AMOUNT

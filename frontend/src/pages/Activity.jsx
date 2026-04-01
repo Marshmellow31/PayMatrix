@@ -51,7 +51,9 @@ const Activity = () => {
               <div className={`absolute left-0 top-1.5 w-6 h-6 rounded-full border-[4px] border-surface flex items-center justify-center transition-colors ${!notif.read ? 'bg-primary' : 'bg-surface-container-high'}`} />
               <div className="glass-card hover:bg-surface-container-lowest transition-all duration-300 p-6">
                 <p className={`text-base font-inter ${!notif.read ? 'text-primary font-semibold' : 'text-on-surface'}`}>
-                  {notif.message}
+                  {typeof notif.message === 'string' 
+                    ? notif.message 
+                    : (notif.message?.message || "Notification action performed")}
                 </p>
                 <p className="text-xs font-semibold text-on-surface-variant mt-3 uppercase tracking-widest font-inter opacity-70">
                   {new Date(notif.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
