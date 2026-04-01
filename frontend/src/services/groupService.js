@@ -8,16 +8,42 @@ import {
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
 
 const groupService = {
-  getGroups: async () => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Not authenticated");
+  // Internal helper to expand UIDs to objects with user details
+  expandGroupData: async (groupDoc) => {
+    const data = groupDoc.data ? groupDoc.data() : groupDoc;
+    const memberIds = data.members || [];
     
-    // In Firebase, we query groups where the current user is in the members array
-    // Assuming members is an array of UIDs for simplicity here.
-    const q = query(collection(db, 'groups'), where('members', 'array-contains', user.uid));
+    const memberPromises = memberIds.map(async (item) => {
+      // Handle both raw UIDs and object structures { user: { _id }, role }
+      const uid = (item && typeof item === 'object') ? (item.user?._id || item.uid || item._id) : item;
+      
+      if (!uid || typeof uid !== 'string') {
+        const groupId = groupDoc.id || data._id;
+        console.warn(`[DATADOG] Invalid UID found in group members (Group ID: ${groupId}):`, uid);
+        return null;
+      }
+
+      const uDoc = await getDoc(doc(db, 'users', uid));
+      const uData = uDoc.exists() ? uDoc.data() : { _id: uid, uid: uid, name: 'Unknown User' };
+      return { user: { ...uData, _id: uid }, role: 'member' };
+    });
+    
+    const expandedMembers = (await Promise.all(memberPromises)).filter(Boolean);
+    return { 
+      _id: groupDoc.id || data._id, 
+      ...data, 
+      members: expandedMembers,
+      admin: data.admin || data.createdBy 
+    };
+  },
+
+  getGroups: async (userId) => {
+    if (!userId) throw new Error("Authentication session not found. Please refresh.");
+    
+    const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
     const querySnapshot = await getDocs(q);
     
-    const groups = querySnapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+    const groups = await Promise.all(querySnapshot.docs.map(doc => groupService.expandGroupData(doc)));
     return wrap({ groups });
   },
 
@@ -25,15 +51,24 @@ const groupService = {
     const docRef = doc(db, 'groups', id);
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) throw new Error("Group not found");
-    return wrap({ group: { _id: docSnap.id, ...docSnap.data() } });
+    
+    const group = await groupService.expandGroupData(docSnap);
+    return wrap({ group });
   },
 
-  createGroup: async (data) => {
-    const user = auth.currentUser;
+  createGroup: async (data, userId) => {
+    if (!userId) throw new Error("Identifier missing. Please sign in again.");
+    
+    // Sanitize members: extract UIDs if they are objects and ensure they are strings
+    const rawMembers = data.members || [];
+    const sanitizedMemberIds = rawMembers
+      .map(m => (m && typeof m === 'object') ? (m._id || m.user?._id || m.uid) : m)
+      .filter(m => m && typeof m === 'string');
+
     const groupData = {
       ...data,
-      members: Array.from(new Set([...(data.members || []), user.uid])), // Ensure creator is memeber
-      createdBy: user.uid,
+      members: Array.from(new Set([...sanitizedMemberIds, userId])).filter(Boolean), // Ensure creator is member and filter leftovers
+      admin: userId,
       createdAt: new Date().toISOString()
     };
     
@@ -54,12 +89,26 @@ const groupService = {
 
   addMember: async (groupId, data) => {
     const docRef = doc(db, 'groups', groupId);
-    // data.identifier might be an email or UID depending on the new simplified architecture
-    // We assume data is the user ID for now
+    let userIdToAdd = data.userId;
+
+    // If only email is provided, resolve it to a UID
+    if (!userIdToAdd && data.email) {
+      const q = query(collection(db, 'users'), where('email', '==', data.email.toLowerCase()));
+      const snap = await getDocs(q);
+      if (snap.empty) throw new Error("User not found in PayMatrix system. They must sign up first.");
+      userIdToAdd = snap.docs[0].id;
+    }
+
+    // Ensure we only store the UID string
+    const finalUid = (userIdToAdd && typeof userIdToAdd === 'object') ? (userIdToAdd._id || userIdToAdd.uid) : userIdToAdd;
+
+    if (!finalUid || typeof finalUid !== 'string') throw new Error("Invalid member data provided.");
+
     await updateDoc(docRef, {
-      members: arrayUnion(data.userId || data)
+      members: arrayUnion(finalUid)
     });
-    return wrap({ message: 'Member added' });
+    
+    return wrap({ message: 'Member added successfully' });
   },
 
   removeMember: async (groupId, userId) => {
@@ -70,13 +119,12 @@ const groupService = {
     return wrap({ message: 'Member removed' });
   },
 
-  leaveGroup: async (groupId) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Not authenticated");
+  leaveGroup: async (groupId, userId) => {
+    if (!userId) throw new Error("Authentication required");
     
     const docRef = doc(db, 'groups', groupId);
     await updateDoc(docRef, {
-      members: arrayRemove(user.uid)
+      members: arrayRemove(userId)
     });
     return wrap({ message: 'Left group successfully' });
   },

@@ -44,11 +44,11 @@ export const exportToPDF = (group, expenses, balances) => {
   doc.text('Detailed Transactions', 14, nextY);
 
   const expenseData = expenses.map((e) => [
-    new Date(e.date).toLocaleDateString(),
+    new Date(e.createdAt || e.date).toLocaleDateString(),
     e.title || 'Untitled Expense',
     e.category,
-    `${e.paidBy?.name || 'Unknown'} (${e.paidBy?.email || 'N/A'})`,
-    `INR ${e.amount.toLocaleString()}`
+    e.paidByName || e.paidBy?.name || 'Member',
+    `INR ${(e.amount || 0).toLocaleString()}`
   ]);
 
   autoTable(doc, {
@@ -75,10 +75,10 @@ export const exportToPDF = (group, expenses, balances) => {
  */
 export const exportToCSV = (group, expenses) => {
   const data = expenses.map((e) => ({
-    Date: new Date(e.date).toLocaleDateString(),
+    Date: new Date(e.createdAt || e.date).toLocaleDateString(),
     Title: e.title || 'Untitled',
     Category: e.category,
-    'Paid By': `${e.paidBy?.name || 'Unknown'} (${e.paidBy?.email || 'N/A'})`,
+    'Paid By': e.paidByName || e.paidBy?.name || 'Member',
     Amount: e.amount,
     'Split Type': e.splitType,
   }));

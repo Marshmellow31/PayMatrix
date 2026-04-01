@@ -1,5 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from './config/firebase.js';
+import { setUser } from './redux/authSlice.js';
+import { doc, getDoc } from 'firebase/firestore';
+import Loader from './components/common/Loader.jsx';
 
 // Layout
 import AppLayout from './components/layout/AppLayout.jsx';
@@ -26,21 +32,51 @@ import NotFound from './pages/NotFound.jsx';
  * Protected route wrapper
  */
 const ProtectedRoute = ({ children }) => {
-  const { token } = useSelector((state) => state.auth);
-  if (!token) return <Navigate to="/login" replace />;
+  const { user } = useSelector((state) => state.auth);
+  if (!user) return <Navigate to="/login" replace />;
   return children;
 };
 
-/**
- * Public route wrapper — redirects to dashboard if already logged in
- */
 const PublicRoute = ({ children }) => {
-  const { token } = useSelector((state) => state.auth);
-  if (token) return <Navigate to="/dashboard" replace />;
+  const { user } = useSelector((state) => state.auth);
+  if (user) return <Navigate to="/dashboard" replace />;
   return children;
 };
 
 function App() {
+  const dispatch = useDispatch();
+  const [initializing, setInitializing] = useState(true);
+
+  useEffect(() => {
+    // Listen for Firebase Auth state changes
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // User is logged in, fetch their profile from Firestore
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          const userData = userDoc.exists() 
+            ? userDoc.data() 
+            : { uid: firebaseUser.uid, email: firebaseUser.email, name: firebaseUser.displayName };
+          
+          dispatch(setUser(userData));
+        } catch (error) {
+          console.error("Error syncing auth state:", error);
+        }
+      }
+      setInitializing(false);
+    });
+
+    return () => unsubscribe();
+  }, [dispatch]);
+
+  if (initializing) {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center">
+        <Loader size="lg" />
+      </div>
+    );
+  }
+
   return (
     <Routes>
       {/* Public Routes */}

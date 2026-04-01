@@ -53,7 +53,7 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
               {expense.title}
             </h4>
             <p className="text-[10px] text-on-surface-variant font-inter uppercase tracking-widest opacity-60 mt-0.5">
-              Paid by <span className="text-on-surface font-black">{expense.paidBy?.name || 'Unknown'}</span>
+              Paid by <span className="text-on-surface font-black">{expense.paidByName || expense.paidBy?.name || 'Member'}</span>
             </p>
           </div>
         </div>

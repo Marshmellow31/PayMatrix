@@ -75,7 +75,7 @@ const AppLayout = () => {
     <div className="min-h-screen bg-background text-white selection:bg-primary/30 overflow-x-hidden">
       {!isFocusJourney && <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />}
 
-      <div className="flex">
+      <div className={`flex ${!isFocusJourney ? 'pt-20' : ''}`}>
         {!isFocusJourney && (
           <Sidebar
             isOpen={sidebarOpen}

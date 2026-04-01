@@ -9,8 +9,8 @@ const initialState = {
 
 export const fetchNotifications = createAsyncThunk('notifications/fetchAll', async (_, thunkAPI) => {
   try {
-    const response = await api.get('/notifications');
-    return response.data;
+    // Legacy API is gone, returning empty for now
+    return { data: { notifications: [], unreadCount: 0 } };
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message || 'Failed to fetch notifications');
   }
@@ -21,7 +21,7 @@ export const markAsRead = createAsyncThunk('notifications/markRead', async (id, 
     await api.put(`/notifications/${id}/read`);
     return id;
   } catch (error) {
-    return thunkAPI.rejectWithValue(error.response?.data?.message || 'Failed');
+    return thunkAPI.rejectWithValue(error.message || 'Failed');
   }
 });
 
@@ -43,8 +43,8 @@ const notificationSlice = createSlice({
       .addCase(fetchNotifications.pending, (state) => { state.loading = true; })
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.loading = false;
-        state.notifications = action.payload.notifications;
-        state.unreadCount = action.payload.unreadCount;
+        state.notifications = action.payload.data?.notifications || [];
+        state.unreadCount = action.payload.data?.unreadCount || 0;
       })
       .addCase(fetchNotifications.rejected, (state) => { state.loading = false; })
       .addCase(markAsRead.fulfilled, (state, action) => {

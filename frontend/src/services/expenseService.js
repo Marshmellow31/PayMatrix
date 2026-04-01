@@ -3,9 +3,24 @@ import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, 
   query, where, orderBy, limit
 } from 'firebase/firestore';
+import { calculateSplits } from '../utils/balanceEngine.js';
 
 // Helper to mimic Axios response structure expected by Redux Thunks
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
+
+// Recursively remove undefined values for Firestore
+const clean = (obj) => {
+  const newObj = {};
+  Object.keys(obj).forEach(key => {
+    if (obj[key] === undefined) return;
+    if (obj[key] && typeof obj[key] === 'object' && !Array.isArray(obj[key]) && !(obj[key] instanceof Date)) {
+      newObj[key] = clean(obj[key]);
+    } else {
+      newObj[key] = obj[key];
+    }
+  });
+  return newObj;
+};
 
 const expenseService = {
   getExpenses: async (groupId, page = 1) => {
@@ -24,35 +39,132 @@ const expenseService = {
      throw new Error("getExpense requires groupId in Firestore model");
   },
 
-  addExpense: async (groupId, data) => {
-    const user = auth.currentUser;
-    const payload = {
+  addExpense: async (groupId, data, userId) => {
+    if (!userId) throw new Error("Authentication required to record transactions.");
+
+    // Resolve payer name at write time so it's always available in real-time listeners
+    let paidByName = 'Member';
+    try {
+      const payerUid = data.paidBy || userId;
+      const payerDoc = await getDoc(doc(db, 'users', payerUid));
+      if (payerDoc.exists()) paidByName = payerDoc.data().name || payerDoc.data().email || 'Member';
+    } catch (_) {}
+
+    // Resolve current user name for log
+    let actorName = 'Someone';
+    try {
+      const actorDoc = await getDoc(doc(db, 'users', userId));
+      if (actorDoc.exists()) actorName = actorDoc.data().name || actorDoc.data().email || 'Someone';
+    } catch (_) {}
+
+    // Calculate splits array from form structure before saving
+    const splits = calculateSplits(data.amount, data.splitType || 'equal', data.splitData || {}, data.participants || []);
+
+    const payload = clean({
       ...data,
+      paidBy: data.paidBy || userId,
+      paidByName,
+      splits,
+      admin: userId, 
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: user.uid
-    };
+      updatedAt: new Date().toISOString()
+    });
     
     const docRef = await addDoc(collection(db, 'groups', groupId, 'expenses'), payload);
+
+    // Write activity log
+    await addDoc(collection(db, 'groups', groupId, 'logs'), {
+      type: 'expense_added',
+      message: `${actorName} added "${data.title || 'an expense'}" (₹${parseFloat(data.amount || 0).toFixed(2)})`,
+      actorId: userId,
+      actorName,
+      relatedId: docRef.id,
+      createdAt: new Date().toISOString(),
+    });
+
     return wrap({ expense: { _id: docRef.id, ...payload } }, 'Expense saved instantly offline/online');
   },
 
   updateExpense: async (id, data) => {
     const groupId = data.groupId;
+    const userId = data.admin; // actor doing the update
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
-    
-    await updateDoc(docRef, {
+
+    // Resolve payer name at write time
+    let paidByName = data.paidByName || 'Member';
+    if (data.paidBy && !data.paidByName) {
+      try {
+        const payerDoc = await getDoc(doc(db, 'users', data.paidBy));
+        if (payerDoc.exists()) paidByName = payerDoc.data().name || payerDoc.data().email || 'Member';
+      } catch (_) {}
+    }
+
+    // Resolve actor name for log
+    let actorName = 'Someone';
+    if (userId) {
+      try {
+        const actorDoc = await getDoc(doc(db, 'users', userId));
+        if (actorDoc.exists()) actorName = actorDoc.data().name || actorDoc.data().email || 'Someone';
+      } catch (_) {}
+    }
+
+    // Re-calculate splits if amount or split configuration changed
+    const splits = calculateSplits(data.amount, data.splitType, data.splitData || {}, data.participants || []);
+
+    const payload = clean({
       ...data,
+      paidByName,
+      splits,
       updatedAt: new Date().toISOString()
     });
-    return wrap({ expense: { _id: id, ...data } });
+    
+    await updateDoc(docRef, payload);
+
+    // Write activity log
+    if (groupId) {
+      await addDoc(collection(db, 'groups', groupId, 'logs'), {
+        type: 'expense_updated',
+        message: `${actorName} edited "${data.title || 'an expense'}"`,
+        actorId: userId || 'unknown',
+        actorName,
+        relatedId: id,
+        createdAt: new Date().toISOString(),
+      }).catch(() => {}); // non-blocking
+    }
+
+    return wrap({ expense: { _id: id, ...payload } });
   },
 
-  deleteExpense: async (id, groupId) => {
-    // Note: requires groupId in arguments to locate subcollection
+  deleteExpense: async (id, groupId, userId) => {
     if (!groupId) throw new Error("deleteExpense requires groupId");
+
+    // Fetch title before deleting for the log
+    let expenseTitle = 'an expense';
+    let actorName = 'Someone';
+    try {
+      const expDoc = await getDoc(doc(db, 'groups', groupId, 'expenses', id));
+      if (expDoc.exists()) expenseTitle = expDoc.data().title || 'an expense';
+    } catch (_) {}
+    if (userId) {
+      try {
+        const actorDoc = await getDoc(doc(db, 'users', userId));
+        if (actorDoc.exists()) actorName = actorDoc.data().name || 'Someone';
+      } catch (_) {}
+    }
+
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
     await deleteDoc(docRef);
+
+    // Write activity log
+    await addDoc(collection(db, 'groups', groupId, 'logs'), {
+      type: 'expense_deleted',
+      message: `${actorName} deleted "${expenseTitle}"`,
+      actorId: userId || 'unknown',
+      actorName,
+      relatedId: id,
+      createdAt: new Date().toISOString(),
+    }).catch(() => {});
+
     return wrap({ message: 'Expense deleted' });
   },
 
@@ -87,37 +199,144 @@ const expenseService = {
     return wrap({ settlements });
   },
 
-  createSettlement: async (groupId, data) => {
-    const user = auth.currentUser;
-    const payload = { ...data, createdBy: user.uid, createdAt: new Date().toISOString() };
+  createSettlement: async (groupId, data, userId) => {
+    if (!userId) throw new Error("Authentication required to settle up.");
+    const payload = { 
+        ...data, 
+        payer: userId, // Ensure payer field is present for engine
+        createdBy: userId, 
+        createdAt: new Date().toISOString() 
+    };
     const docRef = await addDoc(collection(db, 'groups', groupId, 'settlements'), payload);
     return wrap({ settlement: { _id: docRef.id, ...payload } }, 'Settlement recorded');
   },
 
   getSummary: async () => {
-    // Not supported in this simplified Firebase fetch without complex Group Collection Queries
-    return wrap({ totalOwed: 0, totalOwes: 0, categories: [] });
+    const userId = auth.currentUser?.uid;
+    if (!userId) return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [] });
+
+    try {
+      // Find all groups where user is a member
+      const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
+      const groupSnap = await getDocs(q);
+      const groupIds = groupSnap.docs.map(d => d.id);
+
+      let totalOwed = 0;
+      let totalOwe = 0;
+      const categoryTotals = {};
+
+      const { computeGroupBalances } = await import('../utils/balanceEngine.js');
+
+      for (const groupId of groupIds) {
+        const [expSnap, stlSnap] = await Promise.all([
+          getDocs(collection(db, 'groups', groupId, 'expenses')),
+          getDocs(collection(db, 'groups', groupId, 'settlements'))
+        ]);
+
+        const expenses = expSnap.docs.map(d => d.data());
+        const settlements = stlSnap.docs.map(d => d.data());
+        
+        // Calculate category totals for all expenses I participated in (paid or split)
+        expenses.forEach(exp => {
+          const isParticipant = exp.participants?.includes(userId) || exp.paidBy === userId;
+          if (isParticipant && exp.category) {
+            categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + parseFloat(exp.amount || 0);
+          }
+        });
+
+        const balances = computeGroupBalances(expenses, settlements, (groupSnap.docs.find(d => d.id === groupId).data().members || []).map(uid => ({ uid })));
+        const myBalance = balances[userId] || 0;
+
+        if (myBalance > 0) totalOwed += myBalance;
+        else if (myBalance < 0) totalOwe += Math.abs(myBalance);
+      }
+
+      const categories = Object.keys(categoryTotals).map(name => ({
+        name,
+        value: categoryTotals[name]
+      })).sort((a, b) => b.value - a.value);
+
+      return wrap({
+        totalOwed,
+        totalOwe,
+        netBalance: totalOwed - totalOwe,
+        categories
+      });
+    } catch (error) {
+      console.error("Summary calc error:", error);
+      return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [] });
+    }
   },
 
   getUserSettlementPlan: async (groupId, userId) => {
-     // Run the simplify debts engine
-     const balancesReq = await expenseService.getBalances(groupId);
-     const balancesMap = balancesReq.data.data.balances;
-     const { simplifyDebts } = await import('../utils/balanceEngine.js');
-     const plan = simplifyDebts(balancesMap); // Array of {from, to, amount} 
-     
-     return wrap({ 
-         simplifiedDebts: plan,
-         userDebts: plan.filter(tx => tx.from === userId || tx.to === userId)
-     });
+    const balancesReq = await expenseService.getBalances(groupId);
+    const balancesMap = balancesReq.data.data.balances;
+    const { simplifyDebts } = await import('../utils/balanceEngine.js');
+    const plan = simplifyDebts(balancesMap); 
+    
+    const userDebts = plan.filter(tx => tx.from === userId);
+    const total_owe = userDebts.reduce((sum, tx) => sum + tx.amount, 0);
+    
+    return wrap({ 
+        total_owe,
+        settlements: userDebts,
+        simplifiedDebts: plan
+    });
   },
 
   getActivity: async (groupId) => {
-     return wrap({ activity: [] }); // Activity could be recorded to an 'activities' subcollection on create
+    const q = query(
+      collection(db, 'groups', groupId, 'logs'),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+    const snap = await getDocs(q);
+    const activity = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    return wrap({ activity });
   },
 
-  getSpendingTrends: async (days = 7) => {
-     return wrap({ labels: [], datasets: [] });
+  getSpendingTrends: async (days = 30) => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return wrap({ trends: [] });
+
+    try {
+      const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
+      const groupSnap = await getDocs(q);
+      const groupIds = groupSnap.docs.map(d => d.id);
+
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      const startDateStr = startDate.toISOString();
+
+      const allExpenseData = [];
+
+      for (const groupId of groupIds) {
+        const expQ = query(
+          collection(db, 'groups', groupId, 'expenses'), 
+          where('createdAt', '>=', startDateStr),
+          orderBy('createdAt', 'asc')
+        );
+        const expSnap = await getDocs(expQ);
+        expSnap.forEach(d => allExpenseData.push(d.data()));
+      }
+
+      // Group by date
+      const trendsMap = {};
+      allExpenseData.forEach(exp => {
+        const date = exp.createdAt.split('T')[0];
+        trendsMap[date] = (trendsMap[date] || 0) + parseFloat(exp.amount || 0);
+      });
+
+      const trends = Object.keys(trendsMap).map(date => ({
+        date,
+        amount: trendsMap[date]
+      })).sort((a, b) => a.date.localeCompare(b.date));
+
+      return wrap({ trends });
+    } catch (error) {
+      console.error("Trends calc error:", error);
+      return wrap({ trends: [] });
+    }
   },
 };
 

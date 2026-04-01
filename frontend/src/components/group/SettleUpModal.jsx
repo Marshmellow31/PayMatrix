@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -13,6 +13,7 @@ import { fetchExpenses } from '../../redux/expenseSlice.js';
 
 const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled }) => {
   const dispatch = useDispatch();
+  const { currentGroup } = useSelector((state) => state.groups);
   const [loading, setLoading] = useState(true);
   const [totalOwe, setTotalOwe] = useState(0);
   const [settlements, setSettlements] = useState([]);
@@ -50,7 +51,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled }) => {
         payee: payeeId,
         amount: parseFloat(amount),
         notes,
-      });
+      }, userId);
       toast.success('Payment recorded successfully');
       
       // Update local state without full reload initially to show progress, or reload full plan
@@ -79,7 +80,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled }) => {
             payee: debt.to,
             amount: debt.amount,
             notes: 'Settled all debts',
-          });
+          }, userId);
         }
       }
       toast.success('All debts settled successfully!');
@@ -136,19 +137,22 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled }) => {
                     transition={{ delay: index * 0.05 }}
                     className="p-4 rounded-xl bg-surface-container-highest/30 border border-white/5 flex flex-col gap-3"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-surface-highest flex items-center justify-center border border-white/5 shadow-inner">
-                          <LucideIcons.ArrowUpRight size={18} className="text-red-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-on-surface-variant font-inter">You should pay:</p>
-                          <p className="text-base text-white font-inter">
-                            <span className="font-bold text-red-300">{formatCurrency(debt.amount)}</span>
-                            <span className="mx-2 opacity-50">→</span>
-                            <span className="font-semibold">{debt.name}</span>
-                          </p>
-                        </div>
+                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/5">
+                      <div className="w-10 h-10 rounded-full bg-surface-highest flex items-center justify-center border border-white/5 shadow-inner">
+                        <LucideIcons.ArrowUpRight size={18} className="text-red-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-on-surface-variant font-inter">You should pay:</p>
+                        <p className="text-base text-white font-inter">
+                          <span className="font-bold text-red-300">{formatCurrency(debt.amount)}</span>
+                          <span className="mx-2 opacity-50">→</span>
+                          <span className="font-semibold">
+                            {(() => {
+                              const member = currentGroup?.members?.find(m => (m.user?._id || m.user?.uid || m.user) === debt.to);
+                              return member?.user?.name || 'Group Member';
+                            })()}
+                          </span>
+                        </p>
                       </div>
                     </div>
                     

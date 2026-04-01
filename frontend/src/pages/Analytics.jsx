@@ -32,9 +32,9 @@ const Analytics = () => {
           expenseService.getSpendingTrends(days),
           friendService.getNetworkAnalytics()
         ]);
-        setSummary(summaryRes.data.data);
-        setTrends(trendsRes.data.data.trends);
-        setNetworkStats(networkRes.data.data.networkAnalytics);
+        setSummary(summaryRes.data.data || {});
+        setTrends(trendsRes.data.data.trends || []);
+        setNetworkStats(networkRes.data.data.networkAnalytics || []);
       } catch (error) {
         console.error('Error fetching analytics:', error);
       } finally {

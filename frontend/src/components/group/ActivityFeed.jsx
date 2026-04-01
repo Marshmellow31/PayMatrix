@@ -77,12 +77,7 @@ const ActivityFeed = ({ groupId }) => {
             <div className="flex flex-col gap-1 pt-1 flex-1 min-w-0">
               <div className="flex items-start justify-between gap-4">
                 <p className={`text-sm font-inter leading-relaxed ${isUpdate ? 'text-error font-medium' : 'text-on-surface-variant'}`}>
-                  <span className={`font-semibold ${isUpdate ? 'text-error' : 'text-on-surface'}`}>
-                    {activity.user?.name || 'Someone'}
-                  </span>{' '}
-                  {activity.message.includes(activity.user?.name) 
-                    ? activity.message.replace(activity.user?.name, '').trim()
-                    : activity.message}
+                  {activity.message || `${activity.actorName || 'Someone'} performed an action`}
                 </p>
                 
                 {activity.type === 'expense_deleted' && (
@@ -96,7 +91,7 @@ const ActivityFeed = ({ groupId }) => {
                 )}
               </div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/40">
-                {format(new Date(activity.createdAt), 'MMM dd, HH:mm')}
+                {activity.createdAt ? format(new Date(activity.createdAt), 'MMM dd, HH:mm') : ''}
               </span>
             </div>
           </motion.div>

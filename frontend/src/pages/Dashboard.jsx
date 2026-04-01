@@ -3,26 +3,48 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Link, useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus, Users, ArrowUpRight, ArrowDownLeft, PieChart, ChevronRight, Filter, Wallet, WifiOff } from 'lucide-react';
-import { fetchGroups } from '../redux/groupSlice.js';
+import { fetchGroups, setGroups } from '../redux/groupSlice.js';
 import { fetchNotifications } from '../redux/notificationSlice.js';
 import expenseService from '../services/expenseService.js';
+import groupService from '../services/groupService.js';
 import Loader from '../components/common/Loader.jsx';
+import { db } from '../config/firebase.js';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 const Dashboard = () => {
   const dispatch = useDispatch();
   const { openAddExpense } = useOutletContext();
   const { user } = useSelector((state) => state.auth);
-  const { groups, loading: groupsLoading } = useSelector((state) => state.groups);
-  const { notifications } = useSelector((state) => state.notifications);
+  const { groups = [], loading: groupsLoading } = useSelector((state) => state.groups);
+  const { notifications = [] } = useSelector((state) => state.notifications);
   const [summary, setSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
 
   const [isOffline, setIsOffline] = useState(typeof window !== 'undefined' ? !navigator.onLine : false);
 
   useEffect(() => {
-    dispatch(fetchGroups());
+    if (!user?._id && !user?.uid) return;
+    const userId = user._id || user.uid;
+
     dispatch(fetchNotifications());
     
+    // Real-time listener for groups
+    const q = query(
+      collection(db, 'groups'), 
+      where('members', 'array-contains', userId)
+    );
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      try {
+        const expandedGroups = (await Promise.all(
+          snapshot.docs.map(doc => groupService.expandGroupData(doc))
+        )).filter(Boolean); // Robust check for null/invalid group expansion
+        dispatch(setGroups(expandedGroups));
+      } catch (err) {
+        console.error("Error expanding group snapshot:", err);
+      }
+    });
+
     const getSummary = async () => {
       try {
         const res = await expenseService.getSummary();
@@ -40,10 +62,11 @@ const Dashboard = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
+      unsubscribe();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [dispatch]);
+  }, [dispatch, user?._id, user?.uid]);
 
   const recentActivity = notifications.slice(0, 5);
   const topGroups = groups.slice(0, 3);

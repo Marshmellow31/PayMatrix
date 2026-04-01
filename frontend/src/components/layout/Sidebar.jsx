@@ -22,7 +22,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 bg-surface-container-low/40 backdrop-blur-xl border-r border-outline-variant/5 min-h-screen p-6">
+      <aside className="hidden lg:flex flex-col w-64 bg-surface-container-low/40 backdrop-blur-xl border-r border-outline-variant/5 h-[calc(100vh-80px)] sticky top-20 p-6">
         <nav className="flex flex-col gap-1 mt-4">
           {navItems.map((item) => (
             <NavLink

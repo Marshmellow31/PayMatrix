@@ -8,10 +8,51 @@
 const round2 = (num) => Math.round(num * 100) / 100;
 
 /**
- * Simplifies a set of net balances into a minimum number of transactions.
- * balances: Map or object: { userId: netBalance }
- * positive = user is owed, negative = user owes
+ * Extracts a unique ID from various member/user object shapes or strings.
  */
+const extractUid = (user) => {
+  if (!user) return null;
+  if (typeof user === 'string') return user;
+  return user._id || user.uid || user.id || (user.user && extractUid(user.user));
+};
+
+/**
+ * Calculates expense splits based on amount and split configuration.
+ * Returns Array of { user: userId, amount: float, percent?: float, shares?: int }
+ */
+export const calculateSplits = (amount, splitType, splitData, participants = []) => {
+  const total = parseFloat(amount || 0);
+  if (participants.length === 0) return [];
+
+  switch (splitType) {
+    case 'equal': {
+      const perPerson = round2(total / participants.length);
+      return participants.map(uid => ({ user: uid, amount: perPerson }));
+    }
+    case 'percentage': {
+      const pcts = splitData.percentages || {};
+      return participants.map(uid => {
+        const pct = parseFloat(pcts[uid] || 0);
+        return { user: uid, amount: round2((total * pct) / 100), percent: pct };
+      });
+    }
+    case 'exact': {
+      const values = splitData.exactAmounts || {};
+      return participants.map(uid => ({ user: uid, amount: round2(parseFloat(values[uid] || 0)) }));
+    }
+    case 'shares': {
+      const shares = splitData.shares || {};
+      const totalShares = participants.reduce((sum, uid) => sum + parseInt(shares[uid] || 1), 0);
+      return participants.map(uid => {
+        const userShares = parseInt(shares[uid] || 1);
+        const amt = totalShares > 0 ? round2((total * userShares) / totalShares) : 0;
+        return { user: uid, amount: amt, shares: userShares };
+      });
+    }
+    default:
+      return [];
+  }
+};
 export const simplifyDebts = (balances) => {
   const creditors = [];
   const debtors = [];
@@ -76,8 +117,7 @@ export const computeGroupBalances = (expenses = [], settlements = [], groupMembe
   
   // Initialize for all group members
   groupMembers.forEach(member => {
-    // member could be an object with .user.uid or just a .uid
-    const id = member.uid || (member.user && member.user.uid) || (member.user && member.user._id) || member.user;
+    const id = extractUid(member);
     if (id) {
         netBalances[id] = 0;
     }
@@ -85,12 +125,13 @@ export const computeGroupBalances = (expenses = [], settlements = [], groupMembe
 
   // Add from expenses
   expenses.forEach(expense => {
-    const payerId = expense.paidBy;
+    const payerId = extractUid(expense.paidBy);
     if (!payerId) return;
     
     (expense.splits || []).forEach(split => {
-      const splitUserId = split.user || (split.user && split.user._id);
+      const splitUserId = extractUid(split.user);
       if (!splitUserId) return;
+      
       const amount = round2(parseFloat(split.amount || 0));
       
       // The person who paid is owed back
@@ -103,9 +144,10 @@ export const computeGroupBalances = (expenses = [], settlements = [], groupMembe
 
   // Add from settlements
   settlements.forEach(settlement => {
-     const payerId = settlement.payer;
-     const payeeId = settlement.payee;
+     const payerId = extractUid(settlement.payer || settlement.createdBy);
+     const payeeId = extractUid(settlement.payee || settlement.recipient);
      if (!payerId || !payeeId) return;
+     
      const amount = round2(parseFloat(settlement.amount || 0));
      
      // Payer settles debt (less negative), Payee is paid (less positive)

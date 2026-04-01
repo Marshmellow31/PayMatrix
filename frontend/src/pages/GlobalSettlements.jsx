@@ -35,7 +35,9 @@ const GlobalSettlements = () => {
         const results = await Promise.all(promises);
         
         const withMyBalances = results.map(g => {
-          const myBal = g.balancesData.find(b => b.user?._id === user?._id)?.balance || 0;
+          const balances = g.balancesData || {};
+          const myUserIdInGroup = user?._id || user?.uid;
+          const myBal = balances[myUserIdInGroup] || 0;
           return { ...g, myBalance: myBal };
         }).filter(g => g.myBalance !== 0);
         

@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link, useOutletContext, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { db } from '../config/firebase.js';
 import { fetchGroup } from '../redux/groupSlice.js';
-import { fetchExpenses, deleteExpense, clearExpenses } from '../redux/expenseSlice.js';
+import { deleteExpense, clearExpenses } from '../redux/expenseSlice.js';
 import { deleteGroup } from '../redux/groupSlice.js';
 import MemberList from '../components/group/MemberList.jsx';
 import ActivityFeed from '../components/group/ActivityFeed.jsx';
 import ExportActions from '../components/group/ExportActions.jsx';
 import ExpenseCard from '../components/expense/ExpenseCard.jsx';
 import BalanceSummary from '../components/balance/BalanceSummary.jsx';
+import { computeGroupBalances, simplifyDebts } from '../utils/balanceEngine.js';
 import Loader from '../components/common/Loader.jsx';
 import Button from '../components/common/Button.jsx';
 import Modal from '../components/common/Modal.jsx';
@@ -29,12 +32,11 @@ const GroupDetail = () => {
   const dispatch = useDispatch();
   const { openAddExpense } = useOutletContext();
   const { currentGroup, loading: groupLoading } = useSelector((state) => state.groups);
-  const { expenses, loading: expenseLoading } = useSelector((state) => state.expenses);
+  const { expenses = [], loading: expenseLoading } = useSelector((state) => state.expenses);
   const { user } = useSelector((state) => state.auth);
 
   const [tab, setTab] = useState('expenses');
-  const [balances, setBalances] = useState([]);
-  const [simplifiedDebts, setSimplifiedDebts] = useState([]);
+  const [settlements, setSettlements] = useState([]);
   const [showAddMember, setShowAddMember] = useState(false);
   const [showSettleUp, setShowSettleUp] = useState(false);
   const [memberEmail, setMemberEmail] = useState('');
@@ -50,24 +52,95 @@ const GroupDetail = () => {
     // 1. Clear any stale expenses from a previous group immediately
     dispatch(clearExpenses());
 
-    // 2. Fetch the group data and the current group's expenses
+    // 2. Fetch the group data
     dispatch(fetchGroup(id));
-    dispatch(fetchExpenses({ groupId: id }));
-
-    // Firebase handles online/offline and cache transparency under the hood. 
-    // We don't need manual sync manager listeners or hydration.
   }, [dispatch, id]);
 
   useEffect(() => {
-    const loadBalances = async () => {
-      try {
-        const res = await expenseService.getBalances(id);
-        setBalances(res.data.data.balances || []);
-        setSimplifiedDebts(res.data.data.simplifiedDebts || []);
-      } catch (err) { /* silent */ }
+    if (!id) return;
+
+    // Real-time listener for expenses — ordered by creation time newest first
+    const q = query(
+      collection(db, 'groups', id, 'expenses'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Build a UID→name lookup from the already-loaded group members
+      const memberMap = {};
+      (currentGroup?.members || []).forEach(m => {
+        const uid = m.user?._id || m.user?.uid || '';
+        if (uid) memberMap[uid] = m.user?.name || m.user?.email || 'Member';
+      });
+
+      const liveExpenses = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+          _id: docSnap.id,
+          ...data,
+          // Resolve payer name at render time — prefer stored name, fallback to member map
+          paidByName: data.paidByName || memberMap[data.paidBy] || 'Member',
+        };
+      });
+
+      dispatch({ type: 'expenses/setExpenses', payload: liveExpenses });
+    }, (error) => {
+      console.error("Snapshot error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [id, dispatch, currentGroup]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    // Real-time listener for settlements
+    const q = query(
+      collection(db, 'groups', id, 'settlements'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const liveSettlements = snapshot.docs.map(doc => ({
+        _id: doc.id,
+        ...doc.data()
+      }));
+      setSettlements(liveSettlements);
+    }, (error) => {
+      console.error("Settlement snapshot error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [id]);
+
+  // High-performance local balance calculation — purely reactive to store/state updates
+  const { netBalances, balanceList, debts } = useMemo(() => {
+    if (!currentGroup || !id) return { netBalances: {}, balanceList: [], debts: [] };
+
+    const calculatedBalances = computeGroupBalances(expenses, settlements, currentGroup.members);
+    
+    const list = Object.keys(calculatedBalances).map(uid => {
+      const member = currentGroup.members.find(m => {
+        const mid = m.user?._id || m.user?.uid || m.user;
+        return (mid || '').toString() === uid;
+      });
+      return {
+        user: member?.user || { _id: uid, name: 'Member' },
+        balance: calculatedBalances[uid]
+      };
+    });
+
+    const calculatedDebts = simplifyDebts(calculatedBalances);
+
+    return { 
+      netBalances: calculatedBalances, 
+      balanceList: list, 
+      debts: calculatedDebts 
     };
-    loadBalances();
-  }, [id, expenses]);
+  }, [expenses, settlements, currentGroup, id]);
+
+  const balances = balanceList;
+  const simplifiedDebts = debts;
 
   useEffect(() => {
     if (showAddMember) {
@@ -84,7 +157,7 @@ const GroupDetail = () => {
   }, [showAddMember, currentGroup]);
 
   const handleDeleteExpense = async (expenseId) => {
-    const result = await dispatch(deleteExpense(expenseId));
+    const result = await dispatch(deleteExpense({ id: expenseId, groupId: id }));
     if (result.meta.requestStatus === 'fulfilled') toast.success('Expense deleted');
   };
 
@@ -117,7 +190,7 @@ const GroupDetail = () => {
   const handleLeaveGroup = async () => {
     setLeaving(true);
     try {
-      await groupService.leaveGroup(id);
+      await groupService.leaveGroup(id, user?.uid || user?._id);
       toast.success('You have left the group');
       setShowLeaveConfirm(false);
       navigate('/dashboard');
@@ -161,7 +234,8 @@ const GroupDetail = () => {
   // De-duplicate members for accurate count
   const uniqueMembers = Array.from(new Map(
     (currentGroup.members || []).map(m => {
-      const id = (m.user?._id || m.user || '').toString();
+      const u = m.user || m;
+      const id = (u?._id || u?.uid || u || '').toString();
       return [id, m];
     })
   ).values());
@@ -457,7 +531,7 @@ const GroupDetail = () => {
         isOpen={showSettleUp} 
         onClose={() => setShowSettleUp(false)} 
         groupId={id} 
-        userId="me"
+        userId={user?.uid || user?._id}
         onSettled={() => {
           // Re-fetch balances after a settlement
           expenseService.getBalances(id).then(res => {

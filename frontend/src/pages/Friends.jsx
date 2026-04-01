@@ -35,8 +35,8 @@ const Friends = () => {
         friendService.getFriends(),
         friendService.getRequests()
       ]);
-      setFriends(friendsRes.data.data.friends);
-      setRequests(requestsRes.data.data);
+      setFriends(friendsRes.data.data?.friends || []);
+      setRequests(requestsRes.data.data || { incoming: [], outgoing: [] });
     } catch (error) {
       toast.error('Failed to load friends network');
     } finally {
@@ -151,8 +151,8 @@ const Friends = () => {
       {/* Tabs / Filter */}
       <div className="flex gap-4 border-b border-white/5 pb-1">
         {[
-          { id: 'all', label: 'Friends', count: friends.length },
-          { id: 'pending', label: 'Pending', count: requests.incoming.length }
+          { id: 'all', label: 'Friends', count: friends?.length || 0 },
+          { id: 'pending', label: 'Pending', count: (requests?.incoming?.length || 0) + (requests?.outgoing?.length || 0) }
         ].map((tab) => (
           <button
             key={tab.id}
@@ -172,13 +172,13 @@ const Friends = () => {
       <div className="space-y-4">
         {activeTab === 'pending' && (
           <div className="space-y-3">
-            {requests.incoming.length === 0 && requests.outgoing.length === 0 && (
+          {(requests?.incoming?.length || 0) === 0 && (requests?.outgoing?.length || 0) === 0 && (
               <div className="py-20 text-center border border-dashed border-white/10 rounded-3xl">
                 <p className="text-sm text-white/10 font-bold uppercase tracking-widest">No pending bridge requests</p>
               </div>
             )}
             
-            {requests.incoming.map((req) => (
+            {requests?.incoming?.map((req) => (
               <motion.div 
                 key={req._id}
                 initial={{ opacity: 0, x: -10 }}
@@ -190,7 +190,7 @@ const Friends = () => {
                     <Clock size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-white">{req.sender.name}</p>
+                    <p className="text-sm font-bold text-white">{req.from?.name || 'Unknown'}</p>
                     <p className="text-[10px] text-white/30 uppercase tracking-[0.1em]">Signal Incoming</p>
                   </div>
                 </div>

@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
-import { fetchGroups, createGroup } from '../redux/groupSlice.js';
+import { fetchGroups, createGroup, setGroups } from '../redux/groupSlice.js';
 import GroupCard from '../components/group/GroupCard.jsx';
 import Modal from '../components/common/Modal.jsx';
 import Input from '../components/common/Input.jsx';
@@ -13,6 +13,9 @@ import Loader from '../components/common/Loader.jsx';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
 import toast from 'react-hot-toast';
 import friendService from '../services/friendService.js';
+import groupService from '../services/groupService.js';
+import { db } from '../config/firebase.js';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 const Groups = () => {
   const dispatch = useDispatch();
@@ -20,20 +23,42 @@ const Groups = () => {
   const navigate = useNavigate();
   const { openAddExpense } = useOutletContext();
   const { groups, loading } = useSelector((state) => state.groups);
+  const { user } = useSelector((state) => state.auth);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ title: '', category: 'Other', members: [] });
   const [friends, setFriends] = useState([]);
 
   useEffect(() => { 
-    dispatch(fetchGroups()); 
+    if (!user?._id && !user?.uid) return;
+    const userId = user._id || user.uid;
+
     fetchFriends();
     
+    // Real-time listener for groups
+    const q = query(
+      collection(db, 'groups'), 
+      where('members', 'array-contains', userId)
+    );
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      try {
+        const expandedGroups = await Promise.all(
+          snapshot.docs.map(doc => groupService.expandGroupData(doc))
+        );
+        dispatch(setGroups(expandedGroups));
+      } catch (err) {
+        console.error("Error expanding group snapshot:", err);
+      }
+    });
+
     // Check if we should open the modal (from nav links)
     const params = new URLSearchParams(location.search);
     if (params.get('add') === 'true') {
       setShowModal(true);
     }
-  }, [dispatch, location.search]);
+
+    return () => unsubscribe();
+  }, [dispatch, location.search, user?._id, user?.uid]);
 
   const fetchFriends = async () => {
     try {
@@ -46,6 +71,10 @@ const Groups = () => {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (!user) {
+      toast.error('Identity sync in progress... please wait a moment.');
+      return;
+    }
     // Prepare data: self is added automatically by backend, but we send selected friends
     const result = await dispatch(createGroup(form));
     if (result.meta.requestStatus === 'fulfilled') {
@@ -191,12 +220,14 @@ const Groups = () => {
               ))}
             </div>
           </div>
-
           <Button 
+            disabled={!user || loading}
             type="submit" 
-            className="w-full h-14 rounded-2xl font-black text-sm uppercase tracking-widest bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-xl"
+            className={`w-full h-14 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl ${
+              (!user || loading) ? 'bg-white/10 text-white/20 cursor-not-allowed' : 'bg-white text-black hover:bg-neutral-200 active:scale-[0.98]'
+            }`}
           >
-            Launch Cohort
+            {loading ? <LucideIcons.Loader2 className="animate-spin" /> : 'Launch Cohort'}
           </Button>
         </form>
       </Modal>

@@ -10,8 +10,9 @@ const initialState = {
 
 export const fetchGroups = createAsyncThunk('groups/fetchAll', async (_, thunkAPI) => {
   try {
-    const response = await groupService.getGroups();
-    return response.data;
+    const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
+    const response = await groupService.getGroups(userId);
+    return response.data; // This is { data: { groups: [...] } } from the wrap() helper
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message || 'Failed to fetch groups');
   }
@@ -20,7 +21,7 @@ export const fetchGroups = createAsyncThunk('groups/fetchAll', async (_, thunkAP
 export const fetchGroup = createAsyncThunk('groups/fetchOne', async (id, thunkAPI) => {
   try {
     const response = await groupService.getGroup(id);
-    return response.data;
+    return response.data; // This is { data: { group: {...} } }
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message || 'Failed to fetch group');
   }
@@ -28,10 +29,11 @@ export const fetchGroup = createAsyncThunk('groups/fetchOne', async (id, thunkAP
 
 export const createGroup = createAsyncThunk('groups/create', async (data, thunkAPI) => {
   try {
-    const response = await groupService.createGroup(data);
+    const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
+    const response = await groupService.createGroup(data, userId);
     return response.data.data;
   } catch (error) {
-    return thunkAPI.rejectWithValue(error.response?.data?.message || 'Failed to create group');
+    return thunkAPI.rejectWithValue(error.message || 'Failed to create group');
   }
 });
 
@@ -40,7 +42,7 @@ export const deleteGroup = createAsyncThunk('groups/delete', async (id, thunkAPI
     await groupService.deleteGroup(id);
     return id;
   } catch (error) {
-    return thunkAPI.rejectWithValue(error.response?.data?.message || 'Failed to delete group');
+    return thunkAPI.rejectWithValue(error.message || 'Failed to delete group');
   }
 });
 
@@ -54,19 +56,29 @@ const groupSlice = createSlice({
     clearGroupError: (state) => {
       state.error = null;
     },
+    setGroups: (state, action) => {
+      state.groups = action.payload;
+    }
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchGroups.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(fetchGroups.fulfilled, (state, action) => { state.loading = false; state.groups = action.payload.groups; })
+      .addCase(fetchGroups.fulfilled, (state, action) => { 
+        state.loading = false; 
+        // Correct path for Payload: action.payload.data
+        state.groups = action.payload.data.groups || []; 
+      })
       .addCase(fetchGroups.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
       .addCase(fetchGroup.pending, (state) => { state.loading = true; })
-      .addCase(fetchGroup.fulfilled, (state, action) => { state.loading = false; state.currentGroup = action.payload.group; })
+      .addCase(fetchGroup.fulfilled, (state, action) => { 
+        state.loading = false; 
+        state.currentGroup = action.payload.data.group; 
+      })
       .addCase(fetchGroup.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
       .addCase(createGroup.fulfilled, (state, action) => { state.groups.unshift(action.payload.group); })
       .addCase(deleteGroup.fulfilled, (state, action) => { state.groups = state.groups.filter((g) => g._id !== action.payload); });
   },
 });
 
-export const { clearCurrentGroup, clearGroupError } = groupSlice.actions;
+export const { clearCurrentGroup, clearGroupError, setGroups } = groupSlice.actions;
 export default groupSlice.reducer;

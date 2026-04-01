@@ -22,14 +22,14 @@ ChartJS.register(
   Filler
 );
 
-const SpendingTrendChart = ({ data }) => {
+const SpendingTrendChart = ({ data = [] }) => {
   const chartData = {
-    labels: data.map((item) => new Date(item._id).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+    labels: (data || []).map((item) => new Date(item._id).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
     datasets: [
       {
         fill: true,
         label: 'Spending',
-        data: data.map((item) => item.amount),
+        data: (data || []).map((item) => item.amount),
         borderColor: '#00B31E', // Emerald
         backgroundColor: (context) => {
           const bg = context.chart.ctx.createLinearGradient(0, 0, 0, 400);

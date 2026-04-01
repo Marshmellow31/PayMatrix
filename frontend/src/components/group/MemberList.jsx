@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import Avatar from '../common/Avatar.jsx';
 import Button from '../common/Button.jsx';
+import Modal from '../common/Modal.jsx';
 import groupService from '../../services/groupService.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { formatDistanceToNow } from 'date-fns';
@@ -23,7 +24,7 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
   // De-duplicate members by user ID for visual consistency
   const uniqueMembers = [];
   const seenIds = new Set();
-  
+
   if (Array.isArray(members)) {
     members.forEach(member => {
       const user = member.user || member;
@@ -37,7 +38,7 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
 
   const handleRemove = async (userId) => {
     if (!window.confirm('Are you sure you want to remove this member? This will block their access to the group.')) return;
-    
+
     setIsRemoving(true);
     try {
       await groupService.removeMember(groupId, userId);
@@ -64,23 +65,25 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
   return (
     <div className="flex flex-col gap-2">
       {uniqueMembers.map((member) => {
-        const user = member.user || member;
-        const userId = user._id || user;
+        const user = member.user || member || {};
+        const userId = user._id || user.uid || (typeof user === 'string' ? user : null);
         const userIdStr = userId?.toString();
-        const isAdmin = userIdStr === adminId?.toString();
+        const isAdmin = userIdStr && adminId && userIdStr === adminId.toString();
         const balance = getMemberBalance(userId);
+
+        const userName = user.name || (userIdStr === currentUserId?.toString() ? 'You' : 'Member');
 
         return (
           <button
             key={`member-${userIdStr}`}
-            onClick={() => setSelectedMember({ ...user, balance })}
+            onClick={() => setSelectedMember({ ...user, balance, isMe: userIdStr === currentUserId?.toString() })}
             className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-all group text-left w-full"
           >
             <div className="flex items-center gap-4">
               <Avatar name={user.name} src={user.avatar} size="md" className="border border-white/10" />
               <div>
                 <p className="text-sm font-bold text-on-surface font-inter group-hover:text-primary transition-colors">
-                  {user.name}
+                  {userName}
                   {userIdStr === currentUserId?.toString() && (
                     <span className="ml-2 text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded uppercase font-bold">You</span>
                   )}
@@ -101,99 +104,98 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
         );
       })}
 
-      {/* Member Details Overlay */}
-      <AnimatePresence>
+      {/* Member Details Modal */}
+      <Modal
+        isOpen={!!selectedMember}
+        onClose={() => setSelectedMember(null)}
+        title="Member Details"
+        size="sm"
+      >
         {selectedMember && (
-          <div className="fixed inset-0 z-[60] flex justify-end">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedMember(null)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative h-full w-full max-w-sm bg-surface-container-lowest border-l border-white/5 shadow-2xl p-8 overflow-y-auto"
-            >
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-xl font-bold font-manrope text-primary tracking-tight">Member Details</h2>
-                <button 
-                  onClick={() => setSelectedMember(null)}
-                  className="p-2 rounded-full hover:bg-white/10 transition-colors text-on-surface-variant"
-                >
-                  {X && <X size={20} />}
-                </button>
+          <div className="flex flex-col">
+            <div className="text-center mb-10 pt-2">
+              <div className="relative inline-block mx-auto mb-5">
+                <Avatar
+                  name={selectedMember.name}
+                  src={selectedMember.avatar}
+                  size="xl"
+                  className="w-24 h-24 border border-white/10 p-1"
+                />
+                {selectedMember.isMe && (
+                  <div className="absolute -bottom-1 -right-1 bg-[#d4d4d4] text-[#131313] px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-tighter">
+                    You
+                  </div>
+                )}
               </div>
+              <h3 className="text-2xl font-bold font-manrope text-[#e5e2e1] tracking-tight italic-none">{selectedMember.name}</h3>
+              <p className="text-[10px] text-[#919191] font-bold uppercase tracking-[0.2em] mt-1.5 font-inter">
+                {selectedMember._id?.toString() === adminId?.toString() ? 'Group Admin' : 'Member'}
+              </p>
+            </div>
 
-              <div className="text-center mb-10">
-                <Avatar name={selectedMember.name} src={selectedMember.avatar} size="xl" className="mx-auto mb-4 border-2 border-primary/20 p-1" />
-                <h3 className="text-2xl font-bold font-manrope text-on-surface">{selectedMember.name}</h3>
-                <p className="text-sm text-on-surface-variant font-inter opacity-60 mt-1 uppercase tracking-widest font-bold">
-                  {selectedMember._id?.toString() === adminId?.toString() ? 'Group Admin' : 'Member'}
-                </p>
-              </div>
-
-              <div className="space-y-6">
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                    {Mail && <Mail size={20} />}
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant opacity-40">Email Address</span>
-                    <span className="text-sm text-on-surface truncate font-medium">{selectedMember.email}</span>
-                  </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#242424] border border-white/[0.03] transition-colors hover:border-white/5 group">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center text-[#919191] group-hover:text-white transition-colors">
+                  {Mail && <Mail size={18} />}
                 </div>
-
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
-                  <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
-                    {Clock && <Clock size={20} />}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant opacity-40">Last Active</span>
-                    <span className="text-sm text-on-surface font-medium">
-                      {selectedMember.updatedAt ? formatDistanceToNow(new Date(selectedMember.updatedAt), { addSuffix: true }) : 'Recently'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                    {CreditCard && <CreditCard size={20} />}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant opacity-40">Net Position</span>
-                    <span className={`text-sm font-bold ${selectedMember.balance > 0 ? 'text-green-400' : selectedMember.balance < 0 ? 'text-red-400' : 'text-on-surface'}`}>
-                      {selectedMember.balance !== 0 ? formatCurrency(selectedMember.balance) : 'Fully Settled'}
-                    </span>
-                  </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[9px] uppercase tracking-widest font-black text-[#666666] mb-0.5 font-manrope">Entity Identifier</span>
+                  <span className="text-sm text-[#e3e2e2] truncate font-medium font-inter">{selectedMember.email}</span>
                 </div>
               </div>
 
-              {/* Admin Actions */}
-              {adminId?.toString() === currentUserId?.toString() && selectedMember._id?.toString() !== adminId?.toString() && (
-                <div className="mt-12 pt-8 border-t border-white/5">
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#242424] border border-white/[0.03] transition-colors hover:border-white/5 group">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center text-[#919191] group-hover:text-white transition-colors">
+                  {Clock && <Clock size={18} />}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] uppercase tracking-widest font-black text-[#666666] mb-0.5 font-manrope">Activity Sync</span>
+                  <span className="text-sm text-[#e3e2e2] font-medium font-inter">
+                    {selectedMember.updatedAt ? formatDistanceToNow(new Date(selectedMember.updatedAt), { addSuffix: true }) : 'Live Action'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#242424] border border-white/[0.03] transition-colors hover:border-white/5 group">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center text-[#919191] group-hover:text-white transition-colors">
+                  {CreditCard && <CreditCard size={18} />}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] uppercase tracking-widest font-black text-[#666666] mb-0.5 font-manrope">Net Position</span>
+                  <span className={`text-base font-bold font-manrope ${selectedMember.balance > 0 ? 'text-green-400' : selectedMember.balance < 0 ? 'text-red-400' : 'text-[#e5e2e1]'}`}>
+                    {selectedMember.balance !== 0 ? formatCurrency(selectedMember.balance) : 'Neutral Delta'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Actions: Blocked for Admin themself OR for the current user's own card in this view */}
+            {adminId?.toString() === currentUserId?.toString() && !selectedMember.isMe && (
+              <div className="mt-10 pt-8 border-t border-white/[0.02]">
+                <div className="flex flex-col gap-4">
                   <Button
                     variant="danger"
-                    className="w-full h-12 gap-2 text-sm font-bold"
+                    className="w-full h-12 rounded-xl gap-2 text-[10px] font-black uppercase tracking-[0.2em] disabled:opacity-20 disabled:grayscale transition-all active:scale-95 shadow-lg border border-red-500/20"
                     onClick={() => handleRemove(selectedMember._id)}
                     loading={isRemoving}
+                    disabled={Math.abs(selectedMember.balance || 0) > 0.01}
                   >
-                    {UserMinus && <UserMinus size={18} />}
-                    Remove from Group
+                    {Math.abs(selectedMember.balance || 0) > 0.01 ? <Lucide.Lock size={14} /> : (UserMinus && <UserMinus size={16} />)}
+                    {Math.abs(selectedMember.balance || 0) > 0.01 ? 'Removal Locked' : 'Dissolve Access'}
                   </Button>
-                  <p className="mt-3 text-[10px] text-center text-on-surface-variant/40 italic px-4 font-inter">
-                    Members can only be removed if their balance is fully settled.
-                  </p>
+
+                  {Math.abs(selectedMember.balance || 0) > 0.01 && (
+                    <div className="flex items-center justify-center gap-2 text-[9px] text-red-400 font-bold uppercase tracking-widest opacity-80 font-manrope">
+                      <Lucide.AlertCircle size={12} />
+                      <span>Settle {formatCurrency(selectedMember.balance)} for removal</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </motion.div>
+              </div>
+            )}
           </div>
         )}
-      </AnimatePresence>
+      </Modal>
     </div>
   );
 };

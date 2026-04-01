@@ -21,8 +21,10 @@ const authService = {
     
     // Save to Firestore 'users' collection
     const userData = {
+      _id: user.uid, // Alias for legacy compatibility
       uid: user.uid,
       name: name,
+      nameLowerCase: name?.toLowerCase(),
       email: email,
       createdAt: new Date().toISOString()
     };
@@ -37,7 +39,8 @@ const authService = {
     const user = userCredential.user;
     
     const userDoc = await getDoc(doc(db, 'users', user.uid));
-    const userData = userDoc.exists() ? userDoc.data() : { uid: user.uid, email, name: user.displayName };
+    const userData = userDoc.exists() ? userDoc.data() : { _id: user.uid, uid: user.uid, email, name: user.displayName };
+    if (!userData._id) userData._id = user.uid; // Migration check
     
     return { user: userData, token: user.accessToken };
   },
@@ -49,13 +52,26 @@ const authService = {
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
     
-    let userData = { uid: user.uid, email: user.email, name: user.displayName, photoURL: user.photoURL };
+    let userData = { 
+      _id: user.uid, 
+      uid: user.uid, 
+      email: user.email, 
+      name: user.displayName, 
+      nameLowerCase: user.displayName?.toLowerCase(),
+      photoURL: user.photoURL 
+    };
     
     if (!userDoc.exists()) {
       userData.createdAt = new Date().toISOString();
       await setDoc(userDocRef, userData);
     } else {
       userData = userDoc.data();
+      if (!userData._id) userData._id = user.uid;
+      // Auto-backfill nameLowerCase if missing on login
+      if (!userData.nameLowerCase && userData.name) {
+        userData.nameLowerCase = userData.name.toLowerCase();
+        await updateDoc(userDocRef, { nameLowerCase: userData.nameLowerCase });
+      }
     }
     
     return { user: userData, token: user.accessToken };
@@ -63,7 +79,7 @@ const authService = {
   
   getMe: async () => {
      const user = auth.currentUser;
-     if (!user) throw new Error("Not authenticated");
+     if (!user) throw new Error("Authentication session expired. Please sign in again.");
      const userDoc = await getDoc(doc(db, 'users', user.uid));
      if (!userDoc.exists()) throw new Error("User document not found");
      return { data: { data: { user: userDoc.data() } } }; 
@@ -71,7 +87,7 @@ const authService = {
   
   updateProfile: async (data) => {
     const user = auth.currentUser;
-    if (!user) throw new Error("Not authenticated");
+    if (!user) throw new Error("Authentication required to update profile.");
     
     if (data.name) {
       await updateFirebaseProfile(user, { displayName: data.name });

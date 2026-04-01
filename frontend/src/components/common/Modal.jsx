@@ -24,23 +24,22 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
 
           {/* Modal content */}
           <motion.div
-            className={`relative w-full ${sizes[size]} bg-neutral-900/90 backdrop-blur-3xl rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.8)] border border-white/5 z-10 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[85vh]`}
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            className={`relative w-full ${sizes[size]} bg-[#1a1a1a] rounded-[2.5rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)] border border-white/10 z-10 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[85vh]`}
+            initial={{ opacity: 0, scale: 0.95, y: 30 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            exit={{ opacity: 0, scale: 0.95, y: 30 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 200 }}
           >
             {/* Header - Fixed */}
-            <div className="flex items-center justify-between px-8 pt-8 pb-4 shrink-0 bg-neutral-900/40 backdrop-blur-md z-20">
+            <div className="flex items-center justify-between px-8 pt-8 pb-4 shrink-0 z-20">
               <div className="flex flex-col">
-                <h2 className="text-xl font-bold font-manrope text-white tracking-tight">
+                <h2 className="text-xl font-bold font-manrope text-white tracking-tight uppercase">
                   {title}
                 </h2>
-                <div className="h-1 w-8 bg-primary rounded-full mt-1 opacity-50" />
               </div>
               <button
                 onClick={onClose}
-                className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all text-on-surface-variant hover:text-white"
+                className="w-11 h-11 flex items-center justify-center rounded-xl bg-white/[0.04] hover:bg-white/[0.1] border border-white/5 transition-all text-on-surface-variant hover:text-white active:scale-95"
                 aria-label="Close modal"
               >
                 <HiX size={20} />

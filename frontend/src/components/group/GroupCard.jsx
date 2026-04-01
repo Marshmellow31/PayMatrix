@@ -11,7 +11,8 @@ const GroupCard = ({ group }) => {
   // De-duplicate members by user ID
   const uniqueMembers = Array.from(new Map(
     (group.members || []).map(m => {
-      const id = (m.user?._id || m.user || '').toString();
+      const u = m.user || m;
+      const id = (u?._id || u?.uid || u || '').toString();
       return [id, m];
     })
   ).values());

@@ -21,7 +21,8 @@ export const fetchExpenses = createAsyncThunk('expenses/fetchAll', async ({ grou
 
 export const addExpense = createAsyncThunk('expenses/add', async ({ groupId, data }, thunkAPI) => {
   try {
-    const response = await expenseService.addExpense(groupId, data);
+    const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
+    const response = await expenseService.addExpense(groupId, data, userId);
     return response.data.data;
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message || 'Failed to add expense');
@@ -30,7 +31,8 @@ export const addExpense = createAsyncThunk('expenses/add', async ({ groupId, dat
 
 export const deleteExpense = createAsyncThunk('expenses/delete', async ({ id, groupId }, thunkAPI) => {
   try {
-    await expenseService.deleteExpense(id, groupId);
+    const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
+    await expenseService.deleteExpense(id, groupId, userId);
     return id;
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message || 'Failed to delete expense');
@@ -39,7 +41,8 @@ export const deleteExpense = createAsyncThunk('expenses/delete', async ({ id, gr
 
 export const updateExpense = createAsyncThunk('expenses/update', async ({ id, data }, thunkAPI) => {
   try {
-    const response = await expenseService.updateExpense(id, data);
+    const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
+    const response = await expenseService.updateExpense(id, { ...data, admin: userId });
     return response.data.data;
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message || 'Failed to update expense');
@@ -60,8 +63,13 @@ const expenseSlice = createSlice({
     },
     // New Reducer for Firebase onSnapshot sync
     setExpenses: (state, action) => {
-      state.expenses = action.payload.expenses;
-      state.activeGroupId = action.payload.groupId;
+      // Handle either raw array or object with nested expenses/groupId
+      if (Array.isArray(action.payload)) {
+        state.expenses = action.payload;
+      } else {
+        state.expenses = action.payload.expenses || [];
+        state.activeGroupId = action.payload.groupId;
+      }
     }
   },
   extraReducers: (builder) => {
@@ -74,6 +82,7 @@ const expenseSlice = createSlice({
       .addCase(fetchExpenses.fulfilled, (state, action) => {
         state.loading = false;
         if (action.meta.arg.groupId !== state.activeGroupId) return;
+        // Correct path for Payload: action.payload.data
         state.expenses = action.payload.data.expenses || [];
       })
       .addCase(fetchExpenses.rejected, (state, action) => { 
@@ -81,13 +90,12 @@ const expenseSlice = createSlice({
         state.error = action.payload; 
       })
 
-      .addCase(addExpense.fulfilled, (state, action) => { 
-        // We often don't need this if onSnapshot is active, but harmless to update locally
-        // state.expenses.unshift(action.payload.expense); 
-      })
-      .addCase(updateExpense.fulfilled, (state, action) => {
-      })
+      // NOTE: addExpense and updateExpense are handled exclusively by the
+      // onSnapshot listener in GroupDetail to prevent duplicate entries.
+      // Only deleteExpense needs a manual reducer since deletion doesn't
+      // fire the snapshot in a way that removes the item immediately.
       .addCase(deleteExpense.fulfilled, (state, action) => {
+        state.expenses = state.expenses.filter(e => e._id !== action.payload);
       });
   },
 });

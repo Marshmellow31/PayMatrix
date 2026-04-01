@@ -8,7 +8,9 @@ const safeParse = (key) => {
   try {
     const val = localStorage.getItem(key);
     if (!val || val === 'undefined') return null;
-    return JSON.parse(val);
+    const data = JSON.parse(val);
+    if (data && data.uid && !data._id) data._id = data.uid;
+    return data;
   } catch {
     return null;
   }
@@ -72,7 +74,7 @@ export const getMe = createAsyncThunk('auth/getMe', async (_, thunkAPI) => {
       localStorage.setItem('paymatrix_user', JSON.stringify(user));
       return { user };
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.message);
+      return thunkAPI.rejectWithValue(error.message || 'Failed to fetch user');
     }
 });
 
@@ -106,8 +108,10 @@ const authSlice = createSlice({
       state.error = null;
     },
     setUser: (state, action) => {
-      state.user = action.payload;
-      localStorage.setItem('paymatrix_user', JSON.stringify(action.payload));
+      const userData = action.payload;
+      if (userData && userData.uid && !userData._id) userData._id = userData.uid;
+      state.user = userData;
+      localStorage.setItem('paymatrix_user', JSON.stringify(userData));
     }
   },
   extraReducers: (builder) => {
