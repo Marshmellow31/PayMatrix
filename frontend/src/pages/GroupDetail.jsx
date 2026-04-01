@@ -143,6 +143,21 @@ const GroupDetail = () => {
     };
   }, [expenses, settlements, currentGroup, groups, id]);
 
+  // Ensure legacy groups get an invite code
+  useEffect(() => {
+    const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
+    if (!activeGrp || activeGrp.inviteCode || !user) return;
+    
+    // Only admins can generate the initial invite code for legacy groups
+    const isAdmin = activeGrp.admin === (user._id || user.uid);
+    if (isAdmin && isOnline) {
+      const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      groupService.updateGroup(id, { inviteCode: newCode })
+        .then(() => dispatch(fetchGroup(id)))
+        .catch(err => console.error("Failed to generate legacy invite code:", err));
+    }
+  }, [currentGroup, groups, id, user, isOnline, dispatch]);
+
   const balances = balanceList;
   const simplifiedDebts = debts;
 

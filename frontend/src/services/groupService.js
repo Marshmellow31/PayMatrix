@@ -87,6 +87,7 @@ const groupService = {
       ...data,
       members: Array.from(new Set([...sanitizedMemberIds, userId])).filter(Boolean), // Ensure creator is member and filter leftovers
       admin: userId,
+      inviteCode: Math.random().toString(36).substring(2, 10).toUpperCase(), // Generate short unique invite code
       createdAt: new Date().toISOString()
     };
     
@@ -145,6 +146,35 @@ const groupService = {
       members: arrayRemove(userId)
     });
     return wrap({ message: 'Left group successfully' });
+  },
+
+  joinGroupByCode: async (inviteCode, userId) => {
+    if (!userId) throw new Error("Authentication session not found. Please log in.");
+    if (!inviteCode) throw new Error("Invite code is missing.");
+
+    // 1. Find group with this invite code
+    const q = query(collection(db, 'groups'), where('inviteCode', '==', inviteCode.toUpperCase()));
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      throw new Error("Invalid or expired invite link.");
+    }
+
+    const groupDoc = snap.docs[0];
+    const groupId = groupDoc.id;
+    const groupData = groupDoc.data();
+
+    // 2. Check if user is already a member
+    if (groupData.members && groupData.members.includes(userId)) {
+      return wrap({ groupId }, "You are already a member of this cohort.");
+    }
+
+    // 3. Add user to group members
+    await updateDoc(doc(db, 'groups', groupId), {
+      members: arrayUnion(userId)
+    });
+
+    return wrap({ groupId }, "Successfully joined the cohort!");
   },
 };
 

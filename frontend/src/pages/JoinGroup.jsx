@@ -10,35 +10,36 @@ import Button from '../components/common/Button.jsx';
 const JoinGroup = () => {
   const { code } = useParams();
   const navigate = useNavigate();
-  const { token } = useSelector((state) => state.auth);
+  const { user } = useSelector((state) => state.auth);
   const [status, setStatus] = useState('processing'); // processing, success, error
   const [error, setError] = useState('');
   const [groupData, setGroupData] = useState(null);
 
   useEffect(() => {
-    if (!token) {
-      // Store the invite code to join after login
+    // 1. If not authenticated, store code and redirect to login
+    if (!user) {
       localStorage.setItem('pendingInviteCode', code);
       navigate('/login');
       return;
     }
 
+    // 2. Perform the actual join operation
     const joinGroup = async () => {
       try {
-        // Stub for Firebase group joining
-        setTimeout(() => {
-          setStatus('success');
-          setGroupData({ groupId: code }); // Using invite code as ID for stub
-          toast.success('Successfully joined the cohort!');
-        }, 1000);
+        const userId = user.uid || user._id; // Ensure consistent UID usage
+        const response = await groupService.joinGroupByCode(code, userId);
+        
+        setStatus('success');
+        setGroupData({ groupId: response.data.data.groupId });
+        toast.success(response.data.message || 'Successfully joined the cohort!');
       } catch (err) {
         setStatus('error');
-        setError(err.message || 'Failed to join group.');
+        setError(err.message || 'Failed to join group. Please check your invite link.');
       }
     };
 
     joinGroup();
-  }, [code, token, navigate]);
+  }, [code, user, navigate]);
 
   if (status === 'processing') {
     return (
