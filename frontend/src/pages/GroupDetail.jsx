@@ -266,9 +266,11 @@ const GroupDetail = () => {
   };
 
   const activeGroup = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
-
-  if ((!activeGroup || activeGroup._id !== id) && groupLoading) return <Loader className="py-20" />;
-  if (!activeGroup || activeGroup._id !== id) return <div className="text-center py-20 opacity-50 font-inter">Identifying Cohort...</div>;
+  
+  // Only show the full-page loader if we have NO group data for this ID at all.
+  // If we have it in the cache (groups array), we show the content and let snapshots update it.
+  if (!activeGroup && groupLoading) return <Loader className="py-20" />;
+  if (!activeGroup) return <div className="text-center py-20 opacity-50 font-inter">Identifying Cohort...</div>;
 
   const category = GROUP_CATEGORIES.find((c) => c.value === activeGroup.category);
   const isAdmin = activeGroup.admin === (user?._id || user?.uid);

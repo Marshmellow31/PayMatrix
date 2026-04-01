@@ -102,11 +102,11 @@ export const exportToPDF = (group, expenses, balances, logs = []) => {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
   if (isIOS) {
-    // On iOS, doc.save() can be flaky or hang the app's state. 
-    // Opening as a blob in a new tab is often more reliable for the native preview.
+    // On iOS, window.location.href = url replaces the app with the PDF.
+    // window.open(url, '_blank') is safer as it keeps the app alive in the background tab.
     const blob = doc.output('blob');
     const url = URL.createObjectURL(blob);
-    window.location.href = url; // Use local redirect to ensure preview opens cleanly
+    window.open(url, '_blank');
   } else {
     doc.save(`${group.title.toLowerCase().replace(/\s+/g, '_')}_report.pdf`);
   }

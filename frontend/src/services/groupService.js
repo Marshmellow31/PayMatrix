@@ -1,7 +1,7 @@
 import { db, auth } from '../config/firebase.js';
 import { 
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, 
-  query, where, arrayUnion, arrayRemove, limit 
+  query, where, arrayUnion, arrayRemove, limit, getDocFromCache, getDocsFromCache
 } from 'firebase/firestore';
 
 // Helper to mimic Axios response
@@ -33,16 +33,22 @@ const groupService = {
       }
       
       try {
-        // 4. Fetch from Firestore
-        const uDoc = await getDoc(doc(db, 'users', uid));
-        const uData = uDoc.exists() ? uDoc.data() : { name: 'Cohort Member', email: 'Member' };
+        // 4. Cache-first strategy: Instant return if we have it locally
+        let uSnap = await getDocFromCache(doc(db, 'users', uid)).catch(() => null);
+        
+        // 5. If not in cache and online, try network
+        if (!uSnap) {
+          uSnap = await getDoc(doc(db, 'users', uid)).catch(() => null);
+        }
+
+        const uData = uSnap?.exists() ? uSnap.data() : { name: 'Cohort Member', email: 'Member' };
         
         const resolvedUser = { ...uData, _id: uid, uid: uid };
         userCache[uid] = resolvedUser;
         return { user: resolvedUser, role: 'member' };
       } catch (err) {
-        // Log specific error but don't crash — fallback to skeleton data
-        console.warn(`Fallback for user ${uid} (likely permission or missing doc):`, err.code || err.message);
+        // Log error but don't crash — fallback to skeleton data
+        console.warn(`Fallback for user ${uid}:`, err.message);
         return { user: { _id: uid, uid: uid, name: 'Member' }, role: 'member' };
       }
     });
@@ -60,7 +66,16 @@ const groupService = {
     if (!userId) throw new Error("Authentication session not found. Please refresh.");
     
     const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
-    const querySnapshot = await getDocs(q);
+    let querySnapshot;
+    try {
+      // Fast path: Try cache first ONLY IF online but connection is slow, or offline
+      // BUT for high-level group lists, we usually want live data.
+      // So we'll try network with a "soft" timeout or fallback.
+      querySnapshot = await getDocs(q);
+    } catch (err) {
+      console.warn("[OFFLINE_FALLBACK] getGroups: fetching from cache");
+      querySnapshot = await getDocsFromCache(q).catch(() => ({ docs: [] }));
+    }
     
     const allGroups = await Promise.all(querySnapshot.docs.map(doc => groupService.expandGroupData(doc)));
     // Filter out soft-deleted groups from the main dashboard
@@ -101,8 +116,15 @@ const groupService = {
 
   getGroup: async (id) => {
     const docRef = doc(db, 'groups', id);
-    const docSnap = await getDoc(docRef);
-    if (!docSnap.exists()) throw new Error("Group not found");
+    let docSnap;
+    try {
+      docSnap = await getDoc(docRef);
+    } catch (err) {
+      console.warn("[OFFLINE_FALLBACK] getGroup: fetching from cache");
+      docSnap = await getDocFromCache(docRef).catch(() => null);
+    }
+
+    if (!docSnap || !docSnap.exists()) throw new Error("Group not found");
     
     const group = await groupService.expandGroupData(docSnap);
     return wrap({ group });

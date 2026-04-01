@@ -1,7 +1,7 @@
 import { db, auth } from '../config/firebase.js';
 import { 
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, 
-  query, where, arrayUnion, arrayRemove, limit 
+  query, where, arrayUnion, arrayRemove, limit, getDocFromCache, getDocsFromCache
 } from 'firebase/firestore';
 import { createNotification } from '../utils/notificationHelper.js';
 
@@ -78,14 +78,16 @@ const friendService = {
 
     const incoming = await Promise.all(incomingSnap.docs.map(async d => {
       const data = d.data();
-      const uDoc = await getDoc(doc(db, 'users', data.from));
-      return { _id: d.id, ...data, from: { _id: data.from, ...uDoc.data() } };
+      let uSnap = await getDocFromCache(doc(db, 'users', data.from)).catch(() => null);
+      if (!uSnap) uSnap = await getDoc(doc(db, 'users', data.from)).catch(() => null);
+      return { _id: d.id, ...data, from: { _id: data.from, ...(uSnap?.data() || { name: 'Member' }) } };
     }));
 
     const outgoing = await Promise.all(outgoingSnap.docs.map(async d => {
       const data = d.data();
-      const uDoc = await getDoc(doc(db, 'users', data.to));
-      return { _id: d.id, ...data, to: { _id: data.to, ...uDoc.data() } };
+      let uSnap = await getDocFromCache(doc(db, 'users', data.to)).catch(() => null);
+      if (!uSnap) uSnap = await getDoc(doc(db, 'users', data.to)).catch(() => null);
+      return { _id: d.id, ...data, to: { _id: data.to, ...(uSnap?.data() || { name: 'Member' }) } };
     }));
 
     return wrap({ incoming, outgoing });
@@ -129,8 +131,9 @@ const friendService = {
     const friendIds = uDoc.data()?.friends || [];
 
     const friends = await Promise.all(friendIds.map(async id => {
-      const d = await getDoc(doc(db, 'users', id));
-      return { _id: id, ...d.data() };
+      let d = await getDocFromCache(doc(db, 'users', id)).catch(() => null);
+      if (!d) d = await getDoc(doc(db, 'users', id)).catch(() => null);
+      return { _id: id, ...(d?.data() || { name: 'Member' }) };
     }));
 
     return wrap({ friends });
