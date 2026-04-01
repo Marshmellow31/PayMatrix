@@ -27,7 +27,7 @@ const Dashboard = () => {
 
     // 1. Real-time listener for groups
     const qGroups = query(
-      collection(db, 'groups'), 
+      collection(db, 'groups'),
       where('members', 'array-contains', userId)
     );
     const unsubscribeGroups = onSnapshot(qGroups, async (snapshot) => {
@@ -58,7 +58,7 @@ const Dashboard = () => {
   // 3. Reactive summary - updates whenever groups change
   useEffect(() => {
     if (!user?._id && !user?.uid) return;
-    
+
     const updateSummary = async () => {
       setLoadingSummary(true);
       try {
@@ -80,10 +80,10 @@ const Dashboard = () => {
   if (groupsLoading && groups.length === 0 && loadingSummary && !isOffline) return <Loader />;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-12 pb-32">
-      
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-32 space-y-10">
+
       {isOffline && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex justify-center mt-2"
@@ -96,10 +96,10 @@ const Dashboard = () => {
       )}
 
       {/* Hero Balance Section */}
-      <motion.section 
+      <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-2 mt-8"
+        className="space-y-1 mt-6"
       >
         <p className="font-inter text-on-surface-variant text-[10px] font-bold tracking-[0.2em] uppercase opacity-70">
           Total Liquidity
@@ -110,9 +110,9 @@ const Dashboard = () => {
             {Math.abs(summary?.netBalance || 0).toLocaleString()}
             <span className="text-on-surface-variant opacity-30">.00</span>
           </h1>
-          
-          <button 
-            onClick={() => openAddExpense()} 
+
+          <button
+            onClick={() => openAddExpense()}
             className="h-14 px-8 rounded-2xl bg-white text-black font-manrope font-bold text-sm tracking-widest flex items-center justify-center gap-3 hover:bg-white/90 transition-all active:scale-95 shadow-xl shadow-white/5 mb-2"
           >
             <Plus size={20} strokeWidth={3} /> RECORD EXPENSE
@@ -123,7 +123,7 @@ const Dashboard = () => {
       {/* Bento Grid Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* You Owe Card */}
-        <motion.div 
+        <motion.div
           whileHover={{ scale: 0.98 }}
           className="glass-card p-6 rounded-2xl border border-white/5 cursor-pointer relative overflow-hidden group"
         >
@@ -141,7 +141,7 @@ const Dashboard = () => {
         </motion.div>
 
         {/* You Are Owed Card */}
-        <motion.div 
+        <motion.div
           whileHover={{ scale: 0.98 }}
           className="glass-card p-6 rounded-2xl border border-white/5 cursor-pointer relative overflow-hidden group"
         >
@@ -161,7 +161,7 @@ const Dashboard = () => {
 
       {/* Asymmetric Layout: Groups and Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 sm:gap-16">
-        
+
         {/* Top Groups Column */}
         <div className="lg:col-span-4 space-y-8">
           <div className="flex items-center justify-between">
@@ -173,12 +173,12 @@ const Dashboard = () => {
               <Link to="/groups" className="text-[10px] font-bold tracking-[0.2em] uppercase text-on-surface-variant hover:text-white transition-colors">See All</Link>
             </div>
           </div>
-          
+
           <div className="space-y-1">
             {topGroups.map((group, idx) => (
-              <Link 
+              <Link
                 to={`/groups/${group._id}`}
-                key={group._id} 
+                key={group._id}
                 className={`flex items-center gap-5 group cursor-pointer py-5 transition-all ${idx !== topGroups.length - 1 ? 'border-b border-white/5' : ''}`}
               >
                 <div className="w-12 h-12 rounded-xl bg-surface-container-high overflow-hidden flex-shrink-0 border border-white/5">
@@ -197,9 +197,9 @@ const Dashboard = () => {
             ))}
 
             {groups.length === 0 && (
-               <div className="py-10 text-center glass-card rounded-2xl border border-dashed border-white/10">
+              <div className="py-10 text-center glass-card rounded-2xl border border-dashed border-white/10">
                 <p className="text-on-surface-variant text-sm font-inter">No active cohorts yet.</p>
-               </div>
+              </div>
             )}
           </div>
         </div>

@@ -19,6 +19,14 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { 
+  onSnapshot, 
+  doc, 
+  collection, 
+  query, 
+  where 
+} from 'firebase/firestore';
+import { auth, db } from '../config/firebase.js';
 import friendService from '../services/friendService';
 import toast from 'react-hot-toast';
 import Modal from '../components/common/Modal';
@@ -39,9 +47,9 @@ const Friends = () => {
   const [settleModalOpen, setSettleModalOpen] = useState(false);
   const [selectedFriendForSettle, setSelectedFriendForSettle] = useState(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (isInitial = true) => {
     try {
-      setIsLoading(true);
+      if (isInitial) setIsLoading(true);
       const [analyticsRes, requestsRes] = await Promise.all([
         friendService.getNetworkAnalytics(),
         friendService.getRequests()
@@ -50,14 +58,74 @@ const Friends = () => {
       setTotalSharedBalance(analyticsRes.data.data?.totalSharedBalance || 0);
       setRequests(requestsRes.data.data || { incoming: [], outgoing: [] });
     } catch (error) {
-      toast.error('Failed to load network intelligence');
+      console.error("Fetch Data Error:", error);
+      // Only toast on initial error to avoid noise
+      if (isInitial) toast.error('Failed to load network intelligence');
     } finally {
-      setIsLoading(false);
+      if (isInitial) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchData();
+    let unsubs = [];
+    
+    const setupListeners = () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      // 1. Initial snapshot of all data
+      fetchData(true);
+
+      // 2. Listen to user document (friend list changes)
+      unsubs.push(onSnapshot(doc(db, 'users', user.uid), () => {
+        fetchData(false);
+      }));
+
+      // 3. Listen to incoming requests
+      const qReq = query(
+        collection(db, 'friendRequests'), 
+        where('to', '==', user.uid), 
+        where('status', '==', 'pending')
+      );
+      unsubs.push(onSnapshot(qReq, () => {
+        fetchData(false);
+      }));
+
+      // 4. Listen to outgoing requests
+      const qReqOut = query(
+        collection(db, 'friendRequests'), 
+        where('from', '==', user.uid), 
+        where('status', '==', 'pending')
+      );
+      unsubs.push(onSnapshot(qReqOut, () => {
+        fetchData(false);
+      }));
+
+      // 5. Listen to groups user is in
+      // Due to 'touch' mechanism in expenseService, any subcollection change
+      // will update the group doc, triggering this listener.
+      const qGroups = query(
+        collection(db, 'groups'), 
+        where('members', 'array-contains', user.uid)
+      );
+      unsubs.push(onSnapshot(qGroups, () => {
+        fetchData(false);
+      }));
+    };
+
+    // Give auth a moment to initialize if needed
+    const authUnsub = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setupListeners();
+      } else {
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      authUnsub();
+      unsubs.forEach(u => u());
+    };
   }, [fetchData]);
 
   const handleSearch = async (e) => {
@@ -124,38 +192,51 @@ const Friends = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 pb-32 space-y-12">
+    <div className="max-w-4xl mx-auto px-4 py-8 pb-32 space-y-10">
       
-      {/* Header & Global Position */}
-      <div className="space-y-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
-          <div className="space-y-1">
-            <h1 className="text-4xl font-black font-manrope tracking-tighter text-white italic">Network</h1>
-            <p className="text-[11px] text-white/30 font-black uppercase tracking-[0.3em]">Institutionalized Connections</p>
+      {/* Premium Header Card */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-[2.5rem] bg-[#1a1a1a] border border-white/5 p-8 sm:p-10"
+      >
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/[0.02] rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-8">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-black font-manrope tracking-tight text-white">Friends</h1>
+            <div className="flex items-center gap-3">
+              <div className="h-[1px] w-6 bg-white/20" />
+              <p className="text-[10px] text-white/40 font-bold uppercase tracking-[0.3em]">Network Intelligence</p>
+            </div>
           </div>
           
-          <div className="glass-card px-6 py-4 flex flex-col items-end border-white/10">
-            <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Collective Net Position</p>
-            <div className="flex items-baseline gap-2">
-              <span className={`text-2xl font-black font-manrope ${totalSharedBalance >= 0 ? 'text-white' : 'text-white/40'}`}>
+          <div className="flex flex-col items-start sm:items-end gap-1">
+            <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em]">Global Position</p>
+            <div className="flex items-center gap-4">
+              <span className={`text-4xl font-black font-manrope ${totalSharedBalance >= 0 ? 'text-white' : 'text-white/40'}`}>
                 ₹{Math.abs(totalSharedBalance).toLocaleString()}
               </span>
-              <span className="text-[10px] font-bold text-white/20 uppercase">
+              <div className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest backdrop-blur-md border ${
+                totalSharedBalance >= 0 
+                  ? 'bg-white/5 text-white/60 border-white/10' 
+                  : 'bg-white text-black border-white shadow-lg shadow-white/5'
+              }`}>
                 {totalSharedBalance >= 0 ? 'Surplus' : 'Payable'}
-              </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Search Matrix */}
-        <div className="relative group">
-          <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-white/20 group-focus-within:text-white transition-colors">
-            <Search size={20} />
+        {/* Integrated Network Search */}
+        <div className="mt-10 relative group">
+          <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none text-white/20 group-focus-within:text-white transition-colors">
+            <Search size={20} strokeWidth={2.5} />
           </div>
           <input 
             type="text"
-            placeholder="Scan name or digital sign (email)..."
-            className="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-5 pl-14 pr-6 text-white font-manrope font-bold placeholder:text-white/10 focus:outline-none focus:border-white/20 focus:bg-white/[0.05] transition-all"
+            placeholder="Search network by name or email..."
+            className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-5 pl-16 pr-8 text-white font-manrope font-semibold placeholder:text-white/10 focus:outline-none focus:border-white/20 focus:bg-white/[0.05] transition-all shadow-inner"
             value={searchQuery}
             onChange={handleSearch}
           />
@@ -163,53 +244,61 @@ const Friends = () => {
           <AnimatePresence>
             {searchResults.length > 0 && (
               <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="absolute top-full left-0 right-0 mt-3 bg-[#0D0D0D] border border-white/10 rounded-3xl p-3 z-50 shadow-[0_30px_60px_rgba(0,0,0,0.8)] backdrop-blur-3xl overflow-hidden"
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                className="absolute top-full left-0 right-0 mt-4 bg-[#0c0c0c] border border-white/10 rounded-[2rem] p-3 z-50 shadow-[0_24px_80px_rgba(0,0,0,0.8)] backdrop-blur-2xl overflow-hidden"
               >
-                {searchResults.map((user) => {
-                  const status = searchStatus[user._id] || 'none';
-                  return (
-                    <div key={user._id} className="flex items-center justify-between p-4 rounded-2xl hover:bg-white/[0.03] transition-colors group/item">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center font-black text-white/20 group-hover/item:text-white transition-colors uppercase">
-                          {user.name.charAt(0)}
+                <p className="px-4 py-2 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Potential Connections</p>
+                <div className="max-h-[320px] overflow-y-auto no-scrollbar space-y-1 mt-1">
+                  {searchResults.map((user) => {
+                    const status = searchStatus[user._id] || 'none';
+                    return (
+                      <div key={user._id} className="flex items-center justify-between p-4 rounded-2xl hover:bg-white/[0.03] border border-transparent hover:border-white/5 transition-all group/item">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center font-black text-white/20 group-hover/item:text-white group-hover/item:bg-white/10 transition-all uppercase text-lg">
+                            {user.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-white tracking-wide">{user.name}</p>
+                            <p className="text-[10px] text-white/20 font-semibold lowercase tracking-tight">{user.email}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-black text-white">{user.name}</p>
-                          <p className="text-[10px] text-white/30 uppercase tracking-widest">{user.email}</p>
-                        </div>
+                        
+                        {status === 'friend' ? (
+                          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10">
+                            <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
+                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Connected</span>
+                          </div>
+                        ) : status === 'pending_outgoing' ? (
+                          <div className="px-4 py-2 rounded-xl bg-white/5 border border-white/5">
+                            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest italic">Signal Sent</span>
+                          </div>
+                        ) : status === 'pending_incoming' ? (
+                          <button 
+                            onClick={() => setActiveTab('pending')}
+                            className="px-4 py-2 rounded-xl bg-white text-black text-[9px] font-black uppercase tracking-widest shadow-lg shadow-white/5 hover:scale-105 active:scale-95 transition-all"
+                          >Action Required</button>
+                        ) : (
+                          <button 
+                            onClick={() => sendRequest(user._id)}
+                            className="w-12 h-12 rounded-2xl bg-white text-black hover:bg-white/90 active:scale-90 transition-all flex items-center justify-center shadow-xl shadow-white/5"
+                          >
+                            <UserPlus size={20} strokeWidth={3} />
+                          </button>
+                        )}
                       </div>
-                      
-                      {status === 'friend' ? (
-                        <span className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[9px] font-black text-white/40 uppercase tracking-widest">Connected</span>
-                      ) : status === 'pending_outgoing' ? (
-                        <span className="px-3 py-1.5 rounded-lg bg-white/[0.02] border border-white/5 text-[9px] font-black text-white/20 uppercase tracking-widest italic">Signal Sent</span>
-                      ) : status === 'pending_incoming' ? (
-                        <button 
-                          onClick={() => setActiveTab('pending')}
-                          className="px-3 py-1.5 rounded-lg bg-white text-black text-[9px] font-black uppercase tracking-widest"
-                        >Action Required</button>
-                      ) : (
-                        <button 
-                          onClick={() => sendRequest(user._id)}
-                          className="p-3 rounded-xl bg-white text-black hover:bg-white/90 active:scale-95 transition-all"
-                        >
-                          <UserPlus size={18} strokeWidth={2.5} />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Persistence Tabs */}
-      <div className="flex gap-8 border-b border-white/5 px-2">
+      {/* Persistence Controls */}
+      <div className="flex items-center gap-8 border-b border-white/5 px-4 overflow-x-auto no-scrollbar">
         {[
           { id: 'all', label: 'Nodes', count: friends.length },
           { id: 'pending', label: 'Signals', count: requests.incoming.length }
@@ -217,13 +306,25 @@ const Friends = () => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`pb-5 text-[10px] font-black uppercase tracking-[0.3em] transition-all relative ${
+            className={`pb-5 text-[10px] font-black uppercase tracking-[0.3em] transition-all relative group ${
               activeTab === tab.id ? 'text-white' : 'text-white/20 hover:text-white/40'
             }`}
           >
-            {tab.label} <span className="opacity-40">[{tab.count}]</span>
+            <div className="flex items-center gap-3">
+              <span>{tab.label}</span>
+              <span className={`text-[8px] px-2 py-0.5 rounded-lg border font-black ${
+                activeTab === tab.id 
+                  ? 'bg-white/10 text-white border-white/20' 
+                  : 'bg-transparent text-white/10 border-white/5 group-hover:border-white/10'
+              }`}>
+                {tab.count}
+              </span>
+            </div>
             {activeTab === tab.id && (
-              <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-[2px] bg-white rounded-full" />
+              <motion.div 
+                layoutId="tab-underline" 
+                className="absolute bottom-0 left-0 right-0 h-[2px] bg-white rounded-full shadow-[0_0_12px_rgba(255,255,255,0.4)]" 
+              />
             )}
           </button>
         ))}
@@ -242,31 +343,31 @@ const Friends = () => {
             {requests.incoming.map((req) => (
               <motion.div 
                 key={req._id}
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex items-center justify-between glass-card p-6 border-white/10"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-4 rounded-2xl"
               >
-                <div className="flex items-center gap-5">
-                  <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40">
-                    <UserIcon size={24} />
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-white/20">
+                    <UserIcon size={18} />
                   </div>
                   <div>
-                    <p className="text-base font-black text-white font-manrope">{req.from?.name || 'Inbound User'}</p>
-                    <p className="text-[10px] text-white/30 uppercase tracking-[0.2em]">Requesting Entry</p>
+                    <p className="text-sm font-bold text-white font-manrope">{req.from?.name || 'Inbound User'}</p>
+                    <p className="text-[10px] text-white/20 font-medium uppercase tracking-widest">Wants to connect</p>
                   </div>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button 
                     onClick={() => respondToRequest(req._id, 'accepted')}
-                    className="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center hover:bg-white/90 active:scale-95 transition-all shadow-xl shadow-white/10"
+                    className="w-10 h-10 rounded-xl bg-white text-black flex items-center justify-center hover:bg-white/90 active:scale-95 transition-all shadow-lg shadow-white/5"
                   >
-                    <Check size={20} strokeWidth={3} />
+                    <Check size={16} strokeWidth={3} />
                   </button>
                   <button 
                     onClick={() => respondToRequest(req._id, 'declined')}
-                    className="w-12 h-12 rounded-2xl bg-white/5 text-white/40 border border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all"
+                    className="w-10 h-10 rounded-xl bg-white/5 text-white/40 border border-white/5 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all"
                   >
-                    <X size={20} strokeWidth={2} />
+                    <X size={16} strokeWidth={2} />
                   </button>
                 </div>
               </motion.div>
@@ -275,14 +376,14 @@ const Friends = () => {
         )}
 
         {activeTab === 'all' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {friends.length === 0 ? (
-              <div className="col-span-full py-40 text-center border border-dashed border-white/10 rounded-[3rem] bg-white/[0.01]">
+              <div className="col-span-full py-32 text-center border border-dashed border-white/5 rounded-[3rem] bg-white/[0.01]">
                 <Users size={48} className="mx-auto mb-6 text-white/5" />
-                <p className="text-white/20 font-black uppercase tracking-[0.5em] text-[10px]">Your financial vault is solitary</p>
+                <p className="text-white/20 font-black uppercase tracking-[0.5em] text-[10px]">Zero connection nodes found</p>
               </div>
             ) : (
-              friends.map((friendNode) => {
+              friends.map((friendNode, index) => {
                 const balance = friendNode.netBalance;
                 const isPositive = balance > 0;
                 const isNegative = balance < 0;
@@ -291,18 +392,25 @@ const Friends = () => {
                 return (
                   <motion.div 
                     key={friendNode.friend._id}
-                    className="group glass-card p-6 hover:bg-white/[0.06] hover:border-white/20 transition-all duration-500 overflow-hidden relative"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="group relative bg-white/[0.02] border border-white/5 p-6 rounded-[2rem] hover:bg-[#1a1a1a] hover:border-white/10 transition-all duration-500 overflow-hidden"
                   >
+                    <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Sparkles size={16} className="text-white/10" />
+                    </div>
+
                     <div className="flex items-start justify-between relative z-10">
-                      <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-[1.25rem] bg-white text-black flex items-center justify-center text-xl font-black font-manrope shadow-2xl group-hover:scale-105 transition-transform">
+                      <div className="flex items-center gap-5">
+                        <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-xl font-black text-white group-hover:bg-white group-hover:text-black transition-all duration-500 shadow-inner">
                           {friendNode.friend.name.charAt(0).toUpperCase()}
                         </div>
-                        <div className="space-y-0.5">
-                          <p className="text-lg font-black text-white font-manrope leading-tight">{friendNode.friend.name}</p>
+                        <div className="space-y-1">
+                          <p className="text-base font-black text-white tracking-tight group-hover:translate-x-1 transition-transform duration-500">{friendNode.friend.name}</p>
                           <div className="flex items-center gap-2">
-                             <div className={`w-1 h-1 rounded-full ${friendNode.totalTurnover > 1000 ? 'bg-white' : 'bg-white/20'}`} />
-                             <p className="text-[9px] text-white/30 font-black uppercase tracking-widest">
+                             <div className="w-1 h-1 rounded-full bg-white/20" />
+                             <p className="text-[9px] text-white/20 font-black uppercase tracking-widest">
                                {friendNode.mutualGroupsCount} Mutual Cohorts
                              </p>
                           </div>
@@ -310,48 +418,47 @@ const Friends = () => {
                       </div>
                       
                       <div className="flex flex-col items-end text-right">
-                         <p className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">Shared Position</p>
-                         <p className={`text-lg font-extrabold font-manrope leading-none ${isPositive ? 'text-white' : isNegative ? 'text-white/40' : 'text-white/20'}`}>
-                           {hasBalance ? `₹${Math.abs(balance).toLocaleString()}` : '--'}
+                         <p className={`text-xl font-black font-manrope tracking-tight ${isPositive ? 'text-white' : isNegative ? 'text-white/40' : 'text-white/10'}`}>
+                           {hasBalance ? `₹${Math.abs(balance).toLocaleString()}` : 'Settled'}
                          </p>
-                         <p className={`text-[8px] font-black uppercase tracking-[0.2em] mt-1.5 ${isPositive ? 'text-white/40' : 'text-white/10'}`}>
-                           {isPositive ? 'Receivable' : isNegative ? 'Payable' : 'Settled'}
-                         </p>
+                         {hasBalance && (
+                           <div className={`mt-2 flex items-center gap-1.5`}>
+                             {isPositive ? <TrendingUp size={10} className="text-white/40" /> : <Clock size={10} className="text-white/20" />}
+                             <p className={`text-[8px] font-black uppercase tracking-[0.2em] ${isPositive ? 'text-white/40' : 'text-white/10'}`}>
+                               {isPositive ? 'Receivable' : 'Payable'}
+                             </p>
+                           </div>
+                         )}
                       </div>
                     </div>
                     
-                    {/* Activity Metric / Turnover */}
+                    {/* Activity Metric / Actions */}
                     <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-1.5">
-                          <TrendingUp size={10} className="text-white/30" />
-                          <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Transaction Volume</p>
-                        </div>
-                        <p className="text-xs font-black text-white/60 tracking-wider">₹{friendNode.totalTurnover.toLocaleString()}</p>
+                        <p className="text-[8px] font-black text-white/10 uppercase tracking-[0.2em]">Flux Volume</p>
+                        <p className="text-[11px] font-bold text-white/30 tracking-tight">₹{friendNode.totalTurnover.toLocaleString()}</p>
                       </div>
                       
-                      <div className="flex gap-2">
+                      <div className="flex gap-3">
                         {isNegative && (
                           <button 
                             onClick={() => handleQuickSettle(friendNode)}
-                            className="bg-white text-black px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/90 active:scale-95 transition-all shadow-xl shadow-white/5"
+                            className="bg-white/5 text-white hover:bg-white hover:text-black px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-white/10 shadow-lg"
                           >
-                            Settle
+                            Settle Node
                           </button>
                         )}
                         <Link 
                           to={`/profile/${friendNode.friend._id}`}
-                          className="p-3 rounded-xl bg-white/5 border border-white/5 text-white/20 group-hover:text-white group-hover:bg-white/10 group-hover:border-white/20 transition-all"
+                          className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-white/20 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all duration-300"
                         >
-                          <ArrowRight size={16} />
+                          <ArrowRight size={18} strokeWidth={2.5} />
                         </Link>
                       </div>
                     </div>
-                    
-                    {/* Decorative Background Element */}
-                    <div className="absolute -right-4 -bottom-4 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity pointer-events-none">
-                      <Sparkles size={80} strokeWidth={1} />
-                    </div>
+
+                    {/* Hover Glow Effect */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                   </motion.div>
                 );
               })

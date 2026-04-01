@@ -80,6 +80,9 @@ const expenseService = {
     // Primary write: Await this only
     const docRef = await addDoc(collection(db, 'groups', groupId, 'expenses'), payload);
 
+    // Refresh group's updatedAt to trigger listeners (non-blocking)
+    updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+
     // Secondary tasks: Log and metadata lookups happen in background (non-blocking)
     (async () => {
       try {
@@ -140,6 +143,11 @@ const expenseService = {
     // Primary write: Await this only
     await updateDoc(docRef, payload);
 
+    // Refresh group's updatedAt to trigger listeners (non-blocking)
+    if (groupId) {
+      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+    }
+
     // Secondary tasks (non-blocking)
     (async () => {
       try {
@@ -190,6 +198,9 @@ const expenseService = {
     // Primary write: Await this only
     await deleteDoc(docRef);
 
+    // Refresh group's updatedAt to trigger listeners (non-blocking)
+    updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+
     return wrap({ message: 'Expense deleted' });
   },
 
@@ -228,50 +239,59 @@ const expenseService = {
     if (!userId) throw new Error("Authentication required to settle up.");
     if (!groupId) throw new Error("Group ID required for settlement");
     
-    // Safety check: ensure amount is a valid positive number and not an outlier leakage.
-    // In a personal bill splitting app, a 33k+ single settlement is often a sign of 
-    // global balance leakage or data corruption.
+    // Safety check: ensure amount is a valid positive number
     const amount = parseFloat(data.amount || 0);
     if (isNaN(amount) || amount <= 0) throw new Error("Invalid settlement amount");
     if (amount > 1000000) throw new Error("Settlement amount exceeds safety threshold (1M)");
 
-    const docRef = await addDoc(collection(db, 'groups', groupId, 'settlements'), {
+    const settlementData = {
       payer: userId,
       payee: data.payee,
       amount,
       notes: data.notes || 'Settled up',
       groupId, 
       createdAt: new Date().toISOString()
-    });
-    
-    // Log Activity
-    await addDoc(collection(db, 'groups', groupId, 'logs'), {
-      type: 'settlement_added',
-      message: `${userId} recorded a payment to ${data.payee}: ${amount}`,
-      actorId: userId,
-      relatedId: docRef.id,
-      groupId,
-      createdAt: new Date().toISOString()
-    });
+    };
 
+    // Primary write: Record the settlement
+    const docRef = await addDoc(collection(db, 'groups', groupId, 'settlements'), settlementData);
+    
+    // Refresh group's updatedAt to trigger listeners (non-blocking)
+    updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+    
     // Secondary tasks (non-blocking)
     (async () => {
       try {
-        const actorName = await getStoredName(userId, 'Someone');
-        // Create global notification for the payee
-        if (data.to && data.to !== userId) {
-          createNotification(
-            data.to,
-            `${actorName} recorded a settlement (₹${parseFloat(data.amount || 0).toFixed(2)})`,
-            'settlement_added',
-            docRef.id,
-            groupId
-          );
-        }
-      } catch (_) {}
-    })().catch(() => {});
+        const [actorName, payeeName] = await Promise.all([
+          getStoredName(userId, 'Someone'),
+          getStoredName(data.payee, 'Member')
+        ]);
 
-    return wrap({ settlement: { _id: docRef.id, ...payload } }, 'Settlement recorded');
+        // Write activity log with resolved names
+        await addDoc(collection(db, 'groups', groupId, 'logs'), {
+          type: 'settlement_added',
+          message: `${actorName} recorded a payment to ${payeeName}: ₹${amount.toFixed(2)}`,
+          actorId: userId,
+          relatedId: docRef.id,
+          groupId,
+          createdAt: new Date().toISOString()
+        });
+        
+        // Trigger notification for the recipient
+        if (userId !== data.payee) {
+          createNotification(data.payee, {
+            type: 'settlement_received',
+            message: `${actorName} settled ₹${amount.toFixed(2)} with you.`,
+            groupId,
+            relatedId: docRef.id
+          }).catch(() => {});
+        }
+      } catch (err) {
+        console.warn("Background task failure:", err);
+      }
+    })();
+
+    return wrap({ settlement: { _id: docRef.id, ...settlementData } }, 'Settlement recorded');
   },
 
   getSummary: async () => {

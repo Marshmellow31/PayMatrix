@@ -28,7 +28,7 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
     <motion.div
       layout
       onClick={() => setIsExpanded(!isExpanded)}
-      className="p-5 rounded-3xl bg-surface-container-lowest hover:bg-surface-container-low border border-white/5 transition-all duration-300 cursor-pointer overflow-hidden"
+      className="p-5 rounded-3xl bg-surface-container-lowest border border-white/5 transition-all duration-300 cursor-pointer overflow-hidden"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', damping: 20, stiffness: 200 }}

@@ -13,6 +13,14 @@ service cloud.firestore {
       return isSignedIn() && exists(groupPath) && request.auth.uid in get(groupPath).data.members;
     }
 
+    function isHistoricalMember(groupId) {
+      let groupPath = /databases/$(database)/documents/groups/$(groupId);
+      // Fallback to active members if historicalMembers field doesn't exist yet on old groups
+      let groupData = get(groupPath).data;
+      let historical = groupData.get('historicalMembers', groupData.members);
+      return isSignedIn() && exists(groupPath) && request.auth.uid in historical;
+    }
+
     function isAdmin(groupId) {
       // Handles both 'admin' and 'createdBy' fields for backward compatibility
       let groupData = get(/databases/$(database)/documents/groups/$(groupId)).data;
@@ -29,7 +37,11 @@ service cloud.firestore {
 
     // Groups: Members can read. Adms/Creators can manage.
     match /groups/{groupId} {
-      allow read: if isSignedIn() && (request.auth.uid in resource.data.members || request.query.limit <= 100);
+      allow read: if isSignedIn() && (
+        request.auth.uid in resource.data.members || 
+        (resource.data.get('historicalMembers', []) != [] && request.auth.uid in resource.data.historicalMembers) ||
+        request.query.limit <= 100
+      );
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
         request.auth.uid in resource.data.members || 
@@ -42,20 +54,20 @@ service cloud.firestore {
 
       // Subcollection: Expenses
       match /expenses/{expenseId} {
-        allow read: if isMember(groupId);
+        allow read: if isMember(groupId) || isHistoricalMember(groupId);
         allow create, update, delete: if isMember(groupId); // Allow all members to split bills
       }
 
       // Subcollection: Settlements
       match /settlements/{settlementId} {
-        allow read: if isMember(groupId);
-        allow create: if isMember(groupId);
+        allow read: if isMember(groupId) || isHistoricalMember(groupId);
+        allow create: if isMember(groupId) || isHistoricalMember(groupId);
         allow update, delete: if isAdmin(groupId);
       }
 
       // Subcollection: Logs (Activity Feed)
       match /logs/{logId} {
-        allow read: if isMember(groupId);
+        allow read: if isMember(groupId) || isHistoricalMember(groupId);
         allow create: if isSignedIn();
         allow update, delete: if false; // Immutable history
       }

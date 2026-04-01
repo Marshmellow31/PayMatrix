@@ -1,31 +1,44 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
 import { Clock, Plus, Receipt, UserPlus, UserMinus, Edit, Trash2, RotateCcw } from 'lucide-react';
-import expenseService from '../../services/expenseService';
 import { format } from 'date-fns';
+import { db } from '../../config/firebase.js';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
+import expenseService from '../../services/expenseService';
 
 const ActivityFeed = ({ groupId }) => {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const dispatch = useDispatch();
 
-  const fetchActivity = useCallback(async (silent = false) => {
-    try {
-      if (!silent) setLoading(true);
-      const res = await expenseService.getActivity(groupId);
-      setActivities(res.data.data.activity);
-    } catch (err) {
-      console.error('Error fetching group activity:', err);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, [groupId]);
-
   useEffect(() => {
-    fetchActivity();
-  }, [groupId, fetchActivity]);
+    if (!groupId) return;
+
+    setLoading(true);
+    
+    // Set up real-time listener for logs (Activity Feed)
+    const q = query(
+      collection(db, 'groups', groupId, 'logs'),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const liveActivities = snapshot.docs.map(docSnap => ({
+        _id: docSnap.id,
+        ...docSnap.data()
+      }));
+      setActivities(liveActivities);
+      setLoading(false);
+    }, (err) => {
+      console.error('Error listening to activities:', err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [groupId]);
 
   const handleRestore = async (expenseId) => {
     toast.error('Undo is not supported in this architecture yet.');

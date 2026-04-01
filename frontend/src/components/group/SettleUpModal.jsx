@@ -159,8 +159,13 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                           <span className="mx-2 opacity-50">→</span>
                           <span className="font-semibold">
                             {(() => {
-                              const member = currentGroup?.members?.find(m => (m.user?._id || m.user?.uid || m.user) === debt.to);
-                              return member?.user?.name || 'Group Member';
+                              const member = currentGroup?.members?.find(m => {
+                                const mId = (m?.user?._id || m?.user?.uid || m?.uid || m?._id || m || '').toString();
+                                return mId === debt.to;
+                              });
+                              // If it's an expanded member object, use the user name. 
+                              // Otherwise, we might only have the ID or the raw string.
+                              return member?.user?.name || member?.name || 'Group Member';
                             })()}
                           </span>
                         </p>

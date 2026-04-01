@@ -44,6 +44,9 @@
     
     /* Disable double-tap to zoom */
     touch-action: manipulation;
+    
+    /* Disable default mobile highlight */
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* Re-enable selection for inputs and specific content */

@@ -99,3 +99,49 @@ export const exportToCSV = (group, expenses) => {
     console.error('Error generating CSV:', err);
   }
 };
+
+/**
+ * Export full group data to JSON
+ */
+export const exportToJSON = (group, expenses, settlements) => {
+  const data = {
+    group: {
+      id: group._id,
+      title: group.title,
+      category: group.category,
+      admin: group.admin,
+      createdAt: group.createdAt,
+      status: group.status,
+    },
+    expenses: expenses.map(e => ({
+      title: e.title,
+      amount: e.amount,
+      paidBy: e.paidByName || e.paidBy,
+      date: e.createdAt,
+      category: e.category,
+      participants: e.participants
+    })),
+    settlements: settlements.map(s => ({
+      from: s.payer,
+      to: s.payee || s.recipient || s.to,
+      amount: s.amount,
+      date: s.createdAt,
+      notes: s.notes
+    })),
+    exportedAt: new Date().toISOString()
+  };
+
+  try {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${group.title.toLowerCase().replace(/\s+/g, '_')}_full_export.json`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (err) {
+    console.error('Error generating JSON:', err);
+  }
+};

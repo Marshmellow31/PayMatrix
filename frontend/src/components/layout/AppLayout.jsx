@@ -15,11 +15,11 @@ const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [preSelectedGroupId, setPreSelectedGroupId] = useState('');
-  
+
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  
+
   const { groups } = useSelector((state) => state.groups);
   const { loading: expenseLoading } = useSelector((state) => state.expenses);
   const [editingExpense, setEditingExpense] = useState(null);
@@ -37,10 +37,10 @@ const AppLayout = () => {
   }, [dispatch]);
 
   // Route paths that should hide global navigation for a focused experience
-  const isFocusJourney = location.pathname.includes('/add-expense') || 
-                         location.pathname.includes('/login') || 
-                         location.pathname.includes('/register') ||
-                         location.pathname.includes('/forgot-password');
+  const isFocusJourney = location.pathname.includes('/add-expense') ||
+    location.pathname.includes('/login') ||
+    location.pathname.includes('/register') ||
+    location.pathname.includes('/forgot-password');
 
   const openAddExpense = (groupId = '', expense = null) => {
     setPreSelectedGroupId(groupId || (expense ? (expense.group?._id || expense.group) : ''));
@@ -82,7 +82,7 @@ const AppLayout = () => {
           />
         )}
 
-        <main className={`flex-1 ${!isFocusJourney ? 'p-4 lg:p-8 pb-32 lg:pb-8 min-h-[calc(100vh-80px)]' : 'min-h-screen flex flex-col'}`}>
+        <main className={`flex-1 ${!isFocusJourney ? 'px-4 pt-1 lg:px-8 lg:pt-4 pb-32 lg:pb-8 min-h-[calc(100vh-80px)]' : 'min-h-screen flex flex-col'}`}>
           <ErrorBoundary>
             <Outlet context={{ openAddExpense }} />
           </ErrorBoundary>
@@ -92,17 +92,17 @@ const AppLayout = () => {
       {!isFocusJourney && <BottomNav />}
 
       {/* Global Add Expense Modal */}
-      <Modal 
-        isOpen={isAddExpenseOpen} 
+      <Modal
+        isOpen={isAddExpenseOpen}
         onClose={() => {
           setIsAddExpenseOpen(false);
           setEditingExpense(null);
-        }} 
+        }}
         title={editingExpense ? "Edit Transaction" : "Record Transaction"}
         size="md"
       >
         <div className="py-2">
-          <ExpenseForm 
+          <ExpenseForm
             groups={groups}
             initialGroupId={preSelectedGroupId}
             initialData={editingExpense}

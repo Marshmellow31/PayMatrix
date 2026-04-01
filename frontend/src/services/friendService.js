@@ -180,35 +180,54 @@ const friendService = {
           let groupSpecificBalance = 0;
 
           expenses.forEach(exp => {
-            const splits = exp.splits || {};
-            const myShare = parseFloat(splits[userId] || 0);
-            const friendShare = parseFloat(splits[fId] || 0);
+            const rawSplits = exp.splits || [];
             
-            if (exp.paidBy === userId) {
+            // In Firestore, splits are [ { user: uid, amount: x }, ... ]
+            // We need to find our share and the friend's share
+            let myShare = 0;
+            let friendShare = 0;
+
+            if (Array.isArray(rawSplits)) {
+              rawSplits.forEach(s => {
+                const sUid = s.user?._id || s.user?.uid || s.user || '';
+                if (sUid === userId) myShare = parseFloat(s.amount || 0);
+                if (sUid === fId) friendShare = parseFloat(s.amount || 0);
+              });
+            } else {
+              // Fallback for legacy object-based splits (if any exist)
+              myShare = parseFloat(rawSplits[userId] || 0);
+              friendShare = parseFloat(rawSplits[fId] || 0);
+            }
+
+            const paidByUid = exp.paidBy?._id || exp.paidBy?.uid || exp.paidBy || '';
+            
+            if (paidByUid === userId) {
               netBalance += friendShare;
               groupSpecificBalance += friendShare;
             }
-            if (exp.paidBy === fId) {
+            if (paidByUid === fId) {
               netBalance -= myShare;
               groupSpecificBalance -= myShare;
             }
             
-            const isRelevant = exp.paidBy === userId || exp.paidBy === fId || 
-                             (exp.participants || []).includes(userId) || 
-                             (exp.participants || []).includes(fId);
+            const isParticipant = paidByUid === userId || paidByUid === fId || 
+                                (Array.isArray(exp.participants) && (exp.participants.includes(userId) || exp.participants.includes(fId)));
                              
-            if (isRelevant) {
+            if (isParticipant) {
                 totalTurnover += parseFloat(exp.amount || 0);
             }
           });
 
           settlements.forEach(stl => {
             const amt = parseFloat(stl.amount || 0);
-            if (stl.from === userId && stl.to === fId) {
+            const payerUid = stl.payer?._id || stl.payer?.uid || stl.payer || stl.from || '';
+            const payeeUid = stl.payee?._id || stl.payee?.uid || stl.payee || stl.to || '';
+
+            if (payerUid === userId && payeeUid === fId) {
               netBalance -= amt;
               groupSpecificBalance -= amt;
             }
-            if (stl.from === fId && stl.to === userId) {
+            if (payerUid === fId && payeeUid === userId) {
               netBalance += amt;
               groupSpecificBalance += amt;
             }
@@ -217,14 +236,14 @@ const friendService = {
           mutualGroupsEx.push({
             id: group.id,
             title: group.title,
-            balance: groupSpecificBalance
+            balance: Math.round(groupSpecificBalance * 100) / 100
           });
         }
 
         return {
           friend: fData,
-          netBalance,
-          totalTurnover,
+          netBalance: Math.round(netBalance * 100) / 100,
+          totalTurnover: Math.round(totalTurnover * 100) / 100,
           mutualGroups: mutualGroupsEx,
           mutualGroupsCount: mutualGroups.length
         };

@@ -62,8 +62,33 @@ const groupService = {
     const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
     const querySnapshot = await getDocs(q);
     
-    const groups = await Promise.all(querySnapshot.docs.map(doc => groupService.expandGroupData(doc)));
-    return wrap({ groups });
+    const allGroups = await Promise.all(querySnapshot.docs.map(doc => groupService.expandGroupData(doc)));
+    // Filter out soft-deleted groups from the main dashboard
+    const activeGroups = allGroups.filter(g => g.status !== 'deleted');
+    return wrap({ groups: activeGroups });
+  },
+
+  getPastGroups: async (userId) => {
+    if (!userId) throw new Error("Authentication required");
+    
+    // Fetch all groups where user was ever a member
+    const q = query(collection(db, 'groups'), where('historicalMembers', 'array-contains', userId));
+    const querySnapshot = await getDocs(q);
+    
+    const allGroups = await Promise.all(querySnapshot.docs.map(doc => groupService.expandGroupData(doc)));
+    
+    // A group is "past" if:
+    // 1. It is soft-deleted
+    // 2. The user is no longer in the active members list (left/removed)
+    const pastGroups = allGroups.filter(g => {
+      const isActuallyMember = g.members && g.members.some(m => {
+        const mid = (m.user?._id || m.uid || m.user || '').toString();
+        return mid === userId;
+      });
+      return g.status === 'deleted' || !isActuallyMember;
+    });
+    
+    return wrap({ groups: pastGroups });
   },
 
   getGroup: async (id) => {
@@ -87,7 +112,9 @@ const groupService = {
     const groupData = {
       ...data,
       members: Array.from(new Set([...sanitizedMemberIds, userId])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
+      historicalMembers: Array.from(new Set([...sanitizedMemberIds, userId])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
       admin: userId,
+      status: 'active',
       inviteCode: Math.random().toString(36).substring(2, 10).toUpperCase(), // Generate short unique invite code
       createdAt: new Date().toISOString()
     };
@@ -104,27 +131,28 @@ const groupService = {
 
   deleteGroup: async (id, userId) => {
     try {
-      // 1. Deep Cleanup: Firestore client-side deletion requires manual removal of subcollections
-      // to satisfy strict security rules and prevent orphaned data leakage.
-      const subcollections = ['expenses', 'settlements', 'logs'];
+      // 1. Balance Safeguard: Prevent deletion if any net balance is non-zero
+      const { default: expenseService } = await import('./expenseService.js');
+      const balanceRes = await expenseService.getBalances(id);
+      const balances = balanceRes.data.data.balances;
       
-      for (const sub of subcollections) {
-        const q = query(collection(db, 'groups', id, sub));
-        const snap = await getDocs(q);
-        
-        if (!snap.empty) {
-          const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
-          await Promise.all(deletePromises);
-        }
+      const hasPending = Object.values(balances).some(val => Math.abs(val) > 0.01);
+      if (hasPending) {
+        throw new Error("Cannot delete group with pending settle-ups. Please reconcile all accounts first.");
       }
 
-      // 2. Final step: Delete the parent group document
-      await deleteDoc(doc(db, 'groups', id));
+      // 2. Soft Delete: Update status instead of removing records
+      // This allows members to export historical data.
+      const docRef = doc(db, 'groups', id);
+      await updateDoc(docRef, { 
+        status: 'deleted',
+        deletedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
       
-      return wrap({ message: 'Group and all associated records deleted successfully' });
+      return wrap({ message: 'Group archived successfully. Members can still export data from Settings.' });
     } catch (err) {
-      console.error("[DELETION_FAILED]", err);
-      // Re-throw to be handled by the Redux Thunk
+      console.error("[DELETION_BLOCKED]", err);
       throw err;
     }
   },
@@ -146,13 +174,23 @@ const groupService = {
     if (!finalUid || typeof finalUid !== 'string' || finalUid === 'undefined') throw new Error("Invalid member data provided.");
 
     await updateDoc(docRef, {
-      members: arrayUnion(finalUid)
+      members: arrayUnion(finalUid),
+      historicalMembers: arrayUnion(finalUid)
     });
     
     return wrap({ message: 'Member added successfully' });
   },
 
   removeMember: async (groupId, userId) => {
+    // 1. Balance check
+    const { default: expenseService } = await import('./expenseService.js');
+    const balanceRes = await expenseService.getBalances(groupId);
+    const balance = balanceRes.data.data.balances[userId] || 0;
+    
+    if (Math.abs(balance) > 0.01) {
+      throw new Error("Cannot remove member with a pending balance. Please settle up first.");
+    }
+
     const docRef = doc(db, 'groups', groupId);
     await updateDoc(docRef, {
       members: arrayRemove(userId)
@@ -163,6 +201,15 @@ const groupService = {
   leaveGroup: async (groupId, userId) => {
     if (!userId) throw new Error("Authentication required");
     
+    // 1. Balance check
+    const { default: expenseService } = await import('./expenseService.js');
+    const balanceRes = await expenseService.getBalances(groupId);
+    const balance = balanceRes.data.data.balances[userId] || 0;
+    
+    if (Math.abs(balance) > 0.01) {
+      throw new Error("Cannot leave group with a pending balance. Please settle up first.");
+    }
+
     const docRef = doc(db, 'groups', groupId);
     await updateDoc(docRef, {
       members: arrayRemove(userId)
@@ -191,9 +238,10 @@ const groupService = {
       return wrap({ groupId }, "You are already a member of this cohort.");
     }
 
-    // 3. Add user to group members
+    // 3. Add user to group members and historical members
     await updateDoc(doc(db, 'groups', groupId), {
-      members: arrayUnion(userId)
+      members: arrayUnion(userId),
+      historicalMembers: arrayUnion(userId)
     });
 
     return wrap({ groupId }, "Successfully joined the cohort!");

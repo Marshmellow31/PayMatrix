@@ -26,6 +26,7 @@ import groupService from '../services/groupService.js';
 import friendService from '../services/friendService.js';
 import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
+import { formatCurrency } from '../utils/formatCurrency.js';
 
 const GroupDetail = () => {
   const { id } = useParams();
@@ -69,12 +70,12 @@ const GroupDetail = () => {
       if (docSnap.exists()) {
         try {
           const groupData = await groupService.expandGroupData(docSnap);
-          dispatch({ type: 'groups/fetchGroup/fulfilled', payload: { data: { group: groupData } } });
+          dispatch({ type: 'groups/fetchOne/fulfilled', payload: { data: { group: groupData } } });
         } catch (err) {
           console.error("Error expanding group snapshot:", err);
           // Fallback to raw data if expansion fails (minimizes broken UI)
           const rawData = { _id: docSnap.id, ...docSnap.data() };
-          dispatch({ type: 'groups/fetchGroup/fulfilled', payload: { data: { group: rawData } } });
+          dispatch({ type: 'groups/fetchOne/fulfilled', payload: { data: { group: rawData } } });
         }
       }
     }, (err) => {
@@ -154,12 +155,17 @@ const GroupDetail = () => {
 
     const calculatedDebts = simplifyDebts(calculatedBalances);
 
+    const hasPending = Object.values(calculatedBalances).some(val => Math.abs(val) > 0.01);
+    const myBalance = calculatedBalances[user?._id || user?.uid] || 0;
+
     return { 
       netBalances: calculatedBalances, 
       balanceList: list, 
-      debts: calculatedDebts 
+      debts: calculatedDebts,
+      hasPending,
+      myBalance
     };
-  }, [expenses, settlements, currentGroup, groups, id]);
+  }, [expenses, settlements, currentGroup, groups, id, user]);
 
   // Ensure legacy groups get an invite code
   useEffect(() => {
@@ -178,6 +184,7 @@ const GroupDetail = () => {
 
   const balances = balanceList;
   const simplifiedDebts = debts;
+  const { hasPending, myBalance } = { hasPending: debts.length > 0 || Object.values(netBalances).some(v => Math.abs(v) > 0.01), myBalance: netBalances[user?._id || user?.uid] || 0 };
 
   useEffect(() => {
     if (showAddMember) {
@@ -405,10 +412,10 @@ const GroupDetail = () => {
             <div className="px-1">
               <button 
                 onClick={() => isOnline && setShowLeaveConfirm(true)}
-                disabled={!isOnline}
-                className={`w-full py-4 rounded-2xl border text-xs font-black tracking-[0.2em] uppercase transition-all active:scale-[0.98] ${!isOnline ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500'}`}
+                disabled={!isOnline || Math.abs(myBalance) > 0.01}
+                className={`w-full py-4 rounded-2xl border text-xs font-black tracking-[0.2em] uppercase transition-all active:scale-[0.98] ${(!isOnline || Math.abs(myBalance) > 0.01) ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500'}`}
               >
-                {isOnline ? 'Exit Cohort' : 'Exit Blocked (Offline)'}
+                {!isOnline ? 'Exit Blocked (Offline)' : Math.abs(myBalance) > 0.01 ? `Clear ${formatCurrency(myBalance)} to Exit` : 'Exit Cohort'}
               </button>
             </div>
           )}
@@ -425,11 +432,11 @@ const GroupDetail = () => {
                   </div>
                   <button 
                     onClick={() => isOnline && setShowDeleteGroupConfirm(true)}
-                    disabled={!isOnline}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0 ${!isOnline ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500'}`}
+                    disabled={!isOnline || hasPending}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0 ${(!isOnline || hasPending) ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500'}`}
                   >
-                    <Trash2 size={14} />
-                    {isOnline ? 'Delete' : 'Offline'}
+                    {hasPending ? <LucideIcons.Lock size={12} className="opacity-40" /> : <Trash2 size={14} />}
+                    {!isOnline ? 'Offline' : hasPending ? 'Locked' : 'Delete'}
                   </button>
                 </div>
               </div>
@@ -604,7 +611,7 @@ const GroupDetail = () => {
             </button>
             <button
               onClick={handleLeaveGroup}
-              disabled={leaving}
+              disabled={leaving || Math.abs(myBalance) > 0.01}
               className="flex-1 py-4 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50"
             >
               {leaving ? 'Exiting...' : 'Confirm'}
@@ -627,28 +634,30 @@ const GroupDetail = () => {
           </div>
           <div className="flex gap-4 w-full">
             <button
-              onClick={() => setShowDeleteGroupConfirm(false)}
-              disabled={deletingGroup}
+              onClick={handleDeleteGroup}
+              disabled={deletingGroup || hasPending}
               className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleDeleteGroup}
-              disabled={deletingGroup}
-              className="flex-1 py-4 rounded-2xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              disabled={deletingGroup || hasPending}
+              className="flex-1 py-4 rounded-2xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50 flex items-center justify-center"
             >
-              {deletingGroup ? (
-                <>
-                  <div className="w-3 h-3 border border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                <>
-                  <Trash2 size={12} />
-                  Delete Forever
-                </>
-              )}
+              <div className="flex items-center justify-center gap-2">
+                {deletingGroup ? (
+                  <>
+                    <div className="w-3 h-3 border border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={14} />
+                    <span>Delete Forever</span>
+                  </>
+                )}
+              </div>
             </button>
           </div>
         </div>
