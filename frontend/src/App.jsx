@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './config/firebase.js';
 import { setUser } from './redux/authSlice.js';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { setNotifications } from './redux/notificationSlice.js';
 import Loader from './components/common/Loader.jsx';
 
 // Layout
@@ -73,15 +74,34 @@ function App() {
           console.error("Profile snapshot error:", error);
         });
 
-        // Store profile unsubscriber to clean up when auth state changes again
+        // 2. Real-time listener for notifications (Unread only for efficiency)
+        const qNotifs = query(
+          collection(db, 'notifications'),
+          where('to', '==', firebaseUser.uid),
+          where('read', '==', false)
+        );
+        const unsubscribeNotifs = onSnapshot(qNotifs, (snapshot) => {
+          const liveNotifs = snapshot.docs.map(d => ({ _id: d.id, ...d.data() }));
+          dispatch(setNotifications(liveNotifs));
+        }, (error) => {
+          console.error("Notification snapshot error:", error);
+        });
+
+        // Store unsubscribers to clean up when auth state changes again
         window._unsubscribeProfile = unsubscribeProfile;
+        window._unsubscribeNotifs = unsubscribeNotifs;
       } else {
         // User logged out
         if (window._unsubscribeProfile) {
           window._unsubscribeProfile();
           window._unsubscribeProfile = null;
         }
+        if (window._unsubscribeNotifs) {
+          window._unsubscribeNotifs();
+          window._unsubscribeNotifs = null;
+        }
         dispatch(setUser(null));
+        dispatch(setNotifications([])); // Clear notifications on logout
       }
       setInitializing(false);
     });
@@ -89,6 +109,7 @@ function App() {
     return () => {
       unsubscribeAuth();
       if (window._unsubscribeProfile) window._unsubscribeProfile();
+      if (window._unsubscribeNotifs) window._unsubscribeNotifs();
     };
   }, [dispatch]);
 

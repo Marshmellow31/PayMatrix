@@ -4,9 +4,8 @@ import { Link, useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus, Users, ArrowUpRight, ArrowDownLeft, PieChart, ChevronRight, Filter, Wallet, WifiOff } from 'lucide-react';
 import { fetchGroups, setGroups } from '../redux/groupSlice.js';
-import { fetchNotifications } from '../redux/notificationSlice.js';
-import expenseService from '../services/expenseService.js';
 import groupService from '../services/groupService.js';
+import expenseService from '../services/expenseService.js';
 import Loader from '../components/common/Loader.jsx';
 import { db } from '../config/firebase.js';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -44,17 +43,6 @@ const Dashboard = () => {
       console.error("Dashboard group snapshot error (likely permission or index):", err);
     });
 
-    // 2. Real-time listener for notifications
-    const qNotifs = query(
-      collection(db, 'notifications'),
-      where('to', '==', userId),
-      where('read', '==', false)
-    );
-    const unsubscribeNotifs = onSnapshot(qNotifs, (snapshot) => {
-      const liveNotifs = snapshot.docs.map(d => ({ _id: d.id, ...d.data() }));
-      dispatch({ type: 'notifications/setNotifications', payload: liveNotifs });
-    });
-
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
     window.addEventListener('online', handleOnline);
@@ -62,7 +50,6 @@ const Dashboard = () => {
 
     return () => {
       unsubscribeGroups();
-      unsubscribeNotifs();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };

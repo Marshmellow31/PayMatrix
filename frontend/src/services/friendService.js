@@ -3,6 +3,7 @@ import {
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, 
   query, where, arrayUnion, arrayRemove, limit 
 } from 'firebase/firestore';
+import { createNotification } from '../utils/notificationHelper.js';
 
 // Helper to mimic Axios response
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -55,6 +56,14 @@ const friendService = {
       status: 'pending',
       createdAt: new Date().toISOString()
     });
+
+    // Notify the receiver
+    createNotification(
+      receiverId,
+      `${auth.currentUser?.displayName || 'Someone'} sent you a friend request`,
+      'friend_request'
+    );
+
     return wrap({ message: 'Friend request sent' });
   },
 
@@ -98,6 +107,13 @@ const friendService = {
         updateDoc(toRef, { friends: arrayUnion(reqData.from) }),
         updateDoc(reqRef, { status: 'accepted' })
       ]);
+
+      // Notify the requester
+      createNotification(
+        reqData.from,
+        `${auth.currentUser?.displayName || 'Someone'} accepted your friend request`,
+        'friend_accepted'
+      );
     } else {
       await updateDoc(reqRef, { status: 'rejected' });
     }

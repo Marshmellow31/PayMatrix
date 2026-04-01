@@ -4,6 +4,7 @@ import {
   query, where, orderBy, limit, getDocFromCache
 } from 'firebase/firestore';
 import { calculateSplits } from '../utils/balanceEngine.js';
+import { createNotification } from '../utils/notificationHelper.js';
 
 // Helper to mimic Axios response structure expected by Redux Thunks
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -95,6 +96,20 @@ const expenseService = {
           relatedId: docRef.id,
           createdAt: new Date().toISOString(),
         }).catch(() => {});
+
+        // Create global notifications for all participants (except the actor)
+        const participantIds = data.participants || [];
+        participantIds.forEach(pId => {
+          if (pId !== userId) {
+            createNotification(
+              pId, 
+              `${actorName} added "${data.title || 'an expense'}" (₹${parseFloat(data.amount || 0).toFixed(2)})`, 
+              'expense_added', 
+              docRef.id, 
+              groupId
+            );
+          }
+        });
       } catch (_) {}
     })().catch(() => {});
 
@@ -228,6 +243,17 @@ const expenseService = {
           relatedId: docRef.id,
           createdAt: new Date().toISOString(),
         }).catch(() => {});
+
+        // Create global notification for the payee
+        if (data.to && data.to !== userId) {
+          createNotification(
+            data.to,
+            `${actorName} recorded a settlement (₹${parseFloat(data.amount || 0).toFixed(2)})`,
+            'settlement_added',
+            docRef.id,
+            groupId
+          );
+        }
       } catch (_) {}
     })().catch(() => {});
 

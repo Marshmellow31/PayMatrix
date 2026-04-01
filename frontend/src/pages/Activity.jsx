@@ -6,9 +6,12 @@ import Button from '../components/common/Button.jsx';
 
 const Activity = () => {
   const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
   const { notifications, unreadCount, loading } = useSelector((state) => state.notifications);
 
-  useEffect(() => { dispatch(fetchNotifications()); }, [dispatch]);
+  useEffect(() => { 
+    if (user?.uid) dispatch(fetchNotifications(user?.uid)); 
+  }, [dispatch, user?.uid]);
 
   return (
     <div className="max-w-3xl mx-auto animate-fade-in pb-24">
@@ -20,7 +23,13 @@ const Activity = () => {
           {unreadCount > 0 && <p className="text-lg text-on-surface-variant mt-2 font-inter">{unreadCount} unread events</p>}
         </div>
         {unreadCount > 0 && (
-          <Button variant="ghost" className="h-12 px-6" onClick={() => dispatch(markAllRead())}>Acknowledge All</Button>
+          <Button 
+            variant="ghost" 
+            className="h-12 px-6" 
+            onClick={() => user?.uid && dispatch(markAllRead(user.uid))}
+          >
+            Acknowledge All
+          </Button>
         )}
       </div>
 
