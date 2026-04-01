@@ -33,7 +33,9 @@ const Activity = () => {
         )}
       </div>
 
-      {loading ? <Loader className="py-20" /> : notifications.length === 0 ? (
+      {loading && notifications.length === 0 ? (
+        <Loader className="py-20" />
+      ) : notifications.length === 0 ? (
         <div className="submerged text-center py-24 px-6 border-none">
           <h3 className="text-3xl font-bold font-manrope text-primary mb-4 tracking-tight">System is Quiet</h3>
           <p className="text-lg text-on-surface-variant max-w-sm mx-auto font-inter leading-relaxed">

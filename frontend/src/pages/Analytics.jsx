@@ -46,7 +46,7 @@ const Analytics = () => {
     fetchAnalytics();
   }, [days]);
 
-  if (isInitialLoading) return (
+  if (isInitialLoading && !summary) return (
     <div className="min-h-[80vh] flex items-center justify-center">
       <Loader className="scale-150" />
     </div>

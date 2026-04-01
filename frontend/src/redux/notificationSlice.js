@@ -83,7 +83,9 @@ const notificationSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchNotifications.pending, (state) => { state.loading = true; })
+      .addCase(fetchNotifications.pending, (state) => { 
+        if (state.notifications.length === 0) state.loading = true; 
+      })
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.loading = false;
         state.notifications = action.payload.notifications;

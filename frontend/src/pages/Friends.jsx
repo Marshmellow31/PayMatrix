@@ -182,7 +182,7 @@ const Friends = () => {
     setSettleModalOpen(true);
   };
 
-  if (isLoading) {
+  if (isLoading && friends.length === 0) {
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center gap-4 text-white/20">
         <Loader2 className="w-12 h-12 animate-spin" strokeWidth={1.5} />

@@ -98,7 +98,18 @@ export const exportToPDF = (group, expenses, balances, logs = []) => {
     doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, { align: 'center' });
   }
 
-  doc.save(`${group.title.toLowerCase().replace(/\s+/g, '_')}_report.pdf`);
+  // Detect if we're on iOS Safari
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+  if (isIOS) {
+    // On iOS, doc.save() can be flaky or hang the app's state. 
+    // Opening as a blob in a new tab is often more reliable for the native preview.
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    window.location.href = url; // Use local redirect to ensure preview opens cleanly
+  } else {
+    doc.save(`${group.title.toLowerCase().replace(/\s+/g, '_')}_report.pdf`);
+  }
 };
 
 /**
