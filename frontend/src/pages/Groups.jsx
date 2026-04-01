@@ -12,6 +12,7 @@ import Button from '../components/common/Button.jsx';
 import Loader from '../components/common/Loader.jsx';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
 import toast from 'react-hot-toast';
+import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 import friendService from '../services/friendService.js';
 import groupService from '../services/groupService.js';
 import { db } from '../config/firebase.js';
@@ -24,6 +25,7 @@ const Groups = () => {
   const { openAddExpense } = useOutletContext();
   const { groups, loading } = useSelector((state) => state.groups);
   const { user } = useSelector((state) => state.auth);
+  const isOnline = useOnlineStatus();
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ title: '', category: 'Other', members: [] });
   const [friends, setFriends] = useState([]);
@@ -106,11 +108,12 @@ const Groups = () => {
             Groups
           </h1>
           <button 
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-all"
+            onClick={() => isOnline && setShowModal(true)}
+            disabled={!isOnline}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${!isOnline ? 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed opacity-50 grayscale' : 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/20'}`}
           >
             <LucideIcons.Plus size={16} />
-            <span className="text-[10px] uppercase tracking-widest font-bold">New Cohort</span>
+            <span className="text-[10px] uppercase tracking-widest font-bold">{isOnline ? 'New Cohort' : 'Offline'}</span>
           </button>
         </div>
         <p className="text-on-surface-variant text-sm tracking-wide font-inter opacity-70">
@@ -118,7 +121,7 @@ const Groups = () => {
         </p>
       </div>
 
-      {loading ? (
+      {loading && groups.length === 0 ? (
         <Loader className="py-20" />
       ) : groups.length === 0 ? (
         <div className="submerged text-center py-20 px-8 border-none rounded-3xl">
@@ -129,8 +132,12 @@ const Groups = () => {
           <p className="text-base text-on-surface-variant mb-10 max-w-xs mx-auto font-inter leading-relaxed opacity-70">
             Create your first group to establish a shared expense ledger and start managing finances with clarity.
           </p>
-          <Button onClick={() => setShowModal(true)} className="h-12 px-8 rounded-xl bg-primary text-on-primary font-bold">
-            Establish Group
+          <Button 
+            onClick={() => isOnline && setShowModal(true)} 
+            disabled={!isOnline}
+            className={`h-12 px-8 rounded-xl font-bold ${!isOnline ? 'bg-white/5 text-white/20 cursor-not-allowed opacity-50' : 'bg-primary text-on-primary'}`}
+          >
+            {isOnline ? 'Establish Group' : 'Network Required'}
           </Button>
         </div>
       ) : (
@@ -221,13 +228,13 @@ const Groups = () => {
             </div>
           </div>
           <Button 
-            disabled={!user || loading}
+            disabled={!user || loading || !isOnline}
             type="submit" 
             className={`w-full h-14 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl ${
-              (!user || loading) ? 'bg-white/10 text-white/20 cursor-not-allowed' : 'bg-white text-black hover:bg-neutral-200 active:scale-[0.98]'
+              (!user || loading || !isOnline) ? 'bg-white/10 text-white/20 cursor-not-allowed grayscale' : 'bg-white text-black hover:bg-neutral-200 active:scale-[0.98]'
             }`}
           >
-            {loading ? <LucideIcons.Loader2 className="animate-spin" /> : 'Launch Cohort'}
+            {loading ? <LucideIcons.Loader2 className="animate-spin" /> : (isOnline ? 'Launch Cohort' : 'Connect to Launch')}
           </Button>
         </form>
       </Modal>

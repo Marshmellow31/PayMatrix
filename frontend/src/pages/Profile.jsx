@@ -6,11 +6,13 @@ import Button from '../components/common/Button.jsx';
 import Input from '../components/common/Input.jsx';
 import { LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 
 const Profile = () => {
   const { user, logout, updateProfile } = useAuth();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name || '');
+  const isOnline = useOnlineStatus();
 
   const handleSave = async () => {
     try {
@@ -37,16 +39,23 @@ const Profile = () => {
         <Avatar name={user?.name} src={user?.avatar} size="lg" className="mx-auto mb-4 w-18 h-18 text-2xl" />
         {editing ? (
           <div className="flex flex-col sm:flex-row gap-4 mb-4 max-w-sm mx-auto">
-            <Input value={name} onChange={(e) => setName(e.target.value)} id="profile-name" className="flex-1" />
-            <Button onClick={handleSave} className="h-11 px-6">Save</Button>
+            <Input value={name} onChange={(e) => setName(e.target.value)} id="profile-name" className="flex-1" disabled={!isOnline} />
+            <Button onClick={handleSave} className="h-11 px-6" disabled={!isOnline || !name.trim()}>
+              {isOnline ? 'Save' : 'Offline'}
+            </Button>
           </div>
         ) : (
           <h2 className="text-2xl font-bold font-manrope text-primary mb-1 tracking-tight">{user?.name}</h2>
         )}
         <p className="text-sm text-on-surface-variant font-inter mb-4">{user?.email}</p>
         {!editing && (
-          <Button variant="ghost" className="mt-1 h-10 px-5 rounded-full text-xs" onClick={() => setEditing(true)}>
-            Edit Identity
+          <Button 
+            variant="ghost" 
+            className={`mt-1 h-10 px-5 rounded-full text-xs transition-all ${!isOnline ? 'opacity-30 grayscale cursor-not-allowed' : ''}`} 
+            onClick={() => isOnline && setEditing(true)}
+            disabled={!isOnline}
+          >
+            {isOnline ? 'Edit Identity' : 'Updates Blocked (Offline)'}
           </Button>
         )}
       </div>

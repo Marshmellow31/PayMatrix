@@ -8,10 +8,12 @@ import groupService from '../../services/groupService.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus.js';
 
 const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRemoved, currentUserId }) => {
   const [selectedMember, setSelectedMember] = useState(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  const isOnline = useOnlineStatus();
 
   // Icons from Lucide (using robust access)
   const UserMinus = Lucide.UserMinus || Lucide.Trash2;
@@ -175,13 +177,13 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
                 <div className="flex flex-col gap-4">
                   <Button
                     variant="danger"
-                    className="w-full h-12 rounded-xl gap-2 text-[10px] font-black uppercase tracking-[0.2em] disabled:opacity-20 disabled:grayscale transition-all active:scale-95 shadow-lg border border-red-500/20"
-                    onClick={() => handleRemove(selectedMember._id)}
+                    className={`w-full h-12 rounded-xl gap-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all active:scale-95 shadow-lg border ${!isOnline ? 'opacity-20 grayscale border-white/10 cursor-not-allowed bg-white/5' : 'border-red-500/20'}`}
+                    onClick={() => isOnline && handleRemove(selectedMember._id)}
                     loading={isRemoving}
-                    disabled={Math.abs(selectedMember.balance || 0) > 0.01}
+                    disabled={Math.abs(selectedMember.balance || 0) > 0.01 || !isOnline}
                   >
-                    {Math.abs(selectedMember.balance || 0) > 0.01 ? <Lucide.Lock size={14} /> : (UserMinus && <UserMinus size={16} />)}
-                    {Math.abs(selectedMember.balance || 0) > 0.01 ? 'Removal Locked' : 'Dissolve Access'}
+                    {!isOnline ? <Lucide.Lock size={14} /> : (Math.abs(selectedMember.balance || 0) > 0.01 ? <Lucide.Lock size={14} /> : (UserMinus && <UserMinus size={16} />))}
+                    {!isOnline ? 'Connect to Remove' : (Math.abs(selectedMember.balance || 0) > 0.01 ? 'Removal Locked' : 'Dissolve Access')}
                   </Button>
 
                   {Math.abs(selectedMember.balance || 0) > 0.01 && (

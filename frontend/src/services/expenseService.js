@@ -55,36 +55,46 @@ const expenseService = {
   addExpense: async (groupId, data, userId) => {
     if (!userId) throw new Error("Authentication required to record transactions.");
 
-    // Non-blocking metadata lookups (doesn't wait for server)
-    const [paidByName, actorName] = await Promise.all([
-      getStoredName(data.paidBy || userId, 'Member'),
-      getStoredName(userId, 'Someone')
-    ]);
-
     // Calculate splits array from form structure before saving
     const splits = calculateSplits(data.amount, data.splitType || 'equal', data.splitData || {}, data.participants || []);
 
     const payload = clean({
       ...data,
       paidBy: data.paidBy || userId,
-      paidByName,
+      paidByName: 'Member', // Fallback for instant resolution
       splits,
       admin: userId, 
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
     
+    // Primary write: Await this only
     const docRef = await addDoc(collection(db, 'groups', groupId, 'expenses'), payload);
 
-    // Write activity log
-    await addDoc(collection(db, 'groups', groupId, 'logs'), {
-      type: 'expense_added',
-      message: `${actorName} added "${data.title || 'an expense'}" (₹${parseFloat(data.amount || 0).toFixed(2)})`,
-      actorId: userId,
-      actorName,
-      relatedId: docRef.id,
-      createdAt: new Date().toISOString(),
-    });
+    // Secondary tasks: Log and metadata lookups happen in background (non-blocking)
+    (async () => {
+      try {
+        const [resolvedPaidByName, actorName] = await Promise.all([
+          getStoredName(data.paidBy || userId, 'Member'),
+          getStoredName(userId, 'Someone')
+        ]);
+
+        // Update the expense with resolved name if it changed (silent)
+        if (resolvedPaidByName !== 'Member') {
+          updateDoc(docRef, { paidByName: resolvedPaidByName }).catch(() => {});
+        }
+
+        // Write activity log
+        addDoc(collection(db, 'groups', groupId, 'logs'), {
+          type: 'expense_added',
+          message: `${actorName} added "${data.title || 'an expense'}" (₹${parseFloat(data.amount || 0).toFixed(2)})`,
+          actorId: userId,
+          actorName,
+          relatedId: docRef.id,
+          createdAt: new Date().toISOString(),
+        }).catch(() => {});
+      } catch (_) {}
+    })().catch(() => {});
 
     return wrap({ expense: { _id: docRef.id, ...payload } }, 'Expense saved instantly offline/online');
   },
@@ -94,35 +104,35 @@ const expenseService = {
     const userId = data.admin; // actor doing the update
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
 
-    // Resolve payer and actor names non-blockingly
-    const [paidByName, actorName] = await Promise.all([
-      data.paidByName ? Promise.resolve(data.paidByName) : getStoredName(data.paidBy, 'Member'),
-      getStoredName(userId, 'Someone')
-    ]);
-
     // Re-calculate splits if amount or split configuration changed
     const splits = calculateSplits(data.amount, data.splitType, data.splitData || {}, data.participants || []);
 
     const payload = clean({
       ...data,
-      paidByName,
+      paidByName: data.paidByName || 'Member',
       splits,
       updatedAt: new Date().toISOString()
     });
     
+    // Primary write: Await this only
     await updateDoc(docRef, payload);
 
-    // Write activity log
-    if (groupId) {
-      await addDoc(collection(db, 'groups', groupId, 'logs'), {
-        type: 'expense_updated',
-        message: `${actorName} edited "${data.title || 'an expense'}"`,
-        actorId: userId || 'unknown',
-        actorName,
-        relatedId: id,
-        createdAt: new Date().toISOString(),
-      }).catch(() => {}); // non-blocking
-    }
+    // Secondary tasks (non-blocking)
+    (async () => {
+      try {
+        const actorName = await getStoredName(userId, 'Someone');
+        if (groupId) {
+          addDoc(collection(db, 'groups', groupId, 'logs'), {
+            type: 'expense_updated',
+            message: `${actorName} edited "${data.title || 'an expense'}"`,
+            actorId: userId || 'unknown',
+            actorName,
+            relatedId: id,
+            createdAt: new Date().toISOString(),
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    })().catch(() => {});
 
     return wrap({ expense: { _id: id, ...payload } });
   },
@@ -130,26 +140,32 @@ const expenseService = {
   deleteExpense: async (id, groupId, userId) => {
     if (!groupId) throw new Error("deleteExpense requires groupId");
 
-    // Resolve expense title and actor name non-blockingly
-    let expenseTitle = 'an expense';
-    try {
-      const expSnap = await getDocFromCache(doc(db, 'groups', groupId, 'expenses', id));
-      if (expSnap.exists()) expenseTitle = expSnap.data().title || 'an expense';
-    } catch (_) {}
-    const actorName = await getStoredName(userId, 'Someone');
-
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
-    await deleteDoc(docRef);
 
-    // Write activity log
-    await addDoc(collection(db, 'groups', groupId, 'logs'), {
-      type: 'expense_deleted',
-      message: `${actorName} deleted "${expenseTitle}"`,
-      actorId: userId || 'unknown',
-      actorName,
-      relatedId: id,
-      createdAt: new Date().toISOString(),
-    }).catch(() => {});
+    // Secondary task: Resolution happens in background
+    (async () => {
+      try {
+        let expenseTitle = 'an expense';
+        const [expSnap, actorName] = await Promise.all([
+          getDocFromCache(docRef).catch(() => null),
+          getStoredName(userId, 'Someone')
+        ]);
+        
+        if (expSnap?.exists()) expenseTitle = expSnap.data().title || 'an expense';
+
+        addDoc(collection(db, 'groups', groupId, 'logs'), {
+          type: 'expense_deleted',
+          message: `${actorName} deleted "${expenseTitle}"`,
+          actorId: userId || 'unknown',
+          actorName,
+          relatedId: id,
+          createdAt: new Date().toISOString(),
+        }).catch(() => {});
+      } catch (_) {}
+    })().catch(() => {});
+
+    // Primary write: Await this only
+    await deleteDoc(docRef);
 
     return wrap({ message: 'Expense deleted' });
   },
@@ -186,24 +202,32 @@ const expenseService = {
   },
 
   createSettlement: async (groupId, data, userId) => {
-    const actorName = await getStoredName(userId, 'Someone');
+    if (!userId) throw new Error("Authentication required to settle up.");
+
     const payload = { 
         ...data, 
         payer: userId, // Ensure payer field is present for engine
         createdBy: userId, 
         createdAt: new Date().toISOString() 
     };
+
+    // Primary write: Await this only
     const docRef = await addDoc(collection(db, 'groups', groupId, 'settlements'), payload);
 
-    // Activity log for settlement
-    await addDoc(collection(db, 'groups', groupId, 'logs'), {
-      type: 'settlement_added',
-      message: `${actorName} recorded a settlement (₹${parseFloat(data.amount || 0).toFixed(2)})`,
-      actorId: userId,
-      actorName,
-      relatedId: docRef.id,
-      createdAt: new Date().toISOString(),
-    }).catch(() => {});
+    // Secondary tasks (non-blocking)
+    (async () => {
+      try {
+        const actorName = await getStoredName(userId, 'Someone');
+        addDoc(collection(db, 'groups', groupId, 'logs'), {
+          type: 'settlement_added',
+          message: `${actorName} recorded a settlement (₹${parseFloat(data.amount || 0).toFixed(2)})`,
+          actorId: userId,
+          actorName,
+          relatedId: docRef.id,
+          createdAt: new Date().toISOString(),
+        }).catch(() => {});
+      } catch (_) {}
+    })().catch(() => {});
 
     return wrap({ settlement: { _id: docRef.id, ...payload } }, 'Settlement recorded');
   },

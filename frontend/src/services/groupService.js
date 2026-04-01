@@ -7,6 +7,9 @@ import {
 // Helper to mimic Axios response
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
 
+// In-memory cache for user metadata to speed up repeated expansions offline
+const userCache = {};
+
 const groupService = {
   // Internal helper to expand UIDs to objects with user details
   expandGroupData: async (groupDoc) => {
@@ -23,9 +26,24 @@ const groupService = {
         return null;
       }
 
-      const uDoc = await getDoc(doc(db, 'users', uid));
-      const uData = uDoc.exists() ? uDoc.data() : { _id: uid, uid: uid, name: 'Unknown User' };
-      return { user: { ...uData, _id: uid }, role: 'member' };
+      // 1. Check local memory cache first for instant resolution
+      if (userCache[uid]) {
+        return { user: { ...userCache[uid], _id: uid }, role: 'member' };
+      }
+      
+      try {
+        // 2. Fetch from Firestore (automatic cache fallback if configured)
+        const uDoc = await getDoc(doc(db, 'users', uid));
+        const uData = uDoc.exists() ? uDoc.data() : { _id: uid, uid: uid, name: 'Member' };
+        
+        // 3. Populate memory cache
+        userCache[uid] = uData;
+        
+        return { user: { ...uData, _id: uid }, role: 'member' };
+      } catch (err) {
+        console.warn(`Failed to resolve user ${uid} metadata:`, err);
+        return { user: { _id: uid, uid: uid, name: 'Member' }, role: 'member' };
+      }
     });
     
     const expandedMembers = (await Promise.all(memberPromises)).filter(Boolean);

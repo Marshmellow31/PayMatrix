@@ -62,14 +62,19 @@ const groupSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchGroups.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(fetchGroups.pending, (state) => { 
+        if (state.groups.length === 0) state.loading = true; 
+        state.error = null; 
+      })
       .addCase(fetchGroups.fulfilled, (state, action) => { 
         state.loading = false; 
         // Correct path for Payload: action.payload.data
         state.groups = action.payload.data.groups || []; 
       })
       .addCase(fetchGroups.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
-      .addCase(fetchGroup.pending, (state) => { state.loading = true; })
+      .addCase(fetchGroup.pending, (state) => { 
+        if (!state.currentGroup) state.loading = true; 
+      })
       .addCase(fetchGroup.fulfilled, (state, action) => { 
         state.loading = false; 
         state.currentGroup = action.payload.data.group; 

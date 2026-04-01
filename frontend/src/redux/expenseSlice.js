@@ -75,7 +75,7 @@ const expenseSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchExpenses.pending, (state, action) => {
-        state.loading = true;
+        if (state.expenses.length === 0) state.loading = true;
         state.error = null;
         state.activeGroupId = action.meta.arg.groupId;
       })

@@ -25,6 +25,7 @@ import expenseService from '../services/expenseService.js';
 import groupService from '../services/groupService.js';
 import friendService from '../services/friendService.js';
 import toast from 'react-hot-toast';
+import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 
 const GroupDetail = () => {
   const { id } = useParams();
@@ -34,6 +35,7 @@ const GroupDetail = () => {
   const { currentGroup, groups, loading: groupLoading } = useSelector((state) => state.groups);
   const { expenses = [], loading: expenseLoading } = useSelector((state) => state.expenses);
   const { user } = useSelector((state) => state.auth);
+  const isOnline = useOnlineStatus();
 
   const [tab, setTab] = useState('expenses');
   const [settlements, setSettlements] = useState([]);
@@ -226,7 +228,7 @@ const GroupDetail = () => {
   const activeGroup = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
 
   if ((!activeGroup || activeGroup._id !== id) && groupLoading) return <Loader className="py-20" />;
-  if (!activeGroup || activeGroup._id !== id) return <Loader className="py-20" />;
+  if (!activeGroup || activeGroup._id !== id) return <div className="text-center py-20 opacity-50 font-inter">Identifying Cohort...</div>;
 
   const category = GROUP_CATEGORIES.find((c) => c.value === activeGroup.category);
   const isAdmin = activeGroup.admin === user?._id;
@@ -265,9 +267,10 @@ const GroupDetail = () => {
                 </p>
                 {isAdmin && (
                   <button 
-                    onClick={() => setShowAddMember(true)} 
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/5 active:scale-95 text-on-surface-variant group ml-auto"
-                    title="Add Member"
+                    onClick={() => isOnline && setShowAddMember(true)} 
+                    disabled={!isOnline}
+                    className={`p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/5 active:scale-95 text-on-surface-variant group ml-auto ${!isOnline ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
+                    title={isOnline ? "Add Member" : "Add Member (Online Only)"}
                   >
                     <UserPlus size={18} className="group-hover:text-primary transition-colors" />
                   </button>
@@ -285,10 +288,12 @@ const GroupDetail = () => {
             
             <div className="flex items-center gap-3">
               <button 
-                onClick={() => setShowSettleUp(true)} 
-                className="h-12 px-6 rounded-2xl font-manrope font-bold text-xs tracking-widest flex items-center justify-center gap-3 bg-surface-container-highest/40 text-on-surface hover:bg-surface-container-highest/60 transition-all border border-white/5 active:scale-95 flex-1 md:flex-none uppercase"
+                onClick={() => isOnline && setShowSettleUp(true)} 
+                disabled={!isOnline}
+                className={`h-12 px-6 rounded-2xl font-manrope font-bold text-xs tracking-widest flex items-center justify-center gap-3 bg-surface-container-highest/40 text-on-surface transition-all border border-white/5 active:scale-95 flex-1 md:flex-none uppercase ${!isOnline ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:bg-surface-container-highest/60'}`}
               >
-                <WalletCards size={18} className="text-primary" /> SETTLE UP
+                <WalletCards size={18} className={isOnline ? "text-primary" : "text-white/20"} /> 
+                {isOnline ? 'SETTLE UP' : 'OFFLINE'}
               </button>
               
               <ExportActions group={activeGroup} expenses={expenses} balances={balances} iconOnly={true} />
@@ -366,10 +371,11 @@ const GroupDetail = () => {
           {!isAdmin && (
             <div className="px-1">
               <button 
-                onClick={() => setShowLeaveConfirm(true)}
-                className="w-full py-4 rounded-2xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 text-xs font-black tracking-[0.2em] uppercase transition-all active:scale-[0.98]"
+                onClick={() => isOnline && setShowLeaveConfirm(true)}
+                disabled={!isOnline}
+                className={`w-full py-4 rounded-2xl border text-xs font-black tracking-[0.2em] uppercase transition-all active:scale-[0.98] ${!isOnline ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500'}`}
               >
-                Exit Cohort
+                {isOnline ? 'Exit Cohort' : 'Exit Blocked (Offline)'}
               </button>
             </div>
           )}
@@ -385,11 +391,12 @@ const GroupDetail = () => {
                     <p className="text-[11px] text-white/30 mt-0.5 font-inter">Permanently removes the group and all its data.</p>
                   </div>
                   <button 
-                    onClick={() => setShowDeleteGroupConfirm(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0"
+                    onClick={() => isOnline && setShowDeleteGroupConfirm(true)}
+                    disabled={!isOnline}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0 ${!isOnline ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500'}`}
                   >
                     <Trash2 size={14} />
-                    Delete
+                    {isOnline ? 'Delete' : 'Offline'}
                   </button>
                 </div>
               </div>
