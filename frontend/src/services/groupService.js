@@ -71,15 +71,19 @@ const groupService = {
   getPastGroups: async (userId) => {
     if (!userId) throw new Error("Authentication required");
     
-    // Fetch all groups where user was ever a member
-    const q = query(
-      collection(db, 'groups'), 
-      where('historicalMembers', 'array-contains', userId),
-      limit(50)
-    );
-    const querySnapshot = await getDocs(q);
+    // Fetch from both arrays to handle legacy groups without historicalMembers
+    const q1 = query(collection(db, 'groups'), where('historicalMembers', 'array-contains', userId), limit(50));
+    const q2 = query(collection(db, 'groups'), where('members', 'array-contains', userId));
     
-    const allGroups = await Promise.all(querySnapshot.docs.map(doc => groupService.expandGroupData(doc)));
+    const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+    
+    // Deduplicate docs by ID
+    const docMap = new Map();
+    snap1.docs.forEach(doc => docMap.set(doc.id, doc));
+    snap2.docs.forEach(doc => docMap.set(doc.id, doc));
+    
+    const allDocs = Array.from(docMap.values());
+    const allGroups = await Promise.all(allDocs.map(doc => groupService.expandGroupData(doc)));
     
     // A group is "past" if:
     // 1. It is soft-deleted

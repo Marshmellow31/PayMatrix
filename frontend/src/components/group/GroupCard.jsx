@@ -4,7 +4,7 @@ import { Hash } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { GROUP_CATEGORIES } from '../../utils/constants.js';
 
-const GroupCard = ({ group }) => {
+const GroupCard = ({ group, balance = 0 }) => {
   const category = GROUP_CATEGORIES.find((c) => c.value === group.category);
   const IconComponent = category?.icon ? LucideIcons[category.icon] || Hash : Hash;
 
@@ -16,10 +16,6 @@ const GroupCard = ({ group }) => {
       return [id, m];
     })
   ).values());
-
-  // Simulate a balance since it's not currently provided by the list API
-  // In a real scenario, this would be computed or part of the group object
-  const balance = group.balance || 0; 
 
   return (
     <Link to={`/groups/${group._id}`} className="block">
@@ -40,11 +36,12 @@ const GroupCard = ({ group }) => {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-on-surface-variant text-[10px] font-bold tracking-[0.15em] uppercase mb-1 opacity-60">
+            <p className="text-on-surface-variant text-[10px] font-black tracking-[0.2em] uppercase mb-1 flex items-center justify-end gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
               Your Balance
             </p>
-            <p className={`font-headline text-xl font-bold ${balance >= 0 ? 'text-white' : 'text-error'}`}>
-              {balance >= 0 ? '+' : ''}{group.currency || '₹'}{Math.abs(balance).toFixed(2)}
+            <p className={`font-headline text-2xl font-black ${balance >= 0 ? 'text-white' : 'text-red-400'}`}>
+              {balance >= 0 ? '+' : '-'}{group.currency || '₹'}{Math.abs(balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
         </div>

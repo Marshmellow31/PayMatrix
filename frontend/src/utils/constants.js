@@ -3,6 +3,7 @@ export const GROUP_CATEGORIES = [
   { value: 'Trip', label: 'Trip', icon: 'Plane', color: '#6366f1' },
   { value: 'Roommates', label: 'Roommates', icon: 'Home', color: '#22c55e' },
   { value: 'Events', label: 'Events', icon: 'PartyPopper', color: '#f59e0b' },
+  { value: 'Friends', label: 'Friends', icon: 'Users', color: '#a855f7' },
   { value: 'Couple', label: 'Couple', icon: 'Heart', color: '#ec4899' },
   { value: 'Other', label: 'Other', icon: 'Hash', color: '#919191' },
 ];

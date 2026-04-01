@@ -297,32 +297,50 @@ const expenseService = {
 
   getSummary: async () => {
     const userId = auth.currentUser?.uid;
-    if (!userId) return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [] });
+    if (!userId) return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [], groupBalances: {} });
 
     try {
-      // Find all groups where user is a member
-      const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
-      const groupSnap = await getDocs(q);
-      const groupIds = groupSnap.docs.map(d => d.id);
+      // 1. Resolve Groups first (Cache-first for speed on Dashboard)
+      const groupCol = collection(db, 'groups');
+      const q = query(groupCol, where('members', 'array-contains', userId));
+      
+      let groupSnap;
+      try {
+        groupSnap = await getDocs(q);
+      } catch (err) {
+        console.warn("[OFFLINE_FALLBACK] getSummary: fetching groups from cache");
+        const { getDocsFromCache } = await import('firebase/firestore');
+        groupSnap = await getDocsFromCache(q);
+      }
 
+      const groupIds = groupSnap.docs.map(d => d.id);
       let totalOwed = 0;
       let totalOwe = 0;
       const categoryTotals = {};
+      const groupBalances = {};
 
       const { computeGroupBalances } = await import('../utils/balanceEngine.js');
 
+      // 2. Process each cohort's financials
       for (const groupId of groupIds) {
-        // Optimization: Fetch all expenses and settlements for this group
-        // This is still heavy, but we limit it to the current group's subcollections.
-        const [expSnap, stlSnap] = await Promise.all([
-          getDocs(collection(db, 'groups', groupId, 'expenses')),
-          getDocs(collection(db, 'groups', groupId, 'settlements'))
-        ]);
+        let expSnap, stlSnap;
+        const expCol = collection(db, 'groups', groupId, 'expenses');
+        const stlCol = collection(db, 'groups', groupId, 'settlements');
+
+        try {
+          [expSnap, stlSnap] = await Promise.all([getDocs(expCol), getDocs(stlCol)]);
+        } catch (err) {
+          const { getDocsFromCache } = await import('firebase/firestore');
+          [expSnap, stlSnap] = await Promise.all([
+            getDocsFromCache(expCol).catch(() => ({ docs: [] })),
+            getDocsFromCache(stlCol).catch(() => ({ docs: [] }))
+          ]);
+        }
 
         const expenses = expSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
         const settlements = stlSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
         
-        // Calculate category totals
+        // Category distribution (Your shared portion)
         expenses.forEach(exp => {
           const isParticipant = exp.participants?.includes(userId) || exp.paidBy === userId;
           if (isParticipant && exp.category) {
@@ -330,12 +348,13 @@ const expenseService = {
           }
         });
 
-        // Use balance engine for reactive calculations
+        // Compute balances
         const groupDoc = groupSnap.docs.find(d => d.id === groupId);
         const members = groupDoc.data().members || [];
-        const balances = computeGroupBalances(expenses, settlements, members.map(uid => ({ uid: uid })));
+        const balances = computeGroupBalances(expenses, settlements, members.map(uid => ({ uid })));
         const myBalance = balances[userId] || 0;
 
+        groupBalances[groupId] = myBalance;
         if (myBalance > 0) totalOwed += myBalance;
         else if (myBalance < 0) totalOwe += Math.abs(myBalance);
       }
@@ -349,11 +368,12 @@ const expenseService = {
         totalOwed,
         totalOwe,
         netBalance: totalOwed - totalOwe,
-        categories
+        categories,
+        groupBalances
       });
     } catch (error) {
-      console.error("Summary calc error:", error);
-      return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [] });
+      console.error("[CRITICAL] Summary engine error:", error);
+      return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [], groupBalances: {} });
     }
   },
 

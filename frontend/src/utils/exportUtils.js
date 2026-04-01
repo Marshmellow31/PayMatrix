@@ -5,7 +5,7 @@ import { json2csv } from 'json-2-csv';
 /**
  * Export group expenses to PDF
  */
-export const exportToPDF = (group, expenses, balances) => {
+export const exportToPDF = (group, expenses, balances, logs = []) => {
   const doc = new jsPDF();
   const timestamp = new Date().toLocaleString();
 
@@ -39,7 +39,7 @@ export const exportToPDF = (group, expenses, balances) => {
   });
 
   // Expenses Section
-  const nextY = (doc.lastAutoTable?.finalY || 55) + 15;
+  let nextY = (doc.lastAutoTable?.finalY || 55) + 15;
   doc.setFontSize(14);
   doc.text('Detailed Transactions', 14, nextY);
 
@@ -58,6 +58,37 @@ export const exportToPDF = (group, expenses, balances) => {
     theme: 'striped',
     headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] },
   });
+
+  // Logs Section (Activity Timeline)
+  if (logs && logs.length > 0) {
+    nextY = (doc.lastAutoTable?.finalY || nextY) + 15;
+    
+    // Check if we need a new page for logs
+    if (nextY > 250) {
+      doc.addPage();
+      nextY = 20;
+    }
+    
+    doc.setFontSize(14);
+    doc.text('Activity Timeline', 14, nextY);
+
+    const logData = logs.map((l) => [
+      new Date(l.createdAt).toLocaleDateString(),
+      new Date(l.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      l.message || 'Legacy action recorded'
+    ]);
+
+    autoTable(doc, {
+      startY: nextY + 5,
+      head: [['Date', 'Time', 'Activity Details']],
+      body: logData,
+      theme: 'plain',
+      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+      columnStyles: {
+        2: { columnWidth: 'auto' }
+      }
+    });
+  }
 
   // Footer
   const pageCount = doc.internal.getNumberOfPages();

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link, useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -17,7 +17,11 @@ const Dashboard = () => {
   const { groups = [], loading: groupsLoading } = useSelector((state) => state.groups);
   const { notifications = [] } = useSelector((state) => state.notifications);
   const [summary, setSummary] = useState(null);
-  const [loadingSummary, setLoadingSummary] = useState(true);
+  const [loadingSummary, setLoadingSummary] = useState(!summary);
+
+  const groupsUpdatedHash = useMemo(() => 
+    JSON.stringify(groups.map(g => g.updatedAt || g._id)), 
+  [groups]);
 
   const [isOffline, setIsOffline] = useState(typeof window !== 'undefined' ? !navigator.onLine : false);
 
@@ -35,7 +39,7 @@ const Dashboard = () => {
         const expandedGroups = (await Promise.all(
           snapshot.docs.map(doc => groupService.expandGroupData(doc))
         )).filter(Boolean);
-        dispatch(setGroups(expandedGroups));
+        dispatch(setGroups(expandedGroups.filter(g => g?.status !== 'deleted')));
       } catch (err) {
         console.error("Error expanding group snapshot:", err);
       }
@@ -55,24 +59,26 @@ const Dashboard = () => {
     };
   }, [dispatch, user?._id, user?.uid]);
 
-  // 3. Reactive summary - updates whenever groups change
+  // 3. Reactive summary - updates whenever any group's metadata is "touched"
   useEffect(() => {
     if (!user?._id && !user?.uid) return;
 
     const updateSummary = async () => {
-      setLoadingSummary(true);
+      // Only show loader if we don't have a summary yet (Stale-While-Revalidate)
+      if (!summary) setLoadingSummary(true);
+      
       try {
         const res = await expenseService.getSummary();
         setSummary(res.data.data);
       } catch (err) {
-        console.error('Failed to fetch summary:', err);
+        console.warn('Silent refresh of summary failed (likely offline):', err);
       } finally {
         setLoadingSummary(false);
       }
     };
 
     updateSummary();
-  }, [groups.length, user?._id, user?.uid]);
+  }, [groupsUpdatedHash, user?._id, user?.uid]);
 
   const recentActivity = notifications.slice(0, 5);
   const topGroups = groups.slice(0, 3);

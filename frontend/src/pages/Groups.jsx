@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2, Hash } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { fetchGroups, createGroup, setGroups } from '../redux/groupSlice.js';
 import GroupCard from '../components/group/GroupCard.jsx';
@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 import friendService from '../services/friendService.js';
 import groupService from '../services/groupService.js';
+import expenseService from '../services/expenseService.js';
 import { db } from '../config/firebase.js';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
@@ -29,6 +30,12 @@ const Groups = () => {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ title: '', category: 'Other', members: [] });
   const [friends, setFriends] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loadingSummary, setLoadingSummary] = useState(true);
+
+  const groupsUpdatedHash = useMemo(() => 
+    JSON.stringify(groups.map(g => g.updatedAt || g._id)), 
+  [groups]);
 
   useEffect(() => { 
     if (!user?._id && !user?.uid) return;
@@ -47,7 +54,7 @@ const Groups = () => {
         const expandedGroups = await Promise.all(
           snapshot.docs.map(doc => groupService.expandGroupData(doc))
         );
-        dispatch(setGroups(expandedGroups));
+        dispatch(setGroups(expandedGroups.filter(g => g?.status !== 'deleted')));
       } catch (err) {
         console.error("Error expanding group snapshot:", err);
       }
@@ -61,6 +68,24 @@ const Groups = () => {
 
     return () => unsubscribe();
   }, [dispatch, location.search, user?._id, user?.uid]);
+
+  // Reactive summary for real-time balances on individual cards
+  useEffect(() => {
+    if (!user?._id && !user?.uid) return;
+
+    const updateSummary = async () => {
+      try {
+        const res = await expenseService.getSummary();
+        setSummary(res.data.data);
+      } catch (err) {
+        console.error('Failed to fetch summary in groups list:', err);
+      } finally {
+        setLoadingSummary(false);
+      }
+    };
+
+    updateSummary();
+  }, [groupsUpdatedHash, user?._id, user?.uid]);
 
   const fetchFriends = async () => {
     try {
@@ -143,7 +168,11 @@ const Groups = () => {
       ) : (
         <div className="flex flex-col gap-6">
           {groups.map((group) => (
-            <GroupCard key={group._id} group={group} />
+            <GroupCard 
+              key={group._id} 
+              group={group} 
+              balance={summary?.groupBalances?.[group._id] || 0}
+            />
           ))}
         </div>
       )}
