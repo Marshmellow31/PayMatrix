@@ -40,7 +40,14 @@ const expenseService = {
   getExpenses: async (groupId, page = 1) => {
     // For simplicity, returning all expenses without pagination in this migration snippet
     const q = query(collection(db, 'groups', groupId, 'expenses'), orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
+    let querySnapshot;
+    try {
+      querySnapshot = await getDocs(q);
+    } catch (err) {
+      console.warn("[OFFLINE_FALLBACK] getExpenses: fetching from cache");
+      const { getDocsFromCache } = await import('firebase/firestore');
+      querySnapshot = await getDocsFromCache(q);
+    }
     const expenses = querySnapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
     
     // Mimic the backend pagination signature
@@ -77,8 +84,10 @@ const expenseService = {
       updatedAt: new Date().toISOString()
     });
     
-    // Primary write: Await this only
-    const docRef = await addDoc(collection(db, 'groups', groupId, 'expenses'), payload);
+    const docRef = doc(collection(db, 'groups', groupId, 'expenses'));
+    
+    // Primary write: Non-blocking for instant offline responsiveness
+    setDoc(docRef, payload).catch(err => console.error("[OFFLINE_SYNC_ERROR] Expense write failed:", err));
 
     // Refresh group's updatedAt to trigger listeners (non-blocking)
     updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
@@ -140,8 +149,8 @@ const expenseService = {
       updatedAt: new Date().toISOString()
     });
     
-    // Primary write: Await this only
-    await updateDoc(docRef, payload);
+    // Primary write: Non-blocking for instant offline responsiveness
+    updateDoc(docRef, payload).catch(err => console.error("[OFFLINE_SYNC_ERROR] Expense update failed:", err));
 
     // Refresh group's updatedAt to trigger listeners (non-blocking)
     if (groupId) {
@@ -195,8 +204,8 @@ const expenseService = {
       } catch (_) {}
     })().catch(() => {});
 
-    // Primary write: Await this only
-    await deleteDoc(docRef);
+    // Primary write: Non-blocking for instant offline responsiveness
+    deleteDoc(docRef).catch(err => console.error("[OFFLINE_SYNC_ERROR] Expense delete failed:", err));
 
     // Refresh group's updatedAt to trigger listeners (non-blocking)
     updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
@@ -216,9 +225,30 @@ const expenseService = {
      const { computeGroupBalances } = await import('../utils/balanceEngine.js');
      
      // Fetch expenses and settlements
-     const expSnap = await getDocs(query(collection(db, 'groups', groupId, 'expenses')));
-     const stlSnap = await getDocs(query(collection(db, 'groups', groupId, 'settlements')));
-     const grpSnap = await getDoc(doc(db, 'groups', groupId));
+     // Fetch expenses and settlements with offline fallback
+     const expQ = query(collection(db, 'groups', groupId, 'expenses'));
+     const stlQ = query(collection(db, 'groups', groupId, 'settlements'));
+     
+     let expSnap, stlSnap;
+     try {
+       [expSnap, stlSnap] = await Promise.all([getDocs(expQ), getDocs(stlQ)]);
+     } catch (err) {
+       console.warn("[OFFLINE_FALLBACK] getBalances: fetching from cache");
+       const { getDocsFromCache } = await import('firebase/firestore');
+       [expSnap, stlSnap] = await Promise.all([
+         getDocsFromCache(expQ).catch(() => ({ docs: [] })),
+         getDocsFromCache(stlQ).catch(() => ({ docs: [] }))
+       ]);
+     }
+     
+     const grpRef = doc(db, 'groups', groupId);
+     let grpSnap;
+     try {
+       grpSnap = await getDoc(grpRef);
+     } catch (err) {
+       const { getDocFromCache } = await import('firebase/firestore');
+       grpSnap = await getDocFromCache(grpRef).catch(() => null);
+     }
      
      const expenses = expSnap.docs.map(d => d.data());
      const settlements = stlSnap.docs.map(d => d.data());
@@ -230,7 +260,14 @@ const expenseService = {
   
   getSettlements: async (groupId) => {
     const q = query(collection(db, 'groups', groupId, 'settlements'), orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
+    let querySnapshot;
+    try {
+      querySnapshot = await getDocs(q);
+    } catch (err) {
+      console.warn("[OFFLINE_FALLBACK] getSettlements: fetching from cache");
+      const { getDocsFromCache } = await import('firebase/firestore');
+      querySnapshot = await getDocsFromCache(q);
+    }
     const settlements = querySnapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
     return wrap({ settlements });
   },
@@ -253,8 +290,10 @@ const expenseService = {
       createdAt: new Date().toISOString()
     };
 
-    // Primary write: Record the settlement
-    const docRef = await addDoc(collection(db, 'groups', groupId, 'settlements'), settlementData);
+    const docRef = doc(collection(db, 'groups', groupId, 'settlements'));
+
+    // Primary write: Non-blocking for instant offline responsiveness
+    setDoc(docRef, settlementData).catch(err => console.error("[OFFLINE_SYNC_ERROR] Settlement write failed:", err));
     
     // Refresh group's updatedAt to trigger listeners (non-blocking)
     updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
@@ -399,7 +438,14 @@ const expenseService = {
       orderBy('createdAt', 'desc'),
       limit(50)
     );
-    const snap = await getDocs(q);
+    let snap;
+    try {
+      snap = await getDocs(q);
+    } catch (err) {
+      console.warn("[OFFLINE_FALLBACK] getActivity: fetching from cache");
+      const { getDocsFromCache } = await import('firebase/firestore');
+      snap = await getDocsFromCache(q);
+    }
     const activity = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
     return wrap({ activity });
   },

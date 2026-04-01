@@ -61,18 +61,20 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
       }, userId);
       toast.success('Payment recorded successfully');
       
-      // Update local state without full reload initially to show progress, or reload full plan
-      await loadSettlementPlan();
+      // Update local state without waiting for full reload to keep UI snappy
+      setProcessing(false);
+      setPartialPayment(null);
       
       // trigger parent update
       if (onSettled) onSettled();
       dispatch(fetchExpenses({ groupId }));
+
+      // Reload plan in background
+      loadSettlementPlan();
       
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to record payment');
-    } finally {
       setProcessing(false);
-      setPartialPayment(null);
     }
   };
 
@@ -81,6 +83,8 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
     
     setProcessing(true);
     try {
+      // We can execute these in parallel for speed if desired, 
+      // but sequential is safer for logs.
       for (const debt of settlements) {
         if (debt.amount > 0) {
           await expenseService.createSettlement(groupId, {
@@ -92,14 +96,16 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
       }
       toast.success('All debts settled successfully!');
       
-      await loadSettlementPlan();
+      setProcessing(false);
       if (onSettled) onSettled();
       dispatch(fetchExpenses({ groupId }));
+
+      loadSettlementPlan();
       
     } catch (err) {
       toast.error('Partially settled, please try again to clear remaining debts');
-    } finally {
       setProcessing(false);
+      loadSettlementPlan();
     }
   };
 
