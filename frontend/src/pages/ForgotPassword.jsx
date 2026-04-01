@@ -5,8 +5,8 @@ import { HiMail, HiArrowLeft } from 'react-icons/hi';
 import Input from '../components/common/Input.jsx';
 import Button from '../components/common/Button.jsx';
 import toast from 'react-hot-toast';
-import axios from 'axios';
-import { API_URL } from '../utils/constants';
+import { auth } from '../config/firebase.js';
+import { sendPasswordResetEmail } from 'firebase/auth';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -17,11 +17,11 @@ const ForgotPassword = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/auth/forgot-password`, { email });
+      await sendPasswordResetEmail(auth, email);
       setSubmitted(true);
       toast.success('Reset link sent to your email');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Something went wrong');
+      toast.error(err.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }

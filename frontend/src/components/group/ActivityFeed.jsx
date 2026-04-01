@@ -3,10 +3,7 @@ import { useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
 import { Clock, Plus, Receipt, UserPlus, UserMinus, Edit, Trash2, RotateCcw } from 'lucide-react';
 import expenseService from '../../services/expenseService';
-import { restoreExpense } from '../../redux/expenseSlice';
 import { format } from 'date-fns';
-import { io } from 'socket.io-client';
-import { SOCKET_URL } from '../../utils/constants.js';
 import toast from 'react-hot-toast';
 
 const ActivityFeed = ({ groupId }) => {
@@ -28,28 +25,10 @@ const ActivityFeed = ({ groupId }) => {
 
   useEffect(() => {
     fetchActivity();
-
-    // Socket listener for real-time updates
-    const socket = io(SOCKET_URL);
-    socket.emit('join:group', groupId);
-    
-    socket.on('activity:new', () => {
-      fetchActivity(true);
-    });
-
-    return () => {
-      socket.disconnect();
-    };
   }, [groupId, fetchActivity]);
 
   const handleRestore = async (expenseId) => {
-    try {
-      const result = await dispatch(restoreExpense(expenseId)).unwrap();
-      toast.success('Expense restored successfully');
-      fetchActivity(true);
-    } catch (err) {
-      toast.error(err || 'Failed to restore expense');
-    }
+    toast.error('Undo is not supported in this architecture yet.');
   };
 
   const getIcon = (type) => {

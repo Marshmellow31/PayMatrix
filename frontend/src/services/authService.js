@@ -1,13 +1,93 @@
-import api from './api.js';
+import { auth, db } from '../config/firebase.js';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  sendPasswordResetEmail,
+  updateProfile as updateFirebaseProfile
+} from 'firebase/auth';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+
+const googleProvider = new GoogleAuthProvider();
 
 const authService = {
-  register: (data) => api.post('/auth/register', data),
-  login: (data) => api.post('/auth/login', data),
-  googleAuth: (data) => api.post('/auth/google', data),
-  getMe: () => api.get('/auth/me'),
-  updateProfile: (data) => api.put('/auth/profile', data),
-  forgotPassword: (data) => api.post('/auth/forgot-password', data),
-  resetPassword: (token, data) => api.put(`/auth/reset-password/${token}`, data),
+  register: async (data) => {
+    const { email, password, name } = data;
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    
+    await updateFirebaseProfile(user, { displayName: name });
+    
+    // Save to Firestore 'users' collection
+    const userData = {
+      uid: user.uid,
+      name: name,
+      email: email,
+      createdAt: new Date().toISOString()
+    };
+    await setDoc(doc(db, 'users', user.uid), userData);
+    
+    return { user: userData, token: user.accessToken };
+  },
+  
+  login: async (data) => {
+    const { email, password } = data;
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    
+    const userDoc = await getDoc(doc(db, 'users', user.uid));
+    const userData = userDoc.exists() ? userDoc.data() : { uid: user.uid, email, name: user.displayName };
+    
+    return { user: userData, token: user.accessToken };
+  },
+  
+  googleAuth: async () => {
+    const userCredential = await signInWithPopup(auth, googleProvider);
+    const user = userCredential.user;
+    
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+    
+    let userData = { uid: user.uid, email: user.email, name: user.displayName, photoURL: user.photoURL };
+    
+    if (!userDoc.exists()) {
+      userData.createdAt = new Date().toISOString();
+      await setDoc(userDocRef, userData);
+    } else {
+      userData = userDoc.data();
+    }
+    
+    return { user: userData, token: user.accessToken };
+  },
+  
+  getMe: async () => {
+     const user = auth.currentUser;
+     if (!user) throw new Error("Not authenticated");
+     const userDoc = await getDoc(doc(db, 'users', user.uid));
+     if (!userDoc.exists()) throw new Error("User document not found");
+     return { data: { data: { user: userDoc.data() } } }; 
+  },
+  
+  updateProfile: async (data) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Not authenticated");
+    
+    if (data.name) {
+      await updateFirebaseProfile(user, { displayName: data.name });
+    }
+    
+    const updateData = { ...data, updatedAt: new Date().toISOString() };
+    await updateDoc(doc(db, 'users', user.uid), updateData);
+    
+    const updatedDoc = await getDoc(doc(db, 'users', user.uid));
+    return { data: { data: { user: updatedDoc.data() } } };
+  },
+  
+  forgotPassword: async (data) => {
+    await sendPasswordResetEmail(auth, data.email);
+    return { data: { status: "success" } };
+  }
 };
 
 export default authService;

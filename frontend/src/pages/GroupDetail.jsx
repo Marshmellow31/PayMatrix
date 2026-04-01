@@ -3,7 +3,7 @@ import { useParams, Link, useOutletContext, useNavigate } from 'react-router-dom
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { fetchGroup } from '../redux/groupSlice.js';
-import { fetchExpenses, deleteExpense, clearExpenses, hydrateOfflineExpenses } from '../redux/expenseSlice.js';
+import { fetchExpenses, deleteExpense, clearExpenses } from '../redux/expenseSlice.js';
 import { deleteGroup } from '../redux/groupSlice.js';
 import MemberList from '../components/group/MemberList.jsx';
 import ActivityFeed from '../components/group/ActivityFeed.jsx';
@@ -54,16 +54,8 @@ const GroupDetail = () => {
     dispatch(fetchGroup(id));
     dispatch(fetchExpenses({ groupId: id }));
 
-    // 3. Hydrate offline placeholders from IndexedDB in case the PWA was restarted
-    dispatch(hydrateOfflineExpenses(id));
-
-    // 4. After a background sync completes, refetch to replace offline placeholders with real data
-    const handleSyncComplete = () => {
-      dispatch(fetchExpenses({ groupId: id }));
-      dispatch(hydrateOfflineExpenses(id));
-    };
-    window.addEventListener('syncComplete', handleSyncComplete);
-    return () => window.removeEventListener('syncComplete', handleSyncComplete);
+    // Firebase handles online/offline and cache transparency under the hood. 
+    // We don't need manual sync manager listeners or hydration.
   }, [dispatch, id]);
 
   useEffect(() => {

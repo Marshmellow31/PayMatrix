@@ -1,106 +1,84 @@
-import api from './api.js';
-import { queueOperation, invalidateCache } from './db.js';
+import { db, auth } from '../config/firebase.js';
+import { 
+  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, 
+  query, where, arrayUnion, arrayRemove 
+} from 'firebase/firestore';
+
+// Helper to mimic Axios response
+const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
 
 const groupService = {
-  getGroups: () => api.get('/groups'),
-  getGroup: (id) => api.get(`/groups/${id}`),
+  getGroups: async () => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Not authenticated");
+    
+    // In Firebase, we query groups where the current user is in the members array
+    // Assuming members is an array of UIDs for simplicity here.
+    const q = query(collection(db, 'groups'), where('members', 'array-contains', user.uid));
+    const querySnapshot = await getDocs(q);
+    
+    const groups = querySnapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+    return wrap({ groups });
+  },
+
+  getGroup: async (id) => {
+    const docRef = doc(db, 'groups', id);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) throw new Error("Group not found");
+    return wrap({ group: { _id: docSnap.id, ...docSnap.data() } });
+  },
 
   createGroup: async (data) => {
-    await invalidateCache('/groups');
-    if (!navigator.onLine) {
-      await queueOperation('create', 'group', data);
-      return { data: { offline: true, message: 'Group creation queued for sync.', group: { ...data, _id: `temp_${Date.now()}` } } };
-    }
-    try {
-      return await api.post('/groups', data);
-    } catch (err) {
-      if (!err.response || err.message === 'Network Error') {
-        await queueOperation('create', 'group', data);
-        return { data: { offline: true, message: 'Network error. Group creation queued.', group: { ...data, _id: `temp_${Date.now()}` } } };
-      }
-      throw err;
-    }
+    const user = auth.currentUser;
+    const groupData = {
+      ...data,
+      members: Array.from(new Set([...(data.members || []), user.uid])), // Ensure creator is memeber
+      createdBy: user.uid,
+      createdAt: new Date().toISOString()
+    };
+    
+    const docRef = await addDoc(collection(db, 'groups'), groupData);
+    return wrap({ group: { _id: docRef.id, ...groupData } });
   },
 
   updateGroup: async (id, data) => {
-    if (!navigator.onLine) {
-      await queueOperation('update', 'group', { ...data, id });
-      return { data: { offline: true, message: 'Group update queued for sync.' } };
-    }
-    try {
-      return await api.put(`/groups/${id}`, data);
-    } catch (err) {
-      if (!err.response || err.message === 'Network Error') {
-        await queueOperation('update', 'group', { ...data, id });
-        return { data: { offline: true, message: 'Group update queued.' } };
-      }
-      throw err;
-    }
+    const docRef = doc(db, 'groups', id);
+    await updateDoc(docRef, { ...data, updatedAt: new Date().toISOString() });
+    return wrap({ group: { _id: id, ...data } });
   },
 
   deleteGroup: async (id) => {
-    if (!navigator.onLine) {
-      await queueOperation('delete', 'group', { id });
-      return { data: { offline: true, message: 'Group deletion queued for sync.' } };
-    }
-    try {
-      return await api.delete(`/groups/${id}`);
-    } catch (err) {
-      if (!err.response || err.message === 'Network Error') {
-        await queueOperation('delete', 'group', { id });
-        return { data: { offline: true, message: 'Group deletion queued.' } };
-      }
-      throw err;
-    }
+    await deleteDoc(doc(db, 'groups', id));
+    return wrap({ message: 'Group deleted successfully' });
   },
 
   addMember: async (groupId, data) => {
-    await invalidateCache(`/groups/${groupId}`);
-    if (!navigator.onLine) {
-      await queueOperation('add_member', 'group', { ...data, groupId });
-      return { data: { offline: true, message: 'Member addition queued for sync.' } };
-    }
-    try {
-      return await api.post(`/groups/${groupId}/members`, data);
-    } catch (err) {
-      if (!err.response || err.message === 'Network Error') {
-        await queueOperation('add_member', 'group', { ...data, groupId });
-        return { data: { offline: true, message: 'Network error. Member addition queued.' } };
-      }
-      throw err;
-    }
+    const docRef = doc(db, 'groups', groupId);
+    // data.identifier might be an email or UID depending on the new simplified architecture
+    // We assume data is the user ID for now
+    await updateDoc(docRef, {
+      members: arrayUnion(data.userId || data)
+    });
+    return wrap({ message: 'Member added' });
   },
 
   removeMember: async (groupId, userId) => {
-    if (!navigator.onLine) {
-      await queueOperation('remove_member', 'group', { groupId, userId });
-      return { data: { offline: true, message: 'Member removal queued for sync.' } };
-    }
-    try {
-      return await api.delete(`/groups/${groupId}/members/${userId}`);
-    } catch (err) {
-      if (!err.response || err.message === 'Network Error') {
-        await queueOperation('remove_member', 'group', { groupId, userId });
-        return { data: { offline: true, message: 'Member removal queued.' } };
-      }
-      throw err;
-    }
+    const docRef = doc(db, 'groups', groupId);
+    await updateDoc(docRef, {
+      members: arrayRemove(userId)
+    });
+    return wrap({ message: 'Member removed' });
   },
 
   leaveGroup: async (groupId) => {
-    if (!navigator.onLine) {
-      await queueOperation('leave', 'group', { groupId });
-      return { data: { offline: true, message: 'Leave group queued for sync.' } };
-    }
-    try {
-      return await api.post(`/groups/${groupId}/leave`);
-    } catch (err) {
-      if (!err.response || err.message === 'Network Error') {
-        await queueOperation('leave', 'group', { groupId });
-        return { data: { offline: true, message: 'Leave group queued.' } };
-      }
-      throw err;
-    }
+    const user = auth.currentUser;
+    if (!user) throw new Error("Not authenticated");
+    
+    const docRef = doc(db, 'groups', groupId);
+    await updateDoc(docRef, {
+      members: arrayRemove(user.uid)
+    });
+    return wrap({ message: 'Left group successfully' });
   },
 };
 

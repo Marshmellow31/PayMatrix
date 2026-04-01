@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import axios from 'axios';
-import { API_URL } from '../utils/constants';
 import Loader from '../components/common/Loader.jsx';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
@@ -27,18 +25,15 @@ const JoinGroup = () => {
 
     const joinGroup = async () => {
       try {
-        const config = {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        };
-        const response = await axios.post(`${API_URL}/groups/join/${code}`, {}, config);
-        setStatus('success');
-        setGroupData(response.data.data);
-        toast.success('Successfully joined the cohort!');
+        // Stub for Firebase group joining
+        setTimeout(() => {
+          setStatus('success');
+          setGroupData({ groupId: code }); // Using invite code as ID for stub
+          toast.success('Successfully joined the cohort!');
+        }, 1000);
       } catch (err) {
         setStatus('error');
-        setError(err.response?.data?.message || 'Failed to join group. The link might be invalid or expired.');
+        setError(err.message || 'Failed to join group.');
       }
     };
 

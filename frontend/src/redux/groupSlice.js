@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import groupService from '../services/groupService.js';
-import { fetchWithCache } from '../utils/fetchWithCache.js';
 
 const initialState = {
   groups: [],
@@ -10,19 +9,21 @@ const initialState = {
 };
 
 export const fetchGroups = createAsyncThunk('groups/fetchAll', async (_, thunkAPI) => {
-  return fetchWithCache(
-    '/groups', 
-    thunkAPI, 
-    () => groupService.getGroups()
-  );
+  try {
+    const response = await groupService.getGroups();
+    return response.data;
+  } catch (error) {
+    return thunkAPI.rejectWithValue(error.message || 'Failed to fetch groups');
+  }
 });
 
 export const fetchGroup = createAsyncThunk('groups/fetchOne', async (id, thunkAPI) => {
-  return fetchWithCache(
-    `/groups/${id}`, 
-    thunkAPI, 
-    () => groupService.getGroup(id)
-  );
+  try {
+    const response = await groupService.getGroup(id);
+    return response.data;
+  } catch (error) {
+    return thunkAPI.rejectWithValue(error.message || 'Failed to fetch group');
+  }
 });
 
 export const createGroup = createAsyncThunk('groups/create', async (data, thunkAPI) => {

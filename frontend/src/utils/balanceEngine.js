@@ -71,21 +71,26 @@ export const simplifyDebts = (balances) => {
  * expenses: Array of expense objects
  * settlements: Array of settlement objects
  */
-export const computeGroupBalances = (expenses, settlements, groupMembers) => {
+export const computeGroupBalances = (expenses = [], settlements = [], groupMembers = []) => {
   const netBalances = {};
   
   // Initialize for all group members
   groupMembers.forEach(member => {
-    const id = (member.user?._id || member.user).toString();
-    netBalances[id] = 0;
+    // member could be an object with .user.uid or just a .uid
+    const id = member.uid || (member.user && member.user.uid) || (member.user && member.user._id) || member.user;
+    if (id) {
+        netBalances[id] = 0;
+    }
   });
 
   // Add from expenses
   expenses.forEach(expense => {
-    const payerId = expense.paidBy.toString();
+    const payerId = expense.paidBy;
+    if (!payerId) return;
     
-    expense.splits.forEach(split => {
-      const splitUserId = split.user.toString();
+    (expense.splits || []).forEach(split => {
+      const splitUserId = split.user || (split.user && split.user._id);
+      if (!splitUserId) return;
       const amount = round2(parseFloat(split.amount || 0));
       
       // The person who paid is owed back
@@ -98,8 +103,9 @@ export const computeGroupBalances = (expenses, settlements, groupMembers) => {
 
   // Add from settlements
   settlements.forEach(settlement => {
-     const payerId = settlement.payer.toString();
-     const payeeId = settlement.payee.toString();
+     const payerId = settlement.payer;
+     const payeeId = settlement.payee;
+     if (!payerId || !payeeId) return;
      const amount = round2(parseFloat(settlement.amount || 0));
      
      // Payer settles debt (less negative), Payee is paid (less positive)

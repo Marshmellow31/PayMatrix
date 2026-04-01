@@ -1,0 +1,40 @@
+﻿
+> paymatrix-frontend@1.0.0 build
+> vite build
+
+[36mvite v6.4.1 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 2813 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mmanifest.webmanifest                        [39m[1m[2m    0.42 kB[22m[1m[22m
+[2mdist/[22m[32mindex.html                                  [39m[1m[2m    1.21 kB[22m[1m[22m[2m │ gzip:   0.61 kB[22m
+[2mdist/[22m[35massets/index-C3uy7mc2.css                   [39m[1m[2m   48.29 kB[22m[1m[22m[2m │ gzip:   9.01 kB[22m
+[2mdist/[22m[36massets/balanceEngine-BbNejCtD.js            [39m[1m[2m    1.07 kB[22m[1m[22m[2m │ gzip:   0.51 kB[22m
+[2mdist/[22m[36massets/workbox-window.prod.es5-BIl4cyR9.js  [39m[1m[2m    5.76 kB[22m[1m[22m[2m │ gzip:   2.37 kB[22m
+[2mdist/[22m[36massets/purify.es-BgtpMKW3.js                [39m[1m[2m   22.77 kB[22m[1m[22m[2m │ gzip:   8.79 kB[22m
+[2mdist/[22m[36massets/index.es-BEoFkawH.js                 [39m[1m[2m  159.60 kB[22m[1m[22m[2m │ gzip:  53.51 kB[22m
+[2mdist/[22m[36massets/html2canvas.esm-QH1iLAAe.js          [39m[1m[2m  202.38 kB[22m[1m[22m[2m │ gzip:  48.04 kB[22m
+[2mdist/[22m[36massets/index-CkvNBmmv.js                    [39m[1m[33m2,688.05 kB[39m[22m[2m │ gzip: 687.84 kB[22m
+node.exe : [33m
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Users\1080p\AppData\Roaming\ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([33m:String) [], RemoteExcep 
+   tion
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: 
+https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via 
+build.chunkSizeWarningLimit.[39m
+[32m✓ built in 16.55s[39m
+
+PWA v1.2.0
+mode      generateSW
+precache  11 entries (3499.21 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-1d305bb8.js

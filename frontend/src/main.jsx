@@ -4,16 +4,12 @@ import { BrowserRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { Toaster } from 'react-hot-toast';
 import { registerSW } from 'virtual:pwa-register';
-import { syncManager } from './services/syncManager.js';
 import store from './redux/store.js';
 import App from './App.jsx';
 import './index.css';
 
 // Register Service Worker
 registerSW({ immediate: true });
-
-// Initialize Sync Manager
-syncManager.init();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

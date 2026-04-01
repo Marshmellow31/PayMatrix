@@ -5,8 +5,8 @@ import { HiLockClosed, HiShieldCheck } from 'react-icons/hi';
 import Input from '../components/common/Input.jsx';
 import Button from '../components/common/Button.jsx';
 import toast from 'react-hot-toast';
-import axios from 'axios';
-import { API_URL } from '../utils/constants';
+import { auth } from '../config/firebase.js';
+import { confirmPasswordReset } from 'firebase/auth';
 
 const ResetPassword = () => {
   const { token } = useParams();
@@ -22,11 +22,12 @@ const ResetPassword = () => {
     }
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/auth/reset-password/${token}`, { password });
+      // Firebase standard reset uses 'oobCode' which we map from token param
+      await confirmPasswordReset(auth, token, password);
       toast.success('Password reset successfully');
       navigate('/login');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Something went wrong');
+      toast.error(err.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }
