@@ -17,11 +17,10 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Disable pull-to-refresh and swipe navigation gestures */
+    /* Disable pull-to-refresh and swipe navigation gestures at the root */
     overscroll-behavior: none;
     height: 100%;
     width: 100%;
-    position: fixed;
     overflow: hidden;
   }
 
@@ -29,7 +28,7 @@
     background-color: #131313;
     color: #e5e2e1;
     font-family: 'Inter', sans-serif;
-    min-height: 100%;
+    height: 100%;
     width: 100%;
     overflow-y: auto;
     overflow-x: hidden;
@@ -40,7 +39,7 @@
     -webkit-user-select: none;
     user-select: none;
     
-    /* Disable pull-to-refresh */
+    /* Disable pull-to-refresh in supporting browsers */
     overscroll-behavior-y: none;
     
     /* Disable double-tap to zoom */

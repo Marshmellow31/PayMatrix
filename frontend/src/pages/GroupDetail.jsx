@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, Link, useOutletContext, useNavigate } from 'react-router-dom';
+import { useParams, Link, useOutletContext, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { collection, onSnapshot, query, orderBy, doc } from 'firebase/firestore';
@@ -30,8 +30,15 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 const GroupDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
   const { openAddExpense } = useOutletContext();
+  
+  // Quick settle deep-linking
+  const queryParams = new URLSearchParams(location.search);
+  const shouldSettle = queryParams.get('settle') === 'true';
+  const settleWithId = queryParams.get('with');
+
   const { currentGroup, groups, loading: groupLoading } = useSelector((state) => state.groups);
   const { expenses = [], loading: expenseLoading } = useSelector((state) => state.expenses);
   const { user } = useSelector((state) => state.auth);
@@ -40,7 +47,8 @@ const GroupDetail = () => {
   const [tab, setTab] = useState('expenses');
   const [settlements, setSettlements] = useState([]);
   const [showAddMember, setShowAddMember] = useState(false);
-  const [showSettleUp, setShowSettleUp] = useState(false);
+  const [showSettleUp, setShowSettleUp] = useState(shouldSettle);
+  const [selectedSettleFriendId, setSelectedSettleFriendId] = useState(settleWithId);
   const [memberEmail, setMemberEmail] = useState('');
   const [friends, setFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
@@ -57,12 +65,21 @@ const GroupDetail = () => {
     dispatch(clearExpenses());
 
     // 2. Real-time listener for Group Metadata (Title, Members, Admin)
-    const unsubscribeGroup = onSnapshot(doc(db, 'groups', id), (docSnap) => {
+    const unsubscribeGroup = onSnapshot(doc(db, 'groups', id), async (docSnap) => {
       if (docSnap.exists()) {
-        const groupData = { _id: docSnap.id, ...docSnap.data() };
-        dispatch({ type: 'groups/fetchGroup/fulfilled', payload: { data: { group: groupData } } });
+        try {
+          const groupData = await groupService.expandGroupData(docSnap);
+          dispatch({ type: 'groups/fetchGroup/fulfilled', payload: { data: { group: groupData } } });
+        } catch (err) {
+          console.error("Error expanding group snapshot:", err);
+          // Fallback to raw data if expansion fails (minimizes broken UI)
+          const rawData = { _id: docSnap.id, ...docSnap.data() };
+          dispatch({ type: 'groups/fetchGroup/fulfilled', payload: { data: { group: rawData } } });
+        }
       }
     }, (err) => {
+      // Ignore permission errors if we are currently deleting the group
+      if (deletingGroup && err.code === 'permission-denied') return;
       console.error("Group metadata snapshot error:", err);
     });
 
@@ -77,6 +94,9 @@ const GroupDetail = () => {
         ...docSnap.data()
       }));
       dispatch(setExpenses({ expenses: liveExpenses, groupId: id }));
+    }, (err) => {
+      if (deletingGroup && err.code === 'permission-denied') return;
+      console.error("Expenses snapshot error:", err);
     });
 
     // 4. Real-time listener for Settlements
@@ -87,24 +107,39 @@ const GroupDetail = () => {
     const unsubscribeSettlements = onSnapshot(qSettlements, (snapshot) => {
       const liveSettlements = snapshot.docs.map(doc => ({
         _id: doc.id,
+        // Ensure groupId is explicitly attached for filtering
+        groupId: id,
         ...doc.data()
       }));
       setSettlements(liveSettlements);
+    }, (err) => {
+      if (deletingGroup && err.code === 'permission-denied') return;
+      console.error("Settlements snapshot error:", err);
     });
 
     return () => {
+      setSettlements([]); // Immediate clearance of local state
       unsubscribeGroup();
       unsubscribeExpenses();
       unsubscribeSettlements();
     };
   }, [id, dispatch]);
 
-  // High-performance local balance calculation — purely reactive to store/state updates
   const { netBalances, balanceList, debts } = useMemo(() => {
     const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
     if (!activeGrp || !id) return { netBalances: {}, balanceList: [], debts: [] };
 
-    const calculatedBalances = computeGroupBalances(expenses, settlements, activeGrp.members);
+    // Defense in Depth: Filter expenses and settlements with STRICT equality.
+    // This prevents "Zombie Data" (records from other groups or global state
+    // with missing groupId fields) from leaking into the current view.
+    const scopedExpenses = expenses.filter(e => {
+        const eGroupId = e.groupId || (e.group?._id || e.group);
+        return eGroupId === id;
+    });
+    
+    const scopedSettlements = settlements.filter(s => s.groupId === id);
+
+    const calculatedBalances = computeGroupBalances(scopedExpenses, scopedSettlements, activeGrp.members);
     
     const list = Object.keys(calculatedBalances).map(uid => {
       const member = activeGrp.members.find(m => {
@@ -539,9 +574,13 @@ const GroupDetail = () => {
       {/* Settle Up Modal */}
       <SettleUpModal 
         isOpen={showSettleUp} 
-        onClose={() => setShowSettleUp(false)} 
+        onClose={() => {
+          setShowSettleUp(false);
+          setSelectedSettleFriendId(null);
+        }} 
         groupId={id} 
         userId={user?.uid || user?._id}
+        forcedPayeeId={selectedSettleFriendId}
         onSettled={() => {
           // No manual fetch needed anymore, snapshot listeners handle reactivity
           toast.success("Accounts reconciled");

@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- Helper Functions ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(groupId) {
+      let groupPath = /databases/$(database)/documents/groups/$(groupId);
+      return isSignedIn() && exists(groupPath) && request.auth.uid in get(groupPath).data.members;
+    }
+
+    function isAdmin(groupId) {
+      // Handles both 'admin' and 'createdBy' fields for backward compatibility
+      let groupData = get(/databases/$(database)/documents/groups/$(groupId)).data;
+      return isSignedIn() && (request.auth.uid == groupData.admin || request.auth.uid == groupData.createdBy);
+    }
+
+    // --- Collections ---
+
+    // Users: Users can manage their own profile; others can read for name resolution.
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Groups: Members can read. Adms/Creators can manage.
+    match /groups/{groupId} {
+      allow read: if isSignedIn() && (request.auth.uid in resource.data.members || request.query.limit <= 100);
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        request.auth.uid in resource.data.members || 
+        request.resource.data.inviteCode != null // Allow joining via code
+      );
+      allow delete: if isSignedIn() && (
+        request.auth.uid == resource.data.admin || 
+        request.auth.uid == resource.data.createdBy
+      );
+
+      // Subcollection: Expenses
+      match /expenses/{expenseId} {
+        allow read: if isMember(groupId);
+        allow create, update, delete: if isMember(groupId); // Allow all members to split bills
+      }
+
+      // Subcollection: Settlements
+      match /settlements/{settlementId} {
+        allow read: if isMember(groupId);
+        allow create: if isMember(groupId);
+        allow update, delete: if isAdmin(groupId);
+      }
+
+      // Subcollection: Logs (Activity Feed)
+      match /logs/{logId} {
+        allow read: if isMember(groupId);
+        allow create: if isSignedIn();
+        allow update, delete: if false; // Immutable history
+      }
+    }
+
+    // Friend Requests
+    match /friendRequests/{requestId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.from;
+      allow update: if isSignedIn() && request.auth.uid == resource.data.to;
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read, delete: if isSignedIn() && request.auth.uid == resource.data.to;
+      allow create: if isSignedIn();
+    }
+  }
+}

@@ -57,17 +57,23 @@ const expenseService = {
 
   addExpense: async (groupId, data, userId) => {
     if (!userId) throw new Error("Authentication required to record transactions.");
+    if (!groupId) throw new Error("Group ID required for expense");
+    const amount = parseFloat(data.amount || 0);
+    if (isNaN(amount) || amount <= 0) throw new Error("Invalid expense amount");
+    if (amount > 1000000) throw new Error("Expense amount exceeds safety threshold (1M)");
 
     // Calculate splits array from form structure before saving
-    const splits = calculateSplits(data.amount, data.splitType || 'equal', data.splitData || {}, data.participants || []);
+    const splits = calculateSplits(amount, data.splitType || 'equal', data.splitData || {}, data.participants || []);
 
     const payload = clean({
       ...data,
+      amount,
+      groupId, // Explicitly store for easier filtering
       paidBy: data.paidBy || userId,
       paidByName: 'Member', // Fallback for instant resolution
       splits,
       admin: userId, 
-      createdAt: new Date().toISOString(),
+      createdAt: data.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
     
@@ -220,30 +226,38 @@ const expenseService = {
 
   createSettlement: async (groupId, data, userId) => {
     if (!userId) throw new Error("Authentication required to settle up.");
+    if (!groupId) throw new Error("Group ID required for settlement");
+    
+    // Safety check: ensure amount is a valid positive number and not an outlier leakage.
+    // In a personal bill splitting app, a 33k+ single settlement is often a sign of 
+    // global balance leakage or data corruption.
+    const amount = parseFloat(data.amount || 0);
+    if (isNaN(amount) || amount <= 0) throw new Error("Invalid settlement amount");
+    if (amount > 1000000) throw new Error("Settlement amount exceeds safety threshold (1M)");
 
-    const payload = { 
-        ...data, 
-        payer: userId, // Ensure payer field is present for engine
-        createdBy: userId, 
-        createdAt: new Date().toISOString() 
-    };
-
-    // Primary write: Await this only
-    const docRef = await addDoc(collection(db, 'groups', groupId, 'settlements'), payload);
+    const docRef = await addDoc(collection(db, 'groups', groupId, 'settlements'), {
+      payer: userId,
+      payee: data.payee,
+      amount,
+      notes: data.notes || 'Settled up',
+      groupId, 
+      createdAt: new Date().toISOString()
+    });
+    
+    // Log Activity
+    await addDoc(collection(db, 'groups', groupId, 'logs'), {
+      type: 'settlement_added',
+      message: `${userId} recorded a payment to ${data.payee}: ${amount}`,
+      actorId: userId,
+      relatedId: docRef.id,
+      groupId,
+      createdAt: new Date().toISOString()
+    });
 
     // Secondary tasks (non-blocking)
     (async () => {
       try {
         const actorName = await getStoredName(userId, 'Someone');
-        addDoc(collection(db, 'groups', groupId, 'logs'), {
-          type: 'settlement_added',
-          message: `${actorName} recorded a settlement (₹${parseFloat(data.amount || 0).toFixed(2)})`,
-          actorId: userId,
-          actorName,
-          relatedId: docRef.id,
-          createdAt: new Date().toISOString(),
-        }).catch(() => {});
-
         // Create global notification for the payee
         if (data.to && data.to !== userId) {
           createNotification(

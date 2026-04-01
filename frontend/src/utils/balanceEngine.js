@@ -13,7 +13,10 @@ const round2 = (num) => Math.round(num * 100) / 100;
 const extractUid = (user) => {
   if (!user) return null;
   if (typeof user === 'string') return user;
-  return user._id || user.uid || user.id || (user.user && extractUid(user.user));
+  // Handle various object shapes: { _id }, { uid }, { id }, or { user: { _id } }
+  const uid = user._id || user.uid || user.id || 
+              (user.user && (user.user._id || user.user.uid || user.user.id || (typeof user.user === 'string' ? user.user : null)));
+  return uid ? uid.toString() : null;
 };
 
 /**
@@ -124,36 +127,49 @@ export const computeGroupBalances = (expenses = [], settlements = [], groupMembe
   });
 
   // Add from expenses
-  expenses.forEach(expense => {
-    const payerId = extractUid(expense.paidBy);
-    if (!payerId) return;
-    
-    (expense.splits || []).forEach(split => {
-      const splitUserId = extractUid(split.user);
-      if (!splitUserId) return;
+  for (const expense of expenses) {
+    try {
+      const payerId = extractUid(expense.paidBy);
+      if (!payerId) continue;
+
+      // Ensure splits exist
+      const splits = expense.splits || [];
       
-      const amount = round2(parseFloat(split.amount || 0));
-      
-      // The person who paid is owed back
-      if (payerId !== splitUserId) {
-         netBalances[payerId] = round2((netBalances[payerId] || 0) + amount);
-         netBalances[splitUserId] = round2((netBalances[splitUserId] || 0) - amount);
-      }
-    });
-  });
+      splits.forEach(split => {
+        const splitUserId = extractUid(split.user);
+        if (!splitUserId) return;
+        
+        const splitAmount = parseFloat(split.amount || 0);
+        if (isNaN(splitAmount)) return;
+
+        // The person who paid is owed back
+        if (payerId !== splitUserId) {
+           netBalances[payerId] = round2((netBalances[payerId] || 0) + splitAmount);
+           netBalances[splitUserId] = round2((netBalances[splitUserId] || 0) - splitAmount);
+        }
+      });
+    } catch (err) {
+      console.error("Error processing expense for balance:", err, expense);
+    }
+  }
 
   // Add from settlements
-  settlements.forEach(settlement => {
-     const payerId = extractUid(settlement.payer || settlement.createdBy);
-     const payeeId = extractUid(settlement.payee || settlement.recipient);
-     if (!payerId || !payeeId) return;
-     
-     const amount = round2(parseFloat(settlement.amount || 0));
-     
-     // Payer settles debt (less negative), Payee is paid (less positive)
-     netBalances[payerId] = round2((netBalances[payerId] || 0) + amount);
-     netBalances[payeeId] = round2((netBalances[payeeId] || 0) - amount);
-  });
+  for (const settlement of settlements) {
+    try {
+      const payerId = extractUid(settlement.payer || settlement.createdBy);
+      const payeeId = extractUid(settlement.payee || settlement.recipient || settlement.to);
+      if (!payerId || !payeeId || (payerId === payeeId)) continue;
+      
+      const amount = round2(parseFloat(settlement.amount || 0));
+      if (isNaN(amount) || amount <= 0) continue;
+      
+      // Payer settles debt (less negative), Payee is paid (less positive)
+      netBalances[payerId] = round2((netBalances[payerId] || 0) + amount);
+      netBalances[payeeId] = round2((netBalances[payeeId] || 0) - amount);
+    } catch (err) {
+      console.error("Error processing settlement for balance:", err, settlement);
+    }
+  }
 
   return netBalances;
 };

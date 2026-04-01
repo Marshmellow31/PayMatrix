@@ -102,9 +102,31 @@ const groupService = {
     return wrap({ group: { _id: id, ...data } });
   },
 
-  deleteGroup: async (id) => {
-    await deleteDoc(doc(db, 'groups', id));
-    return wrap({ message: 'Group deleted successfully' });
+  deleteGroup: async (id, userId) => {
+    try {
+      // 1. Deep Cleanup: Firestore client-side deletion requires manual removal of subcollections
+      // to satisfy strict security rules and prevent orphaned data leakage.
+      const subcollections = ['expenses', 'settlements', 'logs'];
+      
+      for (const sub of subcollections) {
+        const q = query(collection(db, 'groups', id, sub));
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
+          const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
+          await Promise.all(deletePromises);
+        }
+      }
+
+      // 2. Final step: Delete the parent group document
+      await deleteDoc(doc(db, 'groups', id));
+      
+      return wrap({ message: 'Group and all associated records deleted successfully' });
+    } catch (err) {
+      console.error("[DELETION_FAILED]", err);
+      // Re-throw to be handled by the Redux Thunk
+      throw err;
+    }
   },
 
   addMember: async (groupId, data) => {

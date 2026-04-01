@@ -11,7 +11,7 @@ import expenseService from '../../services/expenseService.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { fetchExpenses } from '../../redux/expenseSlice.js';
 
-const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled }) => {
+const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPayeeId = null }) => {
   const dispatch = useDispatch();
   const { currentGroup } = useSelector((state) => state.groups);
   const [loading, setLoading] = useState(true);
@@ -28,8 +28,15 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled }) => {
     setLoading(true);
     try {
       const res = await expenseService.getUserSettlementPlan(groupId, userId);
-      setTotalOwe(res.data.data.total_owe || 0);
-      setSettlements(res.data.data.settlements || []);
+      let plan = res.data.data.settlements || [];
+      
+      // If forcedPayeeId is provided, filter the plan to only show that person
+      if (forcedPayeeId) {
+        plan = plan.filter(p => p.to === forcedPayeeId);
+      }
+
+      setTotalOwe(plan.reduce((sum, p) => sum + p.amount, 0));
+      setSettlements(plan);
     } catch (err) {
       toast.error('Failed to load settlement plan');
     } finally {
@@ -42,7 +49,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled }) => {
       setPartialPayment(null);
       loadSettlementPlan();
     }
-  }, [isOpen, groupId, userId]);
+  }, [isOpen, groupId, userId, forcedPayeeId]);
 
   const handleSettle = async (payeeId, amount, notes = 'Settled up') => {
     setProcessing(true);
@@ -103,13 +110,15 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled }) => {
       <div className="py-4">
         {loading ? (
           <Loader className="py-12" />
-        ) : totalOwe <= 0 || settlements.length === 0 ? (
+        ) : settlements.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6 border border-primary/20">
               <LucideIcons.CheckCircle size={32} className="text-primary" />
             </div>
             <h3 className="text-xl font-bold font-manrope text-white mb-2 tracking-tight">You are all settled up</h3>
-            <p className="text-sm text-on-surface-variant font-inter">You have no outstanding dues in this group.</p>
+            <p className="text-sm text-on-surface-variant font-inter">
+              {forcedPayeeId ? "You have no outstanding dues with this member." : "You have no outstanding dues in this group."}
+            </p>
             <Button onClick={onClose} className="mt-8 px-8">Close</Button>
           </div>
         ) : (
@@ -124,7 +133,9 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled }) => {
               </Button>
             </div>
 
-            <h4 className="text-sm font-semibold text-on-surface-variant font-inter mt-2 mb-1">Recommended Payments</h4>
+            <h4 className="text-sm font-semibold text-on-surface-variant font-inter mt-2 mb-1">
+              {forcedPayeeId ? "Specific Debt for Reconciliation" : "Recommended Payments"}
+            </h4>
             
             <div className="space-y-3">
               <AnimatePresence>
