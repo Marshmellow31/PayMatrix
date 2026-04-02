@@ -12,44 +12,6 @@ import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 const googleProvider = new GoogleAuthProvider();
 
 const authService = {
-  register: async (data) => {
-    const { email, password, name } = data;
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    
-    await updateFirebaseProfile(user, { displayName: name });
-    
-    // Save to Firestore 'users' collection
-    const userData = {
-      _id: user.uid, // Alias for legacy compatibility
-      uid: user.uid,
-      name: name,
-      nameLowerCase: name?.toLowerCase(),
-      email: email,
-      friends: [],
-      createdAt: new Date().toISOString()
-    };
-    await setDoc(doc(db, 'users', user.uid), userData);
-    
-    return { user: userData, token: user.accessToken };
-  },
-  
-  login: async (data) => {
-    const { email, password } = data;
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
-    const userData = userDoc.exists() ? userDoc.data() : { _id: user.uid, uid: user.uid, email, name: user.displayName, friends: [] };
-    if (!userData._id) userData._id = user.uid; // Migration check
-    if (!userData.friends) {
-      userData.friends = [];
-      await updateDoc(doc(db, 'users', user.uid), { friends: [] });
-    }
-    
-    return { user: userData, token: user.accessToken };
-  },
-  
   googleAuth: async () => {
     const userCredential = await signInWithPopup(auth, googleProvider);
     const user = userCredential.user;
@@ -108,11 +70,6 @@ const authService = {
     
     const updatedDoc = await getDoc(doc(db, 'users', user.uid));
     return { data: { data: { user: updatedDoc.data() } } };
-  },
-  
-  forgotPassword: async (data) => {
-    await sendPasswordResetEmail(auth, data.email);
-    return { data: { status: "success" } };
   }
 };
 

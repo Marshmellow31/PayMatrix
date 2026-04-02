@@ -24,34 +24,6 @@ const initialState = {
   error: null,
 };
 
-// Register
-export const register = createAsyncThunk(
-  'auth/register',
-  async (userData, thunkAPI) => {
-    try {
-      const { user } = await authService.register(userData);
-      localStorage.setItem('paymatrix_user', JSON.stringify(user));
-      return { user };
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.message || 'Registration failed');
-    }
-  }
-);
-
-// Login
-export const login = createAsyncThunk(
-  'auth/login',
-  async (credentials, thunkAPI) => {
-    try {
-      const { user } = await authService.login(credentials);
-      localStorage.setItem('paymatrix_user', JSON.stringify(user));
-      return { user };
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.message || 'Login failed');
-    }
-  }
-);
-
 // Google Auth
 export const googleLogin = createAsyncThunk(
   'auth/googleLogin',
@@ -116,32 +88,6 @@ const authSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Register
-      .addCase(register.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(register.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user;
-      })
-      .addCase(register.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
-      // Login
-      .addCase(login.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(login.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user;
-      })
-      .addCase(login.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
       // Google Login
       .addCase(googleLogin.pending, (state) => {
         state.loading = true;

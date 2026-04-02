@@ -198,9 +198,11 @@ const Friends = () => {
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-[2.5rem] bg-[#1a1a1a] border border-white/5 p-8 sm:p-10"
+        className="relative rounded-[2.5rem] bg-[#1a1a1a] border border-white/5 p-8 sm:p-10"
       >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/[0.02] rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" />
+        <div className="absolute inset-0 rounded-[2.5rem] overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/[0.02] rounded-full -mr-32 -mt-32 blur-3xl" />
+        </div>
         
         <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-8">
           <div className="space-y-2">
