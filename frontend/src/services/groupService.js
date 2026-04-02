@@ -278,7 +278,7 @@ const groupService = {
     const normalizedCode = inviteCode.trim().toUpperCase();
 
     // 1. Find group with this invite code
-    const q = query(collection(db, 'groups'), where('inviteCode', '==', normalizedCode));
+    const q = query(collection(db, 'groups'), where('inviteCode', '==', normalizedCode), limit(1));
     const snap = await getDocs(q);
 
     if (snap.empty) {
