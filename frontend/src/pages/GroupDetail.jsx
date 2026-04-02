@@ -643,7 +643,7 @@ const GroupDetail = () => {
           </div>
           <div className="flex gap-4 w-full">
             <button
-              onClick={handleDeleteGroup}
+              onClick={() => setShowDeleteGroupConfirm(false)}
               disabled={deletingGroup || hasPending}
               className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50"
             >
@@ -661,10 +661,7 @@ const GroupDetail = () => {
                     <span>Deleting...</span>
                   </>
                 ) : (
-                  <>
-                    <Trash2 size={14} />
-                    <span>Delete Forever</span>
-                  </>
+                  <span>Delete Forever</span>
                 )}
               </div>
             </button>
