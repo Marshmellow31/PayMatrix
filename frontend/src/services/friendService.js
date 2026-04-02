@@ -223,6 +223,7 @@ const friendService = {
           });
 
           settlements.forEach(stl => {
+            if (stl.status === 'deleted') return;
             const amt = parseFloat(stl.amount || 0);
             const payerUid = stl.payer?._id || stl.payer?.uid || stl.payer || stl.from || '';
             const payeeUid = stl.payee?._id || stl.payee?.uid || stl.payee || stl.to || '';

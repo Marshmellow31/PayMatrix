@@ -18,17 +18,28 @@ const JoinGroup = () => {
 
   useEffect(() => {
     // 1. If not authenticated, store code and redirect to login
-    if (!user) {
-      localStorage.setItem('pendingInviteCode', code);
-      navigate('/login');
+    // We trim the code here to ensure it's clean before saving/using
+    const cleanCode = code?.trim();
+    if (!cleanCode) {
+      setStatus('error');
+      setError('Invalid invite link.');
       return;
+    }
+
+    if (!user) {
+      localStorage.setItem('pendingInviteCode', cleanCode);
+      // Give the App initialization a small chance to catch up if we just logged in
+      const timeout = setTimeout(() => {
+        if (!user) navigate('/login');
+      }, 500);
+      return () => clearTimeout(timeout);
     }
 
     // 2. Perform the actual join operation
     const joinGroup = async () => {
       try {
         const userId = user.uid || user._id; // Ensure consistent UID usage
-        const response = await groupService.joinGroupByCode(code, userId);
+        const response = await groupService.joinGroupByCode(cleanCode, userId);
         
         setStatus('success');
         setGroupData({ groupId: response.data.data.groupId });

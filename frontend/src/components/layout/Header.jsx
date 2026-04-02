@@ -8,7 +8,7 @@ const Header = ({ onToggleSidebar }) => {
   const { unreadCount } = useSelector((state) => state.notifications);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-surface/80 backdrop-blur-2xl border-b border-white/5">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-white/5">
       <div className="flex items-center justify-between h-20 px-6 lg:px-10">
         {/* Left — Menu + Logo */}
         <div className="flex items-center gap-3">

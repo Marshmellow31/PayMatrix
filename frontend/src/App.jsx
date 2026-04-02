@@ -53,6 +53,8 @@ function App() {
         // User is logged in, set up real-time listener for their profile
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         
+        let firstSnapshotReceived = false;
+
         // Listen for document changes
         const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
@@ -68,8 +70,14 @@ function App() {
               name: firebaseUser.displayName 
             }));
           }
+
+          if (!firstSnapshotReceived) {
+            firstSnapshotReceived = true;
+            setInitializing(false);
+          }
         }, (error) => {
           console.error("Profile snapshot error:", error);
+          if (!firstSnapshotReceived) setInitializing(false);
         });
 
         // 2. Real-time listener for notifications (Unread only for efficiency)
@@ -102,8 +110,8 @@ function App() {
         }
         dispatch(setUser(null));
         dispatch(setNotifications([])); // Clear notifications on logout
+        setInitializing(false);
       }
-      setInitializing(false);
     });
 
     return () => {

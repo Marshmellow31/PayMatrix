@@ -28,7 +28,7 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
     <motion.div
       layout
       onClick={() => setIsExpanded(!isExpanded)}
-      className="p-5 rounded-3xl bg-surface-container-lowest border border-white/5 transition-all duration-300 cursor-pointer overflow-hidden"
+      className="p-3 px-4 rounded-2xl bg-surface-container-low border border-white/5 transition-all duration-300 cursor-pointer overflow-hidden active:scale-[0.99]"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', damping: 20, stiffness: 200 }}
@@ -36,35 +36,35 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
       <div className="flex items-center justify-between gap-6">
         <div className="flex items-center gap-5 flex-1 min-w-0">
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-surface-lowest shadow-inner group-hover/card:scale-110 transition-transform"
+            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/5 border border-white/5 shadow-inner transition-transform"
             style={{ background: `${category?.color || '#ffffff'}10` }}
           >
             {category?.icon ? (
               (() => {
                 const IconComponent = LucideIcons[category.icon];
-                return IconComponent ? <IconComponent size={24} style={{ color: category.color }} /> : <LucideIcons.Hash size={24} />;
+                return IconComponent ? <IconComponent size={20} style={{ color: category.color }} /> : <LucideIcons.Hash size={20} />;
               })()
             ) : (
-              <LucideIcons.Hash size={24} />
+              <LucideIcons.Hash size={20} />
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <h4 className="text-base font-bold font-manrope text-primary tracking-tight truncate">
+            <h4 className="text-[13px] font-black font-manrope text-white tracking-tight uppercase leading-none truncate">
               {expense.title}
             </h4>
-            <p className="text-[10px] text-on-surface-variant font-inter uppercase tracking-widest opacity-60 mt-0.5">
-              Paid by <span className="text-on-surface font-black">{expense.paidByName || expense.paidBy?.name || 'Member'}</span>
+            <p className="text-[9px] text-white/30 font-inter uppercase tracking-[0.2em] font-black mt-1">
+              {expense.paidByName || expense.paidBy?.name || 'Member'}
             </p>
           </div>
         </div>
 
         <div className="text-right flex-shrink-0">
-          <p className="text-lg font-bold text-primary font-manrope tracking-tight">
+          <p className="text-base font-black text-white font-manrope tracking-tight leading-none">
             {formatCurrency(expense.amount)}
           </p>
           {userSplit && (
-            <p className="text-[10px] font-semibold text-on-surface-variant mt-0.5 font-inter uppercase tracking-widest opacity-60">
-              Your Share: {formatCurrency(userSplit.amount)}
+            <p className="text-[9px] font-black text-white/20 mt-1 font-inter uppercase tracking-[0.2em]">
+              Share: {formatCurrency(userSplit.amount)}
             </p>
           )}
         </div>

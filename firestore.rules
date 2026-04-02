@@ -45,7 +45,8 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
         request.auth.uid in resource.data.members || 
-        request.resource.data.inviteCode != null // Allow joining via code
+        // Joining via code: Ensure the invite code isn't being changed and remains valid
+        (request.resource.data.inviteCode == resource.data.inviteCode && resource.data.inviteCode != null)
       );
       allow delete: if isSignedIn() && (
         request.auth.uid == resource.data.admin || 

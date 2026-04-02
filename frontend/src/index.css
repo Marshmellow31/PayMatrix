@@ -77,7 +77,7 @@
 @layer components {
   /* Glass Card - Refined for Digital Obsidian */
   .glass-card {
-    background: rgba(42, 42, 42, 0.4);
+    background: rgba(24, 24, 24, 0.4);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -86,7 +86,7 @@
 
   /* Glass Panel - For Modals and Drawers */
   .glass-panel {
-    background: rgba(28, 27, 27, 0.7);
+    background: rgba(19, 19, 19, 0.7);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -207,7 +207,7 @@
 
   /* Card with surface elevation */
   .elevated-card {
-    background: #2a2a2a;
+    background: #181818;
     border-radius: 16px;
     padding: 24px;
   }

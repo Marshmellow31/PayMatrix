@@ -34,7 +34,7 @@ const GroupDetail = () => {
   const location = useLocation();
   const dispatch = useDispatch();
   const { openAddExpense } = useOutletContext();
-  
+
   // Quick settle deep-linking
   const queryParams = new URLSearchParams(location.search);
   const shouldSettle = queryParams.get('settle') === 'true';
@@ -134,14 +134,14 @@ const GroupDetail = () => {
     // This prevents "Zombie Data" (records from other groups or global state
     // with missing groupId fields) from leaking into the current view.
     const scopedExpenses = expenses.filter(e => {
-        const eGroupId = e.groupId || (e.group?._id || e.group);
-        return eGroupId === id && e.status !== 'deleted';
+      const eGroupId = e.groupId || (e.group?._id || e.group);
+      return eGroupId === id && e.status !== 'deleted';
     });
-    
-    const scopedSettlements = settlements.filter(s => s.groupId === id);
+
+    const scopedSettlements = settlements.filter(s => s.groupId === id && s.status !== 'deleted');
 
     const calculatedBalances = computeGroupBalances(scopedExpenses, scopedSettlements, activeGrp.members);
-    
+
     const list = Object.keys(calculatedBalances).map(uid => {
       const member = activeGrp.members.find(m => {
         const mid = m.user?._id || m.user?.uid || m.user;
@@ -158,9 +158,9 @@ const GroupDetail = () => {
     const hasPending = Object.values(calculatedBalances).some(val => Math.abs(val) > 0.01);
     const myBalance = calculatedBalances[user?._id || user?.uid] || 0;
 
-    return { 
-      netBalances: calculatedBalances, 
-      balanceList: list, 
+    return {
+      netBalances: calculatedBalances,
+      balanceList: list,
       debts: calculatedDebts,
       hasPending,
       myBalance
@@ -171,7 +171,7 @@ const GroupDetail = () => {
   useEffect(() => {
     const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
     if (!activeGrp || activeGrp.inviteCode || !user) return;
-    
+
     // Only admins can generate the initial invite code for legacy groups
     const isAdmin = activeGrp.admin === (user?._id || user?.uid);
     if (isAdmin && isOnline) {
@@ -266,7 +266,7 @@ const GroupDetail = () => {
   };
 
   const activeGroup = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
-  
+
   // Only show the full-page loader if we have NO group data for this ID at all.
   // If we have it in the cache (groups array), we show the content and let snapshots update it.
   if (!activeGroup && groupLoading) return <Loader className="py-20" />;
@@ -274,7 +274,7 @@ const GroupDetail = () => {
 
   const category = GROUP_CATEGORIES.find((c) => c.value === activeGroup.category);
   const isAdmin = activeGroup.admin === (user?._id || user?.uid);
-  const tabs = ['expenses', 'balances', 'members', 'logs'];
+  const tabs = ['expenses', 'members', 'logs'];
 
   // De-duplicate members for accurate count
   const uniqueMembers = Array.from(new Map(
@@ -287,80 +287,78 @@ const GroupDetail = () => {
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in pb-24">
-      {/* Group Header */}
-      <div className="submerged mt-6 mb-8 p-8 lg:p-10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-          <div className="flex items-center gap-6">
-            <div className="w-20 h-20 rounded-2xl flex items-center justify-center bg-surface-lowest shadow-inner" style={{ background: `${category?.color || '#ffffff'}10` }}>
-              {category?.icon ? (
-                (() => {
-                  const IconComponent = LucideIcons[category.icon];
-                  return IconComponent ? <IconComponent size={40} style={{ color: category.color }} /> : <LucideIcons.Hash size={40} />;
-                })()
-              ) : (
-                <LucideIcons.Hash size={40} />
-              )}
-            </div>
-            <div>
-              <h1 className="text-3xl lg:text-4xl font-bold font-manrope text-primary tracking-tight mb-3">{activeGroup.title}</h1>
-              <div className="flex items-center justify-between gap-4 mt-2">
-                <p className="text-xs text-on-surface-variant uppercase tracking-[0.2em] font-inter font-bold opacity-60">
-                  {activeGroup.category} <span className="mx-2 opacity-50">·</span> {uniqueMembers.length} members
-                </p>
-                {isAdmin && (
-                  <button 
-                    onClick={() => isOnline && setShowAddMember(true)} 
-                    disabled={!isOnline}
-                    className={`p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/5 active:scale-95 text-on-surface-variant group ml-auto ${!isOnline ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
-                    title={isOnline ? "Add Member" : "Add Member (Online Only)"}
-                  >
-                    <UserPlus size={18} className="group-hover:text-primary transition-colors" />
-                  </button>
+      {/* Compact Group Header */}
+      <div className="bg-surface-container-low mt-4 mb-6 p-6 rounded-[2rem] border border-white/5">
+        <div className="relative z-10 flex flex-col gap-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shadow-inner backdrop-blur-sm">
+                {category?.icon ? (
+                  (() => {
+                    const IconComponent = LucideIcons[category.icon];
+                    return IconComponent ? <IconComponent size={24} style={{ color: category.color }} /> : <LucideIcons.Hash size={24} />;
+                  })()
+                ) : (
+                  <LucideIcons.Hash size={24} />
                 )}
               </div>
+              <div className="flex flex-col gap-1">
+                <h1 className="text-xl font-black font-manrope text-white tracking-tight uppercase leading-none">{activeGroup.title}</h1>
+                <p className="text-[10px] text-white/30 uppercase tracking-[0.2em] font-black font-manrope">
+                  {activeGroup.category} <span className="mx-1.5 opacity-50">•</span> {uniqueMembers.length} Members
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col gap-4 mt-6 md:mt-0 w-full md:w-auto">
-            <button 
-              onClick={() => openAddExpense(id)} 
-              className="h-12 w-full md:w-80 rounded-2xl font-manrope font-bold text-xs tracking-[0.2em] flex items-center justify-center gap-3 bg-white text-black hover:bg-white/90 transition-all shadow-[0_20px_40px_-10px_rgba(255,255,255,0.1)] active:scale-[0.98] uppercase"
-            >
-              <Plus size={18} strokeWidth={3} /> RECORD EXPENSE
-            </button>
-            
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => isOnline && setShowSettleUp(true)} 
+
+            {isAdmin && (
+              <button
+                onClick={() => isOnline && setShowAddMember(true)}
                 disabled={!isOnline}
-                className={`h-12 px-6 rounded-2xl font-manrope font-bold text-xs tracking-widest flex items-center justify-center gap-3 bg-surface-container-highest/40 text-on-surface transition-all border border-white/5 active:scale-95 flex-1 md:flex-none uppercase ${!isOnline ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:bg-surface-container-highest/60'}`}
+                className={`w-10 h-10 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] transition-all border border-white/5 active:scale-90 text-white/40 flex items-center justify-center ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:text-primary'}`}
+                title="Add Member"
               >
-                <WalletCards size={18} className={isOnline ? "text-primary" : "text-white/20"} /> 
-                {isOnline ? 'SETTLE UP' : 'OFFLINE'}
+                <UserPlus size={18} />
               </button>
-              
-              <ExportActions group={activeGroup} expenses={expenses} balances={balances} iconOnly={true} />
-            </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => openAddExpense(id)}
+              className="h-11 px-6 rounded-xl font-manrope font-black text-[10px] tracking-[0.2em] flex items-center justify-center gap-3 bg-white text-black hover:bg-white/90 transition-all active:scale-[0.97] uppercase shadow-lg shadow-white/5"
+            >
+              <Plus size={16} strokeWidth={4} /> Record Expense
+            </button>
+
+            <button
+              onClick={() => isOnline && setShowSettleUp(true)}
+              disabled={!isOnline}
+              className={`h-11 px-5 rounded-xl font-manrope font-black text-[10px] tracking-[0.2em] flex items-center justify-center gap-3 bg-white/[0.03] text-white/60 transition-all border border-white/5 active:scale-[0.97] uppercase ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:bg-white/[0.08] hover:text-white'}`}
+            >
+              <WalletCards size={16} />
+              Settle Up
+            </button>
           </div>
         </div>
       </div>
 
 
       {/* Tabs */}
-      <div 
+      <div
         className="flex gap-8 mb-6 pb-0 overflow-x-auto hide-scrollbar"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {tabs.map((t) => (
-          <button 
-            key={t} 
-            onClick={() => setTab(t)} 
+          <button
+            key={t}
+            onClick={() => setTab(t)}
             className={`pb-3 text-sm font-bold font-inter capitalize transition-all whitespace-nowrap relative tracking-tight ${tab === t ? 'text-primary' : 'text-on-surface-variant/50 hover:text-on-surface'}`}
           >
             {t}
             {tab === t && (
-              <motion.div 
-                layoutId="activeTab" 
-                className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-full" 
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-full"
               />
             )}
           </button>
@@ -369,23 +367,23 @@ const GroupDetail = () => {
 
       {/* Tab Content */}
       {tab === 'expenses' && (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {(() => {
             const visibleExpenses = expenses.filter(e => e.status !== 'deleted');
-            
+
             if (expenseLoading && visibleExpenses.length === 0) return <Loader className="py-12" />;
             if (visibleExpenses.length === 0) return (
               <div className="submerged text-center py-16 border-none">
                 <p className="text-lg font-inter text-on-surface-variant">No expenses yet. Time to split a bill!</p>
               </div>
             );
-            
+
             return visibleExpenses.map((expense) => (
-              <ExpenseCard 
-                key={expense._id} 
-                expense={expense} 
-                currentUserId={user?._id || user?.uid} 
-                onDelete={handleDeleteExpense} 
+              <ExpenseCard
+                key={expense._id}
+                expense={expense}
+                currentUserId={user?._id || user?.uid}
+                onDelete={handleDeleteExpense}
                 onEdit={(exp) => openAddExpense(id, exp)}
               />
             ));
@@ -393,33 +391,24 @@ const GroupDetail = () => {
         </div>
       )}
 
-      {tab === 'balances' && (
-        <div className="flex flex-col gap-6">
-          <div className="glass-card p-6 lg:p-10">
-            <h3 className="text-sm font-semibold text-on-surface-variant mb-6 uppercase tracking-widest font-inter">Net Balances</h3>
-            <BalanceSummary balances={balances} />
-          </div>
-
-        </div>
-      )}
 
       {tab === 'members' && (
         <div className="flex flex-col gap-6">
           <div className="glass-card p-6 lg:p-10">
-            <MemberList 
-              members={activeGroup.members} 
-              adminId={activeGroup.admin} 
+            <MemberList
+              members={activeGroup.members}
+              adminId={activeGroup.admin}
               balances={balances}
               groupId={id}
               onMemberRemoved={() => dispatch(fetchGroup(id))}
               currentUserId={user?._id}
             />
           </div>
-          
+
           {/* Non-admin: Leave group */}
           {!isAdmin && (
             <div className="px-1">
-              <button 
+              <button
                 onClick={() => isOnline && setShowLeaveConfirm(true)}
                 disabled={!isOnline || Math.abs(myBalance) > 0.01}
                 className={`w-full py-4 rounded-2xl border text-xs font-black tracking-[0.2em] uppercase transition-all active:scale-[0.98] ${(!isOnline || Math.abs(myBalance) > 0.01) ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500'}`}
@@ -439,7 +428,7 @@ const GroupDetail = () => {
                     <p className="text-sm font-bold text-white/80">Delete This Group</p>
                     <p className="text-[11px] text-white/30 mt-0.5 font-inter">Permanently removes the group and all its data.</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => isOnline && setShowDeleteGroupConfirm(true)}
                     disabled={!isOnline || hasPending}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0 ${(!isOnline || hasPending) ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500'}`}
@@ -456,7 +445,10 @@ const GroupDetail = () => {
 
       {tab === 'logs' && (
         <div className="glass-card p-6 lg:p-10">
-          <h3 className="text-sm font-semibold text-on-surface-variant mb-10 uppercase tracking-widest font-inter">Recent Activity</h3>
+          <div className="flex items-center justify-between mb-10">
+            <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-widest font-inter">Recent Activity</h3>
+            <ExportActions group={activeGroup} expenses={expenses} balances={balances} />
+          </div>
           <ActivityFeed groupId={id} />
         </div>
       )}
@@ -464,15 +456,15 @@ const GroupDetail = () => {
       {/* Add Member Modal */}
       <Modal isOpen={showAddMember} onClose={() => setShowAddMember(false)} title="Add Member" size="md">
         <div className="flex flex-col gap-8 py-4">
-          
+
           {/* Quick Selection for Friends */}
           <div className="flex flex-col gap-3">
             <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">
               Select From Friends
             </h4>
-            
+
             {selectedFriend ? (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.04] border border-white/5"
@@ -480,7 +472,7 @@ const GroupDetail = () => {
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
                     <p className="text-sm font-black text-black">
-                      {selectedFriend.name.substring(0,1).toUpperCase()}
+                      {selectedFriend.name.substring(0, 1).toUpperCase()}
                     </p>
                   </div>
                   <div className="flex flex-col">
@@ -489,13 +481,13 @@ const GroupDetail = () => {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onClick={() => setSelectedFriend(null)}
                     className="h-10 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase text-white transition-all"
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={handleAddFriend}
                     className="h-10 px-6 rounded-xl bg-white text-black hover:bg-white/90 text-[10px] font-black uppercase transition-all shadow-xl"
                   >
@@ -505,21 +497,21 @@ const GroupDetail = () => {
               </motion.div>
             ) : loadingFriends ? (
               <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                {[1,2,3].map(i => (
+                {[1, 2, 3].map(i => (
                   <div key={i} className="w-12 h-12 rounded-full bg-white/5 animate-pulse shrink-0" />
                 ))}
               </div>
             ) : friends.length > 0 ? (
               <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
                 {friends.map(friend => (
-                  <button 
+                  <button
                     key={friend._id}
                     onClick={() => setSelectedFriend(friend)}
                     className="flex flex-col items-center gap-2 group shrink-0"
                   >
                     <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 group-hover:bg-primary group-hover:border-primary flex items-center justify-center transition-all">
                       <p className="text-sm font-black font-manrope group-hover:text-black">
-                        {friend.name.substring(0,1).toUpperCase()}
+                        {friend.name.substring(0, 1).toUpperCase()}
                       </p>
                     </div>
                     <span className="text-[9px] font-bold text-white/40 group-hover:text-white uppercase truncate w-14 text-center">
@@ -541,13 +533,13 @@ const GroupDetail = () => {
             <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">Invite by Email</h4>
             <div className="flex gap-3 items-end">
               <div className="flex-1">
-                <Input 
-                  type="email" 
-                  value={memberEmail} 
-                  onChange={(e) => setMemberEmail(e.target.value)} 
-                  placeholder="member@example.com" 
-                  required 
-                  id="member-email" 
+                <Input
+                  type="email"
+                  value={memberEmail}
+                  onChange={(e) => setMemberEmail(e.target.value)}
+                  placeholder="member@example.com"
+                  required
+                  id="member-email"
                   className="h-14 bg-white/[0.03]"
                 />
               </div>
@@ -564,14 +556,14 @@ const GroupDetail = () => {
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
               <div className="flex-1 overflow-hidden">
                 <p className="text-sm font-mono text-white/40 truncate">
-                  {activeGroup?.inviteCode 
+                  {activeGroup?.inviteCode
                     ? `${window.location.origin}/join/${activeGroup.inviteCode}`
                     : 'Generating invite link...'
                   }
                 </p>
               </div>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 onClick={() => {
                   const link = `${window.location.origin}/join/${activeGroup.inviteCode}`;
                   navigator.clipboard.writeText(link);
@@ -588,13 +580,13 @@ const GroupDetail = () => {
       </Modal>
 
       {/* Settle Up Modal */}
-      <SettleUpModal 
-        isOpen={showSettleUp} 
+      <SettleUpModal
+        isOpen={showSettleUp}
         onClose={() => {
           setShowSettleUp(false);
           setSelectedSettleFriendId(null);
-        }} 
-        groupId={id} 
+        }}
+        groupId={id}
         userId={user?.uid || user?._id}
         forcedPayeeId={selectedSettleFriendId}
         onSettled={() => {
@@ -607,8 +599,8 @@ const GroupDetail = () => {
       <Modal isOpen={showLeaveConfirm} onClose={() => setShowLeaveConfirm(false)} title="Exit Cohort" size="sm">
         <div className="flex flex-col gap-6 py-4">
           <p className="text-sm font-medium text-on-surface-variant font-inter leading-relaxed">
-            Are you sure you want to leave this cohort? This action is permanent. 
-            <br/><br/>
+            Are you sure you want to leave this cohort? This action is permanent.
+            <br /><br />
             You can only exit if your net balance is <span className="text-white font-bold">₹0.00</span>.
           </p>
           <div className="flex gap-4 w-full">
@@ -636,8 +628,8 @@ const GroupDetail = () => {
             <p className="text-sm font-medium text-on-surface-variant font-inter leading-relaxed">
               Are you sure you want to permanently delete{' '}
               <span className="text-white font-bold">"{activeGroup?.title}"</span>?
-              <br/><br/>
-              This will remove the group and all associated data. 
+              <br /><br />
+              This will remove the group and all associated data.
               <span className="text-red-400 font-semibold"> This action cannot be undone.</span>
             </p>
           </div>

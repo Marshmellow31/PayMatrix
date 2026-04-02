@@ -275,12 +275,14 @@ const groupService = {
     if (!userId) throw new Error("Authentication session not found. Please log in.");
     if (!inviteCode) throw new Error("Invite code is missing.");
 
+    const normalizedCode = inviteCode.trim().toUpperCase();
+
     // 1. Find group with this invite code
-    const q = query(collection(db, 'groups'), where('inviteCode', '==', inviteCode.toUpperCase()));
+    const q = query(collection(db, 'groups'), where('inviteCode', '==', normalizedCode));
     const snap = await getDocs(q);
 
     if (snap.empty) {
-      throw new Error("Invalid or expired invite link.");
+      throw new Error("Invalid or expired invite link. Please ask the group admin for a new link.");
     }
 
     const groupDoc = snap.docs[0];

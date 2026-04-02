@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase.js';
 import useAuth from '../hooks/useAuth.js';
@@ -145,11 +146,11 @@ const Profile = () => {
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in pb-24 px-4 sm:px-6">
-      <div className="mb-8 pt-6">
-        <h1 className="text-4xl lg:text-5xl font-black font-manrope text-white tracking-[-0.04em] mb-2">
+      <div className="mb-6 pt-6">
+        <h1 className="text-2xl lg:text-3xl font-black font-manrope text-white tracking-[-0.04em] mb-1">
           {isOwnProfile ? 'Security & Identity' : 'Network Node'}
         </h1>
-        <p className="text-sm md:text-base text-on-surface-variant font-inter opacity-60">
+        <p className="text-[11px] md:text-sm text-on-surface-variant font-inter opacity-60">
           {isOwnProfile
             ? 'Manage your network presence and archived data exports.'
             : 'Operational details and connection status for this node.'}
@@ -186,74 +187,82 @@ const Profile = () => {
           <div className="glass-card overflow-hidden border border-white/5 relative">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50 opacity-20" />
 
-            <div className="p-6 lg:p-10">
-              <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
-                <div className="relative group">
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-row items-center gap-3 sm:gap-4">
+                <div className="relative group shrink-0">
                   <div className="absolute -inset-1 bg-primary/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500" />
                   <Avatar
                     name={displayUser?.name}
                     src={displayUser?.avatar}
                     size="xl"
-                    className="relative w-28 h-28 text-3xl border-4 border-white/5 shadow-2xl"
+                    className="relative w-16 h-16 text-lg border-4 border-white/5 shadow-2xl"
                   />
                 </div>
 
-                <div className="flex-1 text-center md:text-left space-y-4">
+                <div className="flex-1 text-left space-y-4">
                   {editing ? (
-                    <div className="space-y-4 max-w-md mx-auto md:mx-0">
-                      <div className="space-y-2">
+                    <div className="space-y-4 max-w-md text-left">
+                      <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-1">Identity Name</label>
                         <Input
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           id="profile-name"
-                          className="h-14 bg-white/[0.03] text-lg font-bold"
+                          className="h-11 bg-white/[0.03] text-lg font-bold"
                           disabled={!isOnline}
                         />
                       </div>
-                      <div className="flex gap-3">
-                        <Button onClick={handleSave} className="h-12 px-8 font-black uppercase text-[10px] tracking-widest" disabled={!isOnline || !name.trim()}>
-                          {isOnline ? 'Save Changes' : 'Offline'}
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button onClick={handleSave} className="h-9 px-1 font-black uppercase text-[9.5px] tracking-widest flex items-center justify-center gap-1" disabled={!isOnline || !name.trim()}>
+                          {isOnline ? (
+                            <>
+                              <Save size={12} />
+                              <span>Save</span>
+                            </>
+                          ) : (
+                            'Offline'
+                          )}
                         </Button>
-                        <Button variant="ghost" onClick={() => setEditing(false)} className="h-12 px-6 font-black uppercase text-[10px] tracking-widest bg-white/5">
+                        <Button variant="ghost" onClick={() => setEditing(false)} className="h-9 px-1 font-black uppercase text-[9.5px] tracking-widest bg-white/5 flex items-center justify-center gap-1">
                           Cancel
                         </Button>
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      <h2 className="text-4xl font-extrabold font-manrope text-white tracking-tight">{displayUser?.name}</h2>
-                      <div className="flex items-center justify-center md:justify-start gap-2 text-on-surface-variant opacity-60">
-                        <Mail size={14} />
-                        <span className="text-sm font-medium font-inter">{displayUser?.email}</span>
+                    <div className="space-y-0.5">
+                      <h2 className="text-2xl font-black font-manrope text-white tracking-tight">{displayUser?.name}</h2>
+                      <div className="flex items-center justify-start gap-2 text-on-surface-variant opacity-60">
+                        <Mail size={12} />
+                        <span className="text-xs font-medium font-inter">{displayUser?.email}</span>
                       </div>
                     </div>
                   )}
 
                   {!editing && isOwnProfile && (
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-2">
+                    <div className="grid grid-cols-2 gap-2 mt-1.5">
                       <Button
                         variant="ghost"
-                        className={`h-11 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-white/5 hover:bg-white/10 border border-white/5 active:scale-95 ${!isOnline ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
+                        className={`h-9 px-1 rounded-xl text-[9.5px] font-black uppercase tracking-widest transition-all bg-white/5 hover:bg-white/10 border border-white/5 active:scale-95 flex items-center justify-center gap-1.5 ${!isOnline ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
                         onClick={() => isOnline && setEditing(true)}
                         disabled={!isOnline}
                       >
-                        <User size={14} className="mr-2 opacity-50" />
-                        {isOnline ? 'Edit Identity' : 'Updates Blocked'}
+                        <User size={12} className="opacity-50 text-primary" />
+                        <span>{isOnline ? 'Edit' : 'Offline'}</span>
                       </Button>
 
                       <Button
                         variant="danger"
-                        className="h-11 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center"
+                        className="h-9 px-1 rounded-xl text-[9.5px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1.5"
                         onClick={logout}
                       >
-                        <LogOut size={14} className="mr-2 opacity-70" /> Terminate
+                        <LogOut size={12} className="opacity-70" />
+                        <span>Terminate</span>
                       </Button>
                     </div>
                   )}
 
                   {!isOwnProfile && (
-                    <div className="mt-2 flex flex-wrap items-center justify-center md:justify-start gap-2">
+                    <div className="mt-2 flex flex-wrap items-center justify-start gap-2">
                       <span className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/40">Verified Connection</span>
                       {/* Payment method availability badge */}
                       {hasPaymentMethod(targetUser) ? (
@@ -276,53 +285,49 @@ const Profile = () => {
         {/* ── Payment Details Card (own profile only) ── */}
         {isOwnProfile && (
           <div className="lg:col-span-12">
-            <div className="glass-card p-10 border border-white/5 bg-white/[0.01] relative overflow-hidden">
+            <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01] relative overflow-hidden">
               {/* Subtle accent line */}
               <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
 
-              <div className="flex items-center gap-3 mb-8">
-                <div className="p-2 bg-emerald-500/10 rounded-lg">
-                  <div className="w-8 h-8 flex items-center justify-center">
-                    <CreditCard size={18} className="text-emerald-400" />
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center shrink-0 border border-emerald-500/20 shadow-[0_0_20px_-5px_rgba(16,185,129,0.1)]">
+                  <CreditCard size={20} className="text-emerald-400" />
+                </div>
+                <div className="flex-1 space-y-1 mt-1">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-black text-white/60 uppercase tracking-[0.2em] font-manrope">Payment Details</h3>
+                    {userHasPayment ? (
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/15 text-emerald-400 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm">
+                        <CheckCircle2 size={10} /> UPI ACTIVE
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/15 text-amber-400/80 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm">
+                        <AlertTriangle size={10} /> NO UPI ID
+                      </span>
+                    )}
                   </div>
+                  <p className="text-xs text-white/30 font-inter leading-relaxed">Connect your UPI ID to receive payments directly with real-time verification.</p>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] font-manrope">Payment Details</h3>
-                  <p className="text-[11px] text-white/20 font-inter mt-0.5">Connect your UPI ID to receive payments directly</p>
-                </div>
-                {/* Status pill */}
-                {userHasPayment ? (
-                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-wider shrink-0">
-                    <CheckCircle2 size={10} /> UPI Active
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/80 text-[9px] font-black uppercase tracking-wider shrink-0">
-                    <AlertTriangle size={10} /> No UPI ID
-                  </span>
-                )}
               </div>
 
               <div className="space-y-6">
                 {/* UPI ID */}
                 <div className="space-y-3">
-                  <label className="flex items-center gap-2 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-1">
-                    <AtSign size={11} />
-                    UPI ID
-                  </label>
-                  <div className="relative">
+                  <div className="flex items-center justify-between px-1">
+                    <label className="flex items-center gap-2 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">
+                      <AtSign size={11} />
+                      UPI ID
+                    </label>
+                  </div>
+                  <div className="relative group">
                     <Input
                       id="upi-id"
                       value={upiId}
                       onChange={(e) => { setUpiId(e.target.value); setPaymentError(''); }}
                       placeholder="example@okhdfc"
-                      className="h-14 bg-white/[0.03] font-mono text-sm pr-28 text-white"
+                      className="h-14 bg-white/[0.03] font-manrope text-base text-white focus:bg-white/[0.05] transition-all"
                       disabled={!isOnline || savingPayment}
                     />
-                    {upiId && validateUPIId(upiId) && (
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[9px] font-black text-emerald-400 uppercase tracking-wider">
-                        <CheckCircle2 size={12} /> Valid
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -364,37 +369,34 @@ const Profile = () => {
         {/* ── Preferred Payment App Card (own profile only) ── */}
         {isOwnProfile && (
           <div className="lg:col-span-12">
-            <div className="glass-card p-10 border border-white/5 bg-white/[0.01] relative overflow-hidden">
+            <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01] relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
 
-              <div className="flex items-center justify-between gap-3 mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-violet-500/10 rounded-lg">
-                    <div className="w-8 h-8 flex items-center justify-center">
-                      <Smartphone size={20} className="text-violet-400" />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] font-manrope">Preferred Payment App</h3>
-                    <p className="text-[11px] text-white/20 font-inter mt-0.5">Choose which UPI app opens when you pay</p>
-                  </div>
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center shrink-0 border border-violet-500/20 shadow-[0_0_20px_-5px_rgba(139,92,246,0.1)]">
+                  <Smartphone size={20} className="text-violet-400" />
                 </div>
-                {/* Current selection pill */}
-                <span className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[9px] font-black uppercase tracking-wider shrink-0">
-                  {(() => {
-                    const currentApp = UPI_APPS.find(a => a.id === preferredApp);
-                    if (currentApp?.id === 'default') return <Smartphone size={11} />;
-                    return (
-                      <img
-                        src={currentApp?.icon}
-                        alt={currentApp?.label}
-                        className="w-3.5 h-3.5 object-contain"
-                      />
-                    );
-                  })()}
-                  &nbsp;
-                  {UPI_APPS.find(a => a.id === preferredApp)?.shortLabel || 'Default'}
-                </span>
+                <div className="flex-1 space-y-1 mt-1">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h3 className="text-sm font-black text-white/60 uppercase tracking-[0.2em] font-manrope">Preferred App</h3>
+                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm">
+                      {(() => {
+                        const currentApp = UPI_APPS.find(a => a.id === preferredApp);
+                        if (currentApp?.id === 'default') return <Smartphone size={10} />;
+                        return (
+                          <img
+                            src={currentApp?.icon}
+                            alt={currentApp?.label}
+                            className="w-3 h-3 object-contain"
+                          />
+                        );
+                      })()}
+                      &nbsp;
+                      {UPI_APPS.find(a => a.id === preferredApp)?.shortLabel || 'Default'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/30 font-inter leading-relaxed">Choose which UPI application should trigger for instant settlements.</p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mb-8">
@@ -482,14 +484,14 @@ const Profile = () => {
 
         {/* System Settings & Assets */}
         <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="glass-card p-10 border border-white/5 bg-white/[0.01]">
-            <div className="flex items-center gap-3 mb-8">
+          <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01]">
+            <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <Settings size={18} />
+                <div className="w-7 h-7 flex items-center justify-center">
+                  <Settings size={16} />
                 </div>
               </div>
-              <h3 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] font-manrope">System</h3>
+              <h3 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] font-manrope">System</h3>
             </div>
 
             <div className="space-y-6">
@@ -529,6 +531,7 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(null);
+  const [expandedGroupId, setExpandedGroupId] = useState(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -585,12 +588,12 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
   if (loading) return null;
 
   return (
-    <div className="glass-card p-10 border-primary/10 bg-primary/[0.01]">
-      <div className="flex items-center gap-3 mb-8">
+    <div className="glass-card p-6 sm:p-8 border-primary/10 bg-primary/[0.01]">
+      <div className="flex items-center gap-3 mb-6">
         <div className="p-2 bg-primary/10 rounded-lg text-primary">
-          {isFriendView ? <Flame size={18} /> : <Archive size={18} />}
+          {isFriendView ? <Flame size={16} /> : <Archive size={16} />}
         </div>
-        <h3 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] font-manrope text-primary/60">
+        <h3 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] font-manrope text-primary/60">
           {isFriendView ? 'Mutual Cohorts' : 'Archived Cohorts'}
         </h3>
       </div>
@@ -603,36 +606,86 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
             </p>
           </div>
         ) : (
-          groups.map(group => (
-            <div key={group._id} className="flex flex-col sm:flex-row sm:items-center justify-between p-6 rounded-3xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all group gap-6">
-              <div className="flex flex-col gap-2">
-                <span className="text-lg font-black text-white group-hover:text-primary transition-colors tracking-tight">{group.title}</span>
-                <div className="flex items-center gap-3">
-                  <span className={`text-[9px] font-black uppercase tracking-[0.15em] px-3 py-1 rounded-full ${group.status === 'deleted' ? 'bg-red-500/10 text-red-400 border border-red-500/10' : 'bg-white/5 text-white/40 border border-white/5'}`}>
-                    {group.status === 'deleted' ? 'Deleted' : 'Former Member'}
-                  </span>
-                  <span className="text-[10px] text-white/20 font-inter font-bold">• {new Date(group.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}</span>
-                </div>
-              </div>
-              <button
-                onClick={() => handleExport(group)}
-                disabled={exporting === group._id}
-                className="h-12 px-6 rounded-2xl bg-white/5 hover:bg-white/10 text-[10px] font-black text-white uppercase tracking-[0.2em] transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 border border-white/5"
+          groups.map(group => {
+            const isExpanded = expandedGroupId === group._id;
+
+            return (
+              <div 
+                key={group._id} 
+                className={`flex flex-col rounded-3xl bg-white/[0.02] border transition-all duration-300 overflow-hidden ${
+                  isExpanded ? 'border-primary/30 bg-primary/[0.03]' : 'border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
+                }`}
               >
-                {exporting === group._id ? (
-                  <>
-                    <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    <span>Preparing...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download size={16} className="opacity-60" />
-                    <span>Generate Report</span>
-                  </>
-                )}
-              </button>
-            </div>
-          ))
+                {/* Header Row (Click to toggle) */}
+                <div 
+                  onClick={() => setExpandedGroupId(isExpanded ? null : group._id)}
+                  className="flex items-center justify-between p-5 cursor-pointer select-none group"
+                >
+                  <div className="flex flex-col gap-1">
+                    <span className={`text-md font-black transition-colors ${isExpanded ? 'text-primary' : 'text-white'}`}>
+                      {group.title}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-[8px] font-black uppercase tracking-[0.15em] px-2 py-0.5 rounded-full ${
+                        group.status === 'deleted' ? 'bg-red-500/10 text-red-400 border border-red-500/10' : 'bg-white/5 text-white/40 border border-white/5'
+                      }`}>
+                        {group.status === 'deleted' ? 'Deleted' : 'Former Member'}
+                      </span>
+                      <span className="text-[9px] text-white/20 font-inter font-bold">
+                        • {new Date(group.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Indicator Icon */}
+                  <motion.div
+                    animate={{ rotate: isExpanded ? 180 : 0 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center border ${
+                      isExpanded ? 'bg-primary/20 border-primary/40 text-primary' : 'bg-white/5 border-white/10 text-white/30 group-hover:text-white/60'
+                    }`}
+                  >
+                    <Smartphone size={14} className={isExpanded ? 'rotate-180' : ''} />
+                  </motion.div>
+                </div>
+
+                {/* Expanded Drawer */}
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    >
+                      <div className="px-5 pb-5 pt-1 border-t border-white/5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExport(group);
+                          }}
+                          disabled={exporting === group._id}
+                          className="h-11 w-full rounded-2xl bg-white/5 hover:bg-white/10 text-[10px] font-black text-white uppercase tracking-[0.2em] transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 border border-white/5 shadow-inner"
+                        >
+                          {exporting === group._id ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                              <span>Preparing...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Download size={16} className="opacity-60 text-primary" />
+                              <span>Generate Report</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })
         )}
       </div>
     </div>

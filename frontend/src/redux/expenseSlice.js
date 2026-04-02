@@ -59,6 +59,26 @@ export const updateExpense = createAsyncThunk('expenses/update', async ({ id, da
   }
 });
 
+export const deleteSettlement = createAsyncThunk('settlements/delete', async ({ id, groupId }, thunkAPI) => {
+  try {
+    const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
+    await expenseService.deleteSettlement(id, groupId, userId);
+    return id;
+  } catch (error) {
+    return thunkAPI.rejectWithValue(error.message || 'Failed to delete settlement');
+  }
+});
+
+export const undoDeleteSettlement = createAsyncThunk('settlements/restore', async ({ id, groupId }, thunkAPI) => {
+  try {
+    const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
+    await expenseService.restoreSettlement(id, groupId, userId);
+    return id;
+  } catch (error) {
+    return thunkAPI.rejectWithValue(error.message || 'Failed to restore settlement');
+  }
+});
+
 const expenseSlice = createSlice({
   name: 'expenses',
   initialState,

@@ -49,7 +49,7 @@ const expenseService = {
     }
     const expenses = querySnapshot.docs
       .map(doc => ({ _id: doc.id, ...doc.data() }))
-      .filter(exp => exp.status !== 'deleted');
+      .filter(exp => exp.status !== 'deleted' && exp.status !== 'archived');
     
     // Mimic the backend pagination signature
     return wrap({ expenses, totalPages: 1, currentPage: 1 });
@@ -297,8 +297,8 @@ const expenseService = {
        grpSnap = await getDocFromCache(grpRef).catch(() => null);
      }
      
-     const expenses = expSnap.docs.map(d => d.data());
-     const settlements = stlSnap.docs.map(d => d.data());
+     const expenses = expSnap.docs.map(d => ({ _id: d.id, ...d.data() })).filter(e => e.status !== 'deleted');
+     const settlements = stlSnap.docs.map(d => ({ _id: d.id, ...d.data() })).filter(s => s.status !== 'deleted');
      const groupMembers = (grpSnap.exists() && grpSnap.data().members) || [];
      
      const balances = computeGroupBalances(expenses, settlements, groupMembers.map(uid => ({ uid })));
@@ -315,8 +315,84 @@ const expenseService = {
       const { getDocsFromCache } = await import('firebase/firestore');
       querySnapshot = await getDocsFromCache(q);
     }
-    const settlements = querySnapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+    const settlements = querySnapshot.docs
+      .map(doc => ({ _id: doc.id, ...doc.data() }))
+      .filter(s => s.status !== 'deleted');
     return wrap({ settlements });
+  },
+
+  deleteSettlement: async (id, groupId, userId) => {
+    if (!groupId) throw new Error("deleteSettlement requires groupId");
+    const docRef = doc(db, 'groups', groupId, 'settlements', id);
+    
+    // Soft-delete
+    updateDoc(docRef, { 
+      status: 'deleted', 
+      updatedAt: new Date().toISOString() 
+    }).catch(err => console.error("[OFFLINE_SYNC_ERROR] Settlement soft-delete failed:", err));
+
+    // Log the deletion
+    (async () => {
+      try {
+        const [settSnap, actorName] = await Promise.all([
+          getDoc(docRef).catch(() => null),
+          getStoredName(userId, 'Someone')
+        ]);
+        
+        let amount = 0;
+        let payeeName = 'someone';
+        if (settSnap?.exists()) {
+          const data = settSnap.data();
+          amount = data.amount || 0;
+          payeeName = await getStoredName(data.payee, 'Member');
+        }
+
+        addDoc(collection(db, 'groups', groupId, 'logs'), {
+          type: 'settlement_deleted',
+          message: `${actorName} deleted a settlement of ₹${amount.toFixed(2)} to ${payeeName}`,
+          actorId: userId || 'unknown',
+          actorName,
+          relatedId: id,
+          createdAt: new Date().toISOString(),
+        }).catch(() => {});
+      } catch (_) {}
+    })().catch(() => {});
+
+    updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+    return wrap({ message: 'Settlement deleted' });
+  },
+
+  restoreSettlement: async (id, groupId, userId) => {
+    if (!groupId) throw new Error("restoreSettlement requires groupId");
+    const docRef = doc(db, 'groups', groupId, 'settlements', id);
+
+    try {
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) return wrap({ error: 'Settlement record not found.' }, 404);
+
+      await updateDoc(docRef, { 
+        status: 'active', 
+        updatedAt: new Date().toISOString() 
+      });
+
+      const actorName = await getStoredName(userId, 'Someone');
+      const data = snap.data();
+      const payeeName = await getStoredName(data.payee, 'Member');
+      
+      await addDoc(collection(db, 'groups', groupId, 'logs'), {
+        type: 'settlement_restored',
+        message: `${actorName} restored a settlement of ₹${(data.amount || 0).toFixed(2)} to ${payeeName}`,
+        actorId: userId || 'unknown',
+        actorName,
+        relatedId: id,
+        createdAt: new Date().toISOString(),
+      }).catch(() => {});
+
+      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+      return wrap({ message: 'Settlement restored' });
+    } catch (err) {
+      throw err;
+    }
   },
 
   createSettlement: async (groupId, data, userId) => {
@@ -428,7 +504,7 @@ const expenseService = {
         
         // Category distribution (Your actual share) - SKIP DELETED
         expenses.forEach(exp => {
-          if (exp.status === 'deleted') return;
+          if (exp.status === 'deleted' || exp.status === 'archived') return;
           
           // Find the user's specific share in this expense
           const userSplit = exp.splits?.find(s => {
@@ -444,7 +520,9 @@ const expenseService = {
         // Compute balances
         const groupDoc = groupSnap.docs.find(d => d.id === groupId);
         const members = groupDoc.data().members || [];
-        const balances = computeGroupBalances(expenses, settlements, members.map(uid => ({ uid })));
+        const activeExpenses = expenses.filter(e => e.status !== 'deleted');
+        const activeSettlements = settlements.filter(s => s.status !== 'deleted');
+        const balances = computeGroupBalances(activeExpenses, activeSettlements, members.map(uid => ({ uid })));
         const myBalance = balances[userId] || 0;
 
         groupBalances[groupId] = myBalance;

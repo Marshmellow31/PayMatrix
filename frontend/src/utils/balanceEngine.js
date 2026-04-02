@@ -158,7 +158,7 @@ export const computeGroupBalances = (expenses = [], settlements = [], groupMembe
     try {
       const payerId = extractUid(settlement.payer || settlement.createdBy);
       const payeeId = extractUid(settlement.payee || settlement.recipient || settlement.to);
-      if (!payerId || !payeeId || (payerId === payeeId)) continue;
+      if (!payerId || !payeeId || (payerId === payeeId) || settlement.status === 'deleted') continue;
       
       const amount = round2(parseFloat(settlement.amount || 0));
       if (isNaN(amount) || amount <= 0) continue;

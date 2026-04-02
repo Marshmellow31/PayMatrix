@@ -86,7 +86,7 @@ const Dashboard = () => {
   if (groupsLoading && groups.length === 0 && loadingSummary && !isOffline) return <Loader />;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-32 space-y-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-32 space-y-8">
 
       {isOffline && (
         <motion.div
@@ -127,40 +127,40 @@ const Dashboard = () => {
       </motion.section>
 
       {/* Bento Grid Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-6">
         {/* You Owe Card */}
         <motion.div
           whileHover={{ scale: 0.98 }}
-          className="glass-card p-6 rounded-2xl border border-white/5 cursor-pointer relative overflow-hidden group"
+          className="bg-surface-container-low p-4 sm:p-6 rounded-2xl border border-white/5 cursor-pointer relative overflow-hidden group shadow-xl"
         >
-          <div className="flex justify-between items-start mb-6">
-            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-              <ArrowUpRight size={20} className="text-on-surface-variant" />
+          <div className="flex justify-between items-start mb-4 sm:mb-6">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/5 flex items-center justify-center">
+              <ArrowUpRight size={12} className="text-on-surface-variant" />
             </div>
-            <span className="font-inter text-[10px] font-bold tracking-widest uppercase text-on-surface-variant opacity-60">Debt Status</span>
+            <span className="font-inter text-[8px] sm:text-[10px] font-bold tracking-widest uppercase text-on-surface-variant opacity-60">Debt Status</span>
           </div>
-          <h3 className="font-manrope font-bold text-lg text-white/60 mb-1">You Owe</h3>
-          <p className="font-manrope text-2xl font-black text-white">₹{summary?.totalOwe?.toLocaleString() || '0'}</p>
-          <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-            <ArrowUpRight size={120} />
+          <h3 className="font-manrope font-bold text-sm sm:text-lg text-white/60 mb-1 leading-tight">You Owe</h3>
+          <p className="font-manrope text-xl sm:text-2xl font-black text-white">₹{summary?.totalOwe?.toLocaleString() || '0'}</p>
+          <div className="absolute -right-1 -bottom-1 opacity-[0.03] group-hover:opacity-[0.04] transition-opacity">
+            <ArrowUpRight size={48} />
           </div>
         </motion.div>
 
         {/* You Are Owed Card */}
         <motion.div
           whileHover={{ scale: 0.98 }}
-          className="glass-card p-6 rounded-2xl border border-white/5 cursor-pointer relative overflow-hidden group"
+          className="bg-surface-container-low p-4 sm:p-6 rounded-2xl border border-white/5 cursor-pointer relative overflow-hidden group shadow-xl"
         >
-          <div className="flex justify-between items-start mb-6">
-            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-              <ArrowDownLeft size={20} className="text-on-surface-variant" />
+          <div className="flex justify-between items-start mb-4 sm:mb-6">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/5 flex items-center justify-center">
+              <ArrowDownLeft size={12} className="text-on-surface-variant" />
             </div>
-            <span className="font-inter text-[10px] font-bold tracking-widest uppercase text-on-surface-variant opacity-60">Pending Returns</span>
+            <span className="font-inter text-[8px] sm:text-[10px] font-bold tracking-widest uppercase text-on-surface-variant opacity-60">Pending Returns</span>
           </div>
-          <h3 className="font-manrope font-bold text-lg text-white/60 mb-1">You Are Owed</h3>
-          <p className="font-manrope text-2xl font-black text-white">₹{summary?.totalOwed?.toLocaleString() || '0'}</p>
-          <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-            <ArrowDownLeft size={120} />
+          <h3 className="font-manrope font-bold text-sm sm:text-lg text-white/60 mb-1 leading-tight">You Are Owed</h3>
+          <p className="font-manrope text-xl sm:text-2xl font-black text-white">₹{summary?.totalOwed?.toLocaleString() || '0'}</p>
+          <div className="absolute -right-1 -bottom-1 opacity-[0.03] group-hover:opacity-[0.04] transition-opacity">
+            <ArrowDownLeft size={48} />
           </div>
         </motion.div>
       </div>
@@ -185,10 +185,10 @@ const Dashboard = () => {
               <Link
                 to={`/groups/${group._id}`}
                 key={group._id}
-                className={`flex items-center gap-5 group cursor-pointer py-5 transition-all ${idx !== topGroups.length - 1 ? 'border-b border-white/5' : ''}`}
+                className={`flex items-center gap-4 group cursor-pointer py-3.5 transition-all ${idx !== topGroups.length - 1 ? 'border-b border-white/[0.04]' : ''}`}
               >
-                <div className="w-12 h-12 rounded-xl bg-surface-container-high overflow-hidden flex-shrink-0 border border-white/5">
-                  <div className="w-full h-full bg-gradient-to-br from-white/10 to-transparent flex items-center justify-center font-manrope font-bold text-white text-lg">
+                <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden flex-shrink-0 border border-white/5">
+                  <div className="w-full h-full bg-gradient-to-br from-white/10 to-transparent flex items-center justify-center font-manrope font-bold text-white text-base">
                     {group.title[0]}
                   </div>
                 </div>
@@ -220,16 +220,16 @@ const Dashboard = () => {
           <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
             <div className="divide-y divide-white/5">
               {recentActivity.map((notif) => (
-                <div key={notif._id} className="p-6 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer group">
-                  <div className="flex items-center gap-5">
-                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/60 group-hover:text-white transition-colors">
-                      <Plus size={20} />
+                <div key={notif._id} className="p-3.5 sm:p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer group">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/60 group-hover:text-white transition-colors">
+                      <Plus size={16} />
                     </div>
                     <div>
-                      <p className="font-manrope font-bold text-white text-base leading-tight mb-0.5">
+                      <p className="font-manrope font-bold text-white text-sm leading-tight mb-0.5">
                         {typeof notif.message === 'string' ? notif.message : (notif.message?.message || "Notification action performed")}
                       </p>
-                      <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest opacity-50">
+                      <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest opacity-40">
                         {new Date(notif.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>

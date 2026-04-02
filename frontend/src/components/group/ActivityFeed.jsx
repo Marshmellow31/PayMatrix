@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 import { db } from '../../config/firebase.js';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
-import { undoDeleteExpense } from '../../redux/expenseSlice.js';
+import { undoDeleteExpense, undoDeleteSettlement, deleteSettlement } from '../../redux/expenseSlice.js';
 import expenseService from '../../services/expenseService';
 
 const ActivityFeed = ({ groupId }) => {
@@ -57,6 +57,39 @@ const ActivityFeed = ({ groupId }) => {
     }
   };
 
+  const handleRestoreSettlement = async (settlementId) => {
+    if (!settlementId || !groupId) return;
+    
+    const loadingToast = toast.loading('Restoring settlement...');
+    try {
+      const result = await dispatch(undoDeleteSettlement({ id: settlementId, groupId }));
+      if (result.meta.requestStatus === 'fulfilled') {
+        toast.success('Settlement restored', { id: loadingToast });
+      } else {
+        toast.error(result.payload || 'Failed to restore', { id: loadingToast });
+      }
+    } catch (err) {
+      toast.error('Network error. Try again later.', { id: loadingToast });
+    }
+  };
+
+  const handleDeleteSettlement = async (settlementId) => {
+    if (!settlementId || !groupId) return;
+    if (!window.confirm("Delete this settlement record? Values will be reverted.")) return;
+
+    const loadingToast = toast.loading('Deleting settlement...');
+    try {
+      const result = await dispatch(deleteSettlement({ id: settlementId, groupId }));
+      if (result.meta.requestStatus === 'fulfilled') {
+        toast.success('Settlement deleted', { id: loadingToast });
+      } else {
+        toast.error(result.payload || 'Failed to delete', { id: loadingToast });
+      }
+    } catch (err) {
+      toast.error('Network error. Try again later.', { id: loadingToast });
+    }
+  };
+
   const getIcon = (type) => {
     switch (type) {
       case 'expense_added': return <Plus size={16} className="text-primary" />;
@@ -65,6 +98,8 @@ const ActivityFeed = ({ groupId }) => {
       case 'member_added': return <UserPlus size={16} className="text-emerald-500" />;
       case 'member_removed': return <UserMinus size={16} className="text-error" />;
       case 'settlement_added': return <Receipt size={16} className="text-primary" />;
+      case 'settlement_deleted': return <Trash2 size={16} className="text-error" />;
+      case 'settlement_restored': return <RotateCcw size={16} className="text-emerald-500" />;
       case 'expense_restored': return <RotateCcw size={16} className="text-emerald-500" />;
       case 'group_created': return <Clock size={16} className="text-indigo-400" />;
       default: return <Clock size={16} className="text-on-surface-variant" />;
@@ -120,6 +155,26 @@ const ActivityFeed = ({ groupId }) => {
                   >
                     <RotateCcw size={12} />
                     UNDO
+                  </button>
+                )}
+
+                {activity.type === 'settlement_deleted' && (
+                  <button
+                    onClick={() => handleRestoreSettlement(activity.relatedId)}
+                    className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold text-primary transition-all border border-white/5 hover:border-primary/20 shrink-0"
+                  >
+                    <RotateCcw size={12} />
+                    UNDO
+                  </button>
+                )}
+
+                {activity.type === 'settlement_added' && (
+                  <button
+                    onClick={() => handleDeleteSettlement(activity.relatedId)}
+                    className="p-1.5 rounded-lg text-white/10 hover:text-error hover:bg-error/10 transition-all opacity-0 group-hover:opacity-100"
+                    title="Delete Settlement"
+                  >
+                    <Trash2 size={12} />
                   </button>
                 )}
               </div>
