@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { db } from '../../config/firebase.js';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
+import { undoDeleteExpense } from '../../redux/expenseSlice.js';
 import expenseService from '../../services/expenseService';
 
 const ActivityFeed = ({ groupId }) => {
@@ -41,7 +42,19 @@ const ActivityFeed = ({ groupId }) => {
   }, [groupId]);
 
   const handleRestore = async (expenseId) => {
-    toast.error('Undo is not supported in this architecture yet.');
+    if (!expenseId || !groupId) return;
+    
+    const loadingToast = toast.loading('Restoring transaction...');
+    try {
+      const result = await dispatch(undoDeleteExpense({ id: expenseId, groupId }));
+      if (result.meta.requestStatus === 'fulfilled') {
+        toast.success('Transaction restored', { id: loadingToast });
+      } else {
+        toast.error(result.payload || 'Failed to restore', { id: loadingToast });
+      }
+    } catch (err) {
+      toast.error('Network error. Try again later.', { id: loadingToast });
+    }
   };
 
   const getIcon = (type) => {

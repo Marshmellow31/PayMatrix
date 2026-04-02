@@ -139,7 +139,9 @@ const Friends = () => {
     try {
       setIsSearching(true);
       const res = await friendService.searchUsers(query);
-      const users = res.data.data.users;
+      const currentUser = auth.currentUser;
+      const users = (res.data.data.users || [])
+        .filter(u => u._id !== currentUser?.uid && u._id !== currentUser?._id);
       setSearchResults(users);
       
       // Batch check relationships for search results
@@ -261,30 +263,30 @@ const Friends = () => {
                           <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center font-black text-white/20 group-hover/item:text-white group-hover/item:bg-white/10 transition-all uppercase text-lg">
                             {user.name.charAt(0)}
                           </div>
-                          <div>
-                            <p className="text-sm font-black text-white tracking-wide">{user.name}</p>
-                            <p className="text-[10px] text-white/20 font-semibold lowercase tracking-tight">{user.email}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-black text-white tracking-wide truncate">{user.name}</p>
+                            <p className="text-[10px] text-white/20 font-semibold lowercase tracking-tight truncate">{user.email}</p>
                           </div>
                         </div>
                         
                         {status === 'friend' ? (
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10">
+                          <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10">
                             <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
                             <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Connected</span>
                           </div>
                         ) : status === 'pending_outgoing' ? (
-                          <div className="px-4 py-2 rounded-xl bg-white/5 border border-white/5">
+                          <div className="flex-shrink-0 px-4 py-2 rounded-xl bg-white/5 border border-white/5">
                             <span className="text-[9px] font-black text-white/20 uppercase tracking-widest italic">Signal Sent</span>
                           </div>
                         ) : status === 'pending_incoming' ? (
                           <button 
                             onClick={() => setActiveTab('pending')}
-                            className="px-4 py-2 rounded-xl bg-white text-black text-[9px] font-black uppercase tracking-widest shadow-lg shadow-white/5 hover:scale-105 active:scale-95 transition-all"
+                            className="flex-shrink-0 px-4 py-2 rounded-xl bg-white text-black text-[9px] font-black uppercase tracking-widest shadow-lg shadow-white/5 hover:scale-105 active:scale-95 transition-all"
                           >Action Required</button>
                         ) : (
                           <button 
                             onClick={() => sendRequest(user._id)}
-                            className="w-12 h-12 rounded-2xl bg-white text-black hover:bg-white/90 active:scale-90 transition-all flex items-center justify-center shadow-xl shadow-white/5"
+                            className="flex-shrink-0 w-12 h-12 rounded-2xl bg-white text-black hover:bg-white/90 active:scale-90 transition-all flex items-center justify-center shadow-xl shadow-white/5"
                           >
                             <UserPlus size={20} strokeWidth={3} />
                           </button>

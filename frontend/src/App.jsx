@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './config/firebase.js';
 import { setUser } from './redux/authSlice.js';
-import { doc, getDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
 import { setNotifications } from './redux/notificationSlice.js';
 import Loader from './components/common/Loader.jsx';
 
@@ -79,7 +79,9 @@ function App() {
           where('read', '==', false)
         );
         const unsubscribeNotifs = onSnapshot(qNotifs, (snapshot) => {
-          const liveNotifs = snapshot.docs.map(d => ({ _id: d.id, ...d.data() }));
+          const liveNotifs = snapshot.docs
+            .map(d => ({ _id: d.id, ...d.data() }))
+            .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
           dispatch(setNotifications(liveNotifs));
         }, (error) => {
           console.error("Notification snapshot error:", error);

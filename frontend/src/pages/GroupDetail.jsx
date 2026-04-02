@@ -135,7 +135,7 @@ const GroupDetail = () => {
     // with missing groupId fields) from leaking into the current view.
     const scopedExpenses = expenses.filter(e => {
         const eGroupId = e.groupId || (e.group?._id || e.group);
-        return eGroupId === id;
+        return eGroupId === id && e.status !== 'deleted';
     });
     
     const scopedSettlements = settlements.filter(s => s.groupId === id);
@@ -370,19 +370,26 @@ const GroupDetail = () => {
       {/* Tab Content */}
       {tab === 'expenses' && (
         <div className="flex flex-col gap-4">
-          {expenseLoading ? <Loader className="py-12" /> : expenses.length === 0 ? (
-            <div className="submerged text-center py-16 border-none">
-              <p className="text-lg font-inter text-on-surface-variant">No expenses yet. Time to split a bill!</p>
-            </div>
-          ) : expenses.map((expense) => (
-            <ExpenseCard 
-              key={expense._id} 
-              expense={expense} 
-              currentUserId={user?._id} 
-              onDelete={handleDeleteExpense} 
-              onEdit={(exp) => openAddExpense(id, exp)}
-            />
-          ))}
+          {(() => {
+            const visibleExpenses = expenses.filter(e => e.status !== 'deleted');
+            
+            if (expenseLoading && visibleExpenses.length === 0) return <Loader className="py-12" />;
+            if (visibleExpenses.length === 0) return (
+              <div className="submerged text-center py-16 border-none">
+                <p className="text-lg font-inter text-on-surface-variant">No expenses yet. Time to split a bill!</p>
+              </div>
+            );
+            
+            return visibleExpenses.map((expense) => (
+              <ExpenseCard 
+                key={expense._id} 
+                expense={expense} 
+                currentUserId={user?._id || user?.uid} 
+                onDelete={handleDeleteExpense} 
+                onEdit={(exp) => openAddExpense(id, exp)}
+              />
+            ));
+          })()}
         </div>
       )}
 

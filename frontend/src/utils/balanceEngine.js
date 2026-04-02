@@ -130,7 +130,7 @@ export const computeGroupBalances = (expenses = [], settlements = [], groupMembe
   for (const expense of expenses) {
     try {
       const payerId = extractUid(expense.paidBy);
-      if (!payerId) continue;
+      if (!payerId || expense.status === 'deleted') continue;
 
       // Ensure splits exist
       const splits = expense.splits || [];

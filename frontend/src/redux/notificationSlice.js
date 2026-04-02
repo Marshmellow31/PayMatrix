@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { db } from '../config/firebase.js';
 import { 
-  collection, query, where, getDocs, updateDoc, doc, writeBatch 
+  collection, query, where, getDocs, updateDoc, doc, writeBatch, orderBy 
 } from 'firebase/firestore';
 
 const initialState = {
@@ -14,7 +14,7 @@ const initialState = {
 export const fetchNotifications = createAsyncThunk('notifications/fetchAll', async (userId, thunkAPI) => {
   try {
     if (!userId) return { notifications: [], unreadCount: 0 };
-    const q = query(collection(db, 'notifications'), where('to', '==', userId));
+    const q = query(collection(db, 'notifications'), where('to', '==', userId), orderBy('createdAt', 'desc'));
     const snap = await getDocs(q);
     const notifications = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
     const unreadCount = notifications.filter(n => !n.read).length;
@@ -88,7 +88,8 @@ const notificationSlice = createSlice({
       })
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.loading = false;
-        state.notifications = action.payload.notifications;
+        state.notifications = (action.payload.notifications || [])
+          .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
         state.unreadCount = action.payload.unreadCount;
       })
       .addCase(fetchNotifications.rejected, (state) => { state.loading = false; })

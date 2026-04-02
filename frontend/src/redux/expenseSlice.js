@@ -39,6 +39,16 @@ export const deleteExpense = createAsyncThunk('expenses/delete', async ({ id, gr
   }
 });
 
+export const undoDeleteExpense = createAsyncThunk('expenses/restore', async ({ id, groupId }, thunkAPI) => {
+  try {
+    const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
+    await expenseService.restoreExpense(id, groupId, userId);
+    return id;
+  } catch (error) {
+    return thunkAPI.rejectWithValue(error.message || 'Failed to restore expense');
+  }
+});
+
 export const updateExpense = createAsyncThunk('expenses/update', async ({ id, data }, thunkAPI) => {
   try {
     const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
@@ -96,6 +106,9 @@ const expenseSlice = createSlice({
       // fire the snapshot in a way that removes the item immediately.
       .addCase(deleteExpense.fulfilled, (state, action) => {
         state.expenses = state.expenses.filter(e => e._id !== action.payload);
+      })
+      .addCase(undoDeleteExpense.rejected, (state, action) => {
+        state.error = action.payload;
       });
   },
 });

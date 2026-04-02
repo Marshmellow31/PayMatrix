@@ -38,7 +38,6 @@ const getStoredName = async (uid, fallback = 'Member') => {
 
 const expenseService = {
   getExpenses: async (groupId, page = 1) => {
-    // For simplicity, returning all expenses without pagination in this migration snippet
     const q = query(collection(db, 'groups', groupId, 'expenses'), orderBy('createdAt', 'desc'));
     let querySnapshot;
     try {
@@ -48,7 +47,9 @@ const expenseService = {
       const { getDocsFromCache } = await import('firebase/firestore');
       querySnapshot = await getDocsFromCache(q);
     }
-    const expenses = querySnapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+    const expenses = querySnapshot.docs
+      .map(doc => ({ _id: doc.id, ...doc.data() }))
+      .filter(exp => exp.status !== 'deleted');
     
     // Mimic the backend pagination signature
     return wrap({ expenses, totalPages: 1, currentPage: 1 });
@@ -181,13 +182,19 @@ const expenseService = {
     if (!groupId) throw new Error("deleteExpense requires groupId");
 
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
+    
+    // Primary write: Soft-delete for undo support
+    updateDoc(docRef, { 
+      status: 'deleted', 
+      updatedAt: new Date().toISOString() 
+    }).catch(err => console.error("[OFFLINE_SYNC_ERROR] Expense soft-delete failed:", err));
 
     // Secondary task: Resolution happens in background
     (async () => {
       try {
         let expenseTitle = 'an expense';
         const [expSnap, actorName] = await Promise.all([
-          getDocFromCache(docRef).catch(() => null),
+          getDoc(docRef).catch(() => null),
           getStoredName(userId, 'Someone')
         ]);
         
@@ -204,18 +211,50 @@ const expenseService = {
       } catch (_) {}
     })().catch(() => {});
 
-    // Primary write: Non-blocking for instant offline responsiveness
-    deleteDoc(docRef).catch(err => console.error("[OFFLINE_SYNC_ERROR] Expense delete failed:", err));
-
     // Refresh group's updatedAt to trigger listeners (non-blocking)
     updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
 
     return wrap({ message: 'Expense deleted' });
   },
 
-  restoreExpense: async (id, groupId) => {
-    console.warn("Restore not supported natively without a soft-delete field");
-    return wrap({ message: 'Restore executed' });
+  restoreExpense: async (id, groupId, userId) => {
+    if (!groupId) throw new Error("restoreExpense requires groupId");
+    const docRef = doc(db, 'groups', groupId, 'expenses', id);
+
+    try {
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) {
+        return wrap({ error: 'This record was permanently deleted in an older version and cannot be restored.' }, 404);
+      }
+
+      // Primary write: Restore to active state
+      await updateDoc(docRef, { 
+        status: 'active', 
+        updatedAt: new Date().toISOString() 
+      });
+
+      // Log restoration
+      const actorName = await getStoredName(userId, 'Someone');
+      const expenseTitle = snap.data()?.title || 'an expense';
+      await addDoc(collection(db, 'groups', groupId, 'logs'), {
+        type: 'expense_restored',
+        message: `${actorName} restored "${expenseTitle}"`,
+        actorId: userId || 'unknown',
+        actorName,
+        relatedId: id,
+        createdAt: new Date().toISOString(),
+      }).catch(() => {});
+
+      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+      return wrap({ message: 'Expense restored' });
+    } catch (err) {
+      console.error("Restore failed:", err);
+      // If it's a "No document to update" error from Firebase directly (rare but possible with race conditions)
+      if (err.code === 'not-found' || err.message?.includes('No document to update')) {
+         return wrap({ error: 'Expense record not found in the database.' }, 404);
+      }
+      throw err;
+    }
   },
 
   // Notice: For balances, we actually compute this on the client now when the store updates.
@@ -379,8 +418,9 @@ const expenseService = {
         const expenses = expSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
         const settlements = stlSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
         
-        // Category distribution (Your shared portion)
+        // Category distribution (Your shared portion) - SKIP DELETED
         expenses.forEach(exp => {
+          if (exp.status === 'deleted') return;
           const isParticipant = exp.participants?.includes(userId) || exp.paidBy === userId;
           if (isParticipant && exp.category) {
             categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + parseFloat(exp.amount || 0);
@@ -475,9 +515,10 @@ const expenseService = {
         expSnap.forEach(d => allExpenseData.push(d.data()));
       }
 
-      // Group by date
+      // Group by date - SKIP DELETED
       const trendsMap = {};
       allExpenseData.forEach(exp => {
+        if (exp.status === 'deleted') return;
         const date = exp.createdAt.split('T')[0];
         trendsMap[date] = (trendsMap[date] || 0) + parseFloat(exp.amount || 0);
       });
