@@ -1,6 +1,6 @@
 import { db, auth } from '../config/firebase.js';
 import { 
-  collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, 
+  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, 
   query, where, orderBy, limit, getDocFromCache
 } from 'firebase/firestore';
 import { calculateSplits } from '../utils/balanceEngine.js';
