@@ -188,96 +188,95 @@ const Profile = () => {
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50 opacity-20" />
 
             <div className="p-4 sm:p-6">
-              <div className="flex flex-row items-center gap-3 sm:gap-4">
-                <div className="relative group shrink-0">
-                  <div className="absolute -inset-1 bg-primary/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500" />
-                  <Avatar
-                    name={displayUser?.name}
-                    src={displayUser?.avatar}
-                    size="xl"
-                    className="relative w-16 h-16 text-lg border-4 border-white/5 shadow-2xl"
-                  />
-                </div>
-
-                <div className="flex-1 text-left space-y-4">
-                  {editing ? (
-                    <div className="space-y-4 max-w-md text-left">
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-1">Identity Name</label>
-                        <Input
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          id="profile-name"
-                          className="h-11 bg-white/[0.03] text-lg font-bold"
-                          disabled={!isOnline}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button onClick={handleSave} className="h-9 px-1 font-black uppercase text-[9.5px] tracking-widest flex items-center justify-center gap-1" disabled={!isOnline || !name.trim()}>
-                          {isOnline ? (
-                            <>
-                              <Save size={12} />
-                              <span>Save</span>
-                            </>
-                          ) : (
-                            'Offline'
-                          )}
-                        </Button>
-                        <Button variant="ghost" onClick={() => setEditing(false)} className="h-9 px-1 font-black uppercase text-[9.5px] tracking-widest bg-white/5 flex items-center justify-center gap-1">
-                          Cancel
-                        </Button>
-                      </div>
+                <div className="space-y-6 w-full">
+                  <div className="flex items-center gap-4">
+                    <div className="relative group shrink-0">
+                      <div className="absolute -inset-1 bg-primary/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                      <Avatar
+                        name={displayUser?.name}
+                        src={displayUser?.avatar}
+                        size="xl"
+                        className="relative w-16 h-16 sm:w-20 sm:h-20 text-xl border-4 border-white/5 shadow-2xl"
+                      />
                     </div>
-                  ) : (
-                    <div className="space-y-0.5">
-                      <h2 className="text-2xl font-black font-manrope text-white tracking-tight">{displayUser?.name}</h2>
-                      <div className="flex items-center justify-start gap-2 text-on-surface-variant opacity-60">
-                        <Mail size={12} />
-                        <span className="text-xs font-medium font-inter">{displayUser?.email}</span>
-                      </div>
-                    </div>
-                  )}
 
-                  {!editing && isOwnProfile && (
-                    <div className="grid grid-cols-2 gap-2 mt-1.5">
+                    <div className="flex-1 min-w-0">
+                      {editing ? (
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-1">Identity Name</label>
+                          <Input
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            id="profile-name"
+                            className="h-12 bg-white/[0.03] text-lg font-bold"
+                            disabled={!isOnline}
+                          />
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <h2 className="text-2xl sm:text-3xl font-black font-manrope text-white tracking-tight truncate">{displayUser?.name}</h2>
+                          <div className="flex items-center justify-start gap-2 text-on-surface-variant opacity-60">
+                            <Mail size={14} className="shrink-0" />
+                            <span className="text-xs sm:text-sm font-medium font-inter truncate">{displayUser?.email}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {editing && isOwnProfile ? (
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <Button onClick={handleSave} className="h-11 font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2" disabled={!isOnline || !name.trim()}>
+                        {isOnline ? (
+                          <>
+                            <CheckCircle2 size={14} />
+                            <span>Apply Changes</span>
+                          </>
+                        ) : (
+                          'Connection Lost'
+                        )}
+                      </Button>
+                      <Button variant="ghost" onClick={() => setEditing(false)} className="h-11 font-black uppercase text-[10px] tracking-widest bg-white/5 flex items-center justify-center gap-2">
+                        <X size={14} />
+                        <span>Discard</span>
+                      </Button>
+                    </div>
+                  ) : isOwnProfile ? (
+                    <div className="grid grid-cols-2 gap-3 pt-2">
                       <Button
                         variant="ghost"
-                        className={`h-9 px-1 rounded-xl text-[9.5px] font-black uppercase tracking-widest transition-all bg-white/5 hover:bg-white/10 border border-white/5 active:scale-95 flex items-center justify-center gap-1.5 ${!isOnline ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
+                        className={`h-11 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all bg-white/[0.03] hover:bg-white/10 border border-white/5 active:scale-95 flex items-center justify-center gap-2 ${!isOnline ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
                         onClick={() => isOnline && setEditing(true)}
                         disabled={!isOnline}
                       >
-                        <User size={12} className="opacity-50 text-white" />
+                        <User size={14} className="opacity-50" />
                         <span>{isOnline ? 'Edit' : 'Offline'}</span>
                       </Button>
 
                       <Button
                         variant="ghost"
-                        className="h-9 px-1 rounded-xl text-[9.5px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/10"
+                        className="h-11 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all active:scale-95 flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/10"
                         onClick={logout}
                       >
-                        <LogOut size={12} className="opacity-70" />
+                        <LogOut size={14} className="opacity-70" />
                         <span>Logout</span>
                       </Button>
                     </div>
-                  )}
-
-                  {!isOwnProfile && (
-                    <div className="mt-2 flex flex-wrap items-center justify-start gap-2">
-                      <span className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/40">Verified Connection</span>
-                      {/* Payment method availability badge */}
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                      <span className="px-5 p-2 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/40">Verified Connection</span>
                       {hasPaymentMethod(targetUser) ? (
-                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest">
-                          <CheckCircle2 size={11} /> UPI Ready
+                        <span className="flex items-center gap-2 px-5 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest">
+                          <CheckCircle2 size={12} /> UPI Verified
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/80 text-[9px] font-black uppercase tracking-widest">
-                          <AlertTriangle size={11} /> No UPI ID
+                        <span className="flex items-center gap-2 px-5 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/80 text-[9px] font-black uppercase tracking-widest">
+                          <AlertTriangle size={12} /> Pending UPI Config
                         </span>
                       )}
                     </div>
                   )}
                 </div>
-              </div>
             </div>
           </div>
         </div>

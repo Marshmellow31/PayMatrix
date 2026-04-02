@@ -33,19 +33,19 @@ const Groups = () => {
   const [summary, setSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
 
-  const groupsUpdatedHash = useMemo(() => 
-    JSON.stringify(groups.map(g => g.updatedAt || g._id)), 
-  [groups]);
+  const groupsUpdatedHash = useMemo(() =>
+    JSON.stringify(groups.map(g => g.updatedAt || g._id)),
+    [groups]);
 
-  useEffect(() => { 
+  useEffect(() => {
     if (!user?._id && !user?.uid) return;
     const userId = user._id || user.uid;
 
     fetchFriends();
-    
+
     // Real-time listener for groups
     const q = query(
-      collection(db, 'groups'), 
+      collection(db, 'groups'),
       where('members', 'array-contains', userId)
     );
 
@@ -118,8 +118,8 @@ const Groups = () => {
       const isSelected = prev.members.includes(friendId);
       return {
         ...prev,
-        members: isSelected 
-          ? prev.members.filter(id => id !== friendId) 
+        members: isSelected
+          ? prev.members.filter(id => id !== friendId)
           : [...prev.members, friendId]
       };
     });
@@ -132,7 +132,7 @@ const Groups = () => {
           <h1 className="font-headline text-3xl font-bold text-white tracking-tight">
             Groups
           </h1>
-          <button 
+          <button
             onClick={() => isOnline && setShowModal(true)}
             disabled={!isOnline}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${!isOnline ? 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed opacity-50 grayscale' : 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/20'}`}
@@ -157,8 +157,8 @@ const Groups = () => {
           <p className="text-base text-on-surface-variant mb-10 max-w-xs mx-auto font-inter leading-relaxed opacity-70">
             Create your first group to establish a shared expense ledger and start managing finances with clarity.
           </p>
-          <Button 
-            onClick={() => isOnline && setShowModal(true)} 
+          <Button
+            onClick={() => isOnline && setShowModal(true)}
             disabled={!isOnline}
             className={`h-12 px-8 rounded-xl font-bold ${!isOnline ? 'bg-white/5 text-white/20 cursor-not-allowed opacity-50' : 'bg-primary text-on-primary'}`}
           >
@@ -168,9 +168,9 @@ const Groups = () => {
       ) : (
         <div className="flex flex-col gap-6">
           {groups.map((group) => (
-            <GroupCard 
-              key={group._id} 
-              group={group} 
+            <GroupCard
+              key={group._id}
+              group={group}
               balance={summary?.groupBalances?.[group._id] || 0}
             />
           ))}
@@ -179,7 +179,7 @@ const Groups = () => {
 
       {/* Floating Action Button - Now for Add Expense */}
       <div className="fixed bottom-28 right-6 z-40 lg:right-[calc(50%-22rem)]">
-        <button 
+        <button
           onClick={() => openAddExpense()}
           className="h-14 w-14 rounded-full bg-primary text-on-primary shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform duration-200"
         >
@@ -192,10 +192,10 @@ const Groups = () => {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Establish Group">
         <form onSubmit={handleCreate} className="flex flex-col gap-8">
           <div className="text-center py-4">
-            <input 
-              className="bg-transparent border-none text-center font-headline text-3xl font-bold text-white focus:ring-0 placeholder:text-neutral-700 w-full tracking-tighter sm:text-4xl" 
-              placeholder="Cohort Name" 
-              value={form.title} 
+            <input
+              className="bg-transparent border-none text-center font-headline text-3xl font-bold text-white focus:ring-0 placeholder:text-neutral-700 w-full tracking-tighter sm:text-4xl"
+              placeholder="Cohort Name"
+              value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               required
               autoFocus
@@ -210,11 +210,10 @@ const Groups = () => {
                   key={cat.value}
                   type="button"
                   onClick={() => setForm({ ...form, category: cat.value })}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl border transition-all text-[11px] font-bold flex items-center gap-2 ${
-                    form.category === cat.value 
-                      ? 'bg-white text-black border-white' 
+                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl border transition-all text-[11px] font-bold flex items-center gap-2 ${form.category === cat.value
+                      ? 'bg-white text-black border-white'
                       : 'bg-white/[0.03] border-white/5 text-white/40 hover:text-white'
-                  }`}
+                    }`}
                 >
                   {(() => {
                     const IconComp = LucideIcons[cat.icon] || LucideIcons.Hash;
@@ -239,29 +238,26 @@ const Groups = () => {
                     key={friend._id}
                     type="button"
                     onClick={() => toggleFriend(friend._id)}
-                    className={`flex items-center gap-3 p-3 rounded-2xl border transition-all text-left ${
-                      form.members.includes(friend._id)
+                    className={`flex items-center gap-3 p-3 rounded-2xl border transition-all text-left ${form.members.includes(friend._id)
                         ? 'bg-white text-black border-white shadow-xl'
                         : 'bg-white/[0.02] border-white/5 text-white/40 hover:bg-white/[0.05]'
-                    }`}
+                      }`}
                   >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${
-                      form.members.includes(friend._id) ? 'bg-black text-white' : 'bg-white/5'
-                    }`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${form.members.includes(friend._id) ? 'bg-black text-white' : 'bg-white/5'
+                      }`}>
                       {friend.name.charAt(0).toUpperCase()}
                     </div>
                     <span className="text-[11px] font-bold truncate">{friend.name}</span>
                   </button>
                 )
-              ))}
+                ))}
             </div>
           </div>
-          <Button 
+          <Button
             disabled={!user || loading || !isOnline}
-            type="submit" 
-            className={`w-full h-14 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl ${
-              (!user || loading || !isOnline) ? 'bg-white/10 text-white/20 cursor-not-allowed grayscale' : 'bg-white text-black hover:bg-neutral-200 active:scale-[0.98]'
-            }`}
+            type="submit"
+            className={`w-full h-14 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl ${(!user || loading || !isOnline) ? 'bg-white/10 text-white/20 cursor-not-allowed grayscale' : 'bg-white text-black hover:bg-neutral-200 active:scale-[0.98]'
+              }`}
           >
             {loading ? <LucideIcons.Loader2 className="animate-spin" /> : (isOnline ? 'Launch Cohort' : 'Connect to Launch')}
           </Button>

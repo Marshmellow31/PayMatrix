@@ -301,7 +301,7 @@ const Friends = () => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`pb-5 text-[10px] font-black uppercase tracking-[0.3em] transition-all relative group ${activeTab === tab.id ? 'text-white' : 'text-white/20 hover:text-white/40'
+            className={`pb-3 text-[10px] font-black uppercase tracking-[0.3em] transition-all relative group ${activeTab === tab.id ? 'text-white' : 'text-white/20 hover:text-white/40'
               }`}
           >
             <div className="flex items-center gap-3">

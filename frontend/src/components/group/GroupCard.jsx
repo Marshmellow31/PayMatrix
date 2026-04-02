@@ -49,14 +49,14 @@ const GroupCard = ({ group, balance = 0 }) => {
         <div className="flex justify-between items-center relative z-10">
           <div className="flex -space-x-2">
             {uniqueMembers.slice(0, 3).map((member, idx) => (
-              <div 
-                key={member.user?._id || idx} 
+              <div
+                key={member.user?._id || idx}
                 className="w-8 h-8 rounded-full border-2 border-surface-container-low overflow-hidden bg-surface-container-high shadow-lg"
               >
                 {member.user?.avatar ? (
-                  <img 
-                    src={member.user.avatar} 
-                    alt={member.user.name} 
+                  <img
+                    src={member.user.avatar}
+                    alt={member.user.name}
                     className="w-full h-full object-cover"
                   />
                 ) : (
