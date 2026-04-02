@@ -322,21 +322,21 @@ const GroupDetail = () => {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full gap-3">
             <button
               onClick={() => openAddExpense(id)}
-              className="h-11 px-6 rounded-xl font-manrope font-black text-[10px] tracking-[0.2em] flex items-center justify-center gap-3 bg-white text-black hover:bg-white/90 transition-all active:scale-[0.97] uppercase shadow-lg shadow-white/5"
+              className="flex-1 h-11 px-2 rounded-xl font-manrope font-black text-[10px] sm:text-xs tracking-[0.15em] sm:tracking-[0.2em] flex items-center justify-center gap-2 bg-white text-black hover:bg-white/90 transition-all active:scale-[0.97] uppercase shadow-lg shadow-white/5 whitespace-nowrap"
             >
-              <Plus size={16} strokeWidth={4} /> Record Expense
+              <Plus size={16} strokeWidth={4} /> Record
             </button>
 
             <button
               onClick={() => isOnline && setShowSettleUp(true)}
               disabled={!isOnline}
-              className={`h-11 px-5 rounded-xl font-manrope font-black text-[10px] tracking-[0.2em] flex items-center justify-center gap-3 bg-white/[0.03] text-white/60 transition-all border border-white/5 active:scale-[0.97] uppercase ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:bg-white/[0.08] hover:text-white'}`}
+              className={`flex-1 h-11 px-2 rounded-xl font-manrope font-black text-[10px] sm:text-xs tracking-[0.15em] sm:tracking-[0.2em] flex items-center justify-center gap-2 bg-white/[0.03] text-white/60 transition-all border border-white/5 active:scale-[0.97] uppercase whitespace-nowrap ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:bg-white/[0.08] hover:text-white'}`}
             >
               <WalletCards size={16} />
-              Settle Up
+              Settle
             </button>
           </div>
         </div>

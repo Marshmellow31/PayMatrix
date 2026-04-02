@@ -7,13 +7,13 @@ export default {
       colors: {
         // Digital Obsidian — Surface Hierarchy
         surface: {
-          DEFAULT: '#000000',
-          dim: '#000000',
+          DEFAULT: '#131313',
+          dim: '#0e0e0e',
           bright: '#3a3939',
           container: {
-            DEFAULT: '#0d0d0d',
-            low: '#080808',      // Deep Ink
-            lowest: '#000000',
+            DEFAULT: '#131313',
+            low: '#131313',      // Deep Ink
+            lowest: '#131313',
             high: '#222222',
             highest: '#2d2d2d',
           },
@@ -75,7 +75,7 @@ export default {
           primary: '#5d5f5f',
         },
         // Background
-        background: '#000000',
+        background: '#131313',
         'on-background': '#e5e2e1',
       },
       fontFamily: {
