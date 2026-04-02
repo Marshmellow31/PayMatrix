@@ -183,6 +183,7 @@ const friendService = {
           let groupSpecificBalance = 0;
 
           expenses.forEach(exp => {
+            if (exp.status === 'deleted') return;
             const rawSplits = exp.splits || [];
             
             // In Firestore, splits are [ { user: uid, amount: x }, ... ]
@@ -267,12 +268,21 @@ const friendService = {
     if (!userId || !targetUserId) return wrap({ status: 'unknown' });
 
     try {
-      // Check if friends
+      // Check YOUR friends array
       const uDoc = await getDoc(doc(db, 'users', userId));
-      const friends = uDoc.data()?.friends || [];
-      if (friends.includes(targetUserId)) return wrap({ status: 'friend' });
+      const myFriends = uDoc.data()?.friends || [];
+      if (myFriends.includes(targetUserId)) return wrap({ status: 'friend' });
 
-      // Check for pending requests
+      // ALSO check their friends array (handles one-sided data corruption / race conditions)
+      const theirDoc = await getDoc(doc(db, 'users', targetUserId));
+      const theirFriends = theirDoc.data()?.friends || [];
+      if (theirFriends.includes(userId)) {
+        // Self-heal: make the link bidirectional so future checks pass without this extra read
+        updateDoc(doc(db, 'users', userId), { friends: arrayUnion(targetUserId) }).catch(() => {});
+        return wrap({ status: 'friend' });
+      }
+
+      // Check for pending requests (both directions)
       const qIncoming = query(
         collection(db, 'friendRequests'), 
         where('from', '==', targetUserId), 

@@ -29,10 +29,9 @@ const Sidebar = ({ isOpen, onClose }) => {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-surface-container-high text-primary'
-                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive
+                  ? 'bg-surface-container-high text-primary'
+                  : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                 }`
               }
             >
@@ -80,10 +79,9 @@ const Sidebar = ({ isOpen, onClose }) => {
                     to={item.to}
                     onClick={onClose}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'bg-surface-container-high text-primary'
-                          : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                      `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive
+                        ? 'bg-surface-container-high text-primary'
+                        : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                       }`
                     }
                   >

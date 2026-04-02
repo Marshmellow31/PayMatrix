@@ -50,23 +50,32 @@ const AppLayout = () => {
 
   const handleAddExpenseSubmit = async (data) => {
     const groupId = data.groupId;
-    let result;
+    const isEdit = !!editingExpense;
+    const expenseId = editingExpense?._id;
+    
+    // Close modal optimistically for instant offline UI response
+    setIsAddExpenseOpen(false);
+    setEditingExpense(null);
+    toast.success(isEdit ? 'Expense updated!' : 'Expense recorded!');
 
-    if (editingExpense) {
-      result = await dispatch(updateExpense({ id: editingExpense._id, data }));
-    } else {
-      result = await dispatch(addExpense({ groupId, data }));
+    if (!location.pathname.includes('/groups/')) {
+      navigate(`/groups/${groupId}`);
     }
 
-    if (result.meta.requestStatus === 'fulfilled') {
-      toast.success(editingExpense ? 'Expense updated!' : 'Expense recorded!');
-      setIsAddExpenseOpen(false);
-      setEditingExpense(null);
-      if (!location.pathname.includes('/groups/')) {
-        navigate(`/groups/${groupId}`);
+    // Process in background without blocking the UI
+    try {
+      let result;
+      if (isEdit) {
+        result = await dispatch(updateExpense({ id: expenseId, data }));
+      } else {
+        result = await dispatch(addExpense({ groupId, data }));
       }
-    } else {
-      toast.error(result.payload || 'Failed to process expense');
+
+      if (result.meta.requestStatus !== 'fulfilled') {
+        toast.error(result.payload || 'Failed to process expense. It may still sync when online.');
+      }
+    } catch (e) {
+      toast.error('Failed to process expense.');
     }
   };
 

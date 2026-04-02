@@ -288,7 +288,7 @@ const GroupDetail = () => {
   return (
     <div className="max-w-4xl mx-auto animate-fade-in pb-24">
       {/* Group Header */}
-      <div className="submerged mb-6 p-6 lg:p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+      <div className="submerged mt-6 mb-8 p-8 lg:p-10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div className="flex items-center gap-6">
             <div className="w-20 h-20 rounded-2xl flex items-center justify-center bg-surface-lowest shadow-inner" style={{ background: `${category?.color || '#ffffff'}10` }}>
@@ -302,8 +302,8 @@ const GroupDetail = () => {
               )}
             </div>
             <div>
-              <h1 className="text-3xl lg:text-4xl font-bold font-manrope text-primary tracking-tight mb-2">{activeGroup.title}</h1>
-              <div className="flex items-center justify-between gap-3 mt-1">
+              <h1 className="text-3xl lg:text-4xl font-bold font-manrope text-primary tracking-tight mb-3">{activeGroup.title}</h1>
+              <div className="flex items-center justify-between gap-4 mt-2">
                 <p className="text-xs text-on-surface-variant uppercase tracking-[0.2em] font-inter font-bold opacity-60">
                   {activeGroup.category} <span className="mx-2 opacity-50">·</span> {uniqueMembers.length} members
                 </p>

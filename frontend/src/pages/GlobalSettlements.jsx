@@ -80,17 +80,17 @@ const GlobalSettlements = () => {
           </p>
         </div>
         
-        {/* Large Visible Metrics Row */}
-        <div className="flex gap-8 sm:gap-6 border-t sm:border-t-0 sm:border-l border-white/5 pt-4 sm:pt-0 sm:pl-6">
-          <div className="flex flex-col items-start sm:items-end group">
+        {/* Large Visible Metrics Row - Responsive Grid for Large Numbers */}
+        <div className="flex flex-wrap sm:flex-nowrap gap-x-8 gap-y-4 sm:gap-6 border-t sm:border-t-0 sm:border-l border-white/5 pt-5 sm:pt-0 sm:pl-6">
+          <div className="flex flex-col items-start sm:items-end group min-w-[120px]">
             <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] group-hover:text-white/40 transition-colors">Net Positive</span>
-            <span className="text-2xl font-black font-manrope text-white tracking-tight">
+            <span className="text-xl sm:text-2xl font-black font-manrope text-white tracking-tight break-all">
               {formatCurrency(totalOwedUrl)}
             </span>
           </div>
-          <div className="flex flex-col items-start sm:items-end border-l sm:border-l-0 border-white/5 pl-8 sm:pl-0">
+          <div className="flex flex-col items-start sm:items-end border-l sm:border-l-0 border-white/5 pl-8 sm:pl-0 min-w-[120px]">
             <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Net Payable</span>
-            <span className="text-2xl font-black font-manrope text-white/40 tracking-tight">
+            <span className="text-xl sm:text-2xl font-black font-manrope text-white/40 tracking-tight break-all">
               {formatCurrency(totalOweUrl)}
             </span>
           </div>
@@ -125,9 +125,9 @@ const GlobalSettlements = () => {
                     to={`/groups/${group._id}`}
                     className="group px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.07] hover:border-white/20 flex items-center justify-between transition-all duration-300 shadow-xl"
                   >
-                    <div className="flex items-center gap-5">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
                       {/* Logo container - higher contrast icon */}
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black font-manrope text-base border
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black font-manrope text-sm border shrink-0
                         ${isPositive 
                           ? 'bg-white text-black border-white' 
                           : 'bg-white/10 text-white/60 border-white/10'
@@ -135,21 +135,21 @@ const GlobalSettlements = () => {
                       >
                         {group.title.substring(0, 1).toUpperCase()}
                       </div>
-                      <div className="flex flex-col gap-0.5">
-                        <p className="text-base font-black text-white font-manrope truncate max-w-[160px] sm:max-w-none group-hover:text-white">
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <p className="text-base font-black text-white font-manrope truncate group-hover:text-white">
                           {group.title}
                         </p>
-                        <p className={`text-[10px] font-black tracking-[0.2em] ${isPositive ? 'text-white/40' : 'text-white/20'}`}>
+                        <p className={`text-[9px] font-black tracking-[0.2em] truncate ${isPositive ? 'text-white/40' : 'text-white/20'}`}>
                           {isPositive ? 'RECEIVABLE' : 'PAYABLE'}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <p className={`text-xl font-black font-manrope ${isPositive ? 'text-white' : 'text-white/60'}`}>
+                    <div className="flex items-center gap-3 shrink-0 ml-4">
+                      <p className={`text-lg sm:text-xl font-black font-manrope whitespace-nowrap ${isPositive ? 'text-white' : 'text-white/60'}`}>
                         {isPositive ? '+' : '-'}{formatCurrency(Math.abs(group.myBalance))}
                       </p>
-                      <ChevronRight size={18} className="text-white/10 group-hover:text-white/50 transition-colors" />
+                      <ChevronRight size={16} className="text-white/10 group-hover:text-white/50 transition-colors shrink-0" />
                     </div>
                   </Link>
                 </motion.div>

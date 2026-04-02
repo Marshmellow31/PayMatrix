@@ -53,28 +53,27 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
 
   const handleSettle = async (payeeId, amount, notes = 'Settled up') => {
     setProcessing(true);
+    
+    // Close modal optimistically
+    if (onSettled) onSettled();
+    toast.success('Payment recorded successfully');
+    
+    // Update local state without waiting for full reload to keep UI snappy
+    setProcessing(false);
+    setPartialPayment(null);
+    onClose();
+
     try {
-      await expenseService.createSettlement(groupId, {
+      expenseService.createSettlement(groupId, {
         payee: payeeId,
         amount: parseFloat(amount),
         notes,
-      }, userId);
-      toast.success('Payment recorded successfully');
-      
-      // Update local state without waiting for full reload to keep UI snappy
-      setProcessing(false);
-      setPartialPayment(null);
-      
-      // trigger parent update
-      if (onSettled) onSettled();
-      dispatch(fetchExpenses({ groupId }));
-
-      // Reload plan in background
-      loadSettlementPlan();
-      
+      }, userId).catch(err => {
+         console.warn("Settlement delayed or failed:", err);
+      });
+      // Removing fetchExpenses, as onSnapshot is handling it.
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to record payment');
-      setProcessing(false);
+      toast.error('Failed to record payment');
     }
   };
 
@@ -82,30 +81,26 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
     if (settlements.length === 0) return;
     
     setProcessing(true);
+    
+    // Optimistic UI update
+    if (onSettled) onSettled();
+    toast.success('All debts settled successfully!');
+    setProcessing(false);
+    onClose();
+
     try {
-      // We can execute these in parallel for speed if desired, 
-      // but sequential is safer for logs.
-      for (const debt of settlements) {
+      // Execute without blocking
+      settlements.forEach(debt => {
         if (debt.amount > 0) {
-          await expenseService.createSettlement(groupId, {
+          expenseService.createSettlement(groupId, {
             payee: debt.to,
             amount: debt.amount,
             notes: 'Settled all debts',
-          }, userId);
+          }, userId).catch(err => console.warn(err));
         }
-      }
-      toast.success('All debts settled successfully!');
-      
-      setProcessing(false);
-      if (onSettled) onSettled();
-      dispatch(fetchExpenses({ groupId }));
-
-      loadSettlementPlan();
-      
+      });
     } catch (err) {
       toast.error('Partially settled, please try again to clear remaining debts');
-      setProcessing(false);
-      loadSettlementPlan();
     }
   };
 

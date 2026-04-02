@@ -418,12 +418,18 @@ const expenseService = {
         const expenses = expSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
         const settlements = stlSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
         
-        // Category distribution (Your shared portion) - SKIP DELETED
+        // Category distribution (Your actual share) - SKIP DELETED
         expenses.forEach(exp => {
           if (exp.status === 'deleted') return;
-          const isParticipant = exp.participants?.includes(userId) || exp.paidBy === userId;
-          if (isParticipant && exp.category) {
-            categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + parseFloat(exp.amount || 0);
+          
+          // Find the user's specific share in this expense
+          const userSplit = exp.splits?.find(s => {
+            const sUid = s.user?._id || s.user?.uid || s.user || '';
+            return sUid === userId;
+          });
+
+          if (userSplit && exp.category) {
+            categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + parseFloat(userSplit.amount || 0);
           }
         });
 

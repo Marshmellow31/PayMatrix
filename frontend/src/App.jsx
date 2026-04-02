@@ -165,6 +165,7 @@ function App() {
 
         <Route path="/settlements" element={<GlobalSettlements />} />
         <Route path="/activity" element={<Activity />} />
+        <Route path="/friends/:id" element={<Profile />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
 

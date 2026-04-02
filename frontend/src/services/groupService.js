@@ -114,6 +114,30 @@ const groupService = {
     return wrap({ groups: pastGroups });
   },
 
+  getMutualGroups: async (userId1, userId2) => {
+    if (!userId1 || !userId2) throw new Error("Missing identifiers for shared cohort check");
+    
+    // Fetch active groups for the first user
+    const q = query(
+      collection(db, 'groups'), 
+      where('members', 'array-contains', userId1),
+      where('status', '==', 'active')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const allGroups = await Promise.all(querySnapshot.docs.map(doc => groupService.expandGroupData(doc)));
+    
+    // Filter for groups where the second user is also a member
+    const mutualGroups = allGroups.filter(g => {
+      return g.members && g.members.some(m => {
+        const mid = (m.user?._id || m.uid || m.user || '').toString();
+        return mid === userId2;
+      });
+    });
+    
+    return wrap({ groups: mutualGroups });
+  },
+
   getGroup: async (id) => {
     const docRef = doc(db, 'groups', id);
     let docSnap;

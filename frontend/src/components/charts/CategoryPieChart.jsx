@@ -5,20 +5,24 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 const CategoryPieChart = ({ data }) => {
   const chartData = {
-    labels: data.map((item) => item._id),
+    labels: data.map((item) => item.name),
     datasets: [
       {
-        data: data.map((item) => item.amount),
+        data: data.map((item) => item.value),
         backgroundColor: [
+          '#f97316', // Orange (Fire Theme)
           '#00B341', // Emerald
+          '#3b82f6', // Bright Blue
+          '#a855f7', // Purple
           '#FFFFFF', // White
-          '#1A1C1C', // Dark
-          '#333333', // Grey
-          '#006C28', // Dark Green
-          '#E5E2E1', // Light Grey
+          '#ec4899', // Pink
+          '#eab308', // Yellow
+          '#6366f1', // Indigo
+          '#14b8a6', // Teal
         ],
-        borderWidth: 0,
-        hoverOffset: 4,
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 2,
+        hoverOffset: 15,
       },
     ],
   };

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useParams, useNavigate } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../config/firebase.js';
 import useAuth from '../hooks/useAuth.js';
 import Avatar from '../components/common/Avatar.jsx';
 import Button from '../components/common/Button.jsx';
 import Input from '../components/common/Input.jsx';
-import { LogOut, Download, Mail, User, Settings, Archive } from 'lucide-react';
+import { LogOut, Download, Mail, User, Settings, Archive, Users, Flame } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 import groupService from '../services/groupService.js';
@@ -13,10 +15,46 @@ import { computeGroupBalances } from '../utils/balanceEngine.js';
 import { exportToPDF } from '../utils/exportUtils.js';
 
 const Profile = () => {
-  const { user, logout, updateProfile } = useAuth();
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user: currentUser, logout, updateProfile } = useAuth();
+  const [targetUser, setTargetUser] = useState(null);
+  const [loading, setLoading] = useState(!!id);
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(user?.name || '');
+  const [name, setName] = useState('');
   const isOnline = useOnlineStatus();
+
+  const isOwnProfile = !id || id === currentUser?._id || id === currentUser?.uid;
+
+  useEffect(() => {
+    const fetchTargetUser = async () => {
+      if (isOwnProfile) {
+        setTargetUser(currentUser);
+        setName(currentUser?.name || '');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const docRef = doc(db, 'users', id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setTargetUser({ _id: docSnap.id, ...docSnap.data() });
+        } else {
+          toast.error("User not found");
+          navigate('/friends');
+        }
+      } catch (err) {
+        console.error("Error fetching profile:", err);
+        toast.error("Failed to load profile");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTargetUser();
+  }, [id, currentUser, isOwnProfile, navigate]);
 
   const handleSave = async () => {
     try {
@@ -32,14 +70,24 @@ const Profile = () => {
     }
   };
 
+  if (loading) return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+
+  const displayUser = isOwnProfile ? currentUser : targetUser;
+
   return (
     <div className="max-w-4xl mx-auto animate-fade-in pb-24 px-4 sm:px-6">
       <div className="mb-8 pt-6">
         <h1 className="text-4xl lg:text-5xl font-black font-manrope text-white tracking-[-0.04em] mb-2">
-          Security & Identity
+          {isOwnProfile ? 'Security & Identity' : 'Network Node'}
         </h1>
         <p className="text-sm md:text-base text-on-surface-variant font-inter opacity-60">
-          Manage your network presence and archived data exports.
+          {isOwnProfile 
+            ? 'Manage your network presence and archived data exports.' 
+            : 'Operational details and connection status for this node.'}
         </p>
       </div>
 
@@ -54,8 +102,8 @@ const Profile = () => {
                 <div className="relative group">
                   <div className="absolute -inset-1 bg-primary/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500" />
                   <Avatar 
-                    name={user?.name} 
-                    src={user?.avatar} 
+                    name={displayUser?.name} 
+                    src={displayUser?.avatar} 
                     size="xl" 
                     className="relative w-28 h-28 text-3xl border-4 border-white/5 shadow-2xl" 
                   />
@@ -85,15 +133,15 @@ const Profile = () => {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <h2 className="text-4xl font-extrabold font-manrope text-white tracking-tight">{user?.name}</h2>
+                      <h2 className="text-4xl font-extrabold font-manrope text-white tracking-tight">{displayUser?.name}</h2>
                       <div className="flex items-center justify-center md:justify-start gap-2 text-on-surface-variant opacity-60">
                         <Mail size={14} />
-                        <span className="text-sm font-medium font-inter">{user?.email}</span>
+                        <span className="text-sm font-medium font-inter">{displayUser?.email}</span>
                       </div>
                     </div>
                   )}
 
-                  {!editing && (
+                  {!editing && isOwnProfile && (
                     <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-2">
                       <Button 
                         variant="ghost" 
@@ -114,6 +162,12 @@ const Profile = () => {
                       </Button>
                     </div>
                   )}
+
+                  {!isOwnProfile && (
+                    <div className="mt-2 flex items-center justify-center md:justify-start">
+                       <span className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/40"> Verified Connection </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -125,7 +179,9 @@ const Profile = () => {
           <div className="glass-card p-10 border border-white/5 bg-white/[0.01]">
             <div className="flex items-center gap-3 mb-8">
               <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                <Settings size={18} />
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <Settings size={18} />
+                </div>
               </div>
               <h3 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] font-manrope">System</h3>
             </div>
@@ -133,37 +189,48 @@ const Profile = () => {
             <div className="space-y-6">
               <div className="flex items-center justify-between pb-4 border-b border-white/5">
                 <span className="text-sm font-bold text-white/60 font-inter">Currency</span>
-                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{user?.preferences?.currency || 'INR'}</span>
+                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.currency || 'INR'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-white/60 font-inter">Interface</span>
-                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{user?.preferences?.theme || 'dark'}</span>
+                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.theme || 'dark'}</span>
               </div>
             </div>
           </div>
 
-          <div className="lg:col-span-1">
-             <PastGroups userId={user?._id} />
-          </div>
+          {isOwnProfile ? (
+            <div className="lg:col-span-1">
+               <CohortHistory userId={currentUser?._id} />
+            </div>
+          ) : (
+             <div className="lg:col-span-1">
+                <CohortHistory userId={id} myId={currentUser?._id} isFriendView={true} />
+             </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-const PastGroups = ({ userId }) => {
+const CohortHistory = ({ userId, myId, isFriendView = false }) => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(null);
 
   useEffect(() => {
-    if (userId) {
-      groupService.getPastGroups(userId)
-        .then(res => setGroups(res.data.data.groups))
-        .catch(err => console.error("Failed to fetch past groups:", err))
-        .finally(() => setLoading(false));
-    }
-  }, [userId]);
+    if (!userId) return;
+
+    setLoading(true);
+    const fetchAction = isFriendView 
+      ? groupService.getMutualGroups(myId, userId)
+      : groupService.getPastGroups(userId);
+
+    fetchAction
+      .then(res => setGroups(res.data.data.groups))
+      .catch(err => console.error("Failed to fetch cohorts:", err))
+      .finally(() => setLoading(false));
+  }, [userId, myId, isFriendView]);
 
   const handleExport = async (group) => {
     setExporting(group._id);
@@ -209,15 +276,19 @@ const PastGroups = ({ userId }) => {
     <div className="glass-card p-10 border-primary/10 bg-primary/[0.01]">
       <div className="flex items-center gap-3 mb-8">
         <div className="p-2 bg-primary/10 rounded-lg text-primary">
-          <Archive size={18} />
+          {isFriendView ? <Flame size={18} /> : <Archive size={18} />}
         </div>
-        <h3 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] font-manrope text-primary/60">Archived Cohorts</h3>
+        <h3 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] font-manrope text-primary/60">
+          {isFriendView ? 'Mutual Cohorts' : 'Archived Cohorts'}
+        </h3>
       </div>
 
       <div className="flex flex-col gap-5">
         {groups.length === 0 ? (
           <div className="text-center py-10 border border-dashed border-white/5 rounded-3xl bg-white/[0.01]">
-            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">No Archived Sessions Found</p>
+            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">
+              {isFriendView ? 'No Active Shared Cohorts Identified' : 'No Archived Sessions Found'}
+            </p>
           </div>
         ) : (
           groups.map(group => (

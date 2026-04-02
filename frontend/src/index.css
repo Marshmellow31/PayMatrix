@@ -214,7 +214,8 @@
 
   /* Submerged section */
   .submerged {
-    background: #0e0e0e;
+    background: #151515;
+    border: 1px solid rgba(255, 255, 255, 0.03);
     border-radius: 16px;
   }
 

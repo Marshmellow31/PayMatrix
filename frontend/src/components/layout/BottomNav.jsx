@@ -22,13 +22,12 @@ const BottomNav = () => {
             }
           >
             {({ isActive }) => (
-              <div className={`flex flex-col items-center justify-center transition-all duration-300 ${
-                isActive
+              <div className={`flex flex-col items-center justify-center transition-all duration-300 ${isActive
                   ? 'bg-surface-variant/20 w-12 h-12 rounded-full text-primary'
                   : 'text-on-surface-variant hover:text-on-surface'
-              }`}>
+                }`}>
                 {isActive ? (
-                   <item.icon size={22} strokeWidth={2.5} />
+                  <item.icon size={22} strokeWidth={2.5} />
                 ) : (
                   <item.icon size={22} strokeWidth={1.5} />
                 )}
