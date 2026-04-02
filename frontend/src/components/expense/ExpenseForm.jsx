@@ -347,7 +347,15 @@ const ExpenseForm = ({
     </motion.div>
   );
 
-  const renderStep2 = () => (
+  const renderStep2 = () => {
+    const totalAmountValue = parseFloat(form.amount || 0);
+    const totalDistributedValue = splitType === 'exact' 
+      ? participants.reduce((sum, id) => sum + parseFloat(splitData.exactAmounts[id] || 0), 0)
+      : 0;
+    const leftValue = totalAmountValue - totalDistributedValue;
+    const isSplitValid = splitType === 'exact' ? Math.abs(leftValue) < 0.01 : true;
+
+    return (
     <motion.div 
       initial={{ opacity: 0, scale: 1.05 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -494,6 +502,34 @@ const ExpenseForm = ({
         </div>
       </div>
 
+      {/* Real-time Amount Indicator for Exact Split */}
+      {splitType === 'exact' && (
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`flex items-center justify-between px-4 py-3 rounded-2xl border transition-all ${
+            isSplitValid 
+              ? 'bg-primary/10 border-primary/20' 
+              : leftValue > 0 
+                ? 'bg-white/5 border-white/10' 
+                : 'bg-red-500/10 border-red-500/20'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <LucideIcons.Info size={14} className={isSplitValid ? 'text-primary' : leftValue > 0 ? 'text-on-surface-variant' : 'text-red-400'} />
+            <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
+              {isSplitValid ? 'Split Balanced' : leftValue > 0 ? 'Remaining' : 'Over Limit'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={`font-manrope font-black text-sm ${isSplitValid ? 'text-primary' : leftValue > 0 ? 'text-white' : 'text-red-400'}`}>
+              ₹{Math.abs(leftValue).toFixed(2)}
+            </span>
+            {isSplitValid && <LucideIcons.CheckCircle2 size={14} className="text-primary" />}
+          </div>
+        </motion.div>
+      )}
+
       <div className="flex gap-4 mt-2">
         <Button 
           variant="outline"
@@ -506,14 +542,16 @@ const ExpenseForm = ({
           type="button"
           onClick={handleSubmit}
           loading={loading || isSubmitting}
-          className="flex-[2] h-14 rounded-3xl font-manrope font-black text-base bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl"
+          disabled={!isSplitValid}
+          className="flex-[2] h-14 rounded-3xl font-manrope font-black text-base bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl disabled:opacity-50 disabled:bg-white/10 disabled:text-white/20"
         >
           <LucideIcons.CircleCheck size={20} />
           {initialData ? 'Update Transaction' : 'Commit Transaction'}
         </Button>
       </div>
     </motion.div>
-  );
+    );
+  };
 
   return (
     <div className="w-full">
