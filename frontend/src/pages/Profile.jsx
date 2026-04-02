@@ -6,13 +6,14 @@ import useAuth from '../hooks/useAuth.js';
 import Avatar from '../components/common/Avatar.jsx';
 import Button from '../components/common/Button.jsx';
 import Input from '../components/common/Input.jsx';
-import { LogOut, Download, Mail, User, Settings, Archive, Users, Flame } from 'lucide-react';
+import { LogOut, Download, Mail, User, Settings, Archive, Flame, CreditCard, AtSign, Link2, AlertTriangle, CheckCircle2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 import groupService from '../services/groupService.js';
 import expenseService from '../services/expenseService.js';
 import { computeGroupBalances } from '../utils/balanceEngine.js';
 import { exportToPDF } from '../utils/exportUtils.js';
+import { validateUPIId, hasPaymentMethod } from '../utils/upiUtils.js';
 
 const Profile = () => {
   const { id } = useParams();
@@ -24,6 +25,12 @@ const Profile = () => {
   const [name, setName] = useState('');
   const isOnline = useOnlineStatus();
 
+  // Payment details state
+  const [upiId, setUpiId] = useState('');
+  const [paymentError, setPaymentError] = useState('');
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [showPaymentWarningBanner, setShowPaymentWarningBanner] = useState(true);
+
   const isOwnProfile = !id || id === currentUser?._id || id === currentUser?.uid;
 
   useEffect(() => {
@@ -31,6 +38,7 @@ const Profile = () => {
       if (isOwnProfile) {
         setTargetUser(currentUser);
         setName(currentUser?.name || '');
+        setUpiId(currentUser?.upiId || '');
         setLoading(false);
         return;
       }
@@ -70,6 +78,40 @@ const Profile = () => {
     }
   };
 
+  const handleSavePaymentDetails = async () => {
+    setPaymentError('');
+
+    const trimmedUpi = upiId.trim();
+
+    // Validate: must not be empty
+    if (!trimmedUpi) {
+      setPaymentError('Please enter a valid UPI ID (example@bank).');
+      return;
+    }
+
+    // Validate UPI ID format
+    if (!validateUPIId(trimmedUpi)) {
+      setPaymentError('Invalid UPI ID format. Standard IDs include "@" (e.g., name@okhdfc).');
+      return;
+    }
+
+    setSavingPayment(true);
+    try {
+      const result = await updateProfile({
+        upiId: trimmedUpi,
+      });
+      if (result.meta.requestStatus === 'fulfilled') {
+        toast.success('UPI ID updated!');
+      } else {
+        toast.error(result.payload || 'Failed to update UPI ID');
+      }
+    } catch (err) {
+      toast.error('An unexpected error occurred');
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
   if (loading) return (
     <div className="min-h-[60vh] flex items-center justify-center">
        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -78,6 +120,8 @@ const Profile = () => {
 
   const displayUser = isOwnProfile ? currentUser : targetUser;
 
+  const userHasPayment = hasPaymentMethod(currentUser);
+
   return (
     <div className="max-w-4xl mx-auto animate-fade-in pb-24 px-4 sm:px-6">
       <div className="mb-8 pt-6">
@@ -85,11 +129,35 @@ const Profile = () => {
           {isOwnProfile ? 'Security & Identity' : 'Network Node'}
         </h1>
         <p className="text-sm md:text-base text-on-surface-variant font-inter opacity-60">
-          {isOwnProfile 
-            ? 'Manage your network presence and archived data exports.' 
+          {isOwnProfile
+            ? 'Manage your network presence and archived data exports.'
             : 'Operational details and connection status for this node.'}
         </p>
       </div>
+
+      {/* ── Payment Warning Banner (own profile, no UPI ID) ── */}
+      {isOwnProfile && !userHasPayment && showPaymentWarningBanner && (
+        <div className="mb-6 flex items-center gap-4 p-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+            <AlertTriangle size={18} className="text-amber-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-amber-400 leading-snug">
+              Add your UPI ID to receive payments
+            </p>
+            <p className="text-[11px] text-amber-400/60 font-inter mt-0.5">
+              Without a valid UPI ID (e.g., name@bank), friends won't be able to pay you directly from the Settle Up screen.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowPaymentWarningBanner(false)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white/30 hover:text-white/60 transition-all shrink-0"
+            aria-label="Dismiss"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Identity Card */}
@@ -164,8 +232,18 @@ const Profile = () => {
                   )}
 
                   {!isOwnProfile && (
-                    <div className="mt-2 flex items-center justify-center md:justify-start">
-                       <span className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/40"> Verified Connection </span>
+                    <div className="mt-2 flex flex-wrap items-center justify-center md:justify-start gap-2">
+                      <span className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/40">Verified Connection</span>
+                      {/* Payment method availability badge */}
+                      {hasPaymentMethod(targetUser) ? (
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest">
+                          <CheckCircle2 size={11} /> UPI Ready
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/80 text-[9px] font-black uppercase tracking-widest">
+                          <AlertTriangle size={11} /> No UPI ID
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -185,7 +263,7 @@ const Profile = () => {
               </div>
               <h3 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] font-manrope">System</h3>
             </div>
-            
+
             <div className="space-y-6">
               <div className="flex items-center justify-between pb-4 border-b border-white/5">
                 <span className="text-sm font-bold text-white/60 font-inter">Currency</span>
@@ -208,6 +286,94 @@ const Profile = () => {
              </div>
           )}
         </div>
+
+        {/* ── Payment Details Card (own profile only) ── */}
+        {isOwnProfile && (
+          <div className="lg:col-span-12">
+            <div className="glass-card p-10 border border-white/5 bg-white/[0.01] relative overflow-hidden">
+              {/* Subtle accent line */}
+              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
+
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-2 bg-emerald-500/10 rounded-lg">
+                  <div className="w-8 h-8 flex items-center justify-center">
+                    <CreditCard size={18} className="text-emerald-400" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] font-manrope">Payment Details</h3>
+                  <p className="text-[11px] text-white/20 font-inter mt-0.5">Connect your UPI ID to receive payments directly</p>
+                </div>
+                {/* Status pill */}
+                {userHasPayment ? (
+                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-wider shrink-0">
+                    <CheckCircle2 size={10} /> UPI Active
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/80 text-[9px] font-black uppercase tracking-wider shrink-0">
+                    <AlertTriangle size={10} /> No UPI ID
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-6">
+                {/* UPI ID */}
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-1">
+                    <AtSign size={11} />
+                    UPI ID
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="upi-id"
+                      value={upiId}
+                      onChange={(e) => { setUpiId(e.target.value); setPaymentError(''); }}
+                      placeholder="example@okhdfc"
+                      className="h-14 bg-white/[0.03] font-mono text-sm pr-28 text-white"
+                      disabled={!isOnline || savingPayment}
+                    />
+                    {upiId && validateUPIId(upiId) && (
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[9px] font-black text-emerald-400 uppercase tracking-wider">
+                        <CheckCircle2 size={12} /> Valid
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Error */}
+                {paymentError && (
+                  <p className="text-xs text-red-500 font-inter flex items-center gap-2 animate-shake">
+                    <AlertTriangle size={13} /> {paymentError}
+                  </p>
+                )}
+
+                {/* Save Section */}
+                <div className="pt-2 flex flex-col gap-4">
+                  <Button
+                    onClick={handleSavePaymentDetails}
+                    disabled={!isOnline || savingPayment}
+                    className={`h-14 w-full md:w-auto md:px-12 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-xl
+                      ${!isOnline ? 'opacity-20 cursor-not-allowed bg-white/5 border-white/5 text-white/40' : savingPayment ? 'opacity-60 cursor-wait bg-white text-black/50' : 'bg-white text-black hover:bg-white/90'}`
+                    }
+                  >
+                    {savingPayment ? (
+                      <span className="flex items-center gap-3">
+                        <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                        UPDATING…
+                      </span>
+                    ) : isOnline ? 'SAVE UPI ID' : 'OFFLINE'}
+                  </Button>
+                  
+                  {!userHasPayment && isOnline && !savingPayment && (
+                    <p className="text-[10px] text-amber-400/50 font-bold uppercase tracking-widest">
+                       Mandatory for settlement receiving
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
