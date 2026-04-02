@@ -177,11 +177,20 @@ const ExpenseForm = ({
 
     setIsSubmitting(true);
     try {
+      let resolvedName = 'Member';
+      if (selectedGroup?.members) {
+        const member = selectedGroup.members.find(m => (m.user?._id || m.user || '').toString() === form.paidBy);
+        if (member && member.user?.name) {
+          resolvedName = member.user.name;
+        }
+      }
+
       await onSubmit({
         ...form,
         amount: parseFloat(form.amount || 0),
         participants: participants,
         paidBy: form.paidBy,
+        paidByName: resolvedName,
         splitType,
         splitData: {
           percentages: splitType === 'percentage' ? splitData.percentages : undefined,

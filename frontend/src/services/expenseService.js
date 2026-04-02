@@ -161,7 +161,15 @@ const expenseService = {
     // Secondary tasks (non-blocking)
     (async () => {
       try {
-        const actorName = await getStoredName(userId, 'Someone');
+        const [resolvedPaidByName, actorName] = await Promise.all([
+          getStoredName(data.paidBy || userId, 'Member'),
+          getStoredName(userId, 'Someone')
+        ]);
+
+        if (resolvedPaidByName !== 'Member' && resolvedPaidByName !== data.paidByName) {
+          updateDoc(docRef, { paidByName: resolvedPaidByName }).catch(() => {});
+        }
+
         if (groupId) {
           addDoc(collection(db, 'groups', groupId, 'logs'), {
             type: 'expense_updated',
