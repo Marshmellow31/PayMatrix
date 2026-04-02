@@ -194,7 +194,7 @@ const Friends = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 pb-32 space-y-10">
+    <div className="max-w-4xl mx-auto px-1 sm:px-4 py-8 pb-32 space-y-10">
       {/* Network Header Section */}
       <motion.div 
         initial={{ opacity: 0, y: -10 }}
@@ -247,7 +247,7 @@ const Friends = () => {
                   {searchResults.map((user) => {
                     const status = searchStatus[user._id] || 'none';
                     return (
-                      <div key={user._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-3xl hover:bg-white/[0.03] border border-transparent hover:border-white/5 transition-all group/item">
+                      <div key={user._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 sm:p-5 rounded-3xl hover:bg-white/[0.03] border border-transparent hover:border-white/5 transition-all group/item">
                         <div className="flex items-center gap-5 min-w-0">
                           <div className="w-14 h-14 rounded-[1.25rem] flex-shrink-0 bg-white/5 border border-white/5 flex items-center justify-center font-black text-white/10 group-hover/item:text-white group-hover/item:bg-white/10 transition-all uppercase text-xl">
                             {user.name.charAt(0)}
@@ -388,11 +388,11 @@ const Friends = () => {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.03 }}
-                    className="group relative bg-[#1a1a1a]/40 border border-white/5 p-4 rounded-2xl hover:bg-[#1a1a1a] hover:border-white/10 transition-all duration-300 flex items-center justify-between gap-4"
+                    className="group relative bg-surface-container-high/40 border border-white/5 p-3 sm:p-4 rounded-2xl hover:bg-surface-container-high hover:border-white/10 transition-all duration-300 flex items-center justify-between gap-2 sm:gap-4 overflow-hidden"
                   >
-                    <div className="flex items-center gap-4 min-w-0 flex-1">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                       {/* Avatar */}
-                      <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-lg font-black text-white group-hover:bg-white group-hover:text-black transition-all duration-300 shrink-0">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-base sm:text-lg font-black text-white group-hover:bg-white group-hover:text-black transition-all duration-300 shrink-0">
                         {friendNode.friend.name.charAt(0).toUpperCase()}
                       </div>
 
@@ -400,43 +400,43 @@ const Friends = () => {
                       <div className="min-w-0">
                         <Link
                           to={`/friends/${friendNode.friend._id}`}
-                          className="text-sm font-black text-white tracking-tight hover:text-primary transition-colors block truncate"
+                          className="text-xs sm:text-sm font-black text-white tracking-tight hover:text-primary transition-colors block truncate"
                         >
                           {friendNode.friend.name}
                         </Link>
-                        <p className="text-[9px] text-white/20 font-black uppercase tracking-widest mt-0.5">
+                        <p className="text-[8px] sm:text-[9px] text-white/20 font-black uppercase tracking-widest mt-0.5 truncate">
                           {friendNode.mutualGroupsCount} Mutual Cohorts
                         </p>
                       </div>
                     </div>
 
                     {/* Balance and Actions */}
-                    <div className="flex items-center gap-6 shrink-0">
+                    <div className="flex items-center gap-3 sm:gap-6 shrink-0">
                       <div className="text-right">
-                        <p className={`text-sm font-black font-manrope tracking-tight ${isPositive ? 'text-white' : isNegative ? 'text-white/40' : 'text-white/10'}`}>
+                        <p className={`text-[11px] sm:text-sm font-black font-manrope tracking-tight ${isPositive ? 'text-white' : isNegative ? 'text-white/40' : 'text-white/10'}`}>
                           {hasBalance ? `₹${Math.abs(balance).toLocaleString()}` : 'Settled'}
                         </p>
                         {hasBalance && (
-                          <p className={`text-[8px] font-black uppercase tracking-widest mt-0.5 ${isPositive ? 'text-white/40' : 'text-white/10'}`}>
+                          <p className={`text-[7px] sm:text-[8px] font-black uppercase tracking-widest mt-0.5 ${isPositive ? 'text-white/40' : 'text-white/10'}`}>
                             {isPositive ? 'Receivable' : 'Payable'}
                           </p>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
                         {isNegative && (
                           <button
                             onClick={() => handleQuickSettle(friendNode)}
-                            className="bg-white/5 text-white hover:bg-white hover:text-black h-9 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 border border-white/10"
+                            className="bg-white/5 text-white hover:bg-white hover:text-black h-8 sm:h-9 px-2 sm:px-4 rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 border border-white/10"
                           >
                             Settle
                           </button>
                         )}
                         <Link
                           to={`/friends/${friendNode.friend._id}`}
-                          className="w-9 h-9 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-white/20 hover:text-white hover:bg-white/10 transition-all"
+                          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-white/20 hover:text-white hover:bg-white/10 transition-all shrink-0"
                         >
-                          <ChevronRight size={16} />
+                          <ChevronRight size={14} />
                         </Link>
                       </div>
                     </div>

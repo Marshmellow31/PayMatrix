@@ -246,17 +246,17 @@ const Profile = () => {
                         onClick={() => isOnline && setEditing(true)}
                         disabled={!isOnline}
                       >
-                        <User size={12} className="opacity-50 text-primary" />
+                        <User size={12} className="opacity-50 text-white" />
                         <span>{isOnline ? 'Edit' : 'Offline'}</span>
                       </Button>
 
                       <Button
-                        variant="danger"
-                        className="h-9 px-1 rounded-xl text-[9.5px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                        variant="ghost"
+                        className="h-9 px-1 rounded-xl text-[9.5px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/10"
                         onClick={logout}
                       >
                         <LogOut size={12} className="opacity-70" />
-                        <span>Terminate</span>
+                        <span>Logout</span>
                       </Button>
                     </div>
                   )}
