@@ -6,14 +6,14 @@ import useAuth from '../hooks/useAuth.js';
 import Avatar from '../components/common/Avatar.jsx';
 import Button from '../components/common/Button.jsx';
 import Input from '../components/common/Input.jsx';
-import { LogOut, Download, Mail, User, Settings, Archive, Flame, CreditCard, AtSign, Link2, AlertTriangle, CheckCircle2, X } from 'lucide-react';
+import { LogOut, Download, Mail, User, Settings, Archive, Flame, CreditCard, AtSign, Link2, AlertTriangle, CheckCircle2, X, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 import groupService from '../services/groupService.js';
 import expenseService from '../services/expenseService.js';
 import { computeGroupBalances } from '../utils/balanceEngine.js';
 import { exportToPDF } from '../utils/exportUtils.js';
-import { validateUPIId, hasPaymentMethod } from '../utils/upiUtils.js';
+import { validateUPIId, hasPaymentMethod, UPI_APPS } from '../utils/upiUtils.js';
 
 const Profile = () => {
   const { id } = useParams();
@@ -31,6 +31,10 @@ const Profile = () => {
   const [savingPayment, setSavingPayment] = useState(false);
   const [showPaymentWarningBanner, setShowPaymentWarningBanner] = useState(true);
 
+  // Preferred app state
+  const [preferredApp, setPreferredApp] = useState('default');
+  const [savingPreferredApp, setSavingPreferredApp] = useState(false);
+
   const isOwnProfile = !id || id === currentUser?._id || id === currentUser?.uid;
 
   useEffect(() => {
@@ -39,6 +43,7 @@ const Profile = () => {
         setTargetUser(currentUser);
         setName(currentUser?.name || '');
         setUpiId(currentUser?.upiId || '');
+        setPreferredApp(currentUser?.preferredApp || 'default');
         setLoading(false);
         return;
       }
@@ -112,9 +117,25 @@ const Profile = () => {
     }
   };
 
+  const handleSavePreferredApp = async () => {
+    setSavingPreferredApp(true);
+    try {
+      const result = await updateProfile({ preferredApp });
+      if (result.meta.requestStatus === 'fulfilled') {
+        toast.success('Payment app preference saved!');
+      } else {
+        toast.error(result.payload || 'Failed to save preference');
+      }
+    } catch (err) {
+      toast.error('An unexpected error occurred');
+    } finally {
+      setSavingPreferredApp(false);
+    }
+  };
+
   if (loading) return (
     <div className="min-h-[60vh] flex items-center justify-center">
-       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
     </div>
   );
 
@@ -164,16 +185,16 @@ const Profile = () => {
         <div className="lg:col-span-12 xl:col-span-12">
           <div className="glass-card overflow-hidden border border-white/5 relative">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50 opacity-20" />
-            
+
             <div className="p-6 lg:p-10">
               <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
                 <div className="relative group">
                   <div className="absolute -inset-1 bg-primary/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500" />
-                  <Avatar 
-                    name={displayUser?.name} 
-                    src={displayUser?.avatar} 
-                    size="xl" 
-                    className="relative w-28 h-28 text-3xl border-4 border-white/5 shadow-2xl" 
+                  <Avatar
+                    name={displayUser?.name}
+                    src={displayUser?.avatar}
+                    size="xl"
+                    className="relative w-28 h-28 text-3xl border-4 border-white/5 shadow-2xl"
                   />
                 </div>
 
@@ -182,12 +203,12 @@ const Profile = () => {
                     <div className="space-y-4 max-w-md mx-auto md:mx-0">
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-1">Identity Name</label>
-                        <Input 
-                          value={name} 
-                          onChange={(e) => setName(e.target.value)} 
-                          id="profile-name" 
-                          className="h-14 bg-white/[0.03] text-lg font-bold" 
-                          disabled={!isOnline} 
+                        <Input
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          id="profile-name"
+                          className="h-14 bg-white/[0.03] text-lg font-bold"
+                          disabled={!isOnline}
                         />
                       </div>
                       <div className="flex gap-3">
@@ -211,19 +232,19 @@ const Profile = () => {
 
                   {!editing && isOwnProfile && (
                     <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-2">
-                      <Button 
-                        variant="ghost" 
-                        className={`h-11 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-white/5 hover:bg-white/10 border border-white/5 active:scale-95 ${!isOnline ? 'opacity-30 grayscale cursor-not-allowed' : ''}`} 
+                      <Button
+                        variant="ghost"
+                        className={`h-11 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-white/5 hover:bg-white/10 border border-white/5 active:scale-95 ${!isOnline ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
                         onClick={() => isOnline && setEditing(true)}
                         disabled={!isOnline}
                       >
                         <User size={14} className="mr-2 opacity-50" />
                         {isOnline ? 'Edit Identity' : 'Updates Blocked'}
                       </Button>
-                      
-                      <Button 
-                        variant="danger" 
-                        className="h-11 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center" 
+
+                      <Button
+                        variant="danger"
+                        className="h-11 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center"
                         onClick={logout}
                       >
                         <LogOut size={14} className="mr-2 opacity-70" /> Terminate
@@ -250,41 +271,6 @@ const Profile = () => {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* System Settings & Assets */}
-        <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="glass-card p-10 border border-white/5 bg-white/[0.01]">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <Settings size={18} />
-                </div>
-              </div>
-              <h3 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] font-manrope">System</h3>
-            </div>
-
-            <div className="space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-white/5">
-                <span className="text-sm font-bold text-white/60 font-inter">Currency</span>
-                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.currency || 'INR'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-white/60 font-inter">Interface</span>
-                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.theme || 'dark'}</span>
-              </div>
-            </div>
-          </div>
-
-          {isOwnProfile ? (
-            <div className="lg:col-span-1">
-               <CohortHistory userId={currentUser?._id} />
-            </div>
-          ) : (
-             <div className="lg:col-span-1">
-                <CohortHistory userId={id} myId={currentUser?._id} isFriendView={true} />
-             </div>
-          )}
         </div>
 
         {/* ── Payment Details Card (own profile only) ── */}
@@ -363,10 +349,10 @@ const Profile = () => {
                       </span>
                     ) : isOnline ? 'SAVE UPI ID' : 'OFFLINE'}
                   </Button>
-                  
+
                   {!userHasPayment && isOnline && !savingPayment && (
                     <p className="text-[10px] text-amber-400/50 font-bold uppercase tracking-widest">
-                       Mandatory for settlement receiving
+                      Mandatory for settlement receiving
                     </p>
                   )}
                 </div>
@@ -374,6 +360,166 @@ const Profile = () => {
             </div>
           </div>
         )}
+
+        {/* ── Preferred Payment App Card (own profile only) ── */}
+        {isOwnProfile && (
+          <div className="lg:col-span-12">
+            <div className="glass-card p-10 border border-white/5 bg-white/[0.01] relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
+
+              <div className="flex items-center justify-between gap-3 mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-violet-500/10 rounded-lg">
+                    <div className="w-8 h-8 flex items-center justify-center">
+                      <Smartphone size={20} className="text-violet-400" />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] font-manrope">Preferred Payment App</h3>
+                    <p className="text-[11px] text-white/20 font-inter mt-0.5">Choose which UPI app opens when you pay</p>
+                  </div>
+                </div>
+                {/* Current selection pill */}
+                <span className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[9px] font-black uppercase tracking-wider shrink-0">
+                  {(() => {
+                    const currentApp = UPI_APPS.find(a => a.id === preferredApp);
+                    if (currentApp?.id === 'default') return <Smartphone size={11} />;
+                    return (
+                      <img
+                        src={currentApp?.icon}
+                        alt={currentApp?.label}
+                        className="w-3.5 h-3.5 object-contain"
+                      />
+                    );
+                  })()}
+                  &nbsp;
+                  {UPI_APPS.find(a => a.id === preferredApp)?.shortLabel || 'Default'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mb-8">
+                {UPI_APPS.map((app) => {
+                  const isSelected = preferredApp === app.id;
+                  return (
+                    <button
+                      key={app.id}
+                      onClick={() => setPreferredApp(app.id)}
+                      disabled={!isOnline || savingPreferredApp}
+                      style={isSelected ? { borderColor: `${app.color}40`, boxShadow: `0 0 0 1px ${app.color}30, 0 4px 20px ${app.color}15` } : {}}
+                      className={`
+                        relative text-left p-4 rounded-2xl border transition-all duration-200
+                        flex items-center gap-4 group
+                        ${isSelected
+                          ? 'bg-white/[0.05] border-white/20'
+                          : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/10'}
+                        ${(!isOnline || savingPreferredApp) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'}
+                      `}
+                    >
+                      {/* App icon/logo */}
+                      <div
+                        className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 overflow-hidden ${isSelected ? 'bg-white/10' : 'bg-white/5'
+                          }`}
+                        style={isSelected ? { backgroundColor: `${app.color}18` } : {}}
+                      >
+                        {app.id === 'default' ? (
+                          <Smartphone size={24} className={isSelected ? 'text-violet-400' : 'text-white/40'} />
+                        ) : (
+                          <img
+                            src={app.icon}
+                            alt={app.label}
+                            className="w-7 h-7 object-contain transition-all duration-300"
+                          />
+                        )}
+                      </div>
+
+                      {/* Label */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-bold truncate transition-colors duration-200 ${isSelected ? 'text-white' : 'text-white/60 group-hover:text-white/80'
+                          }`}>{app.label}</p>
+                        <p className="text-[10px] text-white/25 font-inter mt-0.5 truncate">{app.description}</p>
+                      </div>
+
+                      {/* Check badge */}
+                      {isSelected && (
+                        <div
+                          className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: `${app.color}30`, border: `1.5px solid ${app.color}60` }}
+                        >
+                          <CheckCircle2 size={11} style={{ color: app.color }} />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* iOS note */}
+              <div className="mb-6 p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-3">
+                <AlertTriangle size={13} className="text-amber-400/60 mt-0.5 shrink-0" />
+                <p className="text-[10px] text-amber-400/50 font-inter leading-relaxed">
+                  <span className="font-bold text-amber-400/70">iOS note:</span> If set to "Default", you'll see a chooser prompt when paying — iOS doesn't support automatic UPI app detection.
+                  Selecting a specific app skips this step.
+                </p>
+              </div>
+
+              <Button
+                onClick={handleSavePreferredApp}
+                disabled={!isOnline || savingPreferredApp}
+                className={`h-14 w-full md:w-auto md:px-12 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-xl
+                  ${!isOnline ? 'opacity-20 cursor-not-allowed bg-white/5 border-white/5 text-white/40' : savingPreferredApp ? 'opacity-60 cursor-wait bg-white text-black/50' : 'bg-white text-black hover:bg-white/90'}`
+                }
+              >
+                {savingPreferredApp ? (
+                  <span className="flex items-center gap-3">
+                    <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                    SAVING…
+                  </span>
+                ) : isOnline ? 'SAVE PREFERENCE' : 'OFFLINE'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* System Settings & Assets */}
+        <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="glass-card p-10 border border-white/5 bg-white/[0.01]">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <Settings size={18} />
+                </div>
+              </div>
+              <h3 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] font-manrope">System</h3>
+            </div>
+
+            <div className="space-y-6">
+              <div className="flex items-center justify-between pb-4 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white/60 font-inter">Currency</span>
+                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">(coming soon)</span>
+                </div>
+                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.currency || 'INR'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white/60 font-inter">Interface</span>
+                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">(coming soon)</span>
+                </div>
+                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.theme || 'dark'}</span>
+              </div>
+            </div>
+          </div>
+
+          {isOwnProfile ? (
+            <div className="lg:col-span-1">
+              <CohortHistory userId={currentUser?._id} />
+            </div>
+          ) : (
+            <div className="lg:col-span-1">
+              <CohortHistory userId={id} myId={currentUser?._id} isFriendView={true} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -388,7 +534,7 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
     if (!userId) return;
 
     setLoading(true);
-    const fetchAction = isFriendView 
+    const fetchAction = isFriendView
       ? groupService.getMutualGroups(myId, userId)
       : groupService.getPastGroups(userId);
 
@@ -406,14 +552,14 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
         expenseService.getSettlements(group._id),
         expenseService.getActivity(group._id)
       ]);
-      
+
       const expenses = expRes.data.data.expenses;
       const settlements = stlRes.data.data.settlements;
       const logs = logRes.data.data.activity;
 
       // Compute balances dynamically for the report
       const calculatedBalances = computeGroupBalances(expenses, settlements, group.members);
-      
+
       // Map to the format exportToPDF expects
       const formattedBalances = Object.keys(calculatedBalances).map(uid => {
         const member = group.members.find(m => {
@@ -458,35 +604,35 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
           </div>
         ) : (
           groups.map(group => (
-          <div key={group._id} className="flex flex-col sm:flex-row sm:items-center justify-between p-6 rounded-3xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all group gap-6">
-            <div className="flex flex-col gap-2">
-              <span className="text-lg font-black text-white group-hover:text-primary transition-colors tracking-tight">{group.title}</span>
-              <div className="flex items-center gap-3">
-                <span className={`text-[9px] font-black uppercase tracking-[0.15em] px-3 py-1 rounded-full ${group.status === 'deleted' ? 'bg-red-500/10 text-red-400 border border-red-500/10' : 'bg-white/5 text-white/40 border border-white/5'}`}>
-                  {group.status === 'deleted' ? 'Deleted' : 'Former Member'}
-                </span>
-                <span className="text-[10px] text-white/20 font-inter font-bold">• {new Date(group.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}</span>
+            <div key={group._id} className="flex flex-col sm:flex-row sm:items-center justify-between p-6 rounded-3xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all group gap-6">
+              <div className="flex flex-col gap-2">
+                <span className="text-lg font-black text-white group-hover:text-primary transition-colors tracking-tight">{group.title}</span>
+                <div className="flex items-center gap-3">
+                  <span className={`text-[9px] font-black uppercase tracking-[0.15em] px-3 py-1 rounded-full ${group.status === 'deleted' ? 'bg-red-500/10 text-red-400 border border-red-500/10' : 'bg-white/5 text-white/40 border border-white/5'}`}>
+                    {group.status === 'deleted' ? 'Deleted' : 'Former Member'}
+                  </span>
+                  <span className="text-[10px] text-white/20 font-inter font-bold">• {new Date(group.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}</span>
+                </div>
               </div>
+              <button
+                onClick={() => handleExport(group)}
+                disabled={exporting === group._id}
+                className="h-12 px-6 rounded-2xl bg-white/5 hover:bg-white/10 text-[10px] font-black text-white uppercase tracking-[0.2em] transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 border border-white/5"
+              >
+                {exporting === group._id ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    <span>Preparing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download size={16} className="opacity-60" />
+                    <span>Generate Report</span>
+                  </>
+                )}
+              </button>
             </div>
-            <button 
-              onClick={() => handleExport(group)}
-              disabled={exporting === group._id}
-              className="h-12 px-6 rounded-2xl bg-white/5 hover:bg-white/10 text-[10px] font-black text-white uppercase tracking-[0.2em] transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 border border-white/5"
-            >
-              {exporting === group._id ? (
-                <>
-                  <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  <span>Preparing...</span>
-                </>
-              ) : (
-                <>
-                  <Download size={16} className="opacity-60" />
-                  <span>Generate Report</span>
-                </>
-              )}
-            </button>
-          </div>
-        ))
+          ))
         )}
       </div>
     </div>

@@ -9,13 +9,15 @@ import Modal from '../common/Modal.jsx';
 import Button from '../common/Button.jsx';
 import Loader from '../common/Loader.jsx';
 import Input from '../common/Input.jsx';
+import { Smartphone } from 'lucide-react';
 import expenseService from '../../services/expenseService.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
-import { handlePayment, hasPaymentMethod } from '../../utils/upiUtils.js';
+import { handleSmartPayment, hasPaymentMethod, IOS_CHOOSER_APPS, getAppDeepLink, UPI_APPS } from '../../utils/upiUtils.js';
 
 const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPayeeId = null }) => {
   const dispatch = useDispatch();
   const { currentGroup } = useSelector((state) => state.groups);
+  const { user: currentUser } = useSelector((state) => state.auth);
   const [loading, setLoading] = useState(true);
   const [totalOwe, setTotalOwe] = useState(0);
   const [settlements, setSettlements] = useState([]);
@@ -32,6 +34,9 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
 
   // UPI: Confirmation state — which debt is being confirmed for UPI pay
   const [upiConfirm, setUpiConfirm] = useState(null); // { debt, receiver }
+
+  // iOS Chooser modal state  
+  const [chooserState, setChooserState] = useState(null); // { debt, receiver }
 
   const loadSettlementPlan = async () => {
     setLoading(true);
@@ -71,7 +76,9 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
       const results = await Promise.all(fetches);
       const details = {};
       results.forEach(({ uid, data }) => {
-        details[uid] = data ? { upiId: data.upiId || '', name: data.name || '' } : null;
+        details[uid] = data
+          ? { upiId: data.upiId || '', name: data.name || '', preferredApp: data.preferredApp || 'default' }
+          : null;
       });
       setMemberPaymentDetails(details);
     } catch (err) {
@@ -85,6 +92,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
     if (isOpen && groupId && userId) {
       setPartialPayment(null);
       setUpiConfirm(null);
+      setChooserState(null);
       setMemberPaymentDetails({});
 
       loadSettlementPlan().then(() => {
@@ -156,22 +164,50 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
     setUpiConfirm({ debt, receiver });
   };
 
-  const confirmUPIPay = () => {
+  const confirmUPIPay = (overrideAppId = null) => {
     if (!upiConfirm) return;
     const { debt, receiver } = upiConfirm;
+    const payerApp = overrideAppId || currentUser?.preferredApp || 'default';
 
-    toast.success('Opening payment app…', {
-      icon: '📲',
-      duration: 3000,
-    });
+    const result = handleSmartPayment(
+      receiver,
+      debt.amount,
+      `PayMatrix – pay ${receiver.name}`,
+      payerApp,
+    );
 
-    const result = handlePayment(receiver, debt.amount, `PayMatrix – pay ${receiver.name}`);
+    if (result.needsChooser) {
+      // iOS + default → open chooser instead
+      setChooserState({ debt, receiver });
+      setUpiConfirm(null);
+      return;
+    }
 
     if (!result.success) {
       toast.error(result.error || 'Failed to open payment app');
+    } else {
+      toast.success('Opening payment app…', { icon: '📲', duration: 3000 });
     }
 
     setUpiConfirm(null);
+  };
+
+  const handleChooserPay = (appId) => {
+    if (!chooserState) return;
+    const { debt, receiver } = chooserState;
+    const url = getAppDeepLink(appId, receiver.upiId, receiver.name, debt.amount, `PayMatrix – pay ${receiver.name}`);
+    toast.success('Opening payment app…', { icon: '📲', duration: 3000 });
+    window.location.href = url;
+    setChooserState(null);
+  };
+
+  const handleCopyUPI = (upiId) => {
+    if (!upiId) return;
+    navigator.clipboard.writeText(upiId).then(() => {
+      toast.success('UPI ID copied!', { icon: '📋' });
+    }).catch(() => {
+      toast.error('Could not copy UPI ID');
+    });
   };
 
   const getMemberName = (uid) => {
@@ -357,7 +393,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
       {/* UPI Confirmation Modal */}
       <AnimatePresence>
         {upiConfirm && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
             <motion.div
               className="absolute inset-0 bg-black/70 backdrop-blur-sm"
               initial={{ opacity: 0 }}
@@ -367,7 +403,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
             />
             <motion.div
               className="relative w-full max-w-sm bg-[#1a1a1a] rounded-[2rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.9)] border border-white/10 z-10 overflow-hidden"
-              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              initial={{ opacity: 0, scale: 0.9, y: 40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 250 }}
@@ -375,34 +411,67 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
               {/* Accent line */}
               <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent" />
 
-              <div className="p-8">
+              <div className="p-7">
                 {/* Icon */}
-                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6">
-                  <LucideIcons.Smartphone size={28} className="text-emerald-400" />
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5 overflow-hidden">
+                  {(() => {
+                    const payerApp = currentUser?.preferredApp || 'default';
+                    const appMeta = UPI_APPS.find(a => a.id === payerApp);
+                    if (payerApp === 'default') return <Smartphone size={28} className="text-emerald-400" />;
+                    return (
+                      <img 
+                        src={appMeta?.icon} 
+                        alt={appMeta?.label} 
+                        className="w-8 h-8 object-contain" 
+                      />
+                    );
+                  })()}
                 </div>
 
                 {/* Text */}
                 <h3 className="text-xl font-black font-manrope text-white tracking-tight mb-1">
                   Open Payment App
                 </h3>
-                <p className="text-sm text-white/50 font-inter leading-relaxed mb-6">
-                  This will open your UPI app to pay{' '}
-                  <span className="text-white font-semibold">{upiConfirm.receiver.name}</span>
-                  {' '}
-                  <span className="text-emerald-400 font-bold">{formatCurrency(upiConfirm.debt.amount)}</span>
-                  . Your OS will let you choose between GPay, PhonePe, Paytm, etc.
-                </p>
 
-                {/* UPI ID preview (if available) */}
+                {/* Preferred app badge */}
+                {(() => {
+                  const payerApp = currentUser?.preferredApp || 'default';
+                  const appMeta = UPI_APPS.find(a => a.id === payerApp);
+                  return (
+                    <p className="text-sm text-white/50 font-inter leading-relaxed mb-5">
+                      Pay{' '}
+                      <span className="text-white font-semibold">{upiConfirm.receiver.name}</span>
+                      {' '}
+                      <span className="text-emerald-400 font-bold">{formatCurrency(upiConfirm.debt.amount)}</span>
+                      {payerApp !== 'default' && appMeta ? (
+                        <span className="text-white/40"> via <span className="text-white/70 font-semibold">{appMeta.label}</span></span>
+                      ) : (
+                        <span className="text-white/40"> via your preferred UPI app</span>
+                      )}
+                    </p>
+                  );
+                })()}
+
+                {/* Subtext */}
+                <p className="text-[10px] text-white/25 font-inter mb-5">Opens in your selected payment app</p>
+
+                {/* UPI ID preview + copy */}
                 {upiConfirm.receiver.upiId && (
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/5 mb-6">
-                    <LucideIcons.AtSign size={14} className="text-white/40 shrink-0" />
-                    <span className="text-xs font-mono text-white/60 truncate">{upiConfirm.receiver.upiId}</span>
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/5 mb-5">
+                    <LucideIcons.AtSign size={13} className="text-white/40 shrink-0" />
+                    <span className="text-xs font-mono text-white/60 truncate flex-1">{upiConfirm.receiver.upiId}</span>
+                    <button
+                      onClick={() => handleCopyUPI(upiConfirm.receiver.upiId)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 text-[9px] font-black uppercase tracking-wider transition-all"
+                    >
+                      <LucideIcons.Copy size={10} />
+                      Copy
+                    </button>
                   </div>
                 )}
 
                 {/* Actions */}
-                <div className="flex gap-3">
+                <div className="flex gap-3 mb-3">
                   <button
                     onClick={() => setUpiConfirm(null)}
                     className="flex-1 py-3.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-black tracking-widest uppercase transition-all"
@@ -410,13 +479,113 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                     Cancel
                   </button>
                   <button
-                    onClick={confirmUPIPay}
+                    onClick={() => confirmUPIPay()}
                     className="flex-1 py-3.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 text-xs font-black tracking-widest uppercase transition-all active:scale-95 flex items-center justify-center gap-2"
                   >
                     <LucideIcons.ExternalLink size={14} />
                     Pay Now
                   </button>
                 </div>
+
+                {/* Choose app manually */}
+                <button
+                  onClick={() => {
+                    setChooserState({ debt: upiConfirm.debt, receiver: upiConfirm.receiver });
+                    setUpiConfirm(null);
+                  }}
+                  className="w-full py-2.5 rounded-xl text-white/25 hover:text-white/50 text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
+                >
+                  <LucideIcons.LayoutGrid size={11} />
+                  Choose app manually
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* iOS Chooser Modal */}
+      <AnimatePresence>
+        {chooserState && (
+          <div className="fixed inset-0 z-[70] flex items-end justify-center">
+            <motion.div
+              className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setChooserState(null)}
+            />
+            <motion.div
+              className="relative w-full max-w-lg bg-[#1c1c1e] rounded-t-[2rem] shadow-[0_-20px_60px_rgba(0,0,0,0.8)] border-t border-white/10 z-10 overflow-hidden pb-safe"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            >
+              {/* Handle */}
+              <div className="w-10 h-1 bg-white/15 rounded-full mx-auto mt-3 mb-5" />
+
+              <div className="px-6 pb-8">
+                {/* Header */}
+                <div className="text-center mb-6">
+                  <p className="text-xs text-white/30 font-bold uppercase tracking-widest mb-1">Pay via</p>
+                  <h3 className="text-lg font-black font-manrope text-white tracking-tight">
+                    Choose payment app
+                  </h3>
+                  <p className="text-sm text-white/40 font-inter mt-1">
+                    <span className="text-emerald-400 font-bold">{formatCurrency(chooserState.debt.amount)}</span>
+                    {' → '}
+                    <span className="text-white/70">{chooserState.receiver.name}</span>
+                  </p>
+                </div>
+
+                {/* App buttons */}
+                <div className="grid grid-cols-3 gap-3 mb-5">
+                  {IOS_CHOOSER_APPS.map((app) => (
+                    <button
+                      key={app.id}
+                      onClick={() => handleChooserPay(app.id)}
+                      style={{ '--app-color': app.color }}
+                      className="flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 transition-all active:scale-95 group overflow-hidden"
+                    >
+                      {app.id === 'default' ? (
+                        <Smartphone size={28} className="text-white/40 group-hover:text-white/70" />
+                      ) : (
+                        <img 
+                          src={app.icon} 
+                          alt={app.label} 
+                          className="w-10 h-10 object-contain" 
+                        />
+                      )}
+                      <span className="text-[11px] font-bold text-white/60 group-hover:text-white/90 transition-colors text-center leading-tight">
+                        {app.shortLabel}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* UPI ID row + copy */}
+                {chooserState.receiver.upiId && (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 mb-4">
+                    <LucideIcons.AtSign size={13} className="text-white/30 shrink-0" />
+                    <span className="text-xs font-mono text-white/40 truncate flex-1">{chooserState.receiver.upiId}</span>
+                    <button
+                      onClick={() => handleCopyUPI(chooserState.receiver.upiId)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 text-[9px] font-black uppercase tracking-wider transition-all"
+                    >
+                      <LucideIcons.Copy size={10} />
+                      Copy UPI ID
+                    </button>
+                  </div>
+                )}
+
+                {/* Cancel */}
+                <button
+                  onClick={() => setChooserState(null)}
+                  className="w-full py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-sm font-bold transition-all"
+                >
+                  Cancel
+                </button>
               </div>
             </motion.div>
           </div>
