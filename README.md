@@ -200,7 +200,7 @@ PayMatrix/
 
 ## 📄 License
 
-This project is licensed under the **MIT License**. See the `LICENSE` file for details (if applicable).
+This project is licensed under the **MIT License**. See the [LICENSE](file:///c:/Users/1080p/Desktop/PayMatrix/LICENSE) file for details.
 
 ---
 
@@ -216,5 +216,4 @@ Contributions are welcome! If you have a suggestion that would make this better,
 
 ---
 
-### Developed by **Antigravity** 🌌
-Designed for performance, density, and elegance.
+
