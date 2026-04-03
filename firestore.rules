@@ -22,80 +22,109 @@ service cloud.firestore {
              (request.auth.uid == groupData.admin || request.auth.uid == groupData.createdBy);
     }
 
+    // --- Validation Helpers ---
+
+    function isValidString(val, maxLen) {
+      return val is string && val.size() <= maxLen;
+    }
+
+    function isValidAmount(val) {
+      return val is number && val > 0 && val <= 1000000;
+    }
+
     // --- Collections ---
 
-    // Users: Owner can read/write. Friends and group peers can read basic profile.
+    // Users: Owner can read/write.
     match /users/{userId} {
       allow read: if isSignedIn() && (
         request.auth.uid == userId || 
-        // Visibility for friends (bi-directional check)
         request.auth.uid in resource.data.get('friends', []) ||
-        // Visibility for group members: 
-        // Since search is disabled, UIDs are only discovered via shared groups or links.
         isSignedIn() 
       );
-      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId &&
+                    isValidString(request.resource.data.get('displayName', ''), 50);
       allow update: if isSignedIn() && request.auth.uid == userId && 
+                    isValidString(request.resource.data.get('displayName', ''), 50) &&
+                    isValidString(request.resource.data.get('upiId', ''), 100) &&
                     !request.resource.data.diff(resource.data).affectedKeys()
                     .hasAny(['uid', 'email', 'createdAt']);
       allow delete: if false;
     }
 
-    // Groups: Membership-based read. Admin-only settings updates and delete.
+    // Groups: Membership-based read.
     match /groups/{groupId} {
       allow read: if isSignedIn() && (
         request.auth.uid in resource.data.members || 
         request.auth.uid in resource.data.get('historicalMembers', [])
       );
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && 
+                    isValidString(request.resource.data.name, 100) &&
+                    request.resource.data.members is list;
       allow update: if isSignedIn() && (
-        // Regular members can join via code or update their own participation status
         (request.resource.data.members.hasAll(resource.data.members) && 
          request.resource.data.inviteCode == resource.data.inviteCode) ||
-        // Admins can update everything (settings, title, etc)
         isAdmin(groupId)
-      );
+      ) && isValidString(request.resource.data.get('name', ''), 100);
       allow delete: if isAdmin(groupId);
 
-      // Subcollection: Expenses - Members only
+      // Subcollection: Expenses
       match /expenses/{expenseId} {
         allow read: if isMember(groupId);
-        allow create: if isMember(groupId);
-        allow update, delete: if isMember(groupId);
+        allow create: if isMember(groupId) && 
+                      isValidString(request.resource.data.title, 100) &&
+                      isValidAmount(request.resource.data.amount) &&
+                      request.resource.data.participants is list;
+        allow update: if isMember(groupId) &&
+                      isValidString(request.resource.data.get('title', ''), 100) &&
+                      (request.resource.data.get('amount', 0) == 0 || isValidAmount(request.resource.data.amount));
+        allow delete: if isMember(groupId);
       }
 
-      // Subcollection: Settlements - Members only (Payer/Payee focus)
+      // Subcollection: Settlements
       match /settlements/{settlementId} {
         allow read: if isMember(groupId);
-        allow create: if isMember(groupId);
+        allow create: if isMember(groupId) && isValidAmount(request.resource.data.amount);
         allow update, delete: if isAdmin(groupId) || request.auth.uid == resource.data.payer;
       }
 
-      // Subcollection: Logs (Activity Feed) - Members only
+      // Subcollection: Logs
       match /logs/{logId} {
         allow read: if isMember(groupId);
         allow create: if isMember(groupId);
-        allow update, delete: if false; // Immutable logs
+        allow update, delete: if false;
       }
     }
 
-    // Friend Requests: Shared strictly between from/to parties
+    // Friend Requests
     match /friendRequests/{requestId} {
       allow read, delete: if isSignedIn() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.from;
+      allow create: if isSignedIn() && 
+                    request.auth.uid == request.resource.data.from &&
+                    request.resource.data.to is string;
       allow update: if isSignedIn() && request.auth.uid == resource.data.to;
     }
 
-    // Notifications: Recipient only for read/manage. Handled by mutual context for creation.
+    // Notifications
     match /notifications/{notificationId} {
       allow read, update, delete: if isSignedIn() && request.auth.uid == resource.data.to;
       allow create: if isSignedIn(); 
     }
 
-    // Security Logs: Audit trail (Write-Only)
+    // Security Logs
     match /security_logs/{logId} {
       allow create: if isSignedIn();
       allow read, update, delete: if false;
+    }
+
+    // Rate Limits
+    match /rate_limits/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // AI Context/Requests
+    match /ai_requests/{requestId} {
+      allow read, create: if isSignedIn() && request.auth.uid == resource.data.uid;
+      allow update, delete: if false;
     }
   }
 }

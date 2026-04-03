@@ -29,19 +29,9 @@ const storage = getStorage(app);
 let analytics = null;
 
 if (typeof window !== "undefined") {
-  analytics = getAnalytics(app);
-  
-  // Initialize App Check
-  // Note: RECAPTCHA_V3_SITE_KEY must be generated in Google Cloud Console
-  const RECAPTCHA_V3_SITE_KEY = "YOUR_RECAPTCHA_V3_SITE_KEY_HERE"; 
-  
-  if (RECAPTCHA_V3_SITE_KEY !== "YOUR_RECAPTCHA_V3_SITE_KEY_HERE") {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
-      isTokenAutoRefreshEnabled: true
-    });
-  } else {
-    console.warn("Firebase App Check: Site Key missing. Access restriction is currently inactive.");
+  // Note: Analytics is only enabled in specific environments
+  if (import.meta.env.PROD) {
+    analytics = getAnalytics(app);
   }
 }
 

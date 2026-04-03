@@ -6,6 +6,8 @@ import {
 import { calculateSplits } from '../utils/balanceEngine.js';
 import { createNotification } from '../utils/notificationHelper.js';
 import loggingService from './loggingService.js';
+import validationService, { ExpenseSchema } from './validationService.js';
+import sanitizationService from './sanitizationService.js';
 
 // Helper to mimic Axios response structure expected by Redux Thunks
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -77,8 +79,11 @@ const expenseService = {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) throw new Error("Auth session missing");
 
+    // Sanitize and Validate input
+    const cleanData = sanitizationService.sanitizeObject(data);
+    
     const payload = clean({
-      ...data,
+      ...cleanData,
       amount,
       groupId, 
       paidBy: data.paidBy || currentUid,
@@ -88,6 +93,9 @@ const expenseService = {
       createdAt: data.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
+
+    // Final schema check
+    validationService.validate(ExpenseSchema, payload);
     
     const docRef = doc(collection(db, 'groups', groupId, 'expenses'));
     

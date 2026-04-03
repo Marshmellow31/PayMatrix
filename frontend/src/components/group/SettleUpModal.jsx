@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
@@ -396,10 +397,10 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
         </div>
       </Modal>
 
-      {/* UPI Confirmation Modal */}
+      {/* Portalled Overlays */}
       <AnimatePresence>
-        {upiConfirm && (
-          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
+        {upiConfirm && createPortal(
+          <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-4">
             <motion.div
               className="absolute inset-0 bg-black/70 backdrop-blur-sm"
               initial={{ opacity: 0 }}
@@ -423,7 +424,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                   {(() => {
                     const payerApp = currentUser?.preferredApp || 'default';
                     const appMeta = UPI_APPS.find(a => a.id === payerApp);
-                    if (payerApp === 'default') return <Smartphone size={28} className="text-emerald-400" />;
+                    if (payerApp === 'default') return <LucideIcons.Smartphone size={28} className="text-emerald-400" />;
                     return (
                       <img 
                         src={appMeta?.icon} 
@@ -506,14 +507,14 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                 </button>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
 
-      {/* iOS Chooser Modal */}
       <AnimatePresence>
-        {chooserState && (
-          <div className="fixed inset-0 z-[70] flex items-end justify-center">
+        {chooserState && createPortal(
+          <div className="fixed inset-0 z-[120] flex items-end justify-center">
             <motion.div
               className="absolute inset-0 bg-black/75 backdrop-blur-sm"
               initial={{ opacity: 0 }}
@@ -594,7 +595,8 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                 </button>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
     </>

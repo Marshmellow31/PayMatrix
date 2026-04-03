@@ -9,12 +9,15 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import loggingService from './loggingService.js';
+import rateLimitService from './rateLimitService.js';
 
 const googleProvider = new GoogleAuthProvider();
 
 const authService = {
   googleAuth: async () => {
     try {
+      // Rate limit removed by user request
+
       const userCredential = await signInWithPopup(auth, googleProvider);
       const user = userCredential.user;
       

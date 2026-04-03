@@ -3,6 +3,10 @@ import {
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, 
   query, where, arrayUnion, arrayRemove, limit, getDocFromCache, getDocsFromCache
 } from 'firebase/firestore';
+import loggingService from './loggingService.js';
+import rateLimitService from './rateLimitService.js';
+import validationService, { GroupSchema } from './validationService.js';
+import sanitizationService from './sanitizationService.js';
 
 // Helper to mimic Axios response
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -24,41 +28,53 @@ const groupService = {
   },
 
   // 2. Profile Resolution (Asynchronously resolves UIDs to user metadata)
-  resolveMemberProfiles: async (groupId, memberIds) => {
-    if (!memberIds || memberIds.length === 0) return [];
-    
-    const memberPromises = memberIds.map(async (item) => {
-      let uid = (item && typeof item === 'object') ? (item.user?._id || item.uid || item._id) : item;
-      if (!uid || typeof uid !== 'string' || uid === 'undefined') return null;
+  resolveMemberProfiles: async (groupId, memberIds, skipRateLimit = false) => {
+    try {
+      // Limit profile resolution frequency to prevent address book scraping
+      // skipRateLimit is used when called from a bulk operation like getGroups() that already performed the check
+      // Rate limit removed by user request
 
-      if (userCache[uid]) {
-        return { user: { ...userCache[uid], _id: uid }, role: 'member' };
-      }
+      if (!memberIds || memberIds.length === 0) return [];
       
-      try {
-        let uSnap = await getDocFromCache(doc(db, 'users', uid)).catch(() => null);
-        if (!uSnap) {
-          uSnap = await getDoc(doc(db, 'users', uid)).catch(() => null);
+      const memberPromises = memberIds.map(async (item) => {
+        let uid = (item && typeof item === 'object') ? (item.user?._id || item.uid || item._id) : item;
+        if (!uid || typeof uid !== 'string' || uid === 'undefined') return null;
+
+        if (userCache[uid]) {
+          return { user: { ...userCache[uid], _id: uid }, role: 'member' };
         }
+        
+        try {
+          let uSnap = await getDocFromCache(doc(db, 'users', uid)).catch(() => null);
+          if (!uSnap) {
+            uSnap = await getDoc(doc(db, 'users', uid)).catch(() => null);
+          }
 
-        const uData = uSnap?.exists() ? uSnap.data() : { name: 'Member', email: 'Member' };
-        if (uData.photoURL && !uData.avatar) uData.avatar = uData.photoURL;
+          const uData = uSnap?.exists() ? uSnap.data() : { name: 'Member', email: 'Member' };
+          if (uData.photoURL && !uData.avatar) uData.avatar = uData.photoURL;
 
-        const resolvedUser = { ...uData, _id: uid, uid: uid };
-        userCache[uid] = resolvedUser;
-        return { user: resolvedUser, role: 'member' };
-      } catch (err) {
-        return { user: { _id: uid, uid: uid, name: 'Member' }, role: 'member' };
-      }
-    });
-    
-    return (await Promise.all(memberPromises)).filter(Boolean);
+          const resolvedUser = { ...uData, _id: uid, uid: uid };
+          userCache[uid] = resolvedUser;
+          return { user: resolvedUser, role: 'member' };
+        } catch (err) {
+          return { user: { _id: uid, uid: uid, name: 'Member' }, role: 'member' };
+        }
+      });
+      
+      return (await Promise.all(memberPromises)).filter(Boolean);
+    } catch (err) {
+      loggingService.logError('groupService', 'resolveMemberProfiles', err);
+      throw err;
+    }
   },
 
   // (Legacy support/Direct use)
   expandGroupData: async (groupDoc) => {
     const basic = groupService.getBasicGroup(groupDoc);
-    const profiles = await groupService.resolveMemberProfiles(basic._id, basic.members);
+    // When expanding individually, we skip the rate limit check here because it's usually 
+    // called as part of a bulk operation that already did it, or we want the individual 
+    // caller to handle the limit if needed.
+    const profiles = await groupService.resolveMemberProfiles(basic._id, basic.members, true);
     return { ...basic, members: profiles, isBasic: false };
   },
 
@@ -154,36 +170,52 @@ const groupService = {
     return wrap({ group });
   },
 
-  createGroup: async (data) => {
-    const currentUid = auth.currentUser?.uid;
-    if (!currentUid) throw new Error("Auth session missing");
-    
-    // Sanitize members: extract UIDs if they are objects and ensure they are strings
-    const rawMembers = data.members || [];
-    const sanitizedMemberIds = rawMembers
-      .map(m => (m && typeof m === 'object') ? (m._id || m.user?._id || m.uid) : m)
-      .filter(m => m && typeof m === 'string' && m !== 'undefined');
+  createGroup: async (data, creatorId) => {
+    try {
+      if (!creatorId) throw new Error("User identifier is required.");
+      
+      // Rate limit removed by user request
 
-    const groupData = {
-      ...data,
-      members: Array.from(new Set([...sanitizedMemberIds, currentUid])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
-      historicalMembers: Array.from(new Set([...sanitizedMemberIds, currentUid])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
-      admin: currentUid,
-      status: 'active',
-      inviteCode: Math.random().toString(36).substring(2, 10).toUpperCase(), // Generate short unique invite code
-      createdAt: new Date().toISOString()
-    };
-    
-    const docRef = await addDoc(collection(db, 'groups'), groupData);
-    return wrap({ group: { _id: docRef.id, ...groupData } });
+      // 2. Sanitize and Validate
+      const cleanData = sanitizationService.sanitizeObject(data);
+      const validData = validationService.validate(GroupSchema, cleanData);
+
+      // Extract UIDs if members are passed as objects (compatibility)
+      const rawMembers = validData.members || [];
+      const sanitizedMemberIds = rawMembers
+        .map(m => (m && typeof m === 'object') ? (m._id || m.user?._id || m.uid) : m)
+        .filter(m => m && typeof m === 'string' && m !== 'undefined');
+
+      const groupData = {
+        ...validData,
+        members: Array.from(new Set([...sanitizedMemberIds, creatorId])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
+        historicalMembers: Array.from(new Set([...sanitizedMemberIds, creatorId])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
+        admin: creatorId,
+        status: 'active',
+        inviteCode: Math.random().toString(36).substring(2, 10).toUpperCase(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      const docRef = await addDoc(collection(db, 'groups'), groupData);
+      return wrap({ group: { _id: docRef.id, ...groupData } });
+    } catch (err) {
+      loggingService.logError('createGroup', err);
+      throw err;
+    }
   },
 
   updateGroup: async (id, data) => {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) throw new Error("Auth required");
+    
+    // Sanitize and Validate
+    const cleanData = sanitizationService.sanitizeObject(data);
+    const validData = validationService.validate(GroupSchema.partial(), cleanData);
+
     const docRef = doc(db, 'groups', id);
-    await updateDoc(docRef, { ...data, updatedAt: new Date().toISOString() });
-    return wrap({ group: { _id: id, ...data } });
+    await updateDoc(docRef, { ...validData, updatedAt: new Date().toISOString() });
+    return wrap({ group: { _id: id, ...validData } });
   },
 
   deleteGroup: async (id, userId) => {

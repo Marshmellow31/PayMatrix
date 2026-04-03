@@ -4,6 +4,7 @@ import {
   query, where, arrayUnion, arrayRemove, limit, getDocFromCache, getDocsFromCache
 } from 'firebase/firestore';
 import { createNotification } from '../utils/notificationHelper.js';
+import validationService, { FriendRequestSchema } from './validationService.js';
 
 // Helper to mimic Axios response
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -36,12 +37,17 @@ const friendService = {
     const existing = await getDocs(q);
     if (!existing.empty) throw new Error("Request already pending");
 
-    await addDoc(collection(db, 'friendRequests'), {
+    const requestPayload = {
       from: senderId,
       to: receiverId,
       status: 'pending',
       createdAt: new Date().toISOString()
-    });
+    };
+
+    // Validate
+    validationService.validate(FriendRequestSchema, requestPayload);
+
+    await addDoc(collection(db, 'friendRequests'), requestPayload);
 
     // Notify the receiver
     createNotification(
