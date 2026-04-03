@@ -8,16 +8,21 @@ import {
   updateProfile as updateFirebaseProfile
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import loggingService from './loggingService.js';
 
 const googleProvider = new GoogleAuthProvider();
 
 const authService = {
   googleAuth: async () => {
-    const userCredential = await signInWithPopup(auth, googleProvider);
-    const user = userCredential.user;
-    
-    const userDocRef = doc(db, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
+    try {
+      const userCredential = await signInWithPopup(auth, googleProvider);
+      const user = userCredential.user;
+      
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      // Log successful authentication
+      await loggingService.logSecurityEvent('auth/login-success', { email: user.email });
     
     let userData = { 
       _id: user.uid, 
@@ -61,6 +66,14 @@ const authService = {
     }
     
     return { user: userData, token: user.accessToken };
+    } catch (error) {
+      // Log authentication failure
+      await loggingService.logSecurityEvent('auth/login-failure', { 
+        code: error.code, 
+        message: error.message 
+      });
+      throw error;
+    }
   },
   
   getMe: async () => {
@@ -77,11 +90,14 @@ const authService = {
     const user = auth.currentUser;
     if (!user) throw new Error("Authentication required to update profile.");
     
-    if (data.name) {
-      await updateFirebaseProfile(user, { displayName: data.name });
+    // Sanitize data: remove core fields that shouldn't be updated via profile update
+    const { uid, email, createdAt, ...sanitizedData } = data;
+    
+    if (sanitizedData.name) {
+      await updateFirebaseProfile(user, { displayName: sanitizedData.name });
     }
     
-    const updateData = { ...data, updatedAt: new Date().toISOString() };
+    const updateData = { ...sanitizedData, updatedAt: new Date().toISOString() };
     await updateDoc(doc(db, 'users', user.uid), updateData);
     
     const updatedDoc = await getDoc(doc(db, 'users', user.uid));

@@ -8,6 +8,7 @@ import {
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -29,7 +30,19 @@ let analytics = null;
 
 if (typeof window !== "undefined") {
   analytics = getAnalytics(app);
-  // Persistence is now managed in initializeFirestore
+  
+  // Initialize App Check
+  // Note: RECAPTCHA_V3_SITE_KEY must be generated in Google Cloud Console
+  const RECAPTCHA_V3_SITE_KEY = "YOUR_RECAPTCHA_V3_SITE_KEY_HERE"; 
+  
+  if (RECAPTCHA_V3_SITE_KEY !== "YOUR_RECAPTCHA_V3_SITE_KEY_HERE") {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
+      isTokenAutoRefreshEnabled: true
+    });
+  } else {
+    console.warn("Firebase App Check: Site Key missing. Access restriction is currently inactive.");
+  }
 }
 
 export { auth, db, storage, analytics };

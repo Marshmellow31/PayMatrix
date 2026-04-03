@@ -159,8 +159,9 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
   };
 
   const handleUPIPay = (debt, receiverDetails) => {
+    const member = getMemberName(debt.to);
     const receiver = {
-      name: receiverDetails?.name || getMemberName(debt.to),
+      name: receiverDetails?.name || member?.name || (typeof member === 'string' ? member : 'Group Member'),
       upiId: receiverDetails?.upiId || '',
     };
     setUpiConfirm({ debt, receiver });

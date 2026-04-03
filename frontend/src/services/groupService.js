@@ -154,8 +154,9 @@ const groupService = {
     return wrap({ group });
   },
 
-  createGroup: async (data, userId) => {
-    if (!userId) throw new Error("Identifier missing. Please sign in again.");
+  createGroup: async (data) => {
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) throw new Error("Auth session missing");
     
     // Sanitize members: extract UIDs if they are objects and ensure they are strings
     const rawMembers = data.members || [];
@@ -165,9 +166,9 @@ const groupService = {
 
     const groupData = {
       ...data,
-      members: Array.from(new Set([...sanitizedMemberIds, userId])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
-      historicalMembers: Array.from(new Set([...sanitizedMemberIds, userId])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
-      admin: userId,
+      members: Array.from(new Set([...sanitizedMemberIds, currentUid])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
+      historicalMembers: Array.from(new Set([...sanitizedMemberIds, currentUid])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
+      admin: currentUid,
       status: 'active',
       inviteCode: Math.random().toString(36).substring(2, 10).toUpperCase(), // Generate short unique invite code
       createdAt: new Date().toISOString()
@@ -178,6 +179,8 @@ const groupService = {
   },
 
   updateGroup: async (id, data) => {
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) throw new Error("Auth required");
     const docRef = doc(db, 'groups', id);
     await updateDoc(docRef, { ...data, updatedAt: new Date().toISOString() });
     return wrap({ group: { _id: id, ...data } });

@@ -139,6 +139,7 @@ const Profile = () => {
     }
   };
 
+
   const handleRemoveFriend = async () => {
     if (!id) return;
     setIsRemoving(true);
@@ -213,15 +214,15 @@ const Profile = () => {
             <div className="p-6 sm:p-8">
                 <div className="w-full">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-                    <div className="relative group shrink-0">
-                      <div className="absolute -inset-2 bg-primary/20 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-700" />
-                      <Avatar
-                        name={displayUser?.name}
-                        src={displayUser?.avatar || displayUser?.photoURL}
-                        size="xl"
-                        className="relative w-20 h-20 sm:w-24 sm:h-24 text-2xl border-4 border-white/5 shadow-2l"
-                      />
-                    </div>
+                      <div className="relative group shrink-0">
+                        <div className="absolute -inset-2 bg-primary/20 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-700" />
+                        <Avatar
+                          name={displayUser?.name}
+                          src={displayUser?.avatar || displayUser?.photoURL}
+                          size="xl"
+                          className="relative w-20 h-20 sm:w-24 sm:h-24 text-2xl border-4 border-white/5 shadow-2xl"
+                        />
+                      </div>
 
                     <div className="flex-1 min-w-0 space-y-3">
                       {editing ? (
@@ -231,7 +232,7 @@ const Profile = () => {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             id="profile-name"
-                            className="h-14 bg-white/[0.03] text-xl font-bold border-white/10 rounded-2xl"
+                            className="h-11 bg-white/[0.03] text-lg font-bold border-white/10 rounded-[1.25rem] px-5"
                             disabled={!isOnline}
                           />
                         </div>
@@ -284,7 +285,7 @@ const Profile = () => {
                     <div className="flex gap-3 pt-6">
                       <Button 
                         onClick={handleSave} 
-                        className="flex-1 h-12 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl flex items-center justify-center gap-2 whitespace-nowrap bg-white text-black hover:bg-neutral-200 transition-colors" 
+                        className="flex-1 h-10 font-black uppercase text-[9px] tracking-[0.2em] rounded-xl flex items-center justify-center gap-2 whitespace-nowrap bg-white text-black hover:bg-neutral-200 transition-colors" 
                         disabled={!isOnline || !name.trim()}
                       >
                         {isOnline ? (
@@ -299,9 +300,9 @@ const Profile = () => {
                       <Button 
                         variant="ghost" 
                         onClick={() => setEditing(false)} 
-                        className="flex-1 h-12 font-black uppercase text-[10px] tracking-[0.2em] bg-white/5 text-white/50 border border-white/5 hover:bg-white/10 rounded-2xl flex items-center justify-center gap-2 whitespace-nowrap"
+                        className="flex-1 h-10 font-black uppercase text-[9px] tracking-[0.2em] bg-white/[0.08] text-white/80 border border-white/10 hover:bg-white/[0.12] rounded-xl flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 transition-all"
                       >
-                        <X size={12} strokeWidth={3} />
+                        <X size={14} strokeWidth={3} />
                         <span>Cancel</span>
                       </Button>
                     </div>
@@ -597,6 +598,7 @@ const Profile = () => {
         </div>
       )}
 
+
       {/* Confirmation Modal for Removal */}
       <AnimatePresence>
         {showRemoveConfirm && (
@@ -710,6 +712,8 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
       setExporting(null);
     }
   };
+
+
 
   if (loading) return null;
 

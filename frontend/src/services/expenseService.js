@@ -1,10 +1,11 @@
 import { db, auth } from '../config/firebase.js';
 import { 
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, 
-  query, where, orderBy, limit, getDocFromCache
+  query, where, orderBy, limit, getDocFromCache, serverTimestamp
 } from 'firebase/firestore';
 import { calculateSplits } from '../utils/balanceEngine.js';
 import { createNotification } from '../utils/notificationHelper.js';
+import loggingService from './loggingService.js';
 
 // Helper to mimic Axios response structure expected by Redux Thunks
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -73,14 +74,17 @@ const expenseService = {
     // Calculate splits array from form structure before saving
     const splits = calculateSplits(amount, data.splitType || 'equal', data.splitData || {}, data.participants || []);
 
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) throw new Error("Auth session missing");
+
     const payload = clean({
       ...data,
       amount,
-      groupId, // Explicitly store for easier filtering
-      paidBy: data.paidBy || userId,
-      paidByName: 'Member', // Fallback for instant resolution
+      groupId, 
+      paidBy: data.paidBy || currentUid,
+      paidByName: 'Member', 
       splits,
-      admin: userId, 
+      admin: currentUid, 
       createdAt: data.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
@@ -137,7 +141,8 @@ const expenseService = {
 
   updateExpense: async (id, data) => {
     const groupId = data.groupId;
-    const userId = data.admin; // actor doing the update
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) throw new Error("Auth session missing");
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
 
     // Re-calculate splits if amount or split configuration changed
@@ -430,28 +435,40 @@ const expenseService = {
     if (isNaN(amount) || amount <= 0) throw new Error("Invalid settlement amount");
     if (amount > 1000000) throw new Error("Settlement amount exceeds safety threshold (1M)");
 
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) throw new Error("Auth session missing");
+
     const settlementData = {
-      payer: userId,
+      payer: currentUid,
       payee: data.payee,
       amount,
       notes: data.notes || 'Settled up',
       groupId, 
-      createdAt: new Date().toISOString()
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     };
 
     const docRef = doc(collection(db, 'groups', groupId, 'settlements'));
 
-    // Primary write: Non-blocking for instant offline responsiveness
-    setDoc(docRef, settlementData).catch(err => console.error("[OFFLINE_SYNC_ERROR] Settlement write failed:", err));
-    
-    // Refresh group's updatedAt to trigger listeners (non-blocking)
-    updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
-    
+    try {
+      // Primary write: Non-blocking for instant offline responsiveness
+      setDoc(docRef, settlementData).catch(err => {
+        console.error("[OFFLINE_SYNC_ERROR] Settlement write failed:", err);
+        loggingService.logError('expenseService', 'createSettlement/setDoc', err);
+      });
+      
+      // Refresh group's updatedAt to trigger listeners (non-blocking)
+      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+    } catch (error) {
+      await loggingService.logError('expenseService', 'createSettlement', error);
+      throw error;
+    }
+
     // Secondary tasks (non-blocking)
     (async () => {
       try {
         const [actorName, payeeName] = await Promise.all([
-          getStoredName(userId, 'Someone'),
+          getStoredName(currentUid, 'Someone'),
           getStoredName(data.payee, 'Member')
         ]);
 
@@ -459,14 +476,14 @@ const expenseService = {
         await addDoc(collection(db, 'groups', groupId, 'logs'), {
           type: 'settlement_added',
           message: `${actorName} recorded a payment to ${payeeName}: ₹${amount.toFixed(2)}`,
-          actorId: userId,
+          actorId: currentUid,
           relatedId: docRef.id,
           groupId,
           createdAt: new Date().toISOString()
         });
         
         // Trigger notification for the recipient
-        if (userId !== data.payee) {
+        if (currentUid !== data.payee) {
           createNotification(
             data.payee, 
             `${actorName} settled ₹${amount.toFixed(2)} with you.`, 

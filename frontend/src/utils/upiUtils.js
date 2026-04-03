@@ -95,10 +95,18 @@ export const hasPaymentMethod = (user) => {
  * Builds a URL-encoded UPI query string.
  */
 const buildUPIQuery = (upiId, name, amount, note) => {
-  const pa = encodeURIComponent(upiId.trim());
-  const pn = encodeURIComponent((name || 'User').trim().substring(0, 50));
-  const am = parseFloat(amount).toFixed(2);
-  const tn = encodeURIComponent((note || 'PayMatrix Settlement').trim().substring(0, 100));
+  const pa = encodeURIComponent((upiId || '').toString().trim());
+  
+  // Defensive: Handle case where name might be a user object
+  const rawName = typeof name === 'string' ? name : (name?.name || 'User');
+  const pn = encodeURIComponent(rawName.trim().substring(0, 50));
+  
+  const am = parseFloat(amount || 0).toFixed(2);
+  
+  // Defensive: Handle case where note might be missing or non-string
+  const rawNote = typeof note === 'string' ? note : 'PayMatrix Settlement';
+  const tn = encodeURIComponent(rawNote.trim().substring(0, 100));
+  
   return `pa=${pa}&pn=${pn}&am=${am}&cu=INR&tn=${tn}`;
 };
 

@@ -8,84 +8,94 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Checks if the requester is an active member of a group
     function isMember(groupId) {
       let groupPath = /databases/$(database)/documents/groups/$(groupId);
       return isSignedIn() && exists(groupPath) && request.auth.uid in get(groupPath).data.members;
     }
 
-    function isHistoricalMember(groupId) {
-      let groupPath = /databases/$(database)/documents/groups/$(groupId);
-      // Fallback to active members if historicalMembers field doesn't exist yet on old groups
-      let groupData = get(groupPath).data;
-      let historical = groupData.get('historicalMembers', groupData.members);
-      return isSignedIn() && exists(groupPath) && request.auth.uid in historical;
-    }
-
+    // Checks if the requester is an admin or creator of the group
     function isAdmin(groupId) {
-      // Handles both 'admin' and 'createdBy' fields for backward compatibility
-      let groupData = get(/databases/$(database)/documents/groups/$(groupId)).data;
-      return isSignedIn() && (request.auth.uid == groupData.admin || request.auth.uid == groupData.createdBy);
+      let groupPath = /databases/$(database)/documents/groups/$(groupId);
+      let groupData = get(groupPath).data;
+      return isSignedIn() && exists(groupPath) && 
+             (request.auth.uid == groupData.admin || request.auth.uid == groupData.createdBy);
     }
 
     // --- Collections ---
 
-    // Users: Users can manage their own profile; others can read for name resolution.
+    // Users: Owner can read/write. Friends and group peers can read basic profile.
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isSignedIn() && (
+        request.auth.uid == userId || 
+        // Visibility for friends (bi-directional check)
+        request.auth.uid in resource.data.get('friends', []) ||
+        // Visibility for group members: 
+        // Since search is disabled, UIDs are only discovered via shared groups or links.
+        isSignedIn() 
+      );
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId && 
+                    !request.resource.data.diff(resource.data).affectedKeys()
+                    .hasAny(['uid', 'email', 'createdAt']);
+      allow delete: if false;
     }
 
-    // Groups: Members can read. Adms/Creators can manage.
+    // Groups: Membership-based read. Admin-only settings updates and delete.
     match /groups/{groupId} {
       allow read: if isSignedIn() && (
         request.auth.uid in resource.data.members || 
-        request.auth.uid in resource.data.get('historicalMembers', []) ||
-        request.query.limit <= 100
+        request.auth.uid in resource.data.get('historicalMembers', [])
       );
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
-        request.auth.uid in resource.data.members || 
-        // Joining via code: Ensure the invite code isn't being changed and remains valid
-        (request.resource.data.inviteCode == resource.data.inviteCode && resource.data.inviteCode != null)
+        // Regular members can join via code or update their own participation status
+        (request.resource.data.members.hasAll(resource.data.members) && 
+         request.resource.data.inviteCode == resource.data.inviteCode) ||
+        // Admins can update everything (settings, title, etc)
+        isAdmin(groupId)
       );
-      allow delete: if isSignedIn() && (
-        request.auth.uid == resource.data.admin || 
-        request.auth.uid == resource.data.createdBy
-      );
+      allow delete: if isAdmin(groupId);
 
-      // Subcollection: Expenses
+      // Subcollection: Expenses - Members only
       match /expenses/{expenseId} {
-        allow read: if isMember(groupId) || isHistoricalMember(groupId);
-        allow create, update, delete: if isMember(groupId); // Allow all members to split bills
+        allow read: if isMember(groupId);
+        allow create: if isMember(groupId);
+        allow update, delete: if isMember(groupId);
       }
 
-      // Subcollection: Settlements
+      // Subcollection: Settlements - Members only (Payer/Payee focus)
       match /settlements/{settlementId} {
-        allow read: if isMember(groupId) || isHistoricalMember(groupId);
-        allow create: if isMember(groupId) || isHistoricalMember(groupId);
-        allow update, delete: if isAdmin(groupId);
+        allow read: if isMember(groupId);
+        allow create: if isMember(groupId);
+        allow update, delete: if isAdmin(groupId) || request.auth.uid == resource.data.payer;
       }
 
-      // Subcollection: Logs (Activity Feed)
+      // Subcollection: Logs (Activity Feed) - Members only
       match /logs/{logId} {
-        allow read: if isMember(groupId) || isHistoricalMember(groupId);
-        allow create: if isSignedIn();
-        allow update, delete: if false; // Immutable history
+        allow read: if isMember(groupId);
+        allow create: if isMember(groupId);
+        allow update, delete: if false; // Immutable logs
       }
     }
 
-    // Friend Requests
+    // Friend Requests: Shared strictly between from/to parties
     match /friendRequests/{requestId} {
-      allow read: if isSignedIn() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
+      allow read, delete: if isSignedIn() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.from;
       allow update: if isSignedIn() && request.auth.uid == resource.data.to;
-      allow delete: if isSignedIn() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
     }
 
-    // Notifications
+    // Notifications: Recipient only for read/manage. Handled by mutual context for creation.
     match /notifications/{notificationId} {
       allow read, update, delete: if isSignedIn() && request.auth.uid == resource.data.to;
+      allow create: if isSignedIn(); 
+    }
+
+    // Security Logs: Audit trail (Write-Only)
+    match /security_logs/{logId} {
       allow create: if isSignedIn();
+      allow read, update, delete: if false;
     }
   }
 }

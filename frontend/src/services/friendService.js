@@ -10,30 +10,9 @@ const wrap = (data, message = 'Success') => ({ data: { data, message, status: 's
 
 const friendService = {
   searchUsers: async (searchTerm) => {
-    if (!searchTerm) return wrap({ users: [] });
-    const term = searchTerm.toLowerCase();
-    
-    // First, try exact email match
-    const emailQ = query(collection(db, 'users'), where('email', '==', term));
-    
-    // Also try prefix match on nameLowerCase
-    const nameQ = query(
-      collection(db, 'users'), 
-      where('nameLowerCase', '>=', term),
-      where('nameLowerCase', '<=', term + '\uf8ff'),
-      limit(10)
-    );
-    
-    const [emailSnap, nameSnap] = await Promise.all([getDocs(emailQ), getDocs(nameQ)]);
-    
-    // Combine and de-duplicate results by UID
-    const results = new Map();
-    emailSnap.docs.forEach(doc => results.set(doc.id, { _id: doc.id, ...doc.data() }));
-    nameSnap.docs.forEach(doc => results.set(doc.id, { _id: doc.id, ...doc.data() }));
-    
-    // Filter out current user if necessary, but UI usually handles this. 
-    // Let's return the unique list.
-    return wrap({ users: Array.from(results.values()) });
+    // Feature disabled for enhanced privacy. 
+    // Users can only be added via common groups or shared links.
+    return wrap({ users: [] });
   },
 
   getUser: async (userId) => {
