@@ -473,7 +473,8 @@ const ExpenseForm = ({
         
         <div className="grid grid-cols-1 gap-2 max-h-[260px] overflow-y-auto pr-2 custom-scrollbar">
           {uniqueMembers.map(member => {
-            const userId = (member.user?._id || member.user).toString();
+            const u = member.user || (typeof member === 'string' ? null : member);
+            const userId = (u?._id || u?.uid || member._id || member).toString();
             const isSelected = participants.includes(userId);
             const previewAmt = calculatePreviewAmount(userId);
             

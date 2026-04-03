@@ -7,7 +7,6 @@ import {
   persistentMultipleTabManager 
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getAnalytics } from "firebase/analytics";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
@@ -26,13 +25,5 @@ const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
 const storage = getStorage(app);
-let analytics = null;
 
-if (typeof window !== "undefined") {
-  // Note: Analytics is only enabled in specific environments
-  if (import.meta.env.PROD) {
-    analytics = getAnalytics(app);
-  }
-}
-
-export { auth, db, storage, analytics };
+export { auth, db, storage };

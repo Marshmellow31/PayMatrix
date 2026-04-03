@@ -533,6 +533,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
           document.body
         )}
       </Modal>
+    </>
   );
 };
 
