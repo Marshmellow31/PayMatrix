@@ -26,49 +26,49 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
 
   return (
     <motion.div
-      layout
       onClick={() => setIsExpanded(!isExpanded)}
-      className="p-3 px-4 rounded-2xl bg-surface-container-low border border-white/5 transition-all duration-300 cursor-pointer overflow-hidden active:scale-[0.99]"
+      className="p-4 px-6 rounded-2xl bg-surface-container-low border border-white/5 transition-all duration-300 cursor-pointer overflow-hidden active:scale-[0.99] w-full"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', damping: 20, stiffness: 200 }}
     >
-      <div className="flex items-center justify-between gap-3 sm:gap-6">
-        <div className="flex items-center gap-3 sm:gap-5 flex-1 min-w-0">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/5 border border-white/5 shadow-inner transition-transform"
-            style={{ background: `${category?.color || '#ffffff'}10` }}
-          >
-            {category?.icon ? (
-              (() => {
-                const IconComponent = LucideIcons[category.icon];
-                return IconComponent ? <IconComponent size={20} style={{ color: category.color }} /> : <LucideIcons.Hash size={20} />;
-              })()
-            ) : (
-              <LucideIcons.Hash size={20} />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <h4 
-              className={`text-[13px] font-bold font-manrope text-white tracking-tight uppercase leading-tight transition-all duration-300 ${
-                isExpanded ? 'whitespace-normal break-words underline-offset-4 decoration-primary/30' : 'truncate'
-              }`}
-            >
-              {expense.title}
-            </h4>
-            <p className="text-[9px] text-white/30 font-inter uppercase tracking-[0.2em] font-black mt-1 truncate">
-              {expense.paidByName || expense.paidBy?.name || 'Member'}
-            </p>
-          </div>
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 sm:gap-6 w-full">
+        {/* Category Icon */}
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/5 border border-white/5 shadow-inner"
+          style={{ background: `${category?.color || '#ffffff'}10` }}
+        >
+          {category?.icon ? (
+            (() => {
+              const IconComponent = LucideIcons[category.icon];
+              return IconComponent ? <IconComponent size={20} style={{ color: category.color }} /> : <LucideIcons.Hash size={20} />;
+            })()
+          ) : (
+            <LucideIcons.Hash size={20} />
+          )}
         </div>
 
-        <div className="text-right flex-shrink-0">
-          <p className="text-base font-black text-white font-manrope tracking-tight leading-none">
+        {/* Title and Payer */}
+        <div className="min-w-0 flex flex-col justify-center">
+          <h4
+            className={`text-[13px] font-bold font-manrope text-white tracking-tight uppercase leading-tight transition-all duration-300 ${isExpanded ? 'whitespace-normal break-words underline-offset-4 decoration-primary/30' : 'truncate'
+              }`}
+          >
+            {expense.title}
+          </h4>
+          <p className="text-[9px] text-white/30 font-inter uppercase tracking-[0.2em] font-black mt-1 truncate">
+            {expense.paidByName || expense.paidBy?.name || 'Member'}
+          </p>
+        </div>
+
+        {/* Amount and Share */}
+        <div className="text-right flex flex-col items-end min-w-[80px] sm:min-w-[100px]">
+          <p className="text-base font-black text-white font-manrope tracking-tight leading-none whitespace-nowrap">
             {formatCurrency(expense.amount)}
           </p>
           {userSplit && (
-            <p className="text-[9px] font-black text-white/20 mt-1 font-inter uppercase tracking-[0.2em]">
-              Share: {formatCurrency(userSplit.amount)}
+            <p className="text-[9px] font-black text-white/20 mt-1.5 font-inter uppercase tracking-wider whitespace-nowrap">
+              You: {formatCurrency(userSplit.amount)}
             </p>
           )}
         </div>

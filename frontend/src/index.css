@@ -33,24 +33,27 @@
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    
+
     /* App-like feel: disable selection and callouts */
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
-    
+
     /* Disable pull-to-refresh in supporting browsers */
     overscroll-behavior-y: none;
-    
+
     /* Disable double-tap to zoom */
     touch-action: manipulation;
-    
+
     /* Disable default mobile highlight */
     -webkit-tap-highlight-color: transparent;
   }
 
   /* Re-enable selection for inputs and specific content */
-  input, textarea, [contenteditable="true"], .selectable-text {
+  input,
+  textarea,
+  [contenteditable="true"],
+  .selectable-text {
     -webkit-user-select: text;
     user-select: text;
   }
@@ -63,8 +66,10 @@
   }
 
   * {
-    -ms-overflow-style: none; /* IE/Edge */
-    scrollbar-width: none;    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE/Edge */
+    scrollbar-width: none;
+    /* Firefox */
   }
 
   /* Selection */
@@ -75,13 +80,15 @@
 }
 
 @layer components {
+
   /* Glass Card - Refined for Digital Obsidian */
   .glass-card {
     background: rgba(24, 24, 24, 0.4);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 1.5rem; /* xl/2xl consistent with system */
+    border-radius: 1.5rem;
+    /* xl/2xl consistent with system */
   }
 
   /* Glass Panel - For Modals and Drawers */
@@ -226,6 +233,7 @@
 }
 
 @layer utilities {
+
   /* Noise texture overlay for gradient anti-banding */
   .noise {
     position: relative;

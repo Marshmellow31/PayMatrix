@@ -162,7 +162,7 @@ const GroupDetail = () => {
     const scopedExpenses = expenses.filter(e => {
       const eGroupId = e.groupId || (e.group?._id || e.group);
       if (eGroupId !== id || e.status === 'deleted') return false;
-      
+
       // Personal filter logic
       if (showOnlyMe) {
         const isPayer = (e.paidBy?._id || e.paidBy) === currentUserId;
@@ -299,21 +299,21 @@ const GroupDetail = () => {
       setShowDeleteGroupConfirm(false);
     }
   };
-  
+
   const handleUpdateGroupLabel = () => {
     setEditTitle(activeGroup?.title || '');
     setEditCategory(activeGroup?.category || '');
     setShowEditGroup(true);
   };
-  
+
   const handleUpdateGroup = async (e) => {
     e.preventDefault();
     if (!editTitle.trim()) return;
     setUpdatingGroup(true);
     try {
-      await groupService.updateGroup(id, { 
-        title: editTitle.trim(), 
-        category: editCategory 
+      await groupService.updateGroup(id, {
+        title: editTitle.trim(),
+        category: editCategory
       });
       toast.success('Cohort updated');
       setShowEditGroup(false);
@@ -434,11 +434,10 @@ const GroupDetail = () => {
             <h3 className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.3em]">Chronicle</h3>
             <button
               onClick={() => setShowOnlyMe(!showOnlyMe)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-[10px] font-bold uppercase tracking-widest ${
-                showOnlyMe 
-                  ? 'bg-primary border-primary text-black' 
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-[10px] font-bold uppercase tracking-widest ${showOnlyMe
+                  ? 'bg-primary border-primary text-black'
                   : 'bg-white/5 border-white/5 text-on-surface-variant hover:bg-white/10'
-              }`}
+                }`}
             >
               <LucideIcons.User size={12} />
               {showOnlyMe ? 'Viewing Yours' : 'View Yours'}
@@ -545,10 +544,10 @@ const GroupDetail = () => {
         <div className="glass-card p-6 lg:p-10">
           <div className="flex items-center justify-between mb-10">
             <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-widest font-inter">Recent Activity</h3>
-            <ExportActions 
-              group={activeGroup} 
-              expenses={scopedExpenses} 
-              balances={balanceList} 
+            <ExportActions
+              group={activeGroup}
+              expenses={scopedExpenses}
+              balances={balanceList}
               logs={groupLogs}
             />
           </div>
@@ -787,8 +786,8 @@ const GroupDetail = () => {
                   type="button"
                   onClick={() => setEditCategory(cat.value)}
                   className={`flex-shrink-0 px-4 py-2.5 rounded-xl border transition-all text-[11px] font-bold flex items-center gap-2 ${editCategory === cat.value
-                      ? 'bg-white text-black border-white'
-                      : 'bg-white/[0.03] border-white/5 text-white/40 hover:text-white'
+                    ? 'bg-white text-black border-white'
+                    : 'bg-white/[0.03] border-white/5 text-white/40 hover:text-white'
                     }`}
                 >
                   {(() => {
