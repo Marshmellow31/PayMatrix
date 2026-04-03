@@ -29,7 +29,7 @@ const GroupCard = ({ group, balance = 0 }) => {
         <div className="flex justify-between items-start mb-6 relative z-10">
           <div>
             <h3 className="font-headline text-xl font-bold text-white mb-1 group-hover:text-primary transition-colors tracking-tight">
-              {group.title || group.name}
+              {group.name || group.title}
             </h3>
             <div className="flex items-center gap-2">
               <span className="text-on-surface-variant text-[10px] font-bold tracking-[0.15em] uppercase opacity-60">

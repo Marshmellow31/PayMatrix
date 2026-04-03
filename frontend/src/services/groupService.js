@@ -178,6 +178,10 @@ const groupService = {
 
       // 2. Sanitize and Validate
       const cleanData = sanitizationService.sanitizeObject(data);
+      // Map title to name if name is missing for Zod and Firestore rules
+      if (!cleanData.name && cleanData.title) {
+        cleanData.name = cleanData.title;
+      }
       const validData = validationService.validate(GroupSchema, cleanData);
 
       // Extract UIDs if members are passed as objects (compatibility)
@@ -188,6 +192,7 @@ const groupService = {
 
       const groupData = {
         ...validData,
+        name: validData.name || validData.title, // Standardize to 'name' for Firestore rules
         members: Array.from(new Set([...sanitizedMemberIds, creatorId])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
         historicalMembers: Array.from(new Set([...sanitizedMemberIds, creatorId])).filter(id => id && typeof id === 'string' && id !== 'undefined'),
         admin: creatorId,
@@ -211,6 +216,9 @@ const groupService = {
     
     // Sanitize and Validate
     const cleanData = sanitizationService.sanitizeObject(data);
+    if (!cleanData.name && cleanData.title) {
+        cleanData.name = cleanData.title;
+    }
     const validData = validationService.validate(GroupSchema.partial(), cleanData);
 
     const docRef = doc(db, 'groups', id);

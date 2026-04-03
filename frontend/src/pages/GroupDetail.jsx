@@ -59,7 +59,7 @@ const GroupDetail = () => {
   const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false);
   const [deletingGroup, setDeletingGroup] = useState(false);
   const [showEditGroup, setShowEditGroup] = useState(false);
-  const [editTitle, setEditTitle] = useState('');
+  const [editName, setEditName] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [updatingGroup, setUpdatingGroup] = useState(false);
   const [showOnlyMe, setShowOnlyMe] = useState(false);
@@ -301,18 +301,18 @@ const GroupDetail = () => {
   };
 
   const handleUpdateGroupLabel = () => {
-    setEditTitle(activeGroup?.title || activeGroup?.name || '');
+    setEditName(activeGroup?.name || activeGroup?.title || '');
     setEditCategory(activeGroup?.category || '');
     setShowEditGroup(true);
   };
 
   const handleUpdateGroup = async (e) => {
     e.preventDefault();
-    if (!editTitle.trim()) return;
+    if (!editName.trim()) return;
     setUpdatingGroup(true);
     try {
       await groupService.updateGroup(id, {
-        title: editTitle.trim(),
+        name: editName.trim(),
         category: editCategory
       });
       toast.success('Cohort updated');
@@ -364,7 +364,7 @@ const GroupDetail = () => {
               </div>
               <div className="flex flex-col gap-1 min-w-0 flex-1">
                 <h1 className="text-lg md:text-xl font-black font-manrope text-white tracking-tight uppercase leading-tight truncate">
-                  {activeGroup.title || activeGroup.name}
+                  {activeGroup.name || activeGroup.title}
                 </h1>
                 <p className="text-[9px] text-white/30 uppercase tracking-[0.22em] font-black font-manrope truncate">
                   {activeGroup.category} <span className="mx-1.5 opacity-50">•</span> {uniqueMembers.length} Members
@@ -729,7 +729,7 @@ const GroupDetail = () => {
           <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/10">
             <p className="text-sm font-medium text-on-surface-variant font-inter leading-relaxed">
               Are you sure you want to permanently delete{' '}
-              <span className="text-white font-bold">"{activeGroup?.title}"</span>?
+              <span className="text-white font-bold">"{activeGroup?.name || activeGroup?.title}"</span>?
               <br /><br />
               This will remove the group and all associated data.
               <span className="text-red-400 font-semibold"> This action cannot be undone.</span>
@@ -769,8 +769,8 @@ const GroupDetail = () => {
           <div className="flex flex-col gap-3">
             <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">Cohort Name</h4>
             <Input
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
               placeholder="E.g. Goa Trip 2024"
               required
               className="h-14 bg-white/[0.03]"

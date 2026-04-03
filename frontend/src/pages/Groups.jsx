@@ -29,7 +29,7 @@ const Groups = () => {
   const { user } = useSelector((state) => state.auth);
   const isOnline = useOnlineStatus();
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ title: '', category: 'Other', members: [] });
+  const [form, setForm] = useState({ name: '', category: 'Other', members: [] });
   const [friends, setFriends] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
@@ -123,7 +123,7 @@ const Groups = () => {
     if (result.meta.requestStatus === 'fulfilled') {
       toast.success('Cohort Established!');
       setShowModal(false);
-      setForm({ title: '', category: 'Other', members: [] });
+      setForm({ name: '', category: 'Other', members: [] });
     } else {
       toast.error(result.payload || 'Failed to create group');
     }
@@ -211,8 +211,8 @@ const Groups = () => {
             <input
               className="bg-transparent border-none text-center font-headline text-3xl font-bold text-white focus:ring-0 placeholder:text-neutral-700 w-full tracking-tighter sm:text-4xl"
               placeholder="Cohort Name"
-              value={form.title || form.name || ''}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              value={form.name || ''}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
               autoFocus
             />
