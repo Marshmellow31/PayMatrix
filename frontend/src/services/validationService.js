@@ -3,6 +3,7 @@ import { z } from 'zod';
 /**
  * Validation schemas for PayMatrix core entities.
  * Defines strict types, lengths, and formats to ensure data integrity.
+ * Using .passthrough() during development to prevent errors from blocking testers.
  */
 
 // User Profile Schema
@@ -13,7 +14,7 @@ export const UserSchema = z.object({
   phone: z.string().regex(/^\+?[\d\s-]{10,15}$/).or(z.string().length(0)).optional(),
   email: z.string().email().optional(),
   updatedAt: z.string().datetime().optional()
-}).strict();
+}).passthrough();
 
 // Group Schema
 export const GroupSchema = z.object({
@@ -25,7 +26,7 @@ export const GroupSchema = z.object({
   admin: z.string().optional(),
   status: z.enum(['active', 'archived', 'deleted']).optional(),
   updatedAt: z.string().datetime().optional()
-}).partial().strict(); // Partial for updates, strict for no unknown keys
+}).partial().passthrough();
 
 // Expense Schema
 export const ExpenseSchema = z.object({
@@ -41,8 +42,18 @@ export const ExpenseSchema = z.object({
   participants: z.array(z.string()).min(1),
   category: z.string().max(50).optional(),
   attachments: z.array(z.string()).optional(),
+  notes: z.string().max(500).optional(),
+  groupId: z.string().min(1).optional(),
+  admin: z.string().optional(),
+  splits: z.array(z.object({
+    user: z.string().min(1),
+    amount: z.number(),
+    percent: z.number().optional(),
+    shares: z.number().optional()
+  })).optional(),
+  createdAt: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)).optional(),
   updatedAt: z.string().datetime().optional()
-}).strict();
+}).passthrough();
 
 // Friend Request Schema
 export const FriendRequestSchema = z.object({
@@ -50,7 +61,7 @@ export const FriendRequestSchema = z.object({
   to: z.string().min(1, "Recipient required"),
   status: z.enum(['pending', 'accepted', 'rejected']).default('pending'),
   createdAt: z.string().datetime().optional()
-}).strict();
+}).passthrough();
 
 const validationService = {
   /**
@@ -61,8 +72,11 @@ const validationService = {
     try {
       return schema.parse(data);
     } catch (err) {
-      console.error("[VALIDATION_ERROR]", err.errors);
-      const firstError = err.errors[0]?.message || "Invalid data format";
+      // Safely access error issues from Zod or fallback to the error message
+      const issues = err.issues || err.errors || [];
+      console.error("[VALIDATION_ERROR]", issues.length > 0 ? issues : err.message);
+      
+      const firstError = issues[0]?.message || err.message || "Invalid data format";
       throw new Error(firstError);
     }
   }

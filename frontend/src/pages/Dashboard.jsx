@@ -209,7 +209,7 @@ const Dashboard = () => {
               >
                 <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden flex-shrink-0 border border-white/5">
                   <div className="w-full h-full bg-gradient-to-br from-white/10 to-transparent flex items-center justify-center font-manrope font-bold text-white text-base">
-                    {group.title[0]}
+                    {group.title?.[0] || '?'}
                   </div>
                 </div>
                 <div className="flex-1">
