@@ -33,8 +33,8 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', damping: 20, stiffness: 200 }}
     >
-      <div className="flex items-center justify-between gap-6">
-        <div className="flex items-center gap-5 flex-1 min-w-0">
+      <div className="flex items-center justify-between gap-3 sm:gap-6">
+        <div className="flex items-center gap-3 sm:gap-5 flex-1 min-w-0">
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/5 border border-white/5 shadow-inner transition-transform"
             style={{ background: `${category?.color || '#ffffff'}10` }}

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 import Button from '../common/Button.jsx';
+import { getShortName, getInitials } from '../../utils/nameUtils.js';
 
 const ExpenseForm = ({ 
   groups = [], 
@@ -36,9 +37,11 @@ const ExpenseForm = ({
     shares: {},
   });
 
+  // Initialization and Sync Logic
   useEffect(() => {
+    // 1. Initial Data Loading (Edit Mode)
     if (initialData) {
-      // Safely parse date — offline expenses may have a raw ISO string or Date object
+      // Safely parse date
       let dateStr = new Date().toISOString().split('T')[0];
       try {
         const parsed = new Date(initialData.date);
@@ -47,91 +50,76 @@ const ExpenseForm = ({
         }
       } catch (_) {}
 
-      setForm({
-        title: initialData.title || '',
+      setForm(prev => ({
+        ...prev,
+        title: initialData.title || prev.title,
         amount: (initialData.amount || '').toString(),
-        groupId: initialData.group?._id || initialData.group || initialData.groupId || '',
-        category: initialData.category || 'Other',
+        groupId: initialData.group?._id || initialData.group || initialData.groupId || prev.groupId,
+        category: initialData.category || prev.category,
         date: dateStr,
-        paidBy: (initialData.paidBy?._id || initialData.paidBy || '').toString(),
-        notes: initialData.notes || '',
-      });
+        paidBy: (initialData.paidBy?._id || initialData.paidBy || prev.paidBy).toString(),
+        notes: initialData.notes || prev.notes,
+      }));
       setSplitType(initialData.splitType || 'equal');
 
-      // Guard: offline expenses may not have splits yet
+      // Hydrate participants from splits ONLY if they aren't already set or if it's the first run
       const splits = initialData.splits || [];
-      const participantIds = splits.map(s => (s.user?._id || s.user).toString()).filter(Boolean);
-      setParticipants(participantIds);
+      const participantIdsFromSplits = splits.map(s => (s.user?._id || s.user).toString()).filter(Boolean);
+      
+      if (participantIdsFromSplits.length > 0) {
+        setParticipants(participantIdsFromSplits);
 
-      // Reconstruct split data from server expense
-      const newPercentages = {};
-      const newExact = {};
-      const newShares = {};
-      splits.forEach(s => {
-        const uid = (s.user?._id || s.user).toString();
-        if (initialData.splitType === 'percentage') newPercentages[uid] = s.percent?.toString() || '';
-        if (initialData.splitType === 'exact') newExact[uid] = s.amount.toString() || '';
-        if (initialData.splitType === 'shares') newShares[uid] = s.shares?.toString() || '1';
-      });
-      setSplitData({
-        percentages: newPercentages,
-        exactAmounts: newExact,
-        shares: newShares,
-      });
+        // Reconstruct split data
+        const newPercentages = {};
+        const newExact = {};
+        const newShares = {};
+        splits.forEach(s => {
+          const uid = (s.user?._id || s.user).toString();
+          if (initialData.splitType === 'percentage') newPercentages[uid] = s.percent?.toString() || '';
+          if (initialData.splitType === 'exact') newExact[uid] = (s.amount || 0).toString();
+          if (initialData.splitType === 'shares') newShares[uid] = s.shares?.toString() || '1';
+        });
+
+        setSplitData({
+          percentages: newPercentages,
+          exactAmounts: newExact,
+          shares: newShares,
+        });
+      }
     } else if (initialGroupId) {
       setForm(prev => ({ ...prev, groupId: initialGroupId }));
     }
   }, [initialData, initialGroupId]);
 
-
+  // Group Member Sync Logic
   useEffect(() => {
-    if (form.groupId && !initialData) {
-      const group = groups.find(g => g._id === form.groupId);
-      setSelectedGroup(group);
-      if (group) {
+    if (!form.groupId) {
+      setSelectedGroup(null);
+      setParticipants([]);
+      return;
+    }
+
+    const group = groups.find(g => g._id === form.groupId);
+    setSelectedGroup(group);
+    if (onGroupChange) onGroupChange(group);
+
+    if (group && !initialData) {
+      // For NEW expenses: Default to all members if none selected yet
+      if (participants.length === 0) {
         const allMemberIds = group.members.map(m => (m.user?._id || m.user).toString());
         const uniqueMemberIds = Array.from(new Set(allMemberIds));
         setParticipants(uniqueMemberIds);
 
-        // Initialize split data for all members
-        const initialPercentages = {};
-        const initialExact = {};
-        const initialShares = {};
-        uniqueMemberIds.forEach(id => {
-          initialPercentages[id] = (100 / uniqueMemberIds.length).toFixed(2);
-          initialExact[id] = '';
-          initialShares[id] = '1';
-        });
-        setSplitData({
-          percentages: initialPercentages,
-          exactAmounts: initialExact,
-          shares: initialShares,
-        });
-
-        if (!form.paidBy || !uniqueMemberIds.includes(form.paidBy)) {
-          const currentUserId = user?._id?.toString();
-          if (uniqueMemberIds.includes(currentUserId)) {
-            setForm(prev => ({ ...prev, paidBy: currentUserId }));
-          } else if (uniqueMemberIds.length > 0) {
-            setForm(prev => ({ ...prev, paidBy: uniqueMemberIds[0] }));
-          }
+        // Default PaidBy to current user if in group
+        const currentUserId = user?._id?.toString();
+        if (uniqueMemberIds.includes(currentUserId)) {
+          setForm(prev => ({ ...prev, paidBy: currentUserId }));
+        } else if (uniqueMemberIds.length > 0) {
+          setForm(prev => ({ ...prev, paidBy: uniqueMemberIds[0] }));
         }
       }
-      if (onGroupChange) onGroupChange(group);
-    } else if (form.groupId && initialData) {
-      const group = groups.find(g => g._id === form.groupId);
-      setSelectedGroup(group);
-      // If editing an offline expense (no splits loaded), populate participants from group
-      if (group && participants.length === 0) {
-        const allMemberIds = group.members.map(m => (m.user?._id || m.user).toString());
-        setParticipants(Array.from(new Set(allMemberIds)));
-      }
-      if (onGroupChange) onGroupChange(group);
-    } else {
-      setSelectedGroup(null);
-      setParticipants([]);
     }
-  }, [form.groupId, groups, initialData]);
+  }, [form.groupId, groups, initialData]); // Note: participants is omitted from deps to prevent re-runs when toggling members
 
 
 
@@ -155,13 +143,60 @@ const ExpenseForm = ({
     localStorage.setItem('lastGroupId', id);
   };
 
+  const handleSplitTypeChange = (newType) => {
+    // Smart pre-fill: If target split data is mostly empty, seed it with current calculated values
+    const currentAmount = parseFloat(form.amount || 0);
+
+    if (newType === 'exact') {
+      const existingCount = Object.keys(splitData.exactAmounts).length;
+      if (existingCount === 0 || existingCount < participants.length) {
+        const perPerson = currentAmount / participants.length;
+        const newExact = {};
+        participants.forEach(pid => {
+          newExact[pid] = perPerson.toFixed(2);
+        });
+        setSplitData(prev => ({ ...prev, exactAmounts: newExact }));
+      }
+    } else if (newType === 'percentage') {
+      const existingCount = Object.keys(splitData.percentages).length;
+      if (existingCount === 0 || existingCount < participants.length) {
+        const perPerson = (100 / participants.length).toFixed(2);
+        const newPct = {};
+        participants.forEach(pid => {
+          newPct[pid] = perPerson;
+        });
+        setSplitData(prev => ({ ...prev, percentages: newPct }));
+      }
+    }
+
+    setSplitType(newType);
+  };
+
   const toggleParticipant = (userId) => {
     setParticipants(prev => {
-      if (prev.includes(userId)) {
+      const isSelected = prev.includes(userId);
+      let next;
+      if (isSelected) {
         if (prev.length === 1) return prev; 
-        return prev.filter(id => id !== userId);
+        next = prev.filter(id => id !== userId);
+      } else {
+        next = [...prev, userId];
       }
-      return [...prev, userId];
+
+      // If switching from equal to something else later, we want to ensure 
+      // the splitData for this user is at least initialized
+      if (!isSelected) {
+        const currentAmount = parseFloat(form.amount || 0);
+        const perPerson = (currentAmount / next.length).toFixed(2);
+        setSplitData(s => ({
+          ...s,
+          exactAmounts: { ...s.exactAmounts, [userId]: perPerson },
+          percentages: { ...s.percentages, [userId]: (100 / next.length).toFixed(2) },
+          shares: { ...s.shares, [userId]: '1' }
+        }));
+      }
+
+      return next;
     });
   };
 
@@ -367,28 +402,31 @@ const ExpenseForm = ({
       <div className="space-y-4">
         <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60 px-1">Paid By</label>
         <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-          {uniqueMembers.map(member => {
-            const userId = (member.user?._id || member.user || '').toString();
-            const isSelected = form.paidBy === userId;
-            return (
-              <button
-                key={`payer-${userId}`}
-                type="button"
-                onClick={() => setForm({ ...form, paidBy: userId })}
-                className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-2xl border transition-all ${
-                  isSelected 
-                    ? 'bg-white text-black border-white shadow-lg' 
-                    : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
-                }`}
-              >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${isSelected ? 'bg-black text-white' : 'bg-white/10 text-white'}`}>
-                  {member.user?.name?.[0] || '?'}
-                </div>
-                <span className="font-manrope font-bold text-xs whitespace-nowrap">{member.user?.name?.split(' ')[0]}</span>
-                {isSelected && <LucideIcons.Check size={14} />}
-              </button>
-            );
-          })}
+          {(() => {
+            const allMemberNames = uniqueMembers.map(m => m.user?.name).filter(Boolean);
+            return uniqueMembers.map(member => {
+              const userId = (member.user?._id || member.user || '').toString();
+              const isSelected = form.paidBy === userId;
+              return (
+                <button
+                  key={`payer-${userId}`}
+                  type="button"
+                  onClick={() => setForm({ ...form, paidBy: userId })}
+                  className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-2xl border transition-all ${
+                    isSelected 
+                      ? 'bg-white text-black border-white shadow-lg' 
+                      : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${isSelected ? 'bg-black text-white' : 'bg-white/10 text-white'}`}>
+                    {getInitials(member.user?.name)}
+                  </div>
+                  <span className="font-manrope font-bold text-xs whitespace-nowrap">{getShortName(member.user?.name, allMemberNames)}</span>
+                  {isSelected && <LucideIcons.Check size={14} />}
+                </button>
+              );
+            });
+          })()}
         </div>
       </div>
 
@@ -408,7 +446,7 @@ const ExpenseForm = ({
               <button
                 key={type.id}
                 type="button"
-                onClick={() => setSplitType(type.id)}
+                onClick={() => handleSplitTypeChange(type.id)}
                 className={`flex flex-col items-center justify-center py-5 rounded-2xl border transition-all ${
                   isSelected 
                     ? 'bg-white text-black border-white shadow-xl scale-[1.02]' 
@@ -449,7 +487,7 @@ const ExpenseForm = ({
                   className="flex items-center gap-3 flex-1 text-left"
                 >
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs bg-surface-container-highest text-white border border-white/10`}>
-                    {member.user?.name?.[0] || '?'}
+                    {getInitials(member.user?.name)}
                   </div>
                   <div>
                     <p className="font-manrope font-bold text-xs text-white">{member.user?.name}</p>

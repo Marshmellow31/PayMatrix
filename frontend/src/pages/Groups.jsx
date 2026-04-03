@@ -18,6 +18,7 @@ import groupService from '../services/groupService.js';
 import expenseService from '../services/expenseService.js';
 import { db } from '../config/firebase.js';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { getInitials } from '../utils/nameUtils.js';
 
 const Groups = () => {
   const dispatch = useDispatch();
@@ -211,8 +212,8 @@ const Groups = () => {
                   type="button"
                   onClick={() => setForm({ ...form, category: cat.value })}
                   className={`flex-shrink-0 px-4 py-2.5 rounded-xl border transition-all text-[11px] font-bold flex items-center gap-2 ${form.category === cat.value
-                      ? 'bg-white text-black border-white'
-                      : 'bg-white/[0.03] border-white/5 text-white/40 hover:text-white'
+                    ? 'bg-white text-black border-white'
+                    : 'bg-white/[0.03] border-white/5 text-white/40 hover:text-white'
                     }`}
                 >
                   {(() => {
@@ -239,13 +240,13 @@ const Groups = () => {
                     type="button"
                     onClick={() => toggleFriend(friend._id)}
                     className={`flex items-center gap-3 p-3 rounded-2xl border transition-all text-left ${form.members.includes(friend._id)
-                        ? 'bg-white text-black border-white shadow-xl'
-                        : 'bg-white/[0.02] border-white/5 text-white/40 hover:bg-white/[0.05]'
+                      ? 'bg-white text-black border-white shadow-xl'
+                      : 'bg-white/[0.02] border-white/5 text-white/40 hover:bg-white/[0.05]'
                       }`}
                   >
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${form.members.includes(friend._id) ? 'bg-black text-white' : 'bg-white/5'
                       }`}>
-                      {friend.name.charAt(0).toUpperCase()}
+                      {getInitials(friend.name)}
                     </div>
                     <span className="text-[11px] font-bold truncate">{friend.name}</span>
                   </button>

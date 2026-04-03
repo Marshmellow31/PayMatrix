@@ -19,6 +19,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { getInitials } from '../utils/nameUtils.js';
 import {
   onSnapshot,
   doc,
@@ -393,7 +394,7 @@ const Friends = () => {
                     <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                       {/* Avatar */}
                       <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-base sm:text-lg font-black text-white group-hover:bg-white group-hover:text-black transition-all duration-300 shrink-0">
-                        {friendNode.friend.name.charAt(0).toUpperCase()}
+                        {getInitials(friendNode.friend.name)}
                       </div>
 
                       {/* Name & Cohorts */}
@@ -459,7 +460,7 @@ const Friends = () => {
             <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Counterparty</p>
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-white text-black flex items-center justify-center font-black">
-                {selectedFriendForSettle?.friend.name.charAt(0)}
+                {getInitials(selectedFriendForSettle?.friend.name)}
               </div>
               <div>
                 <p className="text-lg font-black text-white font-manrope">{selectedFriendForSettle?.friend.name}</p>

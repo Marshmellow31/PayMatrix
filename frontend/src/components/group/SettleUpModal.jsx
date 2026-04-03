@@ -13,6 +13,7 @@ import { Smartphone } from 'lucide-react';
 import expenseService from '../../services/expenseService.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { handleSmartPayment, hasPaymentMethod, IOS_CHOOSER_APPS, getAppDeepLink, UPI_APPS } from '../../utils/upiUtils.js';
+import { getInitials } from '../../utils/nameUtils.js';
 
 const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPayeeId = null }) => {
   const dispatch = useDispatch();

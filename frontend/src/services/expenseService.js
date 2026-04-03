@@ -161,10 +161,21 @@ const expenseService = {
     // Secondary tasks (non-blocking)
     (async () => {
       try {
-        const [resolvedPaidByName, actorName] = await Promise.all([
+        const [resolvedPaidByName, actorName, prevDoc] = await Promise.all([
           getStoredName(data.paidBy || userId, 'Member'),
-          getStoredName(userId, 'Someone')
+          getStoredName(userId, 'Someone'),
+          getDoc(docRef).catch(() => null)
         ]);
+
+        let diffMessage = '';
+        if (prevDoc?.exists()) {
+          const old = prevDoc.data();
+          const changes = [];
+          if (old.title !== data.title) changes.push(`title: "${old.title}" -> "${data.title}"`);
+          if (parseFloat(old.amount) !== parseFloat(data.amount)) changes.push(`amount: ${old.amount} -> ${data.amount}`);
+          if (old.category !== data.category) changes.push(`category: ${old.category} -> ${data.category}`);
+          if (changes.length > 0) diffMessage = ` (${changes.join(', ')})`;
+        }
 
         if (resolvedPaidByName !== 'Member' && resolvedPaidByName !== data.paidByName) {
           updateDoc(docRef, { paidByName: resolvedPaidByName }).catch(() => {});
@@ -173,7 +184,7 @@ const expenseService = {
         if (groupId) {
           addDoc(collection(db, 'groups', groupId, 'logs'), {
             type: 'expense_updated',
-            message: `${actorName} edited "${data.title || 'an expense'}"`,
+            message: `${actorName} edited "${data.title || 'an expense'}"${diffMessage}`,
             actorId: userId || 'unknown',
             actorName,
             relatedId: id,

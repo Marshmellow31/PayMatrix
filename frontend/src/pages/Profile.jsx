@@ -522,6 +522,24 @@ const Profile = () => {
           )}
         </div>
       </div>
+
+      {/* Footer */}
+      <div className="mt-16 pb-8 flex flex-col items-center justify-center gap-3">
+        <div className="h-[1px] w-16 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="flex flex-col items-center gap-1.5">
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20">
+            Engineered by <span className="text-white/40">Harshil</span>
+          </p>
+          <a
+            href="https://github.com/Marshmellow31/PayMatrix"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] font-black uppercase tracking-[0.2em] text-white/20 hover:text-primary transition-all duration-300"
+          >
+            Github
+          </a>
+        </div>
+      </div>
     </div>
   );
 };

@@ -3,7 +3,7 @@ import { Download, FileText, Table, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { exportToPDF, exportToCSV } from '../../utils/exportUtils';
 
-const ExportActions = ({ group, expenses, balances, iconOnly = false }) => {
+const ExportActions = ({ group, expenses, balances, logs = [], iconOnly = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -11,7 +11,7 @@ const ExportActions = ({ group, expenses, balances, iconOnly = false }) => {
     setIsExporting(true);
     try {
       if (type === 'pdf') {
-        exportToPDF(group, expenses, balances);
+        exportToPDF(group, expenses, balances, logs);
       } else {
         exportToCSV(group, expenses);
       }

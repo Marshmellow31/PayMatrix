@@ -91,7 +91,7 @@ const AppLayout = () => {
           />
         )}
 
-        <main className={`flex-1 ${!isFocusJourney ? 'px-4 pt-1 lg:px-8 lg:pt-4 pb-32 lg:pb-8 min-h-[calc(100vh-80px)]' : 'min-h-screen flex flex-col'}`}>
+        <main className={`flex-1 ${!isFocusJourney ? 'px-4 sm:px-6 pt-1 lg:px-8 lg:pt-4 pb-32 lg:pb-8 min-h-[calc(100vh-80px)]' : 'min-h-screen flex flex-col'}`}>
           <ErrorBoundary>
             <Outlet context={{ openAddExpense }} />
           </ErrorBoundary>

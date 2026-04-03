@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Hash } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { GROUP_CATEGORIES } from '../../utils/constants.js';
+import { getInitials } from '../../utils/nameUtils.js';
 
 const GroupCard = ({ group, balance = 0 }) => {
   const category = GROUP_CATEGORIES.find((c) => c.value === group.category);
@@ -61,7 +62,7 @@ const GroupCard = ({ group, balance = 0 }) => {
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white bg-surface-container-highest">
-                    {member.user?.name?.charAt(0) || '?'}
+                    {getInitials(member.user?.name)}
                   </div>
                 )}
               </div>

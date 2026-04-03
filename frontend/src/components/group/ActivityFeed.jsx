@@ -9,12 +9,17 @@ import toast from 'react-hot-toast';
 import { undoDeleteExpense, undoDeleteSettlement, deleteSettlement } from '../../redux/expenseSlice.js';
 import expenseService from '../../services/expenseService';
 
-const ActivityFeed = ({ groupId }) => {
-  const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
+const ActivityFeed = ({ groupId, externalLogs }) => {
+  const [activities, setActivities] = useState(externalLogs || []);
+  const [loading, setLoading] = useState(!externalLogs);
   const dispatch = useDispatch();
 
   useEffect(() => {
+    if (externalLogs) {
+      setActivities(externalLogs);
+      setLoading(false);
+      return;
+    }
     if (!groupId) return;
 
     setLoading(true);
@@ -39,7 +44,7 @@ const ActivityFeed = ({ groupId }) => {
     });
 
     return () => unsubscribe();
-  }, [groupId]);
+  }, [groupId, externalLogs]);
 
   const handleRestore = async (expenseId) => {
     if (!expenseId || !groupId) return;

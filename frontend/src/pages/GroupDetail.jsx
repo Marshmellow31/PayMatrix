@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link, useOutletContext, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { collection, onSnapshot, query, orderBy, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, limit } from 'firebase/firestore';
 import { db } from '../config/firebase.js';
 import { fetchGroup } from '../redux/groupSlice.js';
 import { deleteExpense, clearExpenses, setExpenses } from '../redux/expenseSlice.js';
@@ -58,6 +58,12 @@ const GroupDetail = () => {
   const [leaving, setLeaving] = useState(false);
   const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false);
   const [deletingGroup, setDeletingGroup] = useState(false);
+  const [showEditGroup, setShowEditGroup] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [updatingGroup, setUpdatingGroup] = useState(false);
+  const [showOnlyMe, setShowOnlyMe] = useState(false);
+  const [groupLogs, setGroupLogs] = useState([]);
 
   useEffect(() => {
     if (!id) return;
@@ -118,24 +124,52 @@ const GroupDetail = () => {
       console.error("Settlements snapshot error:", err);
     });
 
+    // 5. Real-time listener for Group Logs (Lifted for Export/Activity Feed)
+    const qLogs = query(
+      collection(db, 'groups', id, 'logs'),
+      orderBy('createdAt', 'desc'),
+      limit(100) // Increased limit for better PDF history
+    );
+    const unsubscribeLogs = onSnapshot(qLogs, (snapshot) => {
+      const liveLogs = snapshot.docs.map(docSnap => ({
+        _id: docSnap.id,
+        ...docSnap.data()
+      }));
+      setGroupLogs(liveLogs);
+    }, (err) => {
+      if (deletingGroup && err.code === 'permission-denied') return;
+      console.error("Logs snapshot error:", err);
+    });
+
     return () => {
       setSettlements([]); // Immediate clearance of local state
+      setGroupLogs([]);
       unsubscribeGroup();
       unsubscribeExpenses();
       unsubscribeSettlements();
+      unsubscribeLogs();
     };
   }, [id, dispatch]);
 
-  const { netBalances, balanceList, debts } = useMemo(() => {
+  const { netBalances, balanceList, debts, scopedExpenses } = useMemo(() => {
     const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
-    if (!activeGrp || !id) return { netBalances: {}, balanceList: [], debts: [] };
+    if (!activeGrp || !id) return { netBalances: {}, balanceList: [], debts: [], scopedExpenses: [] };
 
     // Defense in Depth: Filter expenses and settlements with STRICT equality.
     // This prevents "Zombie Data" (records from other groups or global state
     // with missing groupId fields) from leaking into the current view.
+    const currentUserId = user?._id || user?.uid;
     const scopedExpenses = expenses.filter(e => {
       const eGroupId = e.groupId || (e.group?._id || e.group);
-      return eGroupId === id && e.status !== 'deleted';
+      if (eGroupId !== id || e.status === 'deleted') return false;
+      
+      // Personal filter logic
+      if (showOnlyMe) {
+        const isPayer = (e.paidBy?._id || e.paidBy) === currentUserId;
+        const isParticipant = e.participants?.includes(currentUserId) || e.splits?.some(s => (s.user?._id || s.user) === currentUserId);
+        return isPayer || isParticipant;
+      }
+      return true;
     });
 
     const scopedSettlements = settlements.filter(s => s.groupId === id && s.status !== 'deleted');
@@ -163,9 +197,10 @@ const GroupDetail = () => {
       balanceList: list,
       debts: calculatedDebts,
       hasPending,
-      myBalance
+      myBalance,
+      scopedExpenses
     };
-  }, [expenses, settlements, currentGroup, groups, id, user]);
+  }, [expenses, settlements, currentGroup, groups, id, user, showOnlyMe]);
 
   // Ensure legacy groups get an invite code
   useEffect(() => {
@@ -264,6 +299,31 @@ const GroupDetail = () => {
       setShowDeleteGroupConfirm(false);
     }
   };
+  
+  const handleUpdateGroupLabel = () => {
+    setEditTitle(activeGroup?.title || '');
+    setEditCategory(activeGroup?.category || '');
+    setShowEditGroup(true);
+  };
+  
+  const handleUpdateGroup = async (e) => {
+    e.preventDefault();
+    if (!editTitle.trim()) return;
+    setUpdatingGroup(true);
+    try {
+      await groupService.updateGroup(id, { 
+        title: editTitle.trim(), 
+        category: editCategory 
+      });
+      toast.success('Cohort updated');
+      setShowEditGroup(false);
+      // Real-time snapshot will update the UI automatically
+    } catch (err) {
+      toast.error('Failed to update cohort');
+    } finally {
+      setUpdatingGroup(false);
+    }
+  };
 
   const activeGroup = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
 
@@ -288,7 +348,7 @@ const GroupDetail = () => {
   return (
     <div className="max-w-4xl mx-auto animate-fade-in pb-24">
       {/* Compact Group Header */}
-      <div className="bg-surface-container-low mt-4 mb-6 p-6 rounded-[2rem] border border-white/5">
+      <div className="bg-surface-container-low mt-4 mb-6 p-4 sm:p-6 rounded-[2rem] border border-white/5">
         <div className="relative z-10 flex flex-col gap-6">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -345,7 +405,7 @@ const GroupDetail = () => {
 
       {/* Tabs */}
       <div
-        className="flex gap-8 mb-6 pb-0 overflow-x-auto hide-scrollbar"
+        className="flex gap-5 sm:gap-8 mb-6 pb-0 overflow-x-auto hide-scrollbar"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {tabs.map((t) => (
@@ -367,18 +427,31 @@ const GroupDetail = () => {
 
       {/* Tab Content */}
       {tab === 'expenses' && (
-        <div className="flex flex-col gap-3">
-          {(() => {
-            const visibleExpenses = expenses.filter(e => e.status !== 'deleted');
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.3em]">Chronicle</h3>
+            <button
+              onClick={() => setShowOnlyMe(!showOnlyMe)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-[10px] font-bold uppercase tracking-widest ${
+                showOnlyMe 
+                  ? 'bg-primary border-primary text-black' 
+                  : 'bg-white/5 border-white/5 text-on-surface-variant hover:bg-white/10'
+              }`}
+            >
+              <LucideIcons.User size={12} />
+              {showOnlyMe ? 'Viewing Yours' : 'View Yours'}
+            </button>
+          </div>
 
-            if (expenseLoading && visibleExpenses.length === 0) return <Loader className="py-12" />;
-            if (visibleExpenses.length === 0) return (
+          {(() => {
+            if (expenseLoading && scopedExpenses.length === 0) return <Loader className="py-12" />;
+            if (scopedExpenses.length === 0) return (
               <div className="submerged text-center py-16 border-none">
                 <p className="text-lg font-inter text-on-surface-variant">No expenses yet. Time to split a bill!</p>
               </div>
             );
 
-            return visibleExpenses.map((expense) => (
+            return scopedExpenses.map((expense) => (
               <ExpenseCard
                 key={expense._id}
                 expense={expense}
@@ -418,9 +491,32 @@ const GroupDetail = () => {
             </div>
           )}
 
-          {/* Admin: Delete group (danger zone) */}
+          {/* Admin: Edit group details */}
           {isAdmin && (
             <div className="px-1 mt-2">
+              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+                <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Group Settings</p>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-white/80">Edit Details</p>
+                    <p className="text-[11px] text-white/30 mt-0.5 font-inter">Update name and category.</p>
+                  </div>
+                  <button
+                    onClick={() => isOnline && handleUpdateGroupLabel()}
+                    disabled={!isOnline}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0 ${!isOnline ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'}`}
+                  >
+                    <LucideIcons.Settings size={14} />
+                    Edit
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Admin: Delete group (danger zone) */}
+          {isAdmin && (
+            <div className="px-1">
               <div className="rounded-2xl border border-red-500/10 bg-red-500/[0.03] p-5">
                 <p className="text-[10px] font-black text-red-500/60 uppercase tracking-[0.2em] mb-3">Danger Zone</p>
                 <div className="flex items-center justify-between gap-4">
@@ -447,9 +543,14 @@ const GroupDetail = () => {
         <div className="glass-card p-6 lg:p-10">
           <div className="flex items-center justify-between mb-10">
             <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-widest font-inter">Recent Activity</h3>
-            <ExportActions group={activeGroup} expenses={expenses} balances={balances} />
+            <ExportActions 
+              group={activeGroup} 
+              expenses={scopedExpenses} 
+              balances={balanceList} 
+              logs={groupLogs}
+            />
           </div>
-          <ActivityFeed groupId={id} />
+          <ActivityFeed groupId={id} externalLogs={groupLogs} />
         </div>
       )}
 
@@ -659,6 +760,62 @@ const GroupDetail = () => {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Edit Group Modal */}
+      <Modal isOpen={showEditGroup} onClose={() => setShowEditGroup(false)} title="Edit Group" size="md">
+        <form onSubmit={handleUpdateGroup} className="flex flex-col gap-8 py-4">
+          <div className="flex flex-col gap-3">
+            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">Cohort Name</h4>
+            <Input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              placeholder="E.g. Goa Trip 2024"
+              required
+              className="h-14 bg-white/[0.03]"
+            />
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">Category</h4>
+            <div className="flex gap-3 overflow-x-auto pb-4 hide-scrollbar">
+              {GROUP_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.value}
+                  type="button"
+                  onClick={() => setEditCategory(cat.value)}
+                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl border transition-all text-[11px] font-bold flex items-center gap-2 ${editCategory === cat.value
+                      ? 'bg-white text-black border-white'
+                      : 'bg-white/[0.03] border-white/5 text-white/40 hover:text-white'
+                    }`}
+                >
+                  {(() => {
+                    const IconComp = LucideIcons[cat.icon] || LucideIcons.Hash;
+                    return <IconComp size={14} />;
+                  })()}
+                  <span>{cat.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowEditGroup(false)}
+              className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white text-xs font-black tracking-[0.2em] uppercase transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={updatingGroup || !editTitle.trim()}
+              className="flex-1 py-4 rounded-2xl bg-white text-black text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50"
+            >
+              {updatingGroup ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
       </Modal>
 
     </div>

@@ -48,15 +48,19 @@ export const exportToPDF = (group, expenses, balances, logs = []) => {
     e.title || 'Untitled Expense',
     e.category,
     e.paidByName || e.paidBy?.name || 'Member',
-    `INR ${(e.amount || 0).toLocaleString()}`
+    `INR ${parseFloat(e.amount || 0).toLocaleString()}`,
+    (e.splits || []).map(s => `${s.user?.name || 'Member'}: ${(s.amount || 0).toFixed(0)}`).join('\n')
   ]);
 
   autoTable(doc, {
     startY: nextY + 5,
-    head: [['Date', 'Title', 'Category', 'Paid By', 'Amount']],
+    head: [['Date', 'Title', 'Category', 'Paid By', 'Amount', 'Splits (INR)']],
     body: expenseData,
     theme: 'striped',
     headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] },
+    columnStyles: {
+      5: { fontSize: 8, fontStyle: 'italic' } // Make splits smaller to fit more
+    }
   });
 
   // Logs Section (Activity Timeline)
