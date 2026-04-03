@@ -49,10 +49,14 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <h4 className="text-[13px] font-black font-manrope text-white tracking-tight uppercase leading-none truncate">
+            <h4 
+              className={`text-[13px] font-bold font-manrope text-white tracking-tight uppercase leading-tight transition-all duration-300 ${
+                isExpanded ? 'whitespace-normal break-words underline-offset-4 decoration-primary/30' : 'truncate'
+              }`}
+            >
               {expense.title}
             </h4>
-            <p className="text-[9px] text-white/30 font-inter uppercase tracking-[0.2em] font-black mt-1">
+            <p className="text-[9px] text-white/30 font-inter uppercase tracking-[0.2em] font-black mt-1 truncate">
               {expense.paidByName || expense.paidBy?.name || 'Member'}
             </p>
           </div>

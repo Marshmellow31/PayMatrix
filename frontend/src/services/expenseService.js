@@ -366,6 +366,21 @@ const expenseService = {
           relatedId: id,
           createdAt: new Date().toISOString(),
         }).catch(() => {});
+
+        // Notify the payee that a settlement was removed
+        if (settSnap?.exists()) {
+          const data = settSnap.data();
+          if (userId !== data.payee) {
+            const { createNotification } = await import('../utils/notificationHelper.js');
+            createNotification(
+              data.payee, 
+              `${actorName} deleted a previous settlement of ₹${(data.amount || 0).toFixed(2)} with you.`, 
+              'settlement_deleted', 
+              id, 
+              groupId
+            ).catch(() => {});
+          }
+        }
       } catch (_) {}
     })().catch(() => {});
 

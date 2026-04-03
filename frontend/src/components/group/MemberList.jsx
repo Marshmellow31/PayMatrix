@@ -13,6 +13,7 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus.js';
 const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRemoved, currentUserId }) => {
   const [selectedMember, setSelectedMember] = useState(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(null); // id of user to remove
   const isOnline = useOnlineStatus();
 
   // Icons from Lucide (using robust access)
@@ -22,6 +23,7 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
   const Clock = Lucide.Clock;
   const CreditCard = Lucide.CreditCard;
   const ChevronRight = Lucide.ChevronRight;
+  const AlertCircle = Lucide.AlertCircle;
 
   // De-duplicate members by user ID for visual consistency
   const uniqueMembers = [];
@@ -38,14 +40,18 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
     });
   }
 
-  const handleRemove = async (userId) => {
-    if (!window.confirm('Are you sure you want to remove this member? This will block their access to the group.')) return;
+  const handleRemove = (userId) => {
+    setShowRemoveConfirm(userId);
+  };
 
+  const confirmRemove = async () => {
+    if (!showRemoveConfirm) return;
     setIsRemoving(true);
     try {
-      await groupService.removeMember(groupId, userId);
+      await groupService.removeMember(groupId, showRemoveConfirm);
       toast.success('Member removed successfully');
       setSelectedMember(null);
+      setShowRemoveConfirm(null);
       if (onMemberRemoved) onMemberRemoved();
     } catch (err) {
       console.error(err);
@@ -65,7 +71,8 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <>
+      <div className="flex flex-col gap-2">
       {uniqueMembers.map((member) => {
         const user = member.user || member || {};
         const userId = user._id || user.uid || (typeof user === 'string' ? user : null);
@@ -79,24 +86,24 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
           <button
             key={`member-${userIdStr}`}
             onClick={() => setSelectedMember({ ...user, balance, isMe: userIdStr === currentUserId?.toString() })}
-            className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-all group text-left w-full"
+            className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-all group text-left w-full overflow-hidden"
           >
-            <div className="flex items-center gap-4">
-              <Avatar name={user.name} src={user.avatar} size="md" className="border border-white/10" />
-              <div>
-                <p className="text-sm font-bold text-on-surface font-inter group-hover:text-primary transition-colors">
+            <div className="flex items-center gap-4 min-w-0 flex-1">
+              <Avatar name={user.name} src={user.avatar} size="md" className="border border-white/10 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-on-surface font-inter group-hover:text-primary transition-colors truncate">
                   {userName}
                   {userIdStr === currentUserId?.toString() && (
-                    <span className="ml-2 text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded uppercase font-bold">You</span>
+                    <span className="ml-2 text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded uppercase font-bold shrink-0">You</span>
                   )}
                 </p>
-                <p className="text-[10px] text-on-surface-variant uppercase tracking-widest opacity-60 mt-0.5 font-medium">
+                <p className="text-[10px] text-on-surface-variant uppercase tracking-widest opacity-60 mt-0.5 font-medium truncate">
                   {isAdmin ? 'Group Admin' : 'Member'}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <p className={`text-xs font-bold font-manrope ${balance > 0 ? 'text-green-400' : balance < 0 ? 'text-red-400' : 'text-on-surface-variant opacity-40'}`}>
+            <div className="flex items-center gap-3 shrink-0 ml-3">
+              <p className={`text-xs font-bold font-manrope whitespace-nowrap ${balance > 0 ? 'text-green-400' : balance < 0 ? 'text-red-400' : 'text-on-surface-variant opacity-40'}`}>
                 {balance !== 0 && (balance > 0 ? '+' : '')}
                 {balance !== 0 ? formatCurrency(balance) : 'Settled'}
               </p>
@@ -199,6 +206,42 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
         )}
       </Modal>
     </div>
+      
+      {/* Removal Confirmation Modal */}
+      <Modal 
+        isOpen={!!showRemoveConfirm} 
+        onClose={() => setShowRemoveConfirm(null)} 
+        title="Confirm Removal" 
+        size="sm"
+      >
+        <div className="flex flex-col gap-6 py-4">
+          <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/10">
+            <p className="text-sm font-medium text-on-surface-variant font-inter leading-relaxed">
+              Are you sure you want to remove this member?
+              <br /><br />
+              They will <span className="text-red-400 font-semibold font-manrope uppercase text-[10px] tracking-widest">instantly lose access</span> to this cohort's data. 
+              <span className="text-white font-bold italic"> This action is permanent.</span>
+            </p>
+          </div>
+          <div className="flex gap-4 w-full">
+            <button
+              onClick={() => setShowRemoveConfirm(null)}
+              disabled={isRemoving}
+              className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmRemove}
+              disabled={isRemoving}
+              className="flex-1 py-4 rounded-2xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isRemoving ? 'Removing...' : 'Confirm'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 };
 

@@ -362,9 +362,11 @@ const GroupDetail = () => {
                   <LucideIcons.Hash size={24} />
                 )}
               </div>
-              <div className="flex flex-col gap-1">
-                <h1 className="text-xl font-black font-manrope text-white tracking-tight uppercase leading-none">{activeGroup.title}</h1>
-                <p className="text-[10px] text-white/30 uppercase tracking-[0.2em] font-black font-manrope">
+              <div className="flex flex-col gap-1 min-w-0 flex-1">
+                <h1 className="text-lg md:text-xl font-black font-manrope text-white tracking-tight uppercase leading-tight truncate">
+                  {activeGroup.title}
+                </h1>
+                <p className="text-[9px] text-white/30 uppercase tracking-[0.22em] font-black font-manrope truncate">
                   {activeGroup.category} <span className="mx-1.5 opacity-50">•</span> {uniqueMembers.length} Members
                 </p>
               </div>
@@ -374,7 +376,7 @@ const GroupDetail = () => {
               <button
                 onClick={() => isOnline && setShowAddMember(true)}
                 disabled={!isOnline}
-                className={`w-10 h-10 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] transition-all border border-white/5 active:scale-90 text-white/40 flex items-center justify-center ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:text-primary'}`}
+                className={`w-10 h-10 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] transition-all border border-white/5 active:scale-90 text-white/40 flex items-center justify-center shrink-0 ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:text-primary'}`}
                 title="Add Member"
               >
                 <UserPlus size={18} />
@@ -385,18 +387,18 @@ const GroupDetail = () => {
           <div className="flex w-full gap-3">
             <button
               onClick={() => openAddExpense(id)}
-              className="flex-1 h-11 px-2 rounded-xl font-manrope font-black text-[10px] sm:text-xs tracking-[0.15em] sm:tracking-[0.2em] flex items-center justify-center gap-2 bg-white text-black hover:bg-white/90 transition-all active:scale-[0.97] uppercase shadow-lg shadow-white/5 whitespace-nowrap"
+              className="flex-1 h-11 px-2 rounded-xl font-manrope font-black text-[10px] sm:text-xs tracking-[0.12em] sm:tracking-[0.2em] flex items-center justify-center gap-2 bg-white text-black hover:bg-white/90 transition-all active:scale-[0.97] uppercase shadow-lg shadow-white/5"
             >
-              <Plus size={16} strokeWidth={4} /> Record
+              <Plus size={16} strokeWidth={4} className="shrink-0" /> <span className="truncate">Record</span>
             </button>
 
             <button
               onClick={() => isOnline && setShowSettleUp(true)}
               disabled={!isOnline}
-              className={`flex-1 h-11 px-2 rounded-xl font-manrope font-black text-[10px] sm:text-xs tracking-[0.15em] sm:tracking-[0.2em] flex items-center justify-center gap-2 bg-white/[0.03] text-white/60 transition-all border border-white/5 active:scale-[0.97] uppercase whitespace-nowrap ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:bg-white/[0.08] hover:text-white'}`}
+              className={`flex-1 h-11 px-2 rounded-xl font-manrope font-black text-[10px] sm:text-xs tracking-[0.12em] sm:tracking-[0.2em] flex items-center justify-center gap-2 bg-white/[0.03] text-white/60 transition-all border border-white/5 active:scale-[0.97] uppercase ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:bg-white/[0.08] hover:text-white'}`}
             >
-              <WalletCards size={16} />
-              Settle
+              <WalletCards size={16} className="shrink-0" />
+              <span className="truncate">Settle</span>
             </button>
           </div>
         </div>
