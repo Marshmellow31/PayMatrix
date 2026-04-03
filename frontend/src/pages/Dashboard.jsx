@@ -209,11 +209,11 @@ const Dashboard = () => {
               >
                 <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden flex-shrink-0 border border-white/5">
                   <div className="w-full h-full bg-gradient-to-br from-white/10 to-transparent flex items-center justify-center font-manrope font-bold text-white text-base">
-                    {group.title?.[0] || '?'}
+                    {(group.name || group.title)?.[0] || '?'}
                   </div>
                 </div>
                 <div className="flex-1">
-                  <p className="font-manrope font-bold text-white text-base leading-none mb-1 group-hover:translate-x-1 transition-transform">{group.title}</p>
+                  <p className="font-manrope font-bold text-white text-base leading-none mb-1 group-hover:translate-x-1 transition-transform">{group.name || group.title}</p>
                   <p className="text-[10px] font-bold font-inter text-on-surface-variant uppercase tracking-widest opacity-50">
                     {group.members?.length || 0} Members
                   </p>

@@ -16,7 +16,7 @@ export const exportToPDF = (group, expenses, balances, logs = []) => {
   
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
-  doc.text(`Financial Report for ${group.title}`, 14, 30);
+  doc.text(`Financial Report for ${group.name || group.title}`, 14, 30);
   doc.text(`Generated on ${timestamp}`, 14, 35);
 
   // Summary Section
@@ -112,7 +112,8 @@ export const exportToPDF = (group, expenses, balances, logs = []) => {
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
   } else {
-    doc.save(`${group.title.toLowerCase().replace(/\s+/g, '_')}_report.pdf`);
+    const filename = (group.name || group.title || 'report').toLowerCase().replace(/\s+/g, '_');
+    doc.save(`${filename}_report.pdf`);
   }
 };
 
@@ -136,7 +137,8 @@ export const exportToCSV = (group, expenses) => {
     const url = URL.createObjectURL(blob);
     
     link.setAttribute('href', url);
-    link.setAttribute('download', `${group.title.toLowerCase().replace(/\s+/g, '_')}_expenses.csv`);
+    const filename = (group.name || group.title || 'expenses').toLowerCase().replace(/\s+/g, '_');
+    link.setAttribute('download', `${filename}_expenses.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -153,7 +155,7 @@ export const exportToJSON = (group, expenses, settlements) => {
   const data = {
     group: {
       id: group._id,
-      title: group.title,
+      title: group.name || group.title,
       category: group.category,
       admin: group.admin,
       createdAt: group.createdAt,
@@ -182,7 +184,8 @@ export const exportToJSON = (group, expenses, settlements) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `${group.title.toLowerCase().replace(/\s+/g, '_')}_full_export.json`);
+    const filename = (group.name || group.title || 'full_export').toLowerCase().replace(/\s+/g, '_');
+    link.setAttribute('download', `${filename}_full_export.json`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

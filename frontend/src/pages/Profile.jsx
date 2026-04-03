@@ -704,7 +704,7 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
       });
 
       exportToPDF(group, expenses, formattedBalances, logs);
-      toast.success(`PDF Security Report exported for ${group.title}`);
+      toast.success(`PDF Security Report exported for ${group.name || group.title}`);
     } catch (err) {
       console.error(err);
       toast.error("Export failed. Please try again.");
@@ -753,7 +753,7 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
                 >
                   <div className="flex flex-col gap-1">
                     <span className={`text-md font-black transition-colors ${isExpanded ? 'text-primary' : 'text-white'}`}>
-                      {group.title}
+                      {group.name || group.title}
                     </span>
                     <div className="flex items-center gap-3">
                       <span className={`text-[8px] font-black uppercase tracking-[0.15em] px-2 py-0.5 rounded-full ${

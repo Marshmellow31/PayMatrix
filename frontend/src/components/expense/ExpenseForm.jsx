@@ -312,9 +312,9 @@ const ExpenseForm = ({
                 }`}
               >
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${form.groupId === group._id ? 'bg-black text-white' : 'bg-white/10 text-white'}`}>
-                  {group.title?.[0] || '?'}
+                  {(group.name || group.title)?.[0] || '?'}
                 </div>
-                <span className="font-manrope font-bold text-sm whitespace-nowrap">{group.title}</span>
+                <span className="font-manrope font-bold text-sm whitespace-nowrap">{group.name || group.title}</span>
               </button>
             ))}
           </div>

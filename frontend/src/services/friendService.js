@@ -232,7 +232,7 @@ const friendService = {
 
           mutualGroupsEx.push({
             id: group.id,
-            title: group.title,
+            title: group.name || group.title,
             balance: Math.round(groupSpecificBalance * 100) / 100
           });
         }

@@ -463,7 +463,7 @@ const Friends = () => {
                       <Layers size={18} />
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-black text-white uppercase tracking-wider">{group.title}</p>
+                      <p className="text-sm font-black text-white uppercase tracking-wider">{group.name || group.title}</p>
                       <p className="text-[10px] text-white/20 font-bold tracking-widest">LOCAL DEBT: ₹{Math.abs(group.balance).toLocaleString()}</p>
                     </div>
                   </div>

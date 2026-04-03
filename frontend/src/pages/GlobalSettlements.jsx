@@ -133,11 +133,11 @@ const GlobalSettlements = () => {
                           : 'bg-white/10 text-white/60 border-white/10'
                         }`}
                       >
-                        {group.title.substring(0, 1).toUpperCase()}
+                        {(group.name || group.title || '?')[0].toUpperCase()}
                       </div>
                       <div className="flex flex-col gap-0.5 min-w-0">
                         <p className="text-base font-black text-white font-manrope truncate group-hover:text-white">
-                          {group.title}
+                          {group.name || group.title}
                         </p>
                         <p className={`text-[9px] font-black tracking-[0.2em] truncate ${isPositive ? 'text-white/40' : 'text-white/20'}`}>
                           {isPositive ? 'RECEIVABLE' : 'PAYABLE'}
