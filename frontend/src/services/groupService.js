@@ -11,55 +11,55 @@ const wrap = (data, message = 'Success') => ({ data: { data, message, status: 's
 const userCache = {};
 
 const groupService = {
-  // Internal helper to expand UIDs to objects with user details
-  expandGroupData: async (groupDoc) => {
+  // 1. Initial Instant Extraction (Extracts raw IDs and basic document fields)
+  getBasicGroup: (groupDoc) => {
     const data = groupDoc.data ? groupDoc.data() : groupDoc;
-    const memberIds = data.members || [];
+    return {
+      _id: groupDoc.id || data._id,
+      ...data,
+      members: data.members || [], // Keep as raw UIDs for now
+      admin: data.admin || data.createdBy,
+      isBasic: true // Flag to indicate profiles aren't resolved yet
+    };
+  },
+
+  // 2. Profile Resolution (Asynchronously resolves UIDs to user metadata)
+  resolveMemberProfiles: async (groupId, memberIds) => {
+    if (!memberIds || memberIds.length === 0) return [];
     
     const memberPromises = memberIds.map(async (item) => {
-      // 1. Resolve UID (handle raw strings, objects {user:{_id}}, or legacy keys)
       let uid = (item && typeof item === 'object') ? (item.user?._id || item.uid || item._id) : item;
-      
-      // 2. Strict validation: Must be a non-empty string
-      if (!uid || typeof uid !== 'string' || uid === 'undefined') {
-        const groupId = groupDoc.id || data._id;
-        console.warn(`[DATADOG] Skipping invalid member ID in group ${groupId}:`, uid);
-        return null;
-      }
+      if (!uid || typeof uid !== 'string' || uid === 'undefined') return null;
 
-      // 3. Check memory cache for performance
       if (userCache[uid]) {
         return { user: { ...userCache[uid], _id: uid }, role: 'member' };
       }
       
       try {
-        // 4. Cache-first strategy: Instant return if we have it locally
         let uSnap = await getDocFromCache(doc(db, 'users', uid)).catch(() => null);
-        
-        // 5. If not in cache and online, try network
         if (!uSnap) {
           uSnap = await getDoc(doc(db, 'users', uid)).catch(() => null);
         }
 
-        const uData = uSnap?.exists() ? uSnap.data() : { name: 'Cohort Member', email: 'Member' };
-        
+        const uData = uSnap?.exists() ? uSnap.data() : { name: 'Member', email: 'Member' };
+        if (uData.photoURL && !uData.avatar) uData.avatar = uData.photoURL;
+
         const resolvedUser = { ...uData, _id: uid, uid: uid };
         userCache[uid] = resolvedUser;
         return { user: resolvedUser, role: 'member' };
       } catch (err) {
-        // Log error but don't crash — fallback to skeleton data
-        console.warn(`Fallback for user ${uid}:`, err.message);
         return { user: { _id: uid, uid: uid, name: 'Member' }, role: 'member' };
       }
     });
     
-    const expandedMembers = (await Promise.all(memberPromises)).filter(Boolean);
-    return { 
-      _id: groupDoc.id || data._id, 
-      ...data, 
-      members: expandedMembers,
-      admin: data.admin || data.createdBy 
-    };
+    return (await Promise.all(memberPromises)).filter(Boolean);
+  },
+
+  // (Legacy support/Direct use)
+  expandGroupData: async (groupDoc) => {
+    const basic = groupService.getBasicGroup(groupDoc);
+    const profiles = await groupService.resolveMemberProfiles(basic._id, basic.members);
+    return { ...basic, members: profiles, isBasic: false };
   },
 
   getGroups: async (userId) => {

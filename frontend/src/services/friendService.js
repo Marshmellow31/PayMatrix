@@ -35,6 +35,13 @@ const friendService = {
     // Let's return the unique list.
     return wrap({ users: Array.from(results.values()) });
   },
+
+  getUser: async (userId) => {
+    if (!userId) throw new Error("User ID required");
+    const uSnap = await getDoc(doc(db, 'users', userId));
+    if (!uSnap.exists()) throw new Error("User not found");
+    return wrap({ _id: uSnap.id, ...uSnap.data() });
+  },
   
   sendRequest: async (receiverId) => {
     const senderId = auth.currentUser?.uid;
@@ -310,6 +317,39 @@ const friendService = {
 
   getFriendAnalytics: async (friendId) => {
     return wrap({ analytics: {} });
+  },
+
+  removeFriend: async (friendId) => {
+    const userId = auth.currentUser?.uid;
+    if (!userId || !friendId) throw new Error("IDs required");
+
+    try {
+      const userRef = doc(db, 'users', userId);
+      const friendRef = doc(db, 'users', friendId);
+
+      // 1. Remove from both friends arrays
+      await Promise.all([
+        updateDoc(userRef, { friends: arrayRemove(friendId) }),
+        updateDoc(friendRef, { friends: arrayRemove(userId) })
+      ]);
+
+      // 2. Clean up any pending requests between these two
+      const qIn = query(collection(db, 'friendRequests'), where('from', '==', friendId), where('to', '==', userId), where('status', '==', 'pending'));
+      const qOut = query(collection(db, 'friendRequests'), where('from', '==', userId), where('to', '==', friendId), where('status', '==', 'pending'));
+      
+      const [inSnap, outSnap] = await Promise.all([getDocs(qIn), getDocs(qOut)]);
+      
+      const deletePromises = [];
+      inSnap.docs.forEach(d => deletePromises.push(deleteDoc(d.ref)));
+      outSnap.docs.forEach(d => deletePromises.push(deleteDoc(d.ref)));
+      
+      await Promise.all(deletePromises);
+
+      return wrap({ message: 'Friend removed' });
+    } catch (error) {
+      console.error("Remove friend error:", error);
+      throw error;
+    }
   },
 };
 

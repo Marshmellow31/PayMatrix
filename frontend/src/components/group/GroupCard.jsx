@@ -3,17 +3,18 @@ import { motion } from 'framer-motion';
 import { Hash } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { GROUP_CATEGORIES } from '../../utils/constants.js';
+import Avatar from '../common/Avatar.jsx';
 import { getInitials } from '../../utils/nameUtils.js';
 
 const GroupCard = ({ group, balance = 0 }) => {
   const category = GROUP_CATEGORIES.find((c) => c.value === group.category);
   const IconComponent = category?.icon ? LucideIcons[category.icon] || Hash : Hash;
 
-  // De-duplicate members by user ID
+  // De-duplicate members by user ID (handles both raw UIDs and expanded objects)
   const uniqueMembers = Array.from(new Map(
     (group.members || []).map(m => {
       const u = m.user || m;
-      const id = (u?._id || u?.uid || u || '').toString();
+      const id = typeof u === 'string' ? u : (u?._id || u?.uid || '').toString();
       return [id, m];
     })
   ).values());
@@ -47,29 +48,28 @@ const GroupCard = ({ group, balance = 0 }) => {
           </div>
         </div>
 
-        <div className="flex justify-between items-center relative z-10">
-          <div className="flex -space-x-2">
-            {uniqueMembers.slice(0, 3).map((member, idx) => (
-              <div
-                key={member.user?._id || idx}
-                className="w-8 h-8 rounded-full border-2 border-surface-container-low overflow-hidden bg-surface-container-high shadow-lg"
-              >
-                {member.user?.avatar ? (
-                  <img
-                    src={member.user.avatar}
-                    alt={member.user.name}
-                    className="w-full h-full object-cover"
+        <div className="flex justify-between items-center relative z-10 pt-2">
+          <div className="flex -space-x-3 items-center">
+            {uniqueMembers.slice(0, 3).map((member, idx) => {
+              const u = member.user || (typeof member === 'string' ? null : member);
+              const name = u?.name || '';
+              const src = u?.avatar || '';
+              const id = u?._id || (typeof member === 'string' ? member : idx);
+
+              return (
+                <div key={id} className="relative transition-transform duration-300 hover:z-20 hover:-translate-y-0.5">
+                  <Avatar
+                    name={name}
+                    src={src}
+                    size="sm"
+                    className="ring-2 ring-[#13111C] shadow-xl"
                   />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white bg-surface-container-highest">
-                    {getInitials(member.user?.name)}
-                  </div>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
             {uniqueMembers.length > 3 && (
-              <div className="w-8 h-8 rounded-full bg-surface-container-highest border-2 border-surface-container-low flex items-center justify-center shadow-lg">
-                <span className="text-[10px] font-bold text-white">+{uniqueMembers.length - 3}</span>
+              <div className="w-8 h-8 rounded-full bg-surface-container-highest ring-2 ring-[#13111C] flex items-center justify-center shadow-xl z-0 transition-transform duration-300 hover:-translate-y-0.5">
+                <span className="text-[10px] font-black text-white/90 font-manrope">+{uniqueMembers.length - 3}</span>
               </div>
             )}
           </div>

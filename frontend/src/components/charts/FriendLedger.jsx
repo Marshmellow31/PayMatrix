@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Avatar from '../common/Avatar.jsx';
 
 const FriendLedger = ({ networkData }) => {
   const [animated, setAnimated] = useState(false);
@@ -71,15 +72,18 @@ const FriendLedger = ({ networkData }) => {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   {/* Avatar */}
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
-                    Math.abs(stat.netBalance) < 1
-                      ? 'bg-white/10 text-white/50'
-                      : stat.netBalance > 0
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-orange-500/20 text-orange-400'
-                  }`}>
-                    {initial}
-                  </div>
+                  <Avatar 
+                    name={name} 
+                    src={stat.friend?.avatar} 
+                    size="sm" 
+                    className={`rounded-xl ${
+                      Math.abs(stat.netBalance) < 1
+                        ? 'bg-white/10 text-white/50 border-white/5'
+                        : stat.netBalance > 0
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/10'
+                          : 'bg-orange-500/20 text-orange-400 border-orange-500/10'
+                    }`}
+                  />
                   <div>
                     <p className="text-sm font-black text-white leading-none tracking-tight">{name}</p>
                     <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest mt-0.5">

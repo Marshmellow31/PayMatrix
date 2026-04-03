@@ -29,22 +29,42 @@ const Dashboard = () => {
     if (!user?._id && !user?.uid) return;
     const userId = user._id || user.uid;
 
-    // 1. Real-time listener for groups
     const qGroups = query(
       collection(db, 'groups'),
       where('members', 'array-contains', userId)
     );
+    
+    let isInitialLoad = !groups.length;
+
     const unsubscribeGroups = onSnapshot(qGroups, async (snapshot) => {
       try {
-        const expandedGroups = (await Promise.all(
-          snapshot.docs.map(doc => groupService.expandGroupData(doc))
-        )).filter(Boolean);
-        dispatch(setGroups(expandedGroups.filter(g => g?.status !== 'deleted')));
+        // 1. Instant Step: Extract basic doc data (IDs, Titles, etc)
+        const basicGroups = snapshot.docs.map(doc => groupService.getBasicGroup(doc));
+        const activeBasicGroups = basicGroups.filter(g => g?.status !== 'deleted');
+        
+        // Dispatch basic data immediately to avoid blocking the UI
+        dispatch(setGroups(activeBasicGroups));
+
+        // 2. Background Step: Resolve full profiles (avatars, names)
+        const expandedGroupsPromise = Promise.all(
+          snapshot.docs.map(async (doc) => {
+            const basic = groupService.getBasicGroup(doc);
+            if (basic.status === 'deleted') return null;
+            const profiles = await groupService.resolveMemberProfiles(basic._id, basic.members);
+            return { ...basic, members: profiles, isBasic: false };
+          })
+        );
+
+        expandedGroupsPromise.then((expanded) => {
+          const finalGroups = expanded.filter(Boolean);
+          dispatch(setGroups(finalGroups));
+        });
+
       } catch (err) {
         console.error("Error expanding group snapshot:", err);
       }
     }, (err) => {
-      console.error("Dashboard group snapshot error (likely permission or index):", err);
+      console.error("Dashboard group snapshot error:", err);
     });
 
     const handleOnline = () => setIsOffline(false);

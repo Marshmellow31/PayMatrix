@@ -15,6 +15,7 @@ import expenseService from '../services/expenseService.js';
 import { computeGroupBalances } from '../utils/balanceEngine.js';
 import { exportToPDF } from '../utils/exportUtils.js';
 import { validateUPIId, hasPaymentMethod, UPI_APPS } from '../utils/upiUtils.js';
+import friendService from '../services/friendService.js';
 
 const Profile = () => {
   const { id } = useParams();
@@ -35,6 +36,10 @@ const Profile = () => {
   // Preferred app state
   const [preferredApp, setPreferredApp] = useState('default');
   const [savingPreferredApp, setSavingPreferredApp] = useState(false);
+
+  // Remove friend state
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   const isOwnProfile = !id || id === currentUser?._id || id === currentUser?.uid;
 
@@ -134,6 +139,22 @@ const Profile = () => {
     }
   };
 
+  const handleRemoveFriend = async () => {
+    if (!id) return;
+    setIsRemoving(true);
+    try {
+      await friendService.removeFriend(id);
+      toast.success("Connection Severed");
+      navigate('/friends');
+    } catch (err) {
+      console.error("Removal failed:", err);
+      toast.error("Failed to remove node");
+    } finally {
+      setIsRemoving(false);
+      setShowRemoveConfirm(false);
+    }
+  };
+
   if (loading) return (
     <div className="min-h-[60vh] flex items-center justify-center">
       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -147,34 +168,36 @@ const Profile = () => {
   return (
     <div className="max-w-4xl mx-auto animate-fade-in pb-24 px-4 sm:px-6">
       <div className="mb-6 pt-6">
-        <h1 className="text-2xl lg:text-3xl font-black font-manrope text-white tracking-[-0.04em] mb-1">
-          {isOwnProfile ? 'Security & Identity' : 'Network Node'}
+        <h1 className="text-3xl font-black font-manrope text-white tracking-[-0.05em] mb-1">
+          {isOwnProfile ? 'Identity & Security' : 'Network Profile'}
         </h1>
-        <p className="text-[11px] md:text-sm text-on-surface-variant font-inter opacity-60">
-          {isOwnProfile
-            ? 'Manage your network presence and archived data exports.'
-            : 'Operational details and connection status for this node.'}
-        </p>
+        <div className="flex items-center gap-3 mt-2">
+          <div className={`w-2 h-2 rounded-full animate-pulse ${isOnline ? 'bg-emerald-500 shadow-[0_0_10px_2px_rgba(16,185,129,0.3)]' : 'bg-red-500'}`} />
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+            {isOnline ? 'System Operational' : 'Node Offline'}
+          </span>
+          {!isOwnProfile && (
+            <>
+              <span className="text-white/10 text-[8px]">•</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Verified Connection</span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ── Payment Warning Banner (own profile, no UPI ID) ── */}
       {isOwnProfile && !userHasPayment && showPaymentWarningBanner && (
-        <div className="mb-6 flex items-center gap-4 p-4 rounded-2xl bg-amber-500/8 border border-amber-500/20">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
-            <AlertTriangle size={18} className="text-amber-400" />
+        <div className="mb-8 flex items-center gap-4 p-5 rounded-3xl bg-amber-500/5 border border-amber-500/10">
+          <div className="shrink-0">
+             <AlertTriangle size={20} className="text-amber-500/70" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-amber-400 leading-snug">
-              Add your UPI ID to receive payments
-            </p>
-            <p className="text-[11px] text-amber-400/60 font-inter mt-0.5">
-              Without a valid UPI ID (e.g., name@bank), friends won't be able to pay you directly from the Settle Up screen.
-            </p>
+          <div className="flex-1">
+            <p className="text-[11px] font-black text-amber-500/80 uppercase tracking-widest mb-0.5">Missing Payment Vector</p>
+            <p className="text-xs text-white/30 font-inter">Add your UPI ID to ensure seamless arrivals of settlements into your account.</p>
           </div>
           <button
             onClick={() => setShowPaymentWarningBanner(false)}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white/30 hover:text-white/60 transition-all shrink-0"
-            aria-label="Dismiss"
+            className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-white/20 transition-all shrink-0"
           >
             <X size={14} />
           </button>
@@ -182,25 +205,25 @@ const Profile = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Identity Card */}
-        <div className="lg:col-span-12 xl:col-span-12">
+        {/* Left Column: Identity & Actions */}
+        <div className="lg:col-span-12 xl:col-span-12 space-y-6">
           <div className="glass-card overflow-hidden border border-white/5 relative">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50 opacity-20" />
 
-            <div className="p-4 sm:p-6">
-                <div className="space-y-6 w-full">
-                  <div className="flex items-center gap-4">
+            <div className="p-6 sm:p-8">
+                <div className="w-full">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-6">
                     <div className="relative group shrink-0">
-                      <div className="absolute -inset-1 bg-primary/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                      <div className="absolute -inset-2 bg-primary/20 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-700" />
                       <Avatar
                         name={displayUser?.name}
-                        src={displayUser?.avatar}
+                        src={displayUser?.avatar || displayUser?.photoURL}
                         size="xl"
-                        className="relative w-16 h-16 sm:w-20 sm:h-20 text-xl border-4 border-white/5 shadow-2xl"
+                        className="relative w-20 h-20 sm:w-24 sm:h-24 text-2xl border-4 border-white/5 shadow-2l"
                       />
                     </div>
 
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 space-y-3">
                       {editing ? (
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-1">Identity Name</label>
@@ -208,77 +231,108 @@ const Profile = () => {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             id="profile-name"
-                            className="h-12 bg-white/[0.03] text-lg font-bold"
+                            className="h-14 bg-white/[0.03] text-xl font-bold border-white/10 rounded-2xl"
                             disabled={!isOnline}
                           />
                         </div>
                       ) : (
                         <div className="space-y-1">
-                          <h2 className="text-2xl sm:text-3xl font-black font-manrope text-white tracking-tight truncate">{displayUser?.name}</h2>
-                          <div className="flex items-center justify-start gap-2 text-on-surface-variant opacity-60">
+                          <h2 className="text-3xl sm:text-4xl font-black font-manrope text-white tracking-[-0.03em] truncate">{displayUser?.name}</h2>
+                          <div className="flex items-center gap-3 text-white/40">
                             <Mail size={14} className="shrink-0" />
-                            <span className="text-xs sm:text-sm font-medium font-inter truncate">{displayUser?.email}</span>
+                            <span className="text-sm font-medium font-inter truncate tracking-tight">{displayUser?.email}</span>
                           </div>
+                        </div>
+                      )}
+
+                      {!editing && (
+                        <div className="flex flex-wrap items-center gap-2 pt-2">
+                           {isOwnProfile ? (
+                             <div className="flex gap-2">
+                               <button 
+                                 onClick={() => setEditing(true)}
+                                 className="h-10 px-6 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest text-white/60 transition-all active:scale-95"
+                               >
+                                 Configure Profile
+                               </button>
+                               <button 
+                                 onClick={logout}
+                                 className="h-10 px-6 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/10 text-[10px] font-black uppercase tracking-widest text-red-500 transition-all active:scale-95"
+                               >
+                                 Logout
+                               </button>
+                             </div>
+                           ) : (
+                             <div className="flex items-center gap-2">
+                               {hasPaymentMethod(targetUser) ? (
+                                  <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
+                                    <CheckCircle2 size={12} /> UPI Verified
+                                  </div>
+                               ) : (
+                                  <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/80 text-[10px] font-black uppercase tracking-widest">
+                                    <AlertTriangle size={12} /> Pending UPI
+                                  </div>
+                               )}
+                             </div>
+                           )}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {editing && isOwnProfile ? (
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                      <Button onClick={handleSave} className="h-11 font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2" disabled={!isOnline || !name.trim()}>
+                  {editing && isOwnProfile && (
+                    <div className="flex gap-3 pt-6">
+                      <Button 
+                        onClick={handleSave} 
+                        className="flex-1 h-12 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl flex items-center justify-center gap-2 whitespace-nowrap bg-white text-black hover:bg-neutral-200 transition-colors" 
+                        disabled={!isOnline || !name.trim()}
+                      >
                         {isOnline ? (
                           <>
-                            <CheckCircle2 size={14} />
-                            <span>Apply Changes</span>
+                            <CheckCircle2 size={12} strokeWidth={3} />
+                            <span>Confirm</span>
                           </>
                         ) : (
-                          'Connection Lost'
+                          'OFFLINE'
                         )}
                       </Button>
-                      <Button variant="ghost" onClick={() => setEditing(false)} className="h-11 font-black uppercase text-[10px] tracking-widest bg-white/5 flex items-center justify-center gap-2">
-                        <X size={14} />
-                        <span>Discard</span>
-                      </Button>
-                    </div>
-                  ) : isOwnProfile ? (
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                      <Button
-                        variant="ghost"
-                        className={`h-11 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all bg-white/[0.03] hover:bg-white/10 border border-white/5 active:scale-95 flex items-center justify-center gap-2 ${!isOnline ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
-                        onClick={() => isOnline && setEditing(true)}
-                        disabled={!isOnline}
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => setEditing(false)} 
+                        className="flex-1 h-12 font-black uppercase text-[10px] tracking-[0.2em] bg-white/5 text-white/50 border border-white/5 hover:bg-white/10 rounded-2xl flex items-center justify-center gap-2 whitespace-nowrap"
                       >
-                        <User size={14} className="opacity-50" />
-                        <span>{isOnline ? 'Edit' : 'Offline'}</span>
+                        <X size={12} strokeWidth={3} />
+                        <span>Cancel</span>
                       </Button>
-
-                      <Button
-                        variant="ghost"
-                        className="h-11 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all active:scale-95 flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/10"
-                        onClick={logout}
-                      >
-                        <LogOut size={14} className="opacity-70" />
-                        <span>Logout</span>
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-2 pt-2">
-                      <span className="px-5 p-2 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/40">Verified Connection</span>
-                      {hasPaymentMethod(targetUser) ? (
-                        <span className="flex items-center gap-2 px-5 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest">
-                          <CheckCircle2 size={12} /> UPI Verified
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-2 px-5 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/80 text-[9px] font-black uppercase tracking-widest">
-                          <AlertTriangle size={12} /> Pending UPI Config
-                        </span>
-                      )}
                     </div>
                   )}
                 </div>
             </div>
           </div>
+          
+          {!isOwnProfile && (
+            <div className="glass-card p-6 sm:p-8 border-red-500/10 bg-red-500/[0.01] relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                 <AlertTriangle size={80} className="text-red-500" />
+               </div>
+               
+               <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                 <div className="space-y-1">
+                   <h3 className="text-xs font-black text-red-500/60 uppercase tracking-[0.2em] font-manrope">Security Zone</h3>
+                   <p className="text-[11px] text-white/30 font-inter leading-relaxed max-w-sm">
+                     Sever the network connection with this node. This operation is bidirectional and cannot be undone.
+                   </p>
+                 </div>
+                 
+                 <button
+                   onClick={() => setShowRemoveConfirm(true)}
+                   className="h-12 px-8 rounded-2xl bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 transition-all active:scale-95 text-[10px] font-black uppercase tracking-widest shadow-lg shrink-0"
+                 >
+                   Terminate Connection
+                 </button>
+               </div>
+            </div>
+          )}
         </div>
 
         {/* ── Payment Details Card (own profile only) ── */}
@@ -523,23 +577,78 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="mt-16 pb-8 flex flex-col items-center justify-center gap-3">
-        <div className="h-[1px] w-16 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-        <div className="flex flex-col items-center gap-1.5">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20">
-            Engineered by <span className="text-white/40">Harshil</span>
-          </p>
-          <a
-            href="https://github.com/Marshmellow31/PayMatrix"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[11px] font-black uppercase tracking-[0.2em] text-white/20 hover:text-primary transition-all duration-300"
-          >
-            Github
-          </a>
+      {/* Footer (Own Profile Only) */}
+      {isOwnProfile && (
+        <div className="mt-16 pb-8 flex flex-col items-center justify-center gap-3">
+          <div className="h-[1px] w-16 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          <div className="flex flex-col items-center gap-1.5">
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20">
+              Engineered by <span className="text-white/40">Harshil</span>
+            </p>
+            <a
+              href="https://github.com/Marshmellow31/PayMatrix"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-black uppercase tracking-[0.2em] text-white/20 hover:text-primary transition-all duration-300"
+            >
+              Github
+            </a>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Confirmation Modal for Removal */}
+      <AnimatePresence>
+        {showRemoveConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isRemoving && setShowRemoveConfirm(false)}
+              className="absolute inset-0 bg-background/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-sm glass-card border-red-500/20 bg-red-500/[0.02] p-8 space-y-6 overflow-hidden"
+            >
+               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-30" />
+               
+               <div className="w-16 h-16 rounded-3xl bg-red-500/10 flex items-center justify-center mx-auto mb-2 border border-red-500/20">
+                 <AlertTriangle size={32} className="text-red-500 animate-pulse" />
+               </div>
+
+               <div className="text-center space-y-2">
+                 <h3 className="text-xl font-black text-white font-manrope">Sever Connection?</h3>
+                 <p className="text-sm text-white/40 font-inter leading-relaxed">
+                   This will remove <span className="text-white font-bold">{displayUser?.name}</span> from your network. Bidirectional disconnection will be operationalized.
+                 </p>
+               </div>
+
+               <div className="flex flex-col gap-3 pt-2">
+                 <Button
+                   variant="ghost"
+                   className="h-14 rounded-2xl bg-red-500 text-white hover:bg-red-600 font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all w-full"
+                   onClick={handleRemoveFriend}
+                   disabled={isRemoving}
+                 >
+                   {isRemoving ? 'SEVERING...' : 'CONFIRM REMOVAL'}
+                 </Button>
+                 <Button
+                   variant="ghost"
+                   className="h-14 rounded-2xl bg-white/5 hover:bg-white/10 text-white/60 font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all w-full border border-white/5"
+                   onClick={() => setShowRemoveConfirm(false)}
+                   disabled={isRemoving}
+                 >
+                   CANCEL
+                 </Button>
+               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -26,6 +26,7 @@ const authService = {
       name: user.displayName, 
       nameLowerCase: user.displayName?.toLowerCase(),
       photoURL: user.photoURL,
+      avatar: user.photoURL,
       friends: []
     };
     
@@ -33,13 +34,26 @@ const authService = {
       userData.createdAt = new Date().toISOString();
       await setDoc(userDocRef, userData);
     } else {
-      userData = userDoc.data();
-      if (!userData._id) userData._id = user.uid;
-      // Auto-backfill nameLowerCase if missing on login
-      if (!userData.nameLowerCase && userData.name) {
-        userData.nameLowerCase = userData.name.toLowerCase();
-        await updateDoc(userDocRef, { nameLowerCase: userData.nameLowerCase });
+      const existingData = userDoc.data();
+      // Update with latest Google Profile data if it changed
+      const updates = {};
+      if (user.photoURL && existingData.avatar !== user.photoURL) {
+        updates.avatar = user.photoURL;
+        updates.photoURL = user.photoURL;
       }
+      if (user.displayName && existingData.name !== user.displayName) {
+        updates.name = user.displayName;
+        updates.nameLowerCase = user.displayName.toLowerCase();
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(userDocRef, updates);
+        userData = { ...existingData, ...updates };
+      } else {
+        userData = existingData;
+      }
+
+      // Ensure friends array exists
       if (!userData.friends) {
         userData.friends = [];
         await updateDoc(userDocRef, { friends: [] });
@@ -54,7 +68,9 @@ const authService = {
      if (!user) throw new Error("Authentication session expired. Please sign in again.");
      const userDoc = await getDoc(doc(db, 'users', user.uid));
      if (!userDoc.exists()) throw new Error("User document not found");
-     return { data: { data: { user: userDoc.data() } } }; 
+     const userData = userDoc.data();
+     if (userData.photoURL && !userData.avatar) userData.avatar = userData.photoURL;
+     return { data: { data: { user: userData } } }; 
   },
   
   updateProfile: async (data) => {
@@ -69,7 +85,9 @@ const authService = {
     await updateDoc(doc(db, 'users', user.uid), updateData);
     
     const updatedDoc = await getDoc(doc(db, 'users', user.uid));
-    return { data: { data: { user: updatedDoc.data() } } };
+    const userData = updatedDoc.data();
+    if (userData.photoURL && !userData.avatar) userData.avatar = userData.photoURL;
+    return { data: { data: { user: userData } } };
   }
 };
 

@@ -52,12 +52,27 @@ const Groups = () => {
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       try {
-        const expandedGroups = await Promise.all(
-          snapshot.docs.map(doc => groupService.expandGroupData(doc))
+        // Step 1: Instant load of basic group data (names, IDs)
+        const basicGroups = snapshot.docs.map(doc => groupService.getBasicGroup(doc));
+        const activeBasicGroups = basicGroups.filter(g => g?.status !== 'deleted');
+        dispatch(setGroups(activeBasicGroups));
+
+        // Step 2: Background resolution of member profiles (names, avatars)
+        const expandedGroupsPromise = Promise.all(
+          snapshot.docs.map(async (doc) => {
+            const basic = groupService.getBasicGroup(doc);
+            if (basic.status === 'deleted') return null;
+            const profiles = await groupService.resolveMemberProfiles(basic._id, basic.members);
+            return { ...basic, members: profiles, isBasic: false };
+          })
         );
-        dispatch(setGroups(expandedGroups.filter(g => g?.status !== 'deleted')));
+
+        expandedGroupsPromise.then((expanded) => {
+          const finalGroups = expanded.filter(Boolean);
+          dispatch(setGroups(finalGroups));
+        });
       } catch (err) {
-        console.error("Error expanding group snapshot:", err);
+        console.error("Error expanding group snapshot in Groups page:", err);
       }
     });
 

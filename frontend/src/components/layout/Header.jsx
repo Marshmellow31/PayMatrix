@@ -48,7 +48,7 @@ const Header = ({ onToggleSidebar }) => {
             )}
           </Link>
           <Link to="/profile" className="flex items-center gap-2">
-            <Avatar name={user?.name} src={user?.avatar} size="sm" />
+            <Avatar name={user?.name} src={user?.avatar || user?.photoURL} size="sm" />
           </Link>
         </div>
       </div>

@@ -16,9 +16,15 @@ import {
   ExternalLink,
   ChevronRight,
   Layers,
-  Sparkles
+  Sparkles,
+  Link as LinkIcon,
+  Copy,
+  QrCode,
+  ShieldCheck
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Link, useNavigate } from 'react-router-dom';
+import Avatar from '../components/common/Avatar';
 import { getInitials } from '../utils/nameUtils.js';
 import {
   onSnapshot,
@@ -37,12 +43,9 @@ const Friends = () => {
   const [friends, setFriends] = useState([]);
   const [totalSharedBalance, setTotalSharedBalance] = useState(0);
   const [requests, setRequests] = useState({ incoming: [], outgoing: [] });
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchStatus, setSearchStatus] = useState({}); // { userId: 'friend' | 'pending_incoming' | ... }
-  const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
+  const [showInvite, setShowInvite] = useState(false);
 
   // Quick Settle Modal State
   const [settleModalOpen, setSettleModalOpen] = useState(false);
@@ -129,41 +132,30 @@ const Friends = () => {
     };
   }, [fetchData]);
 
-  const handleSearch = async (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    if (query.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    try {
-      setIsSearching(true);
-      const res = await friendService.searchUsers(query);
-      const currentUser = auth.currentUser;
-      const users = (res.data.data.users || [])
-        .filter(u => u._id !== currentUser?.uid && u._id !== currentUser?._id);
-      setSearchResults(users);
-
-      // Batch check relationships for search results
-      const statusMap = {};
-      await Promise.all(users.map(async (u) => {
-        const relRes = await friendService.checkRelationship(u._id);
-        statusMap[u._id] = relRes.data.data.status;
-      }));
-      setSearchStatus(prev => ({ ...prev, ...statusMap }));
-    } catch (error) {
-      // Background search errors
-    } finally {
-      setIsSearching(false);
-    }
+  const copyInviteLink = () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    const link = `${window.location.origin}/join-friend?uid=${user.uid}`;
+    navigator.clipboard.writeText(link).then(() => {
+      toast.success('Invite link copied to clipboard', {
+        icon: '🔗',
+        style: {
+          borderRadius: '1rem',
+          background: '#1a1a1a',
+          color: '#fff',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }
+      });
+    }).catch(() => {
+      toast.error('Failed to copy link');
+    });
   };
 
   const sendRequest = async (userId) => {
     try {
       await friendService.sendRequest(userId);
       toast.success('Connection request broadcasted');
-      setSearchStatus(prev => ({ ...prev, [userId]: 'pending_outgoing' }));
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Connection failed');
@@ -195,106 +187,83 @@ const Friends = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-1 sm:px-4 py-8 pb-32 space-y-10">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 pb-32 space-y-10 overflow-x-hidden">
       {/* Network Header Section */}
       <motion.div 
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col gap-6 px-1"
+        className="flex flex-col gap-6"
       >
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-black font-manrope text-white tracking-tight uppercase leading-none">Friends</h1>
-          <p className="text-[10px] font-black font-manrope tracking-[0.4em] text-white/20 uppercase">Social Matrix v3.1</p>
-        </div>
-
-        <div className="relative group/search">
-          <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-white/40 group-focus-within/search:text-primary transition-all duration-500">
-            <Search size={18} strokeWidth={2.5} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-xl font-black font-manrope text-white tracking-tight uppercase leading-none">Friends</h1>
+            <p className="text-[10px] font-black font-manrope tracking-[0.4em] text-white/20 uppercase">Social Matrix v3.1</p>
           </div>
-          <input
-            type="text"
-            placeholder="Search friends..."
-            className="w-full bg-surface-container-low border border-white/5 rounded-2xl py-4 pl-14 pr-12 text-white font-manrope font-bold placeholder:text-white/10 focus:outline-none focus:border-white/10 focus:ring-4 focus:ring-white/[0.02] transition-all duration-500 shadow-2xl text-sm"
-            value={searchQuery}
-            onChange={handleSearch}
-          />
-
-          <AnimatePresence>
-            {searchQuery && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                onClick={() => handleSearch({ target: { value: '' } })}
-                className="absolute inset-y-0 right-3 flex items-center p-1 text-white/20 hover:text-white transition-colors"
-              >
-                <div className="bg-white/5 hover:bg-white/10 rounded-full p-2 border border-white/5 text-white/30">
-                  <X size={12} strokeWidth={3} />
-                </div>
-              </motion.button>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {searchResults.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                className="absolute top-full left-0 right-0 mt-4 bg-surface-container-low border border-white/5 rounded-[2.5rem] p-4 z-50 shadow-[0_32px_120px_rgba(0,0,0,1)] backdrop-blur-3xl overflow-hidden"
-              >
-                <p className="px-5 py-2 text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Potential Connections</p>
-                <div className="max-h-[380px] overflow-y-auto no-scrollbar space-y-1.5 mt-2">
-                  {searchResults.map((user) => {
-                    const status = searchStatus[user._id] || 'none';
-                    return (
-                      <div key={user._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 sm:p-5 rounded-3xl hover:bg-white/[0.03] border border-transparent hover:border-white/5 transition-all group/item">
-                        <div className="flex items-center gap-5 min-w-0">
-                          <div className="w-14 h-14 rounded-[1.25rem] flex-shrink-0 bg-white/5 border border-white/5 flex items-center justify-center font-black text-white/10 group-hover/item:text-white group-hover/item:bg-white/10 transition-all uppercase text-xl">
-                            {user.name.charAt(0)}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-base font-black text-white tracking-wide truncate">{user.name}</p>
-                            <p className="text-xs text-white/20 font-semibold lowercase tracking-tight truncate">{user.email}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex sm:justify-end w-full sm:w-auto">
-                          {status === 'friend' ? (
-                            <div className="flex-shrink-0 flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 w-full sm:w-auto justify-center">
-                              <div className="w-2 h-2 rounded-full bg-white/40" />
-                              <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Connected</span>
-                            </div>
-                          ) : status === 'pending_outgoing' ? (
-                            <div className="flex-shrink-0 px-5 py-2.5 rounded-2xl bg-white/5 border border-white/5 w-full sm:w-auto text-center">
-                              <span className="text-[10px] font-black text-white/20 uppercase tracking-widest italic">Signal Sent</span>
-                            </div>
-                          ) : status === 'pending_incoming' ? (
-                            <button
-                              onClick={() => setActiveTab('pending')}
-                              className="flex-shrink-0 w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-white text-black text-[10px] font-black uppercase tracking-widest shadow-lg shadow-white/5 hover:scale-105 active:scale-95 transition-all"
-                            >Action Required</button>
-                          ) : (
-                            <button
-                              onClick={() => sendRequest(user._id)}
-                              className="flex-shrink-0 w-full sm:w-14 h-14 rounded-2xl bg-white text-black hover:bg-white/90 active:scale-90 transition-all flex items-center justify-center shadow-xl shadow-white/5"
-                            >
-                              <UserPlus size={22} strokeWidth={3} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <button
+            onClick={() => setShowInvite(!showInvite)}
+            className={`flex items-center justify-center gap-2 px-6 py-4 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl border transition-all duration-500 font-bold text-[10px] uppercase tracking-widest w-full sm:w-auto ${
+              showInvite 
+                ? 'bg-white text-black border-white shadow-xl translate-y-[-2px]' 
+                : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
+            }`}
+          >
+            <UserPlus size={14} strokeWidth={3} />
+            {showInvite ? 'Hide Invite' : 'Invite Friend'}
+          </button>
         </div>
+
+        <AnimatePresence>
+          {showInvite && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, marginTop: 0 }}
+              animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+              exit={{ opacity: 0, height: 0, marginTop: 0 }}
+              className="bg-surface-container-low border border-white/5 rounded-2xl sm:rounded-[2.5rem] p-1 sm:p-2 shadow-2xl relative overflow-hidden w-full"
+            >
+              <div className="p-4 sm:p-10 flex flex-col sm:flex-row gap-6 sm:gap-12 items-center w-full max-w-full overflow-hidden">
+                {/* QR Code */}
+                <div className="relative group/qr shrink-0">
+                  <div className="absolute -inset-6 bg-primary/10 blur-3xl rounded-full opacity-0 group-hover/qr:opacity-100 transition-opacity duration-700" />
+                  <div className="relative p-5 sm:p-6 bg-white rounded-2xl sm:rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.4)]">
+                    <QRCodeSVG 
+                      value={`${window.location.origin}/join-friend?uid=${auth.currentUser?.uid}`} 
+                      size={120}
+                      level="H"
+                      includeMargin={false}
+                      className="sm:w-[150px] sm:h-[150px]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex-1 w-full min-w-0 space-y-6 sm:space-y-8 text-center sm:text-left">
+                  <div className="space-y-1.5 sm:space-y-3">
+                    <h3 className="text-base sm:text-xl font-black text-white font-manrope tracking-tight leading-none italic uppercase">Neural Identity Link</h3>
+                    <p className="text-[9px] sm:text-xs text-white/30 font-bold uppercase tracking-[0.3em] leading-relaxed">Share via physical scan or digital broadcast</p>
+                  </div>
+
+                  <div className="flex flex-col gap-4 w-full">
+                    <button
+                      onClick={copyInviteLink}
+                      className="h-14 sm:h-16 w-full rounded-2xl bg-white text-black hover:bg-neutral-200 active:scale-95 transition-all font-manrope font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shrink-0"
+                    >
+                      <Copy size={16} strokeWidth={3} />
+                      Transmit Link
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-center sm:justify-start gap-3 text-white/10 pt-2">
+                    <ShieldCheck size={14} className="text-primary shrink-0" />
+                    <p className="text-[9px] font-black uppercase tracking-[0.4em] opacity-50">Peer-to-peer validation active</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       {/* Tabs Menu */}
-      <div className="flex gap-8 border-b border-white/5 px-2">
+      <div className="flex gap-4 sm:gap-8 border-b border-white/5 px-1 sm:px-2 overflow-x-auto no-scrollbar whitespace-nowrap">
         {[
           { id: 'all', label: 'Nodes', count: friends.length },
           { id: 'pending', label: 'Signals', count: requests.incoming.length }
@@ -306,11 +275,14 @@ const Friends = () => {
               }`}
           >
             <div className="flex items-center gap-3">
-              <span>{tab.label}</span>
-              <span className={`text-[8px] px-2 py-0.5 rounded-lg border font-black ${activeTab === tab.id
-                ? 'bg-white/10 text-white border-white/20'
-                : 'bg-transparent text-white/10 border-white/5 group-hover:border-white/10'
-                }`}>
+              <span className={`${tab.id === 'pending' && tab.count > 0 ? 'text-primary/90 font-black' : ''}`}>{tab.label}</span>
+              <span className={`text-[8px] px-2 py-0.5 rounded-lg border font-black transition-all duration-300 ${
+                tab.id === 'pending' && tab.count > 0
+                  ? 'bg-primary text-on-primary border-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.4)] animate-pulse'
+                  : activeTab === tab.id
+                    ? 'bg-white/10 text-white border-white/20'
+                    : 'bg-transparent text-white/10 border-white/5 group-hover:border-white/10'
+              }`}>
                 {tab.count}
               </span>
             </div>
@@ -342,9 +314,11 @@ const Friends = () => {
                 className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-4 rounded-2xl"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-white/20">
-                    <UserIcon size={18} />
-                  </div>
+                  <Avatar 
+                    name={req.from?.name} 
+                    src={req.from?.avatar || req.from?.photoURL} 
+                    size="sm" 
+                  />
                   <div>
                     <p className="text-sm font-bold text-white font-manrope">{req.from?.name || 'Inbound User'}</p>
                     <p className="text-[10px] text-white/20 font-medium uppercase tracking-widest">Wants to connect</p>
@@ -393,9 +367,12 @@ const Friends = () => {
                   >
                     <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                       {/* Avatar */}
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-base sm:text-lg font-black text-white group-hover:bg-white group-hover:text-black transition-all duration-300 shrink-0">
-                        {getInitials(friendNode.friend.name)}
-                      </div>
+                      <Avatar 
+                        name={friendNode.friend.name}
+                        src={friendNode.friend.avatar || friendNode.friend.photoURL}
+                        size="md"
+                        className="rounded-xl"
+                      />
 
                       {/* Name & Cohorts */}
                       <div className="min-w-0">
@@ -459,9 +436,12 @@ const Friends = () => {
           <div className="p-5 rounded-3xl bg-white/[0.03] border border-white/10">
             <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Counterparty</p>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white text-black flex items-center justify-center font-black">
-                {getInitials(selectedFriendForSettle?.friend.name)}
-              </div>
+              <Avatar 
+                name={selectedFriendForSettle?.friend.name}
+                src={selectedFriendForSettle?.friend.avatar || selectedFriendForSettle?.friend.photoURL}
+                size="lg"
+                className="rounded-2xl"
+              />
               <div>
                 <p className="text-lg font-black text-white font-manrope">{selectedFriendForSettle?.friend.name}</p>
                 <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Global Debt: ₹{Math.abs(selectedFriendForSettle?.netBalance || 0)}</p>

@@ -56,6 +56,20 @@ export default defineConfig({
               },
             },
           },
+          {
+            urlPattern: /^https:\/\/lh3\.googleusercontent\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-avatars-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
         ],
       },
       devOptions: {

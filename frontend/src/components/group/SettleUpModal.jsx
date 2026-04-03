@@ -13,6 +13,7 @@ import { Smartphone } from 'lucide-react';
 import expenseService from '../../services/expenseService.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { handleSmartPayment, hasPaymentMethod, IOS_CHOOSER_APPS, getAppDeepLink, UPI_APPS } from '../../utils/upiUtils.js';
+import Avatar from '../common/Avatar.jsx';
 import { getInitials } from '../../utils/nameUtils.js';
 
 const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPayeeId = null }) => {
@@ -216,7 +217,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
       const mId = (m?.user?._id || m?.user?.uid || m?.uid || m?._id || m || '').toString();
       return mId === uid;
     });
-    return member?.user?.name || member?.name || 'Group Member';
+    return member?.user || member || { name: 'Group Member' };
   };
 
   if (!isOpen) return null;
@@ -259,7 +260,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                   {settlements.map((debt, index) => {
                     const receiverDetails = memberPaymentDetails[debt.to];
                     const receiverHasPayment = hasPaymentMethod(receiverDetails);
-                    const memberName = getMemberName(debt.to);
+                    const receiverUser = getMemberName(debt.to);
 
                     return (
                       <motion.div
@@ -272,7 +273,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                       >
                         {/* Debt Info Row */}
                         <div className="relative flex items-center gap-4 p-5 rounded-2xl bg-white/[0.03] border border-white/5 overflow-hidden">
-                          {/* Payment Method Badge - Moved to absolute corner to prevent overlap */}
+                          {/* Payment Method Badge */}
                           {!fetchingPayments && (
                             <div className="absolute top-3 right-3">
                               {receiverHasPayment ? (
@@ -289,16 +290,19 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                             </div>
                           )}
 
-                          <div className="w-12 h-12 rounded-2xl bg-surface-highest flex items-center justify-center border border-white/5 shadow-inner shrink-0">
-                            <LucideIcons.ArrowUpRight size={20} className="text-red-400" />
-                          </div>
+                          <Avatar 
+                            name={receiverUser.name} 
+                            src={receiverUser.avatar} 
+                            size="md" 
+                            className="rounded-2xl border border-white/5 shadow-inner shrink-0" 
+                          />
                           
-                          <div className="flex-1 min-w-0 pr-12"> {/* Added right padding to protect badge space */}
+                          <div className="flex-1 min-w-0 pr-12">
                             <p className="text-[10px] text-white/30 font-black uppercase tracking-widest leading-none mb-2">You should pay</p>
                             <div className="flex items-baseline gap-2 flex-wrap">
                               <span className="text-xl font-bold text-red-300 leading-none">{formatCurrency(debt.amount)}</span>
                               <span className="text-white/20 font-light tracking-tighter">→</span>
-                              <span className="text-sm font-semibold text-white/90 truncate max-w-[120px]">{memberName}</span>
+                              <span className="text-sm font-semibold text-white/90 truncate max-w-[120px]">{receiverUser.name}</span>
                             </div>
                           </div>
                         </div>
@@ -363,7 +367,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                             <button
                               disabled={processing || !receiverHasPayment || fetchingPayments}
                               onClick={() => handleUPIPay(debt, receiverDetails)}
-                              title={receiverHasPayment ? `Pay ${memberName} via UPI` : `${memberName} has not added a UPI ID`}
+                              title={receiverHasPayment ? `Pay ${receiverUser.name} via UPI` : `${receiverUser.name} has not added a UPI ID`}
                               className={`
                                 w-full h-11 rounded-xl text-[11px] font-black uppercase tracking-widest
                                 flex items-center justify-center gap-2 transition-all border

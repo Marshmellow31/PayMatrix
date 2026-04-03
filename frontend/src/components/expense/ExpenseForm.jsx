@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 import Button from '../common/Button.jsx';
+import Avatar from '../common/Avatar.jsx';
 import { getShortName, getInitials } from '../../utils/nameUtils.js';
 
 const ExpenseForm = ({ 
@@ -402,31 +403,35 @@ const ExpenseForm = ({
       <div className="space-y-4">
         <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60 px-1">Paid By</label>
         <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-          {(() => {
-            const allMemberNames = uniqueMembers.map(m => m.user?.name).filter(Boolean);
-            return uniqueMembers.map(member => {
-              const userId = (member.user?._id || member.user || '').toString();
-              const isSelected = form.paidBy === userId;
-              return (
-                <button
-                  key={`payer-${userId}`}
-                  type="button"
-                  onClick={() => setForm({ ...form, paidBy: userId })}
-                  className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-2xl border transition-all ${
-                    isSelected 
-                      ? 'bg-white text-black border-white shadow-lg' 
-                      : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
-                  }`}
-                >
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${isSelected ? 'bg-black text-white' : 'bg-white/10 text-white'}`}>
-                    {getInitials(member.user?.name)}
-                  </div>
-                  <span className="font-manrope font-bold text-xs whitespace-nowrap">{getShortName(member.user?.name, allMemberNames)}</span>
-                  {isSelected && <LucideIcons.Check size={14} />}
-                </button>
-              );
-            });
-          })()}
+                    {(() => {
+                      const allMemberNames = uniqueMembers.map(m => m.user?.name).filter(Boolean);
+                      return uniqueMembers.map(member => {
+                        const userId = (member.user?._id || member.user || '').toString();
+                        const isSelected = form.paidBy === userId;
+                        const u = member.user || member;
+                        return (
+                          <button
+                            key={`payer-${userId}`}
+                            type="button"
+                            onClick={() => setForm({ ...form, paidBy: userId })}
+                            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-2xl border transition-all ${
+                              isSelected 
+                                ? 'bg-white text-black border-white shadow-lg' 
+                                : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
+                            }`}
+                          >
+                            <Avatar
+                              name={u?.name}
+                              src={u?.avatar}
+                              size="sm"
+                              className={`w-6 h-6 ${isSelected ? 'border border-black/10' : 'border border-white/5'}`}
+                            />
+                            <span className="font-manrope font-bold text-xs whitespace-nowrap">{getShortName(u?.name, allMemberNames)}</span>
+                            {isSelected && <LucideIcons.Check size={14} />}
+                          </button>
+                        );
+                      });
+                    })()}
         </div>
       </div>
 
@@ -481,19 +486,22 @@ const ExpenseForm = ({
                     : 'bg-transparent border-transparent opacity-30'
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() => toggleParticipant(userId)}
-                  className="flex items-center gap-3 flex-1 text-left"
-                >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs bg-surface-container-highest text-white border border-white/10`}>
-                    {getInitials(member.user?.name)}
-                  </div>
-                  <div>
-                    <p className="font-manrope font-bold text-xs text-white">{member.user?.name}</p>
-                    <p className="text-[10px] text-on-surface-variant font-inter">₹{previewAmt.toFixed(2)}</p>
-                  </div>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleParticipant(userId)}
+                    className="flex items-center gap-3 flex-1 text-left"
+                  >
+                    <Avatar
+                      name={u?.name}
+                      src={u?.avatar}
+                      size="sm"
+                      className="border border-white/10"
+                    />
+                    <div>
+                      <p className="font-manrope font-bold text-xs text-white">{u?.name}</p>
+                      <p className="text-[10px] text-on-surface-variant font-inter">₹{previewAmt.toFixed(2)}</p>
+                    </div>
+                  </button>
 
                 {isSelected && (
                   <div className="flex items-center gap-2">

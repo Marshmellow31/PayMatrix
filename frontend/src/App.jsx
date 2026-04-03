@@ -23,6 +23,7 @@ import Activity from './pages/Activity.jsx';
 import Profile from './pages/Profile.jsx';
 import Analytics from './pages/Analytics.jsx';
 import JoinGroup from './pages/JoinGroup.jsx';
+import JoinFriend from './pages/JoinFriend.jsx';
 import Friends from './pages/Friends.jsx';
 import NotFound from './pages/NotFound.jsx';
 
@@ -153,6 +154,10 @@ function App() {
       <Route
         path="/join/:code"
         element={<JoinGroup />}
+      />
+      <Route
+        path="/join-friend"
+        element={<JoinFriend />}
       />
 
       {/* Protected Routes — inside AppLayout */}
