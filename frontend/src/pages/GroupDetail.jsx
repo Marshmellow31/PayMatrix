@@ -810,7 +810,7 @@ const GroupDetail = () => {
             </button>
             <button
               type="submit"
-              disabled={updatingGroup || !editTitle.trim()}
+              disabled={updatingGroup || !editName.trim()}
               className="flex-1 py-4 rounded-2xl bg-white text-black text-xs font-black tracking-[0.2em] uppercase transition-all disabled:opacity-50"
             >
               {updatingGroup ? 'Saving...' : 'Save Changes'}
