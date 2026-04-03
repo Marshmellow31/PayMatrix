@@ -301,7 +301,7 @@ const GroupDetail = () => {
   };
 
   const handleUpdateGroupLabel = () => {
-    setEditTitle(activeGroup?.title || '');
+    setEditTitle(activeGroup?.title || activeGroup?.name || '');
     setEditCategory(activeGroup?.category || '');
     setShowEditGroup(true);
   };
@@ -364,7 +364,7 @@ const GroupDetail = () => {
               </div>
               <div className="flex flex-col gap-1 min-w-0 flex-1">
                 <h1 className="text-lg md:text-xl font-black font-manrope text-white tracking-tight uppercase leading-tight truncate">
-                  {activeGroup.title}
+                  {activeGroup.title || activeGroup.name}
                 </h1>
                 <p className="text-[9px] text-white/30 uppercase tracking-[0.22em] font-black font-manrope truncate">
                   {activeGroup.category} <span className="mx-1.5 opacity-50">•</span> {uniqueMembers.length} Members

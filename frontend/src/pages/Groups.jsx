@@ -211,7 +211,7 @@ const Groups = () => {
             <input
               className="bg-transparent border-none text-center font-headline text-3xl font-bold text-white focus:ring-0 placeholder:text-neutral-700 w-full tracking-tighter sm:text-4xl"
               placeholder="Cohort Name"
-              value={form.title}
+              value={form.title || form.name || ''}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               required
               autoFocus

@@ -18,7 +18,8 @@ export const UserSchema = z.object({
 
 // Group Schema
 export const GroupSchema = z.object({
-  name: z.string().min(1, "Group name is required").max(100),
+  name: z.string().max(100).optional(),
+  title: z.string().max(100).optional(), // Support both title and name
   description: z.string().max(500).optional(),
   members: z.array(z.string().min(1)).min(1, "Group must have at least one member"),
   category: z.string().max(50).optional(),
@@ -26,7 +27,10 @@ export const GroupSchema = z.object({
   admin: z.string().optional(),
   status: z.enum(['active', 'archived', 'deleted']).optional(),
   updatedAt: z.string().datetime().optional()
-}).partial().passthrough();
+}).passthrough().refine(data => data.name || data.title, {
+  message: "Group name is required",
+  path: ["title"]
+});
 
 // Expense Schema
 export const ExpenseSchema = z.object({
@@ -72,11 +76,15 @@ const validationService = {
     try {
       return schema.parse(data);
     } catch (err) {
-      // Safely access error issues from Zod or fallback to the error message
-      const issues = err.issues || err.errors || [];
-      console.error("[VALIDATION_ERROR]", issues.length > 0 ? issues : err.message);
+      // Deeply safe error extraction for Zod and other error types
+      let issues = [];
+      if (err && typeof err === 'object') {
+          issues = Array.isArray(err.issues) ? err.issues : (Array.isArray(err.errors) ? err.errors : []);
+      }
       
-      const firstError = issues[0]?.message || err.message || "Invalid data format";
+      console.error("[VALIDATION_ERROR]", issues.length > 0 ? issues : (err?.message || "Internal Validation Error"));
+      
+      const firstError = issues?.[0]?.message || err?.message || "Invalid data format";
       throw new Error(firstError);
     }
   }
