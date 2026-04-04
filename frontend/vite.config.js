@@ -58,15 +58,16 @@ export default defineConfig({
           },
           {
             urlPattern: /^https:\/\/lh3\.googleusercontent\.com\/.*/i,
-            handler: 'CacheFirst',
+            handler: 'NetworkFirst',
             options: {
-              cacheName: 'google-avatars-cache',
+              cacheName: 'google-avatars-v2', // v2 forces old broken cache to be abandoned
+              networkTimeoutSeconds: 5,
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
               },
               cacheableResponse: {
-                statuses: [0, 200],
+                statuses: [200], // NEVER cache opaque/failed responses (status 0)
               },
             },
           },

@@ -1,12 +1,18 @@
 import { useState, useEffect, memo, useRef } from 'react';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus.js';
 
 const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
-  const [imgSrc, setImgSrc] = useState(src);
-  const [isLoading, setIsLoading] = useState(!!src); // Start in loading state only if we have a src
+  const isOnline = useOnlineStatus();
+  const [imgSrc, setImgSrc] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [retried, setRetried] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const timeoutRef = useRef(null);
   const imgRef = useRef(null);
+
+  const MAX_RETRIES = 2; // Try original + 2 cache-busted retries (online only)
+  // Online: wait up to 15s. Offline: wait 4s (SW responds from cache instantly if available, otherwise quick fail)
+  const TIMEOUT_MS = isOnline ? 15000 : 4000;
 
   const sizes = {
     sm: 'w-8 h-8 text-xs',
@@ -15,39 +21,42 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
     xl: 'w-20 h-20 text-2xl',
   };
 
-  // Reset everything when src prop changes
+  // Reset and start fresh when src changes
   useEffect(() => {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
     setHasError(false);
-    setRetried(false);
-    if (src) {
-      setImgSrc(src);
-      setIsLoading(true);
-    } else {
+    setRetryCount(0);
+
+    if (!src) {
       setImgSrc('');
       setIsLoading(false);
+      return;
     }
+
+    // Always attempt to load — when offline the SW will serve from its cache
+    // if the image was previously fetched. Only skip if there's no src at all.
+    setImgSrc(src);
+    setIsLoading(true);
   }, [src]);
 
-  // Bulletproof safety watchdog — declared timeoutRef, starts fresh on mount
-  // Clears on cleanup so re-renders don't reset it
+  // Safety watchdog — fires after TIMEOUT_MS if image hasn't loaded or errored
   useEffect(() => {
-    if (!isLoading) return; // Nothing to watch
-
-    // Only start a new timer if one isn't already running
-    if (timeoutRef.current) return;
+    if (!isLoading) return;
+    if (timeoutRef.current) return; // don't start a second timer
 
     timeoutRef.current = setTimeout(() => {
-      // If still loading after 5s, bail out and show initials
+      timeoutRef.current = null;
       setIsLoading(false);
       setHasError(true);
-      timeoutRef.current = null;
-    }, 5000);
+    }, TIMEOUT_MS);
 
     return () => {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     };
-  }, [isLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, TIMEOUT_MS]);
 
   const getInitials = (n) => {
     if (!n) return '?';
@@ -86,27 +95,32 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
   };
 
   const handleError = () => {
-    // Try once with a cache-busted URL for Google photos
-    if (!retried && src?.includes('googleusercontent.com')) {
-      setRetried(true);
+    // Only retry with cache-busting when online (pointless offline — SW handles it)
+    if (retryCount < MAX_RETRIES && src && isOnline) {
+      const newRetry = retryCount + 1;
+      setRetryCount(newRetry);
+      // Reset the watchdog timer for the retry attempt
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
       setImgSrc(`${src}${src.includes('?') ? '&' : '?'}cb=${Date.now()}`);
-      return; // Don't set error yet — let the retry attempt
+      return;
     }
+    // All retries exhausted or offline with no cache — show initials
     clearTimeout(timeoutRef.current);
     timeoutRef.current = null;
     setIsLoading(false);
     setHasError(true);
   };
 
-  // CASE 1: No src at all — show initials or pulsing placeholder
+  // CASE 1: No src or all retries failed — show initials or empty placeholder
   if (!imgSrc || hasError) {
     if (!name) {
-      // No name either — just a pulsing circle placeholder
       return (
-        <div className={`${sizes[size]} rounded-full bg-white/5 animate-pulse shrink-0 border border-white/5 ${className}`} />
+        <div
+          className={`${sizes[size]} rounded-full bg-white/5 animate-pulse shrink-0 border border-white/5 ${className}`}
+        />
       );
     }
-    // Show initials
     return (
       <div
         className={`${sizes[size]} rounded-full flex items-center justify-center font-manrope font-black text-white shrink-0 border border-white/10 shadow-lg ${className}`}
@@ -120,12 +134,11 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
     );
   }
 
-  // CASE 2: Has src — try to load the image
+  // CASE 2: Has src — always attempt image load (SW serves cache when offline)
   return (
     <div
       className={`${sizes[size]} rounded-full shrink-0 relative ${className} transition-all duration-300 overflow-hidden shadow-lg border border-white/5 bg-white/5`}
     >
-      {/* Shimmer shown while loading */}
       {isLoading && (
         <div className="absolute inset-0 rounded-full animate-pulse overflow-hidden bg-white/[0.02]">
           <div className="w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] animate-shimmer" />
