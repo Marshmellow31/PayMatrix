@@ -10,26 +10,12 @@ import App from './App.jsx';
 import Loader from './components/common/Loader.jsx';
 import './index.css';
 
-// Purge old broken avatar cache entries that stored opaque (status 0) failed responses.
-// This runs once at startup on every device, fixing poisoned caches automatically.
+// Purge ALL old avatar caches from the service worker.
+// Avatars are no longer SW-cached (cross-origin opaque responses caused failures).
 if (typeof window !== 'undefined' && 'caches' in window) {
-  const STALE_CACHES = ['google-avatars-cache']; // old cache name that cached failures
-  Promise.all(
-    STALE_CACHES.map(name => caches.delete(name).catch(() => {}))
-  ).then(() => {
-    // Also purge any slipped-through non-200 entries from the new cache
-    caches.open('google-avatars-v2').then(cache => {
-      cache.keys().then(keys => {
-        keys.forEach(req => {
-          cache.match(req).then(res => {
-            if (!res || res.status !== 200) {
-              cache.delete(req).catch(() => {});
-            }
-          });
-        });
-      });
-    }).catch(() => {});
-  }).catch(() => {});
+  ['google-avatars-cache', 'google-avatars-v2'].forEach(name =>
+    caches.delete(name).catch(() => {})
+  );
 }
 
 // Register Service Worker

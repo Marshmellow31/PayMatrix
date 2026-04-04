@@ -56,21 +56,9 @@ export default defineConfig({
               },
             },
           },
-          {
-            urlPattern: /^https:\/\/lh3\.googleusercontent\.com\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'google-avatars-v2', // v2 forces old broken cache to be abandoned
-              networkTimeoutSeconds: 5,
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
-              },
-              cacheableResponse: {
-                statuses: [200], // NEVER cache opaque/failed responses (status 0)
-              },
-            },
-          },
+          // NOTE: Google avatar images are NOT cached by the SW.
+          // Cross-origin opaque responses cause failures in Workbox.
+          // The browser handles <img> cross-origin loading natively.
         ],
       },
       devOptions: {

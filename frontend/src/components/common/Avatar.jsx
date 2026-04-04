@@ -1,18 +1,9 @@
 import { useState, useEffect, memo, useRef } from 'react';
-import { useOnlineStatus } from '../../hooks/useOnlineStatus.js';
 
 const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
-  const isOnline = useOnlineStatus();
-  const [imgSrc, setImgSrc] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(!!src);
   const [hasError, setHasError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   const timeoutRef = useRef(null);
-  const imgRef = useRef(null);
-
-  const MAX_RETRIES = 2; // Try original + 2 cache-busted retries (online only)
-  // Online: wait up to 15s. Offline: wait 4s (SW responds from cache instantly if available, otherwise quick fail)
-  const TIMEOUT_MS = isOnline ? 15000 : 4000;
 
   const sizes = {
     sm: 'w-8 h-8 text-xs',
@@ -21,42 +12,29 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
     xl: 'w-20 h-20 text-2xl',
   };
 
-  // Reset and start fresh when src changes
+  // Reset when src changes
   useEffect(() => {
     clearTimeout(timeoutRef.current);
     timeoutRef.current = null;
     setHasError(false);
-    setRetryCount(0);
 
-    if (!src) {
-      setImgSrc('');
+    if (src) {
+      setIsLoading(true);
+
+      // Safety timeout — if the image hasn't loaded after 8s, show initials
+      timeoutRef.current = setTimeout(() => {
+        setIsLoading(false);
+        setHasError(true);
+      }, 8000);
+    } else {
       setIsLoading(false);
-      return;
     }
-
-    // Always attempt to load — when offline the SW will serve from its cache
-    // if the image was previously fetched. Only skip if there's no src at all.
-    setImgSrc(src);
-    setIsLoading(true);
-  }, [src]);
-
-  // Safety watchdog — fires after TIMEOUT_MS if image hasn't loaded or errored
-  useEffect(() => {
-    if (!isLoading) return;
-    if (timeoutRef.current) return; // don't start a second timer
-
-    timeoutRef.current = setTimeout(() => {
-      timeoutRef.current = null;
-      setIsLoading(false);
-      setHasError(true);
-    }, TIMEOUT_MS);
 
     return () => {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, TIMEOUT_MS]);
+  }, [src]);
 
   const getInitials = (n) => {
     if (!n) return '?';
@@ -95,30 +73,17 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
   };
 
   const handleError = () => {
-    // Only retry with cache-busting when online (pointless offline — SW handles it)
-    if (retryCount < MAX_RETRIES && src && isOnline) {
-      const newRetry = retryCount + 1;
-      setRetryCount(newRetry);
-      // Reset the watchdog timer for the retry attempt
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-      setImgSrc(`${src}${src.includes('?') ? '&' : '?'}cb=${Date.now()}`);
-      return;
-    }
-    // All retries exhausted or offline with no cache — show initials
     clearTimeout(timeoutRef.current);
     timeoutRef.current = null;
     setIsLoading(false);
     setHasError(true);
   };
 
-  // CASE 1: No src or all retries failed — show initials or empty placeholder
-  if (!imgSrc || hasError) {
+  // Show initials if no src or if loading failed
+  if (!src || hasError) {
     if (!name) {
       return (
-        <div
-          className={`${sizes[size]} rounded-full bg-white/5 animate-pulse shrink-0 border border-white/5 ${className}`}
-        />
+        <div className={`${sizes[size]} rounded-full bg-white/5 shrink-0 border border-white/5 ${className}`} />
       );
     }
     return (
@@ -134,24 +99,20 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
     );
   }
 
-  // CASE 2: Has src — always attempt image load (SW serves cache when offline)
+  // Attempt to load the image
   return (
-    <div
-      className={`${sizes[size]} rounded-full shrink-0 relative ${className} transition-all duration-300 overflow-hidden shadow-lg border border-white/5 bg-white/5`}
-    >
+    <div className={`${sizes[size]} rounded-full shrink-0 relative ${className} overflow-hidden shadow-lg border border-white/5 bg-white/5`}>
       {isLoading && (
         <div className="absolute inset-0 rounded-full animate-pulse overflow-hidden bg-white/[0.02]">
           <div className="w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] animate-shimmer" />
         </div>
       )}
       <img
-        ref={imgRef}
-        src={imgSrc}
-        alt={name}
-        loading="lazy"
+        src={src}
+        alt={name || ''}
         referrerPolicy="no-referrer"
-        className={`w-full h-full rounded-full object-cover transition-all duration-700 ${
-          isLoading ? 'opacity-0 scale-95 blur-md' : 'opacity-100 scale-100 blur-0'
+        className={`w-full h-full rounded-full object-cover transition-opacity duration-500 ${
+          isLoading ? 'opacity-0' : 'opacity-100'
         }`}
         onLoad={handleLoad}
         onError={handleError}
