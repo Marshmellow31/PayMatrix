@@ -16,64 +16,68 @@ const googleProvider = new GoogleAuthProvider();
 const authService = {
   googleAuth: async () => {
     try {
-      // Rate limit removed by user request
-
       const userCredential = await signInWithPopup(auth, googleProvider);
-      const user = userCredential.user;
-      
+      let user = userCredential.user;
+
+      // Force-reload to get the absolute latest Google profile data
+      // (photoURL can be null on the initial token until refreshed)
+      await user.reload().catch(() => {});
+      user = auth.currentUser; // Re-read after reload
+
       const userDocRef = doc(db, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
-      
+
       // Log successful authentication
       await loggingService.logSecurityEvent('auth/login-success', { email: user.email });
-    
-    let userData = { 
-      _id: user.uid, 
-      uid: user.uid, 
-      email: user.email, 
-      name: user.displayName, 
-      nameLowerCase: user.displayName?.toLowerCase(),
-      photoURL: user.photoURL,
-      avatar: user.photoURL,
-      friends: []
-    };
-    
-    if (!userDoc.exists()) {
-      userData.createdAt = new Date().toISOString();
-      await setDoc(userDocRef, userData);
-    } else {
-      const existingData = userDoc.data();
-      // Update with latest Google Profile data if it changed
-      const updates = {};
-      if (user.photoURL && existingData.avatar !== user.photoURL) {
-        updates.avatar = user.photoURL;
-        updates.photoURL = user.photoURL;
-      }
-      if (user.displayName && existingData.name !== user.displayName) {
-        updates.name = user.displayName;
-        updates.nameLowerCase = user.displayName.toLowerCase();
-      }
-      
-      if (Object.keys(updates).length > 0) {
+
+      let userData = {
+        _id: user.uid,
+        uid: user.uid,
+        email: user.email,
+        name: user.displayName,
+        nameLowerCase: user.displayName?.toLowerCase(),
+        photoURL: user.photoURL,
+        avatar: user.photoURL,
+        friends: []
+      };
+
+      if (!userDoc.exists()) {
+        userData.createdAt = new Date().toISOString();
+        await setDoc(userDocRef, userData);
+      } else {
+        const existingData = userDoc.data();
+
+        // Always write avatar + photoURL on every login — this ensures
+        // that users whose avatar was never stored (or was null due to
+        // a stale Google token at first login) get fixed automatically.
+        const updates = {
+          updatedAt: new Date().toISOString(),
+        };
+        if (user.photoURL) {
+          updates.avatar = user.photoURL;
+          updates.photoURL = user.photoURL;
+        }
+        if (user.displayName) {
+          updates.name = user.displayName;
+          updates.nameLowerCase = user.displayName.toLowerCase();
+        }
+
         await updateDoc(userDocRef, updates);
         userData = { ...existingData, ...updates };
-      } else {
-        userData = existingData;
+
+        // Ensure friends array exists
+        if (!userData.friends) {
+          userData.friends = [];
+          await updateDoc(userDocRef, { friends: [] });
+        }
       }
 
-      // Ensure friends array exists
-      if (!userData.friends) {
-        userData.friends = [];
-        await updateDoc(userDocRef, { friends: [] });
-      }
-    }
-    
-    return { user: userData, token: user.accessToken };
+      return { user: userData, token: user.accessToken };
     } catch (error) {
       // Log authentication failure
-      await loggingService.logSecurityEvent('auth/login-failure', { 
-        code: error.code, 
-        message: error.message 
+      await loggingService.logSecurityEvent('auth/login-failure', {
+        code: error.code,
+        message: error.message
       });
       throw error;
     }
