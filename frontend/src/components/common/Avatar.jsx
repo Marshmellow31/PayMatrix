@@ -1,9 +1,11 @@
 import { useState, useEffect, memo, useRef } from 'react';
 
 const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
-  const [isLoading, setIsLoading] = useState(false);
+  const [imgSrc, setImgSrc] = useState(src);
+  const [isLoading, setIsLoading] = useState(!!src); // Start in loading state only if we have a src
   const [hasError, setHasError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+  const [retried, setRetried] = useState(false);
+  const timeoutRef = useRef(null);
   const imgRef = useRef(null);
 
   const sizes = {
@@ -13,28 +15,45 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
     xl: 'w-20 h-20 text-2xl',
   };
 
+  // Reset everything when src prop changes
   useEffect(() => {
-    // Reset states when src changes
     setHasError(false);
-    setRetryCount(0);
-    
+    setRetried(false);
     if (src) {
-      // Check if image is already cached
-      if (imgRef.current && imgRef.current.complete) {
-        setIsLoading(false);
-      } else {
-        setIsLoading(true);
-      }
+      setImgSrc(src);
+      setIsLoading(true);
     } else {
+      setImgSrc('');
       setIsLoading(false);
     }
   }, [src]);
+
+  // Bulletproof safety watchdog — declared timeoutRef, starts fresh on mount
+  // Clears on cleanup so re-renders don't reset it
+  useEffect(() => {
+    if (!isLoading) return; // Nothing to watch
+
+    // Only start a new timer if one isn't already running
+    if (timeoutRef.current) return;
+
+    timeoutRef.current = setTimeout(() => {
+      // If still loading after 5s, bail out and show initials
+      setIsLoading(false);
+      setHasError(true);
+      timeoutRef.current = null;
+    }, 5000);
+
+    return () => {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    };
+  }, [isLoading]);
 
   const getInitials = (n) => {
     if (!n) return '?';
     return n
       .split(' ')
-      .filter(x => x.length > 0)
+      .filter((x) => x.length > 0)
       .map((x) => x[0])
       .join('')
       .toUpperCase()
@@ -54,79 +73,76 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
     ];
     let hash = 0;
     for (let i = 0; i < n.length; i++) {
-        hash = n.charCodeAt(i) + ((hash << 5) - hash);
+      hash = n.charCodeAt(i) + ((hash << 5) - hash);
     }
     return presets[Math.abs(hash) % presets.length];
   };
 
-  const handleError = () => {
-    if (retryCount === 0 && src?.includes('googleusercontent.com')) {
-      setRetryCount(1);
-      return;
-    }
-    setHasError(true);
+  const handleLoad = () => {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
     setIsLoading(false);
+    setHasError(false);
   };
 
-  useEffect(() => {
-    let timer;
-    if (isLoading) {
-      timer = setTimeout(() => {
-        if (isLoading) {
-          console.warn(`[AVATAR_TIMEOUT] Image load timed out for: ${name}`);
-          setIsLoading(false);
-          setHasError(true);
-        }
-      }, 6000); // 6s safety timeout
+  const handleError = () => {
+    // Try once with a cache-busted URL for Google photos
+    if (!retried && src?.includes('googleusercontent.com')) {
+      setRetried(true);
+      setImgSrc(`${src}${src.includes('?') ? '&' : '?'}cb=${Date.now()}`);
+      return; // Don't set error yet — let the retry attempt
     }
-    return () => clearTimeout(timer);
-  }, [isLoading, name]);
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+    setIsLoading(false);
+    setHasError(true);
+  };
 
-  const displaySrc = retryCount > 0 && src 
-    ? `${src}${src.includes('?') ? '&' : '?'}retry=${Date.now()}` 
-    : src;
-
-  // 1. Success Case: Render Image
-  if (src && !hasError) {
+  // CASE 1: No src at all — show initials or pulsing placeholder
+  if (!imgSrc || hasError) {
+    if (!name) {
+      // No name either — just a pulsing circle placeholder
+      return (
+        <div className={`${sizes[size]} rounded-full bg-white/5 animate-pulse shrink-0 border border-white/5 ${className}`} />
+      );
+    }
+    // Show initials
     return (
-      <div className={`${sizes[size]} rounded-full shrink-0 relative ${className} transition-all duration-300 overflow-hidden shadow-lg border border-white/5 bg-white/5`}>
-        {isLoading && (
-          <div className="absolute inset-0 rounded-full animate-pulse overflow-hidden bg-white/[0.02]">
-            <div className="w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] animate-shimmer" />
-          </div>
-        )}
-        <img
-          ref={imgRef}
-          src={displaySrc}
-          alt={name}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          crossOrigin="anonymous"
-          className={`w-full h-full rounded-full object-cover transition-all duration-700 ${isLoading ? 'opacity-0 scale-95 blur-md' : 'opacity-100 scale-100 blur-0'}`}
-          onLoad={() => setIsLoading(false)}
-          onError={handleError}
-        />
+      <div
+        className={`${sizes[size]} rounded-full flex items-center justify-center font-manrope font-black text-white shrink-0 border border-white/10 shadow-lg ${className}`}
+        style={{
+          background: getBackgroundColor(name),
+          textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+        }}
+      >
+        <span className="tracking-tighter opacity-90">{getInitials(name)}</span>
       </div>
     );
   }
 
-  // 2. Fallback if loading user info or if image failed
-  if (!name) {
-    return (
-      <div className={`${sizes[size]} rounded-full bg-white/5 animate-pulse shrink-0 border border-white/5 ${className}`} />
-    );
-  }
-
-  // 3. Final fallback: Initials
+  // CASE 2: Has src — try to load the image
   return (
     <div
-      className={`${sizes[size]} rounded-full flex items-center justify-center font-manrope font-black text-white shrink-0 border border-white/10 shadow-lg ${className}`}
-      style={{ 
-        background: getBackgroundColor(name),
-        textShadow: '0 1px 2px rgba(0,0,0,0.2)'
-      }}
+      className={`${sizes[size]} rounded-full shrink-0 relative ${className} transition-all duration-300 overflow-hidden shadow-lg border border-white/5 bg-white/5`}
     >
-      <span className="tracking-tighter opacity-90">{getInitials(name)}</span>
+      {/* Shimmer shown while loading */}
+      {isLoading && (
+        <div className="absolute inset-0 rounded-full animate-pulse overflow-hidden bg-white/[0.02]">
+          <div className="w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] animate-shimmer" />
+        </div>
+      )}
+      <img
+        ref={imgRef}
+        src={imgSrc}
+        alt={name}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        className={`w-full h-full rounded-full object-cover transition-all duration-700 ${
+          isLoading ? 'opacity-0 scale-95 blur-md' : 'opacity-100 scale-100 blur-0'
+        }`}
+        onLoad={handleLoad}
+        onError={handleError}
+      />
     </div>
   );
 });

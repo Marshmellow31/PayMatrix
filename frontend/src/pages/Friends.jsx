@@ -316,7 +316,7 @@ const Friends = () => {
                 <div className="flex items-center gap-4">
                   <Avatar 
                     name={req.from?.name} 
-                    src={req.from?.avatar || req.from?.photoURL} 
+                    src={req.from?.avatar} 
                     size="sm" 
                   />
                   <div>
@@ -369,7 +369,7 @@ const Friends = () => {
                       {/* Avatar */}
                       <Avatar 
                         name={friendNode.friend.name}
-                        src={friendNode.friend.avatar || friendNode.friend.photoURL}
+                        src={friendNode.friend.avatar}
                         size="md"
                         className="rounded-xl"
                       />
@@ -438,7 +438,7 @@ const Friends = () => {
             <div className="flex items-center gap-4">
               <Avatar 
                 name={selectedFriendForSettle?.friend.name}
-                src={selectedFriendForSettle?.friend.avatar || selectedFriendForSettle?.friend.photoURL}
+                src={selectedFriendForSettle?.friend.avatar}
                 size="lg"
                 className="rounded-2xl"
               />

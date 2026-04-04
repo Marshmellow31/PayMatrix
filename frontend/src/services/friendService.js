@@ -9,6 +9,15 @@ import validationService, { FriendRequestSchema } from './validationService.js';
 // Helper to mimic Axios response
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
 
+const _normalize = (userData) => {
+  if (!userData) return userData;
+  return {
+    ...userData,
+    name: userData.name || userData.displayName || 'Member',
+    avatar: userData.avatar || userData.photoURL
+  };
+};
+
 const friendService = {
   searchUsers: async (searchTerm) => {
     // Feature disabled for enhanced privacy. 
@@ -72,14 +81,14 @@ const friendService = {
       const data = d.data();
       let uSnap = await getDocFromCache(doc(db, 'users', data.from)).catch(() => null);
       if (!uSnap) uSnap = await getDoc(doc(db, 'users', data.from)).catch(() => null);
-      return { _id: d.id, ...data, from: { _id: data.from, ...(uSnap?.data() || { name: 'Member' }) } };
+      return { _id: d.id, ...data, from: { _id: data.from, ..._normalize(uSnap?.data()) } };
     }));
 
     const outgoing = await Promise.all(outgoingSnap.docs.map(async d => {
       const data = d.data();
       let uSnap = await getDocFromCache(doc(db, 'users', data.to)).catch(() => null);
       if (!uSnap) uSnap = await getDoc(doc(db, 'users', data.to)).catch(() => null);
-      return { _id: d.id, ...data, to: { _id: data.to, ...(uSnap?.data() || { name: 'Member' }) } };
+      return { _id: d.id, ...data, to: { _id: data.to, ..._normalize(uSnap?.data()) } };
     }));
 
     return wrap({ incoming, outgoing });
@@ -125,7 +134,7 @@ const friendService = {
     const friends = await Promise.all(friendIds.map(async id => {
       let d = await getDocFromCache(doc(db, 'users', id)).catch(() => null);
       if (!d) d = await getDoc(doc(db, 'users', id)).catch(() => null);
-      return { _id: id, ...(d?.data() || { name: 'Member' }) };
+      return { _id: id, ..._normalize(d?.data()) };
     }));
 
     return wrap({ friends });
@@ -161,7 +170,7 @@ const friendService = {
 
       const networkAnalytics = await Promise.all(friendIds.map(async fId => {
         const fDoc = await getDoc(doc(db, 'users', fId));
-        const fData = { _id: fId, ...(fDoc.exists() ? fDoc.data() : { name: 'Unknown' }) };
+        const fData = { _id: fId, ..._normalize(fDoc.exists() ? fDoc.data() : null) };
 
         const mutualGroups = myGroups.filter(g => g.members?.includes(fId));
         

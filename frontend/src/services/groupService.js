@@ -51,9 +51,16 @@ const groupService = {
           }
 
           const uData = uSnap?.exists() ? uSnap.data() : { name: 'Member', email: 'Member' };
-          if (uData.photoURL && !uData.avatar) uData.avatar = uData.photoURL;
-
-          const resolvedUser = { ...uData, _id: uid, uid: uid };
+          
+          // Synthesize standard attributes
+          const resolvedUser = { 
+            ...uData, 
+            _id: uid, 
+            uid: uid,
+            name: uData.name || uData.displayName || 'Member',
+            avatar: uData.avatar || uData.photoURL
+          };
+          
           userCache[uid] = resolvedUser;
           return { user: resolvedUser, role: 'member' };
         } catch (err) {
