@@ -65,6 +65,25 @@ export const updateProfile = createAsyncThunk(
   }
 );
 
+// Sync Profile with Google
+export const syncProfile = createAsyncThunk(
+  'auth/syncProfile',
+  async (_, thunkAPI) => {
+    try {
+      const response = await authService.syncProfileWithGoogle();
+      if (response.success) {
+        // Redux will also be updated by the listener in App.jsx, but we update locally for immediate feedback
+        const state = thunkAPI.getState();
+        const updatedUser = { ...state.auth.user, ...response.userData };
+        localStorage.setItem('paymatrix_user', JSON.stringify(updatedUser));
+        return { user: updatedUser };
+      }
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || 'Identity sync failed');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -107,6 +126,10 @@ const authSlice = createSlice({
       })
       // Update Profile
       .addCase(updateProfile.fulfilled, (state, action) => {
+        state.user = action.payload.user;
+      })
+      // Sync Profile
+      .addCase(syncProfile.fulfilled, (state, action) => {
         state.user = action.payload.user;
       });
   },

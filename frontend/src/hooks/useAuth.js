@@ -1,6 +1,6 @@
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { googleLogin, logout, getMe, updateProfile } from '../redux/authSlice.js';
+import { googleLogin, logout, getMe, updateProfile, syncProfile } from '../redux/authSlice.js';
 
 const useAuth = () => {
   const dispatch = useDispatch();
@@ -26,6 +26,11 @@ const useAuth = () => {
     return result;
   };
 
+  const handleSyncProfile = async () => {
+    const result = await dispatch(syncProfile());
+    return result;
+  };
+
   const handleLogout = () => {
     dispatch(logout());
     navigate('/login');
@@ -43,6 +48,7 @@ const useAuth = () => {
     googleLogin: handleGoogleLogin,
     logout: handleLogout,
     updateProfile: handleUpdateProfile,
+    syncProfile: handleSyncProfile,
     refreshUser,
   };
 };

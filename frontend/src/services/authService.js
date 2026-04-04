@@ -107,6 +107,23 @@ const authService = {
     const userData = updatedDoc.data();
     if (userData.photoURL && !userData.avatar) userData.avatar = userData.photoURL;
     return { data: { data: { user: userData } } };
+  },
+
+  syncProfileWithGoogle: async () => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Authentication session required to sync identity.");
+    
+    const userDocRef = doc(db, 'users', user.uid);
+    const updates = {
+      photoURL: user.photoURL,
+      avatar: user.photoURL,
+      name: user.displayName,
+      nameLowerCase: user.displayName?.toLowerCase(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    await updateDoc(userDocRef, updates);
+    return { success: true, userData: updates };
   }
 };
 

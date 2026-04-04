@@ -82,7 +82,9 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
     return () => clearTimeout(timer);
   }, [isLoading, name]);
 
-  const displaySrc = retryCount > 0 && src ? `${src}${src.includes('?') ? '&' : '?'}retry=${retryCount}` : src;
+  const displaySrc = retryCount > 0 && src 
+    ? `${src}${src.includes('?') ? '&' : '?'}retry=${Date.now()}` 
+    : src;
 
   // 1. Success Case: Render Image
   if (src && !hasError) {
@@ -99,6 +101,7 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
           alt={name}
           loading="lazy"
           referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
           className={`w-full h-full rounded-full object-cover transition-all duration-700 ${isLoading ? 'opacity-0 scale-95 blur-md' : 'opacity-100 scale-100 blur-0'}`}
           onLoad={() => setIsLoading(false)}
           onError={handleError}

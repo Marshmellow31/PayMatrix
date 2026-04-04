@@ -20,11 +20,12 @@ import friendService from '../services/friendService.js';
 const Profile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser, logout, updateProfile } = useAuth();
+  const { user: currentUser, logout, updateProfile, syncProfile } = useAuth();
   const [targetUser, setTargetUser] = useState(null);
   const [loading, setLoading] = useState(!!id);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
+  const [syncing, setSyncing] = useState(false);
   const isOnline = useOnlineStatus();
 
   // Payment details state
@@ -139,6 +140,22 @@ const Profile = () => {
     }
   };
 
+  const handleSyncIdentity = async () => {
+    setSyncing(true);
+    try {
+      const result = await syncProfile();
+      if (result.meta.requestStatus === 'fulfilled') {
+        toast.success('Identity Refreshed from Google');
+      } else {
+        toast.error(result.payload || 'Identity sync failed');
+      }
+    } catch (err) {
+      toast.error('Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
 
   const handleRemoveFriend = async () => {
     if (!id) return;
@@ -250,12 +267,19 @@ const Profile = () => {
                         <div className="flex flex-wrap items-center gap-2 pt-2">
                            {isOwnProfile ? (
                              <div className="flex gap-2">
-                               <button 
-                                 onClick={() => setEditing(true)}
-                                 className="h-10 px-6 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest text-white/60 transition-all active:scale-95"
-                               >
-                                 Configure Profile
-                               </button>
+                                <button 
+                                  onClick={() => setEditing(true)}
+                                  className="h-10 px-6 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest text-white/60 transition-all active:scale-95"
+                                >
+                                  Configure Profile
+                                </button>
+                                <button 
+                                  onClick={handleSyncIdentity}
+                                  disabled={syncing || !isOnline}
+                                  className="h-10 px-6 rounded-2xl bg-primary/10 hover:bg-primary/20 border border-primary/10 text-[10px] font-black uppercase tracking-widest text-primary transition-all active:scale-95 disabled:opacity-50"
+                                >
+                                  {syncing ? 'Syncing...' : 'Sync Identity'}
+                                </button>
                                <button 
                                  onClick={logout}
                                  className="h-10 px-6 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/10 text-[10px] font-black uppercase tracking-widest text-red-500 transition-all active:scale-95"
