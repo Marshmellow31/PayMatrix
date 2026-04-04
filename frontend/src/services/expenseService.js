@@ -147,7 +147,7 @@ const expenseService = {
     return wrap({ expense: { _id: docRef.id, ...payload } }, 'Expense saved instantly offline/online');
   },
 
-  updateExpense: async (id, data) => {
+  updateExpense: async (id, data, userId) => {
     const groupId = data.groupId;
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) throw new Error("Auth session missing");

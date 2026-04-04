@@ -52,7 +52,7 @@ export const undoDeleteExpense = createAsyncThunk('expenses/restore', async ({ i
 export const updateExpense = createAsyncThunk('expenses/update', async ({ id, data }, thunkAPI) => {
   try {
     const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
-    const response = await expenseService.updateExpense(id, { ...data, admin: userId });
+    const response = await expenseService.updateExpense(id, { ...data, admin: userId }, userId);
     return response.data.data;
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message || 'Failed to update expense');

@@ -68,6 +68,22 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
     setIsLoading(false);
   };
 
+  useEffect(() => {
+    let timer;
+    if (isLoading) {
+      timer = setTimeout(() => {
+        if (isLoading) {
+          console.warn(`[AVATAR_TIMEOUT] Image load timed out for: ${name}`);
+          setIsLoading(false);
+          setHasError(true);
+        }
+      }, 6000); // 6s safety timeout
+    }
+    return () => clearTimeout(timer);
+  }, [isLoading, name]);
+
+  const displaySrc = retryCount > 0 && src ? `${src}${src.includes('?') ? '&' : '?'}retry=${retryCount}` : src;
+
   // 1. Success Case: Render Image
   if (src && !hasError) {
     return (
@@ -79,7 +95,7 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
         )}
         <img
           ref={imgRef}
-          src={src}
+          src={displaySrc}
           alt={name}
           loading="lazy"
           referrerPolicy="no-referrer"
