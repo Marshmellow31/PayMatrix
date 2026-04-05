@@ -1,9 +1,7 @@
-import { useState, useEffect, memo, useRef } from 'react';
+import { useState, memo } from 'react';
 
 const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
-  const [isLoading, setIsLoading] = useState(!!src);
   const [hasError, setHasError] = useState(false);
-  const timeoutRef = useRef(null);
 
   const sizes = {
     sm: 'w-8 h-8 text-xs',
@@ -11,30 +9,6 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
     lg: 'w-14 h-14 text-lg',
     xl: 'w-20 h-20 text-2xl',
   };
-
-  // Reset when src changes
-  useEffect(() => {
-    clearTimeout(timeoutRef.current);
-    timeoutRef.current = null;
-    setHasError(false);
-
-    if (src) {
-      setIsLoading(true);
-
-      // Safety timeout — if the image hasn't loaded after 8s, show initials
-      timeoutRef.current = setTimeout(() => {
-        setIsLoading(false);
-        setHasError(true);
-      }, 8000);
-    } else {
-      setIsLoading(false);
-    }
-
-    return () => {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    };
-  }, [src]);
 
   const getInitials = (n) => {
     if (!n) return '?';
@@ -65,30 +39,16 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
     return presets[Math.abs(hash) % presets.length];
   };
 
-  const handleLoad = () => {
-    clearTimeout(timeoutRef.current);
-    timeoutRef.current = null;
-    setIsLoading(false);
-    setHasError(false);
-  };
-
-  const handleError = () => {
-    clearTimeout(timeoutRef.current);
-    timeoutRef.current = null;
-    setIsLoading(false);
-    setHasError(true);
-  };
-
   // Show initials if no src or if loading failed
   if (!src || hasError) {
     if (!name) {
       return (
-        <div className={`${sizes[size]} rounded-full bg-white/5 shrink-0 border border-white/5 ${className}`} />
+        <div className={`${sizes[size]} rounded-full bg-white/5 shrink-0 ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')}`} />
       );
     }
     return (
       <div
-        className={`${sizes[size]} rounded-full flex items-center justify-center font-manrope font-black text-white shrink-0 border border-white/10 shadow-lg ${className}`}
+        className={`${sizes[size]} rounded-full flex items-center justify-center font-manrope font-black text-white shrink-0 shadow-lg ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')}`}
         style={{
           background: getBackgroundColor(name),
           textShadow: '0 1px 2px rgba(0,0,0,0.2)',
@@ -101,21 +61,14 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
 
   // Attempt to load the image
   return (
-    <div className={`${sizes[size]} rounded-full shrink-0 relative ${className} overflow-hidden shadow-lg border border-white/5 bg-white/5`}>
-      {isLoading && (
-        <div className="absolute inset-0 rounded-full animate-pulse overflow-hidden bg-white/[0.02]">
-          <div className="w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] animate-shimmer" />
-        </div>
-      )}
+    <div className={`${sizes[size]} rounded-full shrink-0 relative ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')} overflow-hidden shadow-lg bg-white/5`}>
       <img
         src={src}
         alt={name || ''}
         referrerPolicy="no-referrer"
-        className={`w-full h-full rounded-full object-cover transition-opacity duration-500 ${
-          isLoading ? 'opacity-0' : 'opacity-100'
-        }`}
-        onLoad={handleLoad}
-        onError={handleError}
+        loading="lazy"
+        className="w-full h-full rounded-full object-cover"
+        onError={() => setHasError(true)}
       />
     </div>
   );
