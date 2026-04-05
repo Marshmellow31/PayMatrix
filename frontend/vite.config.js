@@ -15,6 +15,14 @@ export default defineConfig({
         theme_color: '#000000',
         background_color: '#000000',
         display: 'standalone',
+        scope: '/',
+        start_url: '/',
+        // Capture navigations: tells the browser to open matching URLs
+        // inside the installed PWA instead of a new browser tab.
+        handle_links: 'preferred',
+        launch_handler: {
+          client_mode: 'navigate-existing',
+        },
         icons: [
           {
             src: 'logo.png',

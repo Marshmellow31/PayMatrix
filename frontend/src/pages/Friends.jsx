@@ -132,11 +132,39 @@ const Friends = () => {
     };
   }, [fetchData]);
 
-  const copyInviteLink = () => {
+  const shareInviteLink = async () => {
     const user = auth.currentUser;
     if (!user) return;
     
     const link = `${window.location.origin}/join-friend?uid=${user.uid}`;
+    
+    // Use native Web Share API if available (mobile PWA / Android / iOS)
+    // This opens the OS share sheet, and if recipient has the PWA installed,
+    // the link will open directly in the app instead of the browser.
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'PayMatrix — Connect With Me',
+          text: 'Add me on PayMatrix to split expenses together!',
+          url: link,
+        });
+        toast.success('Invite shared!', {
+          icon: '📡',
+          style: {
+            borderRadius: '1rem',
+            background: '#1a1a1a',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.1)'
+          }
+        });
+        return;
+      } catch (err) {
+        // User cancelled the share sheet — not an error, just fall through to copy
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    // Fallback: copy to clipboard (desktop / older browsers)
     navigator.clipboard.writeText(link).then(() => {
       toast.success('Invite link copied to clipboard', {
         icon: '🔗',
@@ -243,11 +271,11 @@ const Friends = () => {
 
                   <div className="flex flex-col gap-4 w-full">
                     <button
-                      onClick={copyInviteLink}
+                      onClick={shareInviteLink}
                       className="h-14 sm:h-16 w-full rounded-2xl bg-white text-black hover:bg-neutral-200 active:scale-95 transition-all font-manrope font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shrink-0"
                     >
                       <Copy size={16} strokeWidth={3} />
-                      Transmit Link
+                      {navigator.share ? 'Share Link' : 'Copy Link'}
                     </button>
                   </div>
 

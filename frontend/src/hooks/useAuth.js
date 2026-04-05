@@ -10,13 +10,23 @@ const useAuth = () => {
   const handleGoogleLogin = async () => {
     const result = await dispatch(googleLogin());
     if (result.meta.requestStatus === 'fulfilled') {
+      // Check for deferred deep-link: group invite
       const pendingCode = localStorage.getItem('pendingInviteCode');
       if (pendingCode) {
         localStorage.removeItem('pendingInviteCode');
         navigate(`/join/${pendingCode}`);
-      } else {
-        navigate('/dashboard');
+        return result;
       }
+
+      // Check for deferred deep-link: friend invite
+      const pendingFriend = localStorage.getItem('pendingFriendInvite');
+      if (pendingFriend) {
+        localStorage.removeItem('pendingFriendInvite');
+        navigate(`/join-friend?uid=${pendingFriend}`);
+        return result;
+      }
+
+      navigate('/dashboard');
     }
     return result;
   };

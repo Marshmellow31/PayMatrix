@@ -276,7 +276,16 @@ const GroupDetail = () => {
       setShowLeaveConfirm(false);
       navigate('/dashboard');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to leave group. Ensure your balance is zero.');
+      console.error("Leave Group Error:", err);
+      // Determine error type for better feedback
+      const errMsg = err.message?.toLowerCase() || '';
+      if (errMsg.includes('balance')) {
+        toast.error("Clear your pending balance (settle up) to exit.");
+      } else if (err.code === 'permission-denied' || errMsg.includes('permission')) {
+        toast.error("Exit failed. Ensure you are not the last admin or have zero balance.");
+      } else {
+        toast.error('Exit failed. Please verify your connection and try again.');
+      }
     } finally {
       setLeaving(false);
     }
@@ -664,6 +673,32 @@ const GroupDetail = () => {
                   }
                 </p>
               </div>
+              {navigator.share && (
+                <Button
+                  variant="ghost"
+                  onClick={async () => {
+                    const link = `${window.location.origin}/join/${activeGroup.inviteCode}`;
+                    try {
+                      await navigator.share({
+                        title: `Join ${activeGroup?.name || activeGroup?.title} on PayMatrix`,
+                        text: `Join my group "${activeGroup?.name || activeGroup?.title}" on PayMatrix to split expenses!`,
+                        url: link,
+                      });
+                      toast.success('Invite shared!');
+                    } catch (err) {
+                      if (err.name !== 'AbortError') {
+                        navigator.clipboard.writeText(link);
+                        toast.success('Invite link copied to clipboard!');
+                      }
+                    }
+                  }}
+                  disabled={!activeGroup?.inviteCode}
+                  className="h-11 px-4 rounded-xl flex items-center justify-center gap-2 bg-white text-black hover:bg-white/90 transition-all shrink-0 text-[10px] font-black uppercase tracking-widest"
+                >
+                  <LucideIcons.Share2 size={16} />
+                  Share
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 onClick={() => {

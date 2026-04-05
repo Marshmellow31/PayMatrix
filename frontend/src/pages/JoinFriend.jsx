@@ -54,10 +54,14 @@ const JoinFriend = () => {
 
     const authUnsub = auth.onAuthStateChanged((user) => {
       if (user) {
+        // Clear stored invite since we're now authenticated and on the page
+        localStorage.removeItem('pendingFriendInvite');
         fetchInviter();
       } else {
-        // If not logged in, we should ideally redirect to login with a return path
-        // For now, let's just show an error or prompt login
+        // Save the friend invite path so the user returns here after login
+        if (inviterId) {
+          localStorage.setItem('pendingFriendInvite', inviterId);
+        }
         setStatus('login_required');
       }
     });
