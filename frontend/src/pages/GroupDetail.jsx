@@ -124,11 +124,24 @@ const GroupDetail = () => {
       console.error("Settlements snapshot error:", err);
     });
 
-    // 5. Real-time listener for Group Logs (Lifted for Export/Activity Feed)
+    // 5. Real-time listener for Group Logs is now lazy-loaded in a separate useEffect
+
+    return () => {
+      setSettlements([]); // Immediate clearance of local state
+      unsubscribeGroup();
+      unsubscribeExpenses();
+      unsubscribeSettlements();
+    };
+  }, [id, dispatch]);
+
+  // Lazy-load logs only when viewing the logs tab or exporting
+  useEffect(() => {
+    if (!id || tab !== 'logs') return;
+
     const qLogs = query(
       collection(db, 'groups', id, 'logs'),
       orderBy('createdAt', 'desc'),
-      limit(100) // Increased limit for better PDF history
+      limit(100)
     );
     const unsubscribeLogs = onSnapshot(qLogs, (snapshot) => {
       const liveLogs = snapshot.docs.map(docSnap => ({
@@ -142,14 +155,10 @@ const GroupDetail = () => {
     });
 
     return () => {
-      setSettlements([]); // Immediate clearance of local state
       setGroupLogs([]);
-      unsubscribeGroup();
-      unsubscribeExpenses();
-      unsubscribeSettlements();
       unsubscribeLogs();
     };
-  }, [id, dispatch]);
+  }, [id, tab, deletingGroup]);
 
   const { netBalances, balanceList, debts, scopedExpenses } = useMemo(() => {
     const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);

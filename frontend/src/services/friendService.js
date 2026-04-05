@@ -169,8 +169,10 @@ const friendService = {
       }));
 
       const networkAnalytics = await Promise.all(friendIds.map(async fId => {
-        const fDoc = await getDoc(doc(db, 'users', fId));
-        const fData = { _id: fId, ..._normalize(fDoc.exists() ? fDoc.data() : null) };
+        // Cache-first: avoids redundant network reads for recently-fetched profiles
+        let fDoc = await getDocFromCache(doc(db, 'users', fId)).catch(() => null);
+        if (!fDoc || !fDoc.exists()) fDoc = await getDoc(doc(db, 'users', fId)).catch(() => null);
+        const fData = { _id: fId, ..._normalize(fDoc?.exists() ? fDoc.data() : null) };
 
         const mutualGroups = myGroups.filter(g => g.members?.includes(fId));
         

@@ -39,6 +39,13 @@ const getStoredName = async (uid, fallback = 'Member') => {
   return fallback;
 };
 
+// Simple memoization cache for getSummary
+let summaryCache = {
+  data: null,
+  timestamp: 0,
+  hash: ''
+};
+
 const expenseService = {
   getExpenses: async (groupId, page = 1) => {
     const q = query(collection(db, 'groups', groupId, 'expenses'), orderBy('createdAt', 'desc'));
@@ -512,6 +519,12 @@ const expenseService = {
     const userId = auth.currentUser?.uid;
     if (!userId) return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [], groupBalances: {} });
 
+    const now = Date.now();
+    // Use a 30s TTL for the summary to prevent heavy fan-out reads on rapid sequential updates
+    if (summaryCache.data && summaryCache.hash === userId && (now - summaryCache.timestamp < 30000)) {
+       return wrap(summaryCache.data);
+    }
+
     try {
       // 1. Resolve Groups first (Cache-first for speed on Dashboard)
       const groupCol = collection(db, 'groups');
@@ -586,13 +599,22 @@ const expenseService = {
         value: categoryTotals[name]
       })).sort((a, b) => b.value - a.value);
 
-      return wrap({
+      const finalData = {
         totalOwed,
         totalOwe,
         netBalance: totalOwed - totalOwe,
         categories,
         groupBalances
-      });
+      };
+
+      // Save to cache
+      summaryCache = {
+        data: finalData,
+        timestamp: Date.now(),
+        hash: userId
+      };
+
+      return wrap(finalData);
     } catch (error) {
       console.error("[CRITICAL] Summary engine error:", error);
       return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [], groupBalances: {} });

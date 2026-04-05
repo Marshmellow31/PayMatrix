@@ -14,6 +14,30 @@ const wrap = (data, message = 'Success') => ({ data: { data, message, status: 's
 // In-memory cache for user metadata to speed up repeated expansions offline
 const userCache = {};
 
+// Initialize cache from session storage if available
+if (typeof window !== 'undefined' && window.sessionStorage) {
+  try {
+    const storedCache = window.sessionStorage.getItem('paymatrix_user_cache');
+    if (storedCache) {
+      Object.assign(userCache, JSON.parse(storedCache));
+    }
+  } catch (err) {
+    console.warn("Failed to load user cache from session storage:", err);
+  }
+}
+
+// Helper to update both in-memory and session storage cache
+const updateCache = (uid, userData) => {
+  userCache[uid] = userData;
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      window.sessionStorage.setItem('paymatrix_user_cache', JSON.stringify(userCache));
+    } catch (err) {
+      console.warn("Failed to save user cache to session storage:", err);
+    }
+  }
+};
+
 const groupService = {
   // 1. Initial Instant Extraction (Extracts raw IDs and basic document fields)
   getBasicGroup: (groupDoc) => {
@@ -61,7 +85,7 @@ const groupService = {
             avatar: uData.avatar || uData.photoURL
           };
           
-          userCache[uid] = resolvedUser;
+          updateCache(uid, resolvedUser);
           return { user: resolvedUser, role: 'member' };
         } catch (err) {
           return { user: { _id: uid, uid: uid, name: 'Member' }, role: 'member' };
