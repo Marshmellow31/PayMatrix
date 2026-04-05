@@ -43,11 +43,20 @@ service cloud.firestore {
       );
       allow create: if isSignedIn() && request.auth.uid == userId &&
                     isValidString(request.resource.data.get('displayName', ''), 50);
-      allow update: if isSignedIn() && request.auth.uid == userId && 
-                    isValidString(request.resource.data.get('displayName', ''), 50) &&
-                    isValidString(request.resource.data.get('upiId', ''), 100) &&
-                    !request.resource.data.diff(resource.data).affectedKeys()
-                    .hasAny(['uid', 'email', 'createdAt']);
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && 
+         isValidString(request.resource.data.get('displayName', ''), 50) &&
+         isValidString(request.resource.data.get('upiId', ''), 100) &&
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email', 'createdAt'])
+        ) ||
+        (
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends']) &&
+         (
+           request.resource.data.get('friends', []).removeAll(resource.data.get('friends', [])) == [request.auth.uid] ||
+           resource.data.get('friends', []).removeAll(request.resource.data.get('friends', [])) == [request.auth.uid]
+         )
+        )
+      );
       allow delete: if false;
     }
 

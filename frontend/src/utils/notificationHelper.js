@@ -13,8 +13,8 @@ export const createNotification = async (to, message, type = 'info', relatedId =
   if (!to) return;
   // Defensive check: If message is accidentally an object (e.g. from a legacy bug), 
   // extract its internal message string or stringify it to avoid React "object as child" errors.
-  const safeMessage = typeof message === 'string' 
-    ? message 
+  const safeMessage = typeof message === 'string'
+    ? message
     : (message?.message || JSON.stringify(message));
 
   try {
