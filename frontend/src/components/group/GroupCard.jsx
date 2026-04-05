@@ -62,13 +62,13 @@ const GroupCard = ({ group, balance = 0 }) => {
                     name={name}
                     src={src}
                     size="sm"
-                    className="ring-2 ring-[#13111C] shadow-xl"
+                    className="shadow-xl"
                   />
                 </div>
               );
             })}
             {uniqueMembers.length > 3 && (
-              <div className="w-8 h-8 rounded-full bg-surface-container-highest ring-2 ring-[#13111C] flex items-center justify-center shadow-xl z-0 transition-transform duration-300 hover:-translate-y-0.5">
+              <div className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center shadow-xl z-0 transition-transform duration-300 hover:-translate-y-0.5">
                 <span className="text-[10px] font-black text-white/90 font-manrope">+{uniqueMembers.length - 3}</span>
               </div>
             )}
