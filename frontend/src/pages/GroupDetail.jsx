@@ -337,7 +337,8 @@ const GroupDetail = () => {
       setShowEditGroup(false);
       // Real-time snapshot will update the UI automatically
     } catch (err) {
-      toast.error('Failed to update cohort');
+      console.error("Update cohort error:", err);
+      toast.error(err?.message || 'Failed to update cohort');
     } finally {
       setUpdatingGroup(false);
     }

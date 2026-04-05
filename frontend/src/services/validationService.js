@@ -16,8 +16,8 @@ export const UserSchema = z.object({
   updatedAt: z.string().datetime().optional()
 }).passthrough();
 
-// Group Schema
-export const GroupSchema = z.object({
+// Group Schema Base
+export const GroupBaseSchema = z.object({
   name: z.string().max(100).optional(),
   title: z.string().max(100).optional(), // Support both title and name
   description: z.string().max(500).optional(),
@@ -26,8 +26,9 @@ export const GroupSchema = z.object({
   inviteCode: z.string().max(20).optional(),
   admin: z.string().optional(),
   status: z.enum(['active', 'archived', 'deleted']).optional(),
-  updatedAt: z.string().datetime().optional()
-}).passthrough().refine(data => data.name || data.title, {
+}).passthrough();
+
+export const GroupSchema = GroupBaseSchema.refine(data => data.name || data.title, {
   message: "Group name is required",
   path: ["title"]
 });

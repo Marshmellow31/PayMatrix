@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import loggingService from './loggingService.js';
 import rateLimitService from './rateLimitService.js';
-import validationService, { GroupSchema } from './validationService.js';
+import validationService, { GroupSchema, GroupBaseSchema } from './validationService.js';
 import sanitizationService from './sanitizationService.js';
 
 // Helper to mimic Axios response
@@ -250,7 +250,7 @@ const groupService = {
     if (!cleanData.name && cleanData.title) {
         cleanData.name = cleanData.title;
     }
-    const validData = validationService.validate(GroupSchema.partial(), cleanData);
+    const validData = validationService.validate(GroupBaseSchema.partial(), cleanData);
 
     const docRef = doc(db, 'groups', id);
     await updateDoc(docRef, { ...validData, updatedAt: new Date().toISOString() });
