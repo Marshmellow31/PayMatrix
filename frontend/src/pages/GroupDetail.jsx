@@ -494,7 +494,7 @@ const GroupDetail = () => {
               balances={balances}
               groupId={id}
               onMemberRemoved={() => dispatch(fetchGroup(id))}
-              currentUserId={user?._id}
+              currentUserId={user?._id || user?.uid}
             />
           </div>
 

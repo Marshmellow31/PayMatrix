@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import Avatar from '../common/Avatar.jsx';
 import Button from '../common/Button.jsx';
 import Modal from '../common/Modal.jsx';
 import groupService from '../../services/groupService.js';
+import friendService from '../../services/friendService.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -14,6 +15,8 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
   const [selectedMember, setSelectedMember] = useState(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(null); // id of user to remove
+  const [relationshipStatus, setRelationshipStatus] = useState('none');
+  const [isRequesting, setIsRequesting] = useState(false);
   const isOnline = useOnlineStatus();
 
   // Icons from Lucide (using robust access)
@@ -40,8 +43,49 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
     });
   }
 
+  useEffect(() => {
+    let isMounted = true;
+    
+    if (selectedMember && !selectedMember.isMe) {
+      setRelationshipStatus('loading');
+      friendService.checkRelationship(selectedMember._id || selectedMember.uid || selectedMember)
+        .then(res => {
+          if (isMounted) {
+            setRelationshipStatus(res.data?.data?.status || 'none');
+          }
+        })
+        .catch(err => {
+          console.error('Failed to check relationship:', err);
+          if (isMounted) setRelationshipStatus('none');
+        });
+    } else {
+      setRelationshipStatus('none');
+    }
+    
+    return () => { isMounted = false; };
+  }, [selectedMember]);
+
   const handleRemove = (userId) => {
     setShowRemoveConfirm(userId);
+  };
+
+  const handleSendFriendRequest = async () => {
+    if (!isOnline) {
+      toast.error('You are offline');
+      return;
+    }
+    
+    setIsRequesting(true);
+    try {
+      await friendService.sendRequest(selectedMember._id || selectedMember.uid || selectedMember);
+      setRelationshipStatus('pending_outgoing');
+      toast.success('Friend request sent!');
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || 'Failed to send request');
+    } finally {
+      setIsRequesting(false);
+    }
   };
 
   const confirmRemove = async () => {
@@ -177,6 +221,52 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
                 </div>
               </div>
             </div>
+
+            {/* Friend Request UI */}
+            {!selectedMember.isMe && (
+              <div className="mt-6">
+                {relationshipStatus === 'loading' ? (
+                   <div className="flex justify-center py-3"><div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin"></div></div>
+                ) : relationshipStatus === 'none' ? (
+                  <Button 
+                    className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest gap-2"
+                    onClick={handleSendFriendRequest}
+                    loading={isRequesting}
+                    disabled={!isOnline}
+                  >
+                    <Lucide.UserPlus size={16} />
+                    Add Friend
+                  </Button>
+                ) : relationshipStatus === 'pending_outgoing' ? (
+                  <Button 
+                    variant="outline"
+                    className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest opacity-80 cursor-not-allowed bg-white/5 border border-white/10 gap-2 text-white/80"
+                    disabled
+                  >
+                    <Lucide.Clock size={16} />
+                    Request Sent
+                  </Button>
+                ) : relationshipStatus === 'pending_incoming' ? (
+                  <Button 
+                    variant="outline"
+                    className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest text-[#e5e2e1] bg-white/10 border border-white/20 cursor-default hover:bg-white/10 gap-2"
+                    disabled
+                  >
+                    <Lucide.Inbox size={16} />
+                    Pending Request
+                  </Button>
+                ) : relationshipStatus === 'friend' ? (
+                  <Button 
+                    variant="outline"
+                    className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest text-green-400 bg-green-400/5 border border-green-400/20 cursor-default hover:bg-green-400/5 gap-2"
+                    disabled
+                  >
+                    <Lucide.UserCheck size={16} />
+                    Friends
+                  </Button>
+                ) : null}
+              </div>
+            )}
 
             {/* Admin Actions: Blocked for Admin themself OR for the current user's own card in this view */}
             {adminId?.toString() === currentUserId?.toString() && !selectedMember.isMe && (
