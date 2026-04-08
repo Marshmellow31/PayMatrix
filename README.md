@@ -1,49 +1,49 @@
 # PayMatrix 💎
 
-[![React 19](https://img.shields.io/badge/React-19.0-61DAFB?logo=react)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-6.0-646CFF?logo=vite)](https://vitejs.dev/)
-[![Firebase](https://img.shields.io/badge/Firebase-12.0-FFCA28?logo=firebase)](https://firebase.google.com/)
+[![React 19](https://img.shields.io/badge/React-19.1-61DAFB?logo=react)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-6.3-646CFF?logo=vite)](https://vitejs.dev/)
+[![Firebase](https://img.shields.io/badge/Firebase-12.11-FFCA28?logo=firebase)](https://firebase.google.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
+[![Lucide](https://img.shields.io/badge/Lucide-1.7-FF4B4B?logo=lucide)](https://lucide.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Ready-00838F?logo=pwa)](https://web.dev/progressive-web-apps/)
 
-**PayMatrix** is a premium, high-density expense sharing and settlement platform designed with the **Digital Obsidian** aesthetic. It simplifies group finances, provides deep analytical insights, and offers seamless settlement workflows through integrated payment links and QR codes.
+**PayMatrix** is a premium, high-density expense sharing and settlement platform engineered with the **Digital Obsidian** aesthetic. Designed for maximum efficiency, it simplifies group finances with real-time synchronization, deep analytical insights, and integrated UPI settlement workflows.
 
-[**🌐 Live Demo**](https://pay-matrix.vercel.app/)
+[**🌐 Live Platform**](https://pay-matrix.vercel.app/)
 
 ---
 
 ## ✨ Features
 
 ### 🌑 Digital Obsidian Interface
-Experience a state-of-the-art UI focused on high information density and premium aesthetics.
-- **Glassmorphism**: Elegant frosted-glass effects for modals and cards.
-- **Fluid Animations**: Powered by Framer Motion for a buttery-smooth UX.
-- **Mobile Optimized**: A fully responsive PWA that feels like a native app.
+A state-of-the-art UI focused on information density and premium ergonomics.
+- **Glassmorphism**: Refined frosted-glass architecture for modals and navigation.
+- **Micro-Animations**: Buttery-smooth transitions powered by `Framer Motion`.
+- **Haptic Responsiveness**: Optimized for mobile as a fully capable PWA.
 
-### 💰 Precision Split Management
-No more manual math. PayMatrix handles complex debts with ease.
-- **Flexible Splitting**: Split equally, by fixed amounts, or by percentages.
-- **Multi-Payer Support**: Log expenses paid by one or more members.
-- **Debt Simplification**: Automatically minimizes the number of transactions required to settle up.
+### 💰 Precision Split Engine
+Sophisticated debt resolution logic that handles complex financial webs.
+- **Flexible Distribution**: Split equally, by fixed amounts, or by exact percentages.
+- **Multi-Payer Logic**: Advanced support for expenses funded by multiple members.
+- **Greedy Debt Simplification**: Proprietary algorithm that minimizes total transactions required to settle.
 
-### ⚡ Seamless Settlements
-Settle debts in seconds, not minutes.
-- **UPI Integration**: Generate direct UPI deep links for phone-to-phone payments.
-- **QR Code Generation**: Instantly create QR codes for any transaction.
-- **Payment Success Verification**: Track settlement status in real-time.
+### ⚡ Integrated Settlements
+Close the loop in seconds with direct banking integration.
+- **Native UPI Deep-Linking**: Generate direct payment triggers for GPay, PhonePe, and Paytm.
+- **Dynamic QR Generation**: Offline-ready scannable codes for instant transfers.
+- **Preferred App Selection**: Set your primary payment vector (GPay, BHIM, etc.) globally.
 
-### 📈 Visual Analytics & Reports
-Understand where your money goes.
-- **Interactive Dashboards**: Visualize spending trends with Chart.js.
-- **Audit Trails**: Complete history of every expense edit and deletion.
-- **Data Export**: Generate professional PDF reports or CSV audit logs for any group.
+### 📈 Advanced Analytics
+Transform raw expenses into actionable financial intelligence.
+- **Interactive Dashboards**: Visualize categorical spending trends using `Chart.js`.
+- **Cohort Analysis**: Track member contributions and consumption ratios in real-time.
+- **Audit Reports**: Export professional PDF security reports covering all expenses and logs.
 
-### 🔒 Security-First Architecture
-Built for trust and reliability.
-- **Email Verification**: Mandatory verification for all accounts.
-- **Custom backend**: Secure JWT-based session management.
-- **Zod Validation**: Robust schema-based data validation across the platform.
-- **Rate Limiting**: Protection against brute force and API abuse.
+### 🔒 Enterprise-Grade Security
+Built on a foundation of trust and validation.
+- **Network Severing**: "Security Zone" features to instantly terminate connections with any node.
+- **Schema Enforcement**: 100% data validation via `Zod` before system entry.
+- **Audit Integrity**: Immutable sub-collection logging for every administrative action.
 
 ---
 
@@ -51,84 +51,51 @@ Built for trust and reliability.
 
 | Category | Technology |
 | :--- | :--- |
-| **Frontend** | React 19, Vite, Tailwind CSS |
-| **State Management** | Redux Toolkit, Redux Persist |
-| **Database/Auth** | Firebase (Firestore, Auth, Storage) |
-| **Animations** | Framer Motion |
-| **Icons** | Lucide React, React Icons |
+| **Foundation** | React 19.1, Vite 6.3, React Router 7.5 |
+| **State** | Redux Toolkit 2.6, Redux Persist 6.0 |
+| **Backend** | Firebase 12.11 (Firestore, Auth, Storage) |
+| **Motion** | Framer Motion 12.6 |
+| **Visualization** | Chart.js 4.5, React Chartjs 2 |
 | **Reporting** | jsPDF, jspdf-autotable, json-2-csv |
-| **Utilities** | Zod, Date-fns, DOMPurify |
+| **Security** | Zod, DOMPurify, Rate Limiting (Distributed) |
+| **Styling** | Tailwind CSS 3.4, Lucide React 1.7 |
 
 ---
 
-## 🏗️ Deep Dive: Application Architecture
+## 🏗️ Hybrid Sync Architecture
 
-PayMatrix employs a **Hybrid Sync Architecture** that combines the real-time capabilities of Firebase with the predictable state management of Redux Toolkit.
+PayMatrix utilizes a **Push-First Hybrid Sync** model to ensure zero-latency interactions even in unstable network conditions.
 
-### 🔄 Real-time Synchronization Flow
-Unlike traditional REST-based apps, PayMatrix uses a "Push-First" data flow:
-1. **User Action**: A user adds an expense or settles a debt.
-2. **Optimistic Update**: The UI reflects the change immediately using Redux actions.
-3. **Firestore Write**: The `expenseService` commits the data to Firestore.
-4. **Snapshot Listener**: A global listener in `AppLayout` or `GroupDetail` detects the change in Firestore.
-5. **Redux Sync**: The listener dispatches a `setExpenses` or `updateGroup` action, ensuring all clients stay perfectly in sync without manual refreshes.
+```mermaid
+graph TD
+    A[User Action] -- Dispatch --> B(Redux Store)
+    B -- Optimistic UI --> C[User Interface]
+    B -- Persistent Write --> D{Firestore}
+    D -- Real-time Sync --> E[Global Listeners]
+    E -- Sync Action --> B
+```
+
+1. **Optimistic Updates**: The UI reflects changes immediately via Redux actions.
+2. **Transactional Writes**: Services commit data to Firestore with conflict resolution.
+3. **Snapshot Listeners**: Real-time listeners in `AppLayout` detect remote changes.
+4. **State Reconciliation**: Dispatchers update the Redux store to ensure all clients are perfectly mirrored.
 
 ---
 
 ## 📊 Database Topology (Firestore)
 
-The data model is designed for high performance and strict security boundaries.
-
-### 📂 Collections Hierarchy
+### 📂 Collection Hierarchy
 - **`users/{userId}`**: 
-  - `displayName`: User's public name.
-  - `upiId`: Primary settlement address (UPI ID or payment link).
-  - `friends`: Array of UIDs for quick network access.
+  - `upiId`: Primary settlement address.
+  - `preferredApp`: Default payment vector (GPay/Paytm/etc).
+  - `friends`: Verified network connections.
 - **`groups/{groupId}`**: 
-  - `members`: Active participant UIDs.
-  - `historicalMembers`: UIDs of past members (to preserve audit integrity).
-  - **`expenses/{expenseId}`**: Sub-collection containing individual line items, participants, and split ratios.
-  - **`settlements/{settlementId}`**: Direct payments between members.
-  - **`logs/{logId}`**: Immutable audit trail for group activities.
-- **`friendRequests/`**: Transient collection for managing network growth.
-- **`rate_limits/{userId}`**: Tracks security-sensitive actions (e.g., invite generation, password changes).
-
----
-
-## 🧠 State Management (Redux)
-
-We use **Redux Toolkit** with **Redux Persist** to ensure a seamless experience even after browser restarts.
-
-| Slice | Responsibility |
-| :--- | :--- |
-| **`auth`** | User session, profile metadata, and authentication status. |
-| **`group`** | Active group context, member lists, and invite tokens. |
-| **`expense`** | Real-time expense feed, active group balances, and split calculations. |
-| **`notification`** | In-app alerts, friend request statuses, and system messages. |
-
----
-
-## 🛡️ Security & Data Integrity
-
-### 🚦 Smart Rate Limiting
-The `rateLimitService` provides a distributed protection layer:
-- **Transaction-Based**: Uses Firestore transactions to ensure limits are enforced across multiple devices.
-- **Fail-Safe Mode**: Automatically detects offline contexts to allow user continuity while logging "security bypass" events for later audit.
-- **Action-Specific Windows**: Granular control over attempt counts (e.g., 5 invites/hour, 100 expenses/day).
-
-### 🧹 Input Hardening
-- **XSS Prevention**: All rendering paths use `DOMPurify` to strip malicious scripts from group names or expense titles.
-- **Schema Enforcement**: `Zod` validates every piece of data entering the system, preventing malformed objects from corrupting the state.
-- **Firestore Guard**: Rules enforce that only group members can see group-specific data, and only admins can modify group settings.
-
----
-
-## 💳 Settlement & UPI Logic
-
-PayMatrix simplifies payments by generating standard-compliant UPI deep links:
-- **Protocol**: `upi://pay?pa={upiId}&pn={name}&am={amount}&tn={description}&cu=INR`
-- **Dynamic QR**: Uses `qrcode.react` to generate scannable codes that work with any Indian banking app (GPay, PhonePe, Paytm).
-- **Balance Simplification**: Uses a greedy algorithm to resolve debts, minimizing the total number of payments needed within a group.
+  - `members`: Active participant nodes.
+  - **`expenses/`**: Recursive financial line items.
+  - **`settlements/`**: Transactional balance resolutions.
+  - **`logs/`**: Immutable event stream for group activity.
+- **`friendRequests/`**: Transient handshakes for network growth.
+- **`rate_limits/{userId}`**: Distributed enforcement for security-sensitive actions.
 
 ---
 
@@ -136,84 +103,66 @@ PayMatrix simplifies payments by generating standard-compliant UPI deep links:
 
 ```text
 PayMatrix/
-├── frontend/             # React/Vite application
+├── frontend/             # React/Vite Premium Interface
 │   ├── src/
-│   │   ├── components/   # Reusable UI (Modals, Cards, Overlays)
-│   │   ├── hooks/        # Custom React hooks
-│   │   ├── pages/        # Main application views (Dashboard, Groups, Profile)
-│   │   ├── redux/        # Global state (Slices, Store configuration)
-│   │   ├── services/     # API handlers and business logic
-│   │   └── utils/        # Formatting and payment helpers
-│   └── public/           # Static assets and PWA manifests
-├── firestore.rules       # Security rules for database access
-└── scripts/              # Database maintenance and utility scripts
+│   │   ├── components/   # Atomic UI units (Common, Group, Expense)
+│   │   ├── hooks/        # Reactive logic (Online status, Auth, Profile)
+│   │   ├── pages/        # View controllers (Analytics, Dashboard, Friends)
+│   │   ├── redux/        # Global state orchestration
+│   │   ├── services/     # API & Firebase abstraction layer
+│   │   ├── utils/        # Computational engines (Balance, Export, UPI)
+│   │   └── index.css     # Digital Obsidian design tokens
+├── scripts/              # Infrastructure & Maintenance
+│   └── clearFirestore.js # Database housekeeping utilities
+├── firestore.rules       # Security layer declarations
+└── LICENSE               # MIT License
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-### 📋 Prerequisites
-- **Node.js**: v18.0 or higher
-- **Firebase Account**: For Firestore and Authentication
-- **NPM** or **Yarn**
+### ⚙️ Local Development
 
-### ⚙️ Installation
-
-1. **Clone the repository**:
+1. **Clone & Navigate**:
    ```bash
-   git clone https://github.com/your-username/PayMatrix.git
-   cd PayMatrix
+   git clone https://github.com/Marshmellow31/PayMatrix.git
+   cd PayMatrix/frontend
    ```
 
-2. **Install dependencies**:
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-3. **Environment Setup**:
-   Create a `.env` file in the `frontend` directory using `.env.example` as a template:
+2. **Initialize Environment**:
    ```bash
    cp .env.example .env
-   # Add your Firebase and API configuration keys
+   # Populate with your Firebase config
    ```
 
-4. **Run the development server**:
+3. **Deploy Engine**:
    ```bash
+   npm install
    npm run dev
    ```
 
+### 📜 Environment Variables
+| Key | Description |
+| :--- | :--- |
+| `VITE_FIREBASE_API_KEY` | Your Firebase project API key |
+| `VITE_API_URL` | Optional backend proxy for advanced rate limiting |
+
 ---
 
-## 🛡️ Security Features
+## 🛡️ Security Posture
 
 > [!IMPORTANT]
-> To maintain the integrity of financial data, PayMatrix implements several security layers:
-
-- **JWT Authentication**: Secured sessions with HttpOnly cookie support.
-- **Strict Firestore Rules**: Data access is limited to group members and authorized entities.
-- **Input Sanitization**: All user-generated content is sanitized via DOMPurify to prevent XSS.
-- **Schema Validation**: Every API request and form submission is validated via Zod.
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License**. See the [LICENSE](file:///c:/Users/1080p/Desktop/PayMatrix/LICENSE) file for details.
+> To maintain the integrity of financial data, PayMatrix enforces a multi-layer security protocol:
+> - **Input Hardening**: `DOMPurify` strips XSS vectors from all user-generated fields.
+> - **Schema Guard**: `Zod` prevents malformed objects from reaching the settlement engine.
+> - **Distributed Rate Limiting**: Multi-device protection against invitation and expense spam.
+> - **Node Verification**: Email verification is mandatory for all primary account identifiers.
 
 ---
 
-## 🤝 Contributing
+## 📄 License & Legal
 
-Contributions are welcome! If you have a suggestion that would make this better, please fork the repo and create a pull request.
+Distributed under the **MIT License**. PayMatrix is a financial utility; users are responsible for verifying payment recipients within their respective banking applications.
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-
+Designed & Engineered with ❤️ by **Harshil**.
