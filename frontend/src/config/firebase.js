@@ -7,6 +7,7 @@ import {
   persistentMultipleTabManager 
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getMessaging } from "firebase/messaging";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
@@ -25,5 +26,7 @@ const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
 const storage = getStorage(app);
+// messaging is only initialized in browser context (not in the service worker)
+const messaging = getMessaging(app);
 
-export { auth, db, storage };
+export { auth, db, storage, messaging };
