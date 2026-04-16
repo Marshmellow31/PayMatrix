@@ -6,7 +6,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // injectManifest: Workbox injects the precache manifest into our custom sw.js.
+      // This is required to add FCM push event handling while keeping all
+      // offline caching behaviour (precaching, SPA fallback, Fonts) intact.
+      strategies: 'injectManifest',
+      srcDir: 'public',
+      filename: 'sw.js',
       includeAssets: ['favicon.ico', 'logo.png'],
       manifest: {
         name: 'PayMatrix',
@@ -42,35 +47,14 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
+      // In injectManifest mode, the precache manifest config goes under `injectManifest`.
+      // The HOW (caching strategies, navigateFallback, etc.) is written in public/sw.js.
+      injectManifest: {
         maximumFileSizeToCacheInBytes: 5000000,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Critical for PWA: serve cached index.html for ALL routes when offline
-        navigateFallback: 'index.html',
-        // Auto-clean stale caches on update
-        cleanupOutdatedCaches: true,
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 365 days
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          // NOTE: Google avatar images are NOT cached by the SW.
-          // Cross-origin opaque responses cause failures in Workbox.
-          // The browser handles <img> cross-origin loading natively.
-        ],
       },
       devOptions: {
-        enabled: true,
+        enabled: false,
         type: 'module',
       },
     }),

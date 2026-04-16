@@ -7,6 +7,7 @@ import {
   persistentMultipleTabManager 
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getMessaging } from "firebase/messaging";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
@@ -22,8 +23,11 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  experimentalForceLongPolling: true,
 });
 const storage = getStorage(app);
+// messaging is only initialized in browser context (not in the service worker)
+const messaging = getMessaging(app);
 
-export { auth, db, storage };
+export { auth, db, storage, messaging };

@@ -41,6 +41,11 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
   // iOS Chooser modal state  
   const [chooserState, setChooserState] = useState(null); // { debt, receiver }
 
+  // Custom Settlement state
+  const [showCustomSettle, setShowCustomSettle] = useState(false);
+  const [customPayee, setCustomPayee] = useState(null);   // uid string
+  const [customAmount, setCustomAmount] = useState('');
+
   const loadSettlementPlan = async () => {
     setLoading(true);
     try {
@@ -61,16 +66,17 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
   };
 
   /**
-   * Fetch Firestore payment details for all members who are receivers in the plan.
-   * Uses a single parallel Promise.all for efficiency.
+   * Fetch Firestore payment details for a given list of UIDs.
+   * Merges into existing memberPaymentDetails so both plan receivers
+   * and custom-section members are covered.
    */
-  const loadMemberPaymentDetails = async (plan) => {
-    const receiverIds = [...new Set(plan.map(p => p.to))];
-    if (receiverIds.length === 0) return;
+  const loadMemberPaymentDetails = async (uids) => {
+    const toFetch = [...new Set(uids)];
+    if (toFetch.length === 0) return;
 
     setFetchingPayments(true);
     try {
-      const fetches = receiverIds.map(uid =>
+      const fetches = toFetch.map(uid =>
         getDoc(doc(db, 'users', uid)).then(snap => ({
           uid,
           data: snap.exists() ? snap.data() : null,
@@ -83,11 +89,30 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
           ? { upiId: data.upiId || '', name: data.name || '', preferredApp: data.preferredApp || 'default' }
           : null;
       });
-      setMemberPaymentDetails(details);
+      // Merge so we never lose previously loaded entries
+      setMemberPaymentDetails(prev => ({ ...prev, ...details }));
     } catch (err) {
       console.warn('Failed to fetch member payment details:', err);
     } finally {
       setFetchingPayments(false);
+    }
+  };
+
+  /**
+   * Lazy-load payment details for ALL group members when the custom
+   * settlement section is first expanded.
+   */
+  const handleExpandCustomSettle = () => {
+    const next = !showCustomSettle;
+    setShowCustomSettle(next);
+    if (next && currentGroup?.members) {
+      const currentUid = userId;
+      const allMemberIds = currentGroup.members
+        .map(m => (m?.user?._id || m?.user?.uid || m?.uid || m?._id || m || '').toString())
+        .filter(uid => uid && uid !== currentUid);
+      // Only fetch ids we don't yet have
+      const missing = allMemberIds.filter(uid => !(uid in memberPaymentDetails));
+      if (missing.length > 0) loadMemberPaymentDetails(missing);
     }
   };
 
@@ -97,17 +122,19 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
       setUpiConfirm(null);
       setChooserState(null);
       setMemberPaymentDetails({});
+      setShowCustomSettle(false);
+      setCustomPayee(null);
+      setCustomAmount('');
 
-      loadSettlementPlan().then(() => {
-        // After plan loaded, load payment details for those members
-      });
+      loadSettlementPlan();
     }
   }, [isOpen, groupId, userId, forcedPayeeId]);
 
-  // Load payment details whenever settlements change
+  // Load payment details for settlement plan receivers whenever plan changes
   useEffect(() => {
     if (isOpen && settlements.length > 0) {
-      loadMemberPaymentDetails(settlements);
+      const receiverIds = settlements.map(p => p.to);
+      loadMemberPaymentDetails(receiverIds);
     }
   }, [settlements, isOpen]);
 
@@ -400,6 +427,175 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
               </p>
             </div>
           )}
+
+          {/* ─── Custom Settlement Section ─── */}
+          <div className="mt-4 border border-white/5 rounded-2xl overflow-hidden">
+            {/* Toggle header */}
+            <button
+              onClick={handleExpandCustomSettle}
+              className="w-full flex items-center justify-between px-5 py-4 bg-white/[0.03] hover:bg-white/[0.06] transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                  <LucideIcons.SlidersHorizontal size={14} className="text-violet-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-black text-white uppercase tracking-widest">Custom Settlement</p>
+                  <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest">Pay any member any amount</p>
+                </div>
+              </div>
+              <LucideIcons.ChevronDown
+                size={16}
+                className={`text-white/30 transition-transform duration-300 ${showCustomSettle ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {/* Collapsible body */}
+            <AnimatePresence>
+              {showCustomSettle && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: 'easeInOut' }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div className="px-5 pb-5 pt-3 flex flex-col gap-4 border-t border-white/5">
+
+                    {/* Member Picker */}
+                    <div>
+                      <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] mb-3">
+                        Select Member
+                      </p>
+                      {(() => {
+                        const currentUid = userId;
+                        const members = (currentGroup?.members || []).filter(m => {
+                          const mid = (m?.user?._id || m?.user?.uid || m?.uid || m?._id || m || '').toString();
+                          return mid && mid !== currentUid;
+                        });
+
+                        if (members.length === 0) {
+                          return (
+                            <p className="text-[10px] text-white/20 font-bold uppercase tracking-widest bg-white/[0.02] border border-dashed border-white/5 p-3 rounded-xl text-center">
+                              No other members in this group
+                            </p>
+                          );
+                        }
+
+                        return (
+                          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+                            {members.map(m => {
+                              const user = m?.user || m;
+                              const uid = (user?._id || user?.uid || user || '').toString();
+                              const name = user?.name || 'Member';
+                              const avatar = user?.avatar || null;
+                              const isSelected = customPayee === uid;
+
+                              return (
+                                <button
+                                  key={uid}
+                                  onClick={() => setCustomPayee(isSelected ? null : uid)}
+                                  className="flex flex-col items-center gap-1.5 shrink-0 group"
+                                >
+                                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-black transition-all border-2 ${
+                                    isSelected
+                                      ? 'border-violet-500 bg-violet-500/20 text-violet-300 scale-110 shadow-lg shadow-violet-500/20'
+                                      : 'border-white/10 bg-white/5 text-white/60 group-hover:border-white/30 group-hover:bg-white/10'
+                                  }`}>
+                                    {avatar
+                                      ? <img src={avatar} alt={name} className="w-full h-full object-cover rounded-2xl" />
+                                      : <span>{name.charAt(0).toUpperCase()}</span>
+                                    }
+                                  </div>
+                                  <span className={`text-[8px] font-black uppercase tracking-wide w-14 text-center truncate transition-colors ${
+                                    isSelected ? 'text-violet-400' : 'text-white/30 group-hover:text-white/60'
+                                  }`}>
+                                    {name.split(' ')[0]}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Amount input */}
+                    <div>
+                      <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] mb-2">
+                        Amount
+                      </p>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        placeholder="Enter amount…"
+                        value={customAmount}
+                        onChange={e => setCustomAmount(e.target.value)}
+                        className="h-12 bg-white/[0.03]"
+                      />
+                    </div>
+
+                    {/* Action buttons */}
+                    {(() => {
+                      const payeeUid = customPayee;
+                      const amt = parseFloat(customAmount);
+                      const isValid = payeeUid && amt > 0;
+                      const receiverDetails = memberPaymentDetails[payeeUid];
+                      const receiverHasUpi = hasPaymentMethod(receiverDetails);
+
+                      const customDebt = { to: payeeUid, amount: amt || 0 };
+
+                      return (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            {/* Mark Paid */}
+                            <button
+                              disabled={!isValid || processing}
+                              onClick={() => handleSettle(payeeUid, amt, 'Custom settlement')}
+                              className={`flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                                isValid && !processing
+                                  ? 'bg-white text-black hover:bg-white/90 border-white active:scale-95'
+                                  : 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed'
+                              }`}
+                            >
+                              {processing ? '…' : 'Mark Paid'}
+                            </button>
+                          </div>
+
+                          {/* Pay via UPI */}
+                          <button
+                            disabled={!isValid || !receiverHasUpi || fetchingPayments || processing}
+                            onClick={() => {
+                              if (!isValid) return;
+                              handleUPIPay(customDebt, receiverDetails);
+                            }}
+                            title={
+                              !payeeUid ? 'Select a member first'
+                              : !isValid ? 'Enter a valid amount'
+                              : !receiverHasUpi ? 'This member has no UPI ID set'
+                              : `Pay via UPI`
+                            }
+                            className={`
+                              w-full h-11 rounded-xl text-[11px] font-black uppercase tracking-widest
+                              flex items-center justify-center gap-2 transition-all border
+                              ${isValid && receiverHasUpi && !fetchingPayments && !processing
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
+                                : 'bg-white/[0.03] border-white/5 text-white/20 opacity-40 cursor-not-allowed grayscale'
+                              }
+                            `}
+                          >
+                            <LucideIcons.Smartphone size={14} />
+                            Pay via UPI
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Always-mounted portals moved inside Modal children to share lifecycle */}

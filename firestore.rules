@@ -55,6 +55,11 @@ service cloud.firestore {
            request.resource.data.get('friends', []).removeAll(resource.data.get('friends', [])) == [request.auth.uid] ||
            resource.data.get('friends', []).removeAll(request.resource.data.get('friends', [])) == [request.auth.uid]
          )
+        ) ||
+        (
+         // Allow users to write/delete their own FCM push token
+         request.auth.uid == userId &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken'])
         )
       );
       allow delete: if false;

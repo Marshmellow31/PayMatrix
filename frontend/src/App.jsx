@@ -7,6 +7,7 @@ import { setUser } from './redux/authSlice.js';
 import { doc, getDoc, onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
 import { setNotifications } from './redux/notificationSlice.js';
 import Loader from './components/common/Loader.jsx';
+import { usePushNotifications } from './hooks/usePushNotifications.js';
 
 // Layout
 import AppLayout from './components/layout/AppLayout.jsx';
@@ -46,6 +47,10 @@ const PublicRoute = ({ children }) => {
 function App() {
   const dispatch = useDispatch();
   const [initializing, setInitializing] = useState(true);
+
+  // Silently registers for FCM push notifications after login.
+  // Saves the device token to Firestore so Cloud Functions can target it.
+  usePushNotifications();
 
   useEffect(() => {
     // Listen for Firebase Auth state changes
