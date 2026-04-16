@@ -28,7 +28,15 @@ cleanupOutdatedCaches();
 // Any navigation request (page load, refresh, deep link) that isn't a
 // precached asset will be served with the cached index.html.
 // This is what makes the app fully functional offline for all routes.
-const spaHandler = createHandlerBoundToURL('/index.html');
+// Development Note: In dev mode, /index.html might not be precached, 
+// so we use a fallback to avoid the "non-precached-url" crash.
+let spaHandler;
+try {
+  spaHandler = createHandlerBoundToURL('/index.html');
+} catch (error) {
+  spaHandler = ({ event }) => fetch('/index.html');
+}
+
 registerRoute(new NavigationRoute(spaHandler));
 
 // ── 3. Runtime Caching: Google Fonts ──────────────────────────────────────

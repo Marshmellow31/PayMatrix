@@ -18,6 +18,7 @@ import Button from '../components/common/Button.jsx';
 import Modal from '../components/common/Modal.jsx';
 import Input from '../components/common/Input.jsx';
 import SettleUpModal from '../components/group/SettleUpModal.jsx';
+import GroupInsightsTab from '../components/group/GroupInsightsTab.jsx';
 import { Plus, UserPlus, WalletCards, Trash2 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
@@ -353,7 +354,7 @@ const GroupDetail = () => {
 
   const category = GROUP_CATEGORIES.find((c) => c.value === activeGroup.category);
   const isAdmin = activeGroup.admin === (user?._id || user?.uid);
-  const tabs = ['expenses', 'members', 'logs'];
+  const tabs = ['expenses', 'members', 'logs', 'insights'];
 
   // De-duplicate members for accurate count
   const uniqueMembers = Array.from(new Map(
@@ -572,6 +573,15 @@ const GroupDetail = () => {
           </div>
           <ActivityFeed groupId={id} externalLogs={groupLogs} />
         </div>
+      )}
+
+      {tab === 'insights' && (
+        <GroupInsightsTab
+          members={activeGroup.members}
+          expenses={scopedExpenses}
+          settlements={settlements}
+          netBalances={netBalances}
+        />
       )}
 
       {/* Add Member Modal */}

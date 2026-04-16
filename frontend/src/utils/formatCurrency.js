@@ -15,7 +15,7 @@ export const formatCurrency = (amount, currency = 'INR', locale = 'en-IN') => {
  * Format compact currency (e.g., ₹1.2K)
  */
 export const formatCompactCurrency = (amount, currency = 'INR', locale = 'en-IN') => {
-  if (Math.abs(amount) >= 100000) {
+  if (Math.abs(amount) >= 10000) {
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency,
