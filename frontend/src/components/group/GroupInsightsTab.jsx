@@ -266,14 +266,14 @@ const GroupInsightsTab = ({
         <StatPill
           icon={LucideIcons.IndianRupee}
           label="Total Spent"
-          value={formatCompactCurrency(totalGroupSpend)}
+          value={formatCurrency(totalGroupSpend)}
           accent="#a78bfa"
           className="col-span-2 sm:col-span-1"
         />
         <StatPill
           icon={LucideIcons.CheckCircle2}
           label="Settled"
-          value={formatCompactCurrency(totalSettled)}
+          value={formatCurrency(totalSettled)}
           accent="#34d399"
         />
         <StatPill

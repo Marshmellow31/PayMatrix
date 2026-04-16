@@ -23,7 +23,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  experimentalForceLongPolling: true,
 });
 const storage = getStorage(app);
 // messaging is only initialized in browser context (not in the service worker)
