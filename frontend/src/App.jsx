@@ -8,6 +8,7 @@ import { doc, getDoc, onSnapshot, collection, query, where, orderBy } from 'fire
 import { setNotifications } from './redux/notificationSlice.js';
 import Loader from './components/common/Loader.jsx';
 import { usePushNotifications } from './hooks/usePushNotifications.js';
+import InstallPrompt from './components/common/InstallPrompt.jsx';
 
 // Layout
 import AppLayout from './components/layout/AppLayout.jsx';
@@ -136,6 +137,8 @@ function App() {
   }
 
   return (
+    <>
+    <InstallPrompt />
     <Routes>
       {/* Public Routes */}
       <Route
@@ -193,6 +196,7 @@ function App() {
       {/* 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </>
   );
 }
 
