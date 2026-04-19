@@ -2,6 +2,21 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X, Smartphone, Monitor } from 'lucide-react';
 
+/* Responsive bottom offset: clear the mobile bottom nav (bottom-6 + h-16 = ~6rem)
+   but stay close to the edge on large screens */
+const MOBILE_BOTTOM_CSS = `
+  @media (max-width: 1023px) {
+    .install-prompt-card { bottom: 6.25rem !important; }
+  }
+  @media (min-width: 1024px) {
+    .install-prompt-card { bottom: 1.5rem !important; left: auto !important; right: auto !important; margin-left: auto !important; margin-right: auto !important; width: calc(100% - 2rem) !important; }
+  }
+`;
+
+function PromptStyles() {
+  return <style>{MOBILE_BOTTOM_CSS}</style>;
+}
+
 /**
  * InstallPrompt
  *
@@ -89,12 +104,13 @@ const ghostBtn = {
 
 // ─── Sub-views ────────────────────────────────────────────────────────────────
 
-/** Compact one-liner row with an action button */
+/** Compact one-liner row with an action button + inline dismiss X */
 function BannerRow({ icon, title, subtitle, actionLabel, onAction, onDismiss }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+      {/* App icon */}
       <div style={{
-        width: '48px', height: '48px', borderRadius: '12px',
+        width: '40px', height: '40px', borderRadius: '10px',
         background: 'linear-gradient(135deg, #ffffff18, #ffffff08)',
         border: '1px solid rgba(255,255,255,0.1)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
@@ -102,22 +118,52 @@ function BannerRow({ icon, title, subtitle, actionLabel, onAction, onDismiss }) 
         {icon}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ color: '#f0f0f0', fontWeight: 600, fontSize: '0.9rem', lineHeight: 1.3, marginBottom: '2px' }}>
+      {/* Text */}
+      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+        <p style={{
+          color: '#f0f0f0', fontWeight: 600, fontSize: '0.88rem', lineHeight: 1.3, marginBottom: '1px',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
           {title}
         </p>
-        <p style={{ color: '#919191', fontSize: '0.75rem', lineHeight: 1.4 }}>
+        <p style={{
+          color: '#919191', fontSize: '0.73rem', lineHeight: 1.4,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
           {subtitle}
         </p>
       </div>
 
+      {/* Action button */}
       <button
         onClick={onAction}
-        style={primaryBtn}
+        style={{ ...primaryBtn, flexShrink: 0, whiteSpace: 'nowrap' }}
         onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.04)'}
         onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
       >
         {actionLabel}
+      </button>
+
+      {/* Dismiss X — inline, no overlap */}
+      <button
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        style={{
+          flexShrink: 0,
+          background: 'rgba(255,255,255,0.07)',
+          border: 'none',
+          borderRadius: '50%',
+          width: '26px',
+          height: '26px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: '#808080',
+          padding: 0,
+        }}
+      >
+        <X size={12} />
       </button>
     </div>
   );
@@ -263,17 +309,28 @@ export default function InstallPrompt() {
 
     if (isStandalone) return;
 
-    const dismissed = sessionStorage.getItem('pwa-prompt-dismissed');
-    if (dismissed) return;
+    // Dismissed flag stored in localStorage with a 30-day expiry
+    const dismissedAt = localStorage.getItem('pwa-prompt-dismissed-at');
+    if (dismissedAt) {
+      const ageMs = Date.now() - Number(dismissedAt);
+      if (ageMs < 30 * 24 * 60 * 60 * 1000) {
+        console.log('[InstallPrompt] suppressed — dismissed', Math.floor(ageMs / 86400000), 'days ago');
+        return;
+      }
+    }
+
+    console.log('[InstallPrompt] platform:', { isIOS, isDesktop, isFirefox, isChromium });
 
     // ── iOS Safari ──────────────────────────────────────────────────────────
     if (isIOS) {
+      console.log('[InstallPrompt] iOS detected → showing share-sheet guide in 2.5s');
       const t = setTimeout(() => { setView('banner-ios'); setVisible(true); }, 2500);
       return () => clearTimeout(t);
     }
 
     // ── Desktop Firefox ─────────────────────────────────────────────────────
     if (isDesktop && isFirefox) {
+      console.log('[InstallPrompt] Firefox desktop → showing Chrome/Edge guide in 2.5s');
       const t = setTimeout(() => { setView('firefox-guide'); setVisible(true); }, 2500);
       return () => clearTimeout(t);
     }
@@ -297,12 +354,14 @@ export default function InstallPrompt() {
     window.addEventListener('beforeinstallprompt', handler);
 
     if (isDesktop && isChromium) {
+      console.log('[InstallPrompt] Chromium desktop — waiting for beforeinstallprompt (fallback in 2s)');
       fallbackTimer = setTimeout(() => {
         if (!nativePromptReceived) {
+          console.log('[InstallPrompt] beforeinstallprompt did not fire → showing address-bar guide');
           setView('chrome-desktop');
           setVisible(true);
         }
-      }, 4000);
+      }, 2000);
     }
 
     return () => {
@@ -320,11 +379,13 @@ export default function InstallPrompt() {
 
   const dismiss = () => {
     setVisible(false);
-    sessionStorage.setItem('pwa-prompt-dismissed', '1');
+    localStorage.setItem('pwa-prompt-dismissed-at', String(Date.now()));
   };
 
   return (
-    <AnimatePresence>
+    <>
+      <PromptStyles />
+      <AnimatePresence>
       {visible && (
         <motion.div
           key="install-prompt"
@@ -332,38 +393,41 @@ export default function InstallPrompt() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 120, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+          className="install-prompt-card"
           style={{
             position: 'fixed',
-            bottom: '1.25rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: 'calc(100% - 2rem)',
+            bottom: '6.25rem', // overridden per breakpoint by .install-prompt-card CSS
+            left: '0.75rem',
+            right: '0.75rem',
+            margin: '0 auto',
             maxWidth: '440px',
             zIndex: 9999,
-            background: 'rgba(22, 22, 22, 0.88)',
+            background: 'rgba(22, 22, 22, 0.92)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
             border: '1px solid rgba(255,255,255,0.09)',
             borderRadius: '1.25rem',
-            padding: '1rem 1.1rem',
+            padding: '0.85rem 1rem',
             boxShadow: '0 24px 60px rgba(0,0,0,0.65)',
           }}
         >
-          {/* Close button */}
-          <button
-            onClick={dismiss}
-            aria-label="Dismiss install prompt"
-            style={closeBtn}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
-          >
-            <X size={14} />
-          </button>
+          {/* Absolute close button only for expanded guide views */}
+          {(view === 'ios-guide' || view === 'chrome-desktop' || view === 'firefox-guide') && (
+            <button
+              onClick={dismiss}
+              aria-label="Dismiss install prompt"
+              style={closeBtn}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
+            >
+              <X size={14} />
+            </button>
+          )}
 
           {/* ── Chrome/Edge native install banner ── */}
           {view === 'banner' && (
             <BannerRow
-              icon={<Smartphone size={24} color="#e5e2e1" />}
+              icon={<Smartphone size={22} color="#e5e2e1" />}
               title="Install PayMatrix"
               subtitle="Add to your home screen for the best experience"
               actionLabel={<><Download size={13} /> Install</>}
@@ -395,5 +459,6 @@ export default function InstallPrompt() {
         </motion.div>
       )}
     </AnimatePresence>
+    </>
   );
 }
