@@ -43,7 +43,7 @@ export const ExpenseSchema = z.object({
   paidBy: z.string().min(1, "Payer UID required"),
   paidByName: z.string().optional(),
   splitType: z.enum(['equal', 'exact', 'percentage', 'shares']).default('equal'),
-  splitData: z.record(z.any()), // Further validation in split logic
+  splitData: z.record(z.string(), z.any()), // Further validation in split logic
   participants: z.array(z.string()).min(1),
   category: z.string().max(50).optional(),
   attachments: z.array(z.string()).optional(),
