@@ -112,19 +112,13 @@ const buildUPIQuery = (upiId, name, amount, note) => {
   
   const am = parseFloat(amount || 0).toFixed(2);
   
-  // Defensive: Handle case where note might be missing or non-string
-  const rawNote = typeof note === 'string' ? note : 'PayMatrix Settlement';
-  const tn = encodeURIComponent(sanitizeForUPI(rawNote).substring(0, 100));
-  
-  // Add a unique Transaction Reference (tr). 
-  // While optional for basic P2P, apps like GPay use 'tr' for deduplication.
-  // Clicking a link twice without a unique 'tr' often triggers "payment limit reached"
-  // or "transaction failed" as a safeguard against duplicate payments.
-  const tr = 'PMX' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
-  
-  // mc=0000 is the standard Merchant Category Code for P2P (Individual) transfers.
-  // Explicitly providing it helps UPI apps categorize the payment correctly.
-  return `pa=${pa}&pn=${pn}&mc=0000&am=${am}&cu=INR&tn=${tn}&tr=${tr}`;
+  // Removing tn (Transaction Note), tr (Transaction Reference), and mc (Merchant Code).
+  // GPay's risk engine aggressively flags automated P2P links that contain 
+  // auto-generated notes or reference IDs, leading to false "Bank Limit Exceeded" 
+  // or "Security Risk" errors. 
+  // Sending only the bare minimum required parameters (pa, pn, am, cu) is the 
+  // safest way to ensure the intent is treated as a normal, manual user transfer.
+  return `pa=${pa}&pn=${pn}&am=${am}&cu=INR`;
 };
 
 /**
