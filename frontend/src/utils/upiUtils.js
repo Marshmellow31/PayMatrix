@@ -151,13 +151,13 @@ export const getAppDeepLink = (appId, upiId, name, amount, note) => {
     return `upi://pay?${q}`;
   }
 
-  // On iOS, use the correct registered URL schemes for each app.
-  // Google Pay India on iOS uses `tez://` (legacy from the "Google Tez" era).
-  // `gpay://` does NOT resolve to Google Pay on iOS, causing iOS to hand off
-  // to another UPI-registered app (e.g. WhatsApp Pay).
+  // On iOS, we use the standard `upi://` scheme for Google Pay as well.
+  // This allows the system to handle the request via the standard UPI 
+  // chooser or the user's preferred handler, ensuring the bank treats
+  // the transaction as a standard, non-whitelisted P2P payment.
   switch (appId) {
     case 'gpay':
-      return `gpay://upi/pay?${q}`;
+      return `upi://pay?${q}`;
     case 'phonepe':
       return `phonepe://pay?${q}`;
     case 'paytm':
