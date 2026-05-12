@@ -24,6 +24,13 @@ precacheAndRoute(self.__WB_MANIFEST);
 // Remove caches from older SW versions on activation
 cleanupOutdatedCaches();
 
+// Allow the client to force the new SW to take control immediately
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // ── 2. SPA Navigation Fallback ────────────────────────────────────────────
 // Any navigation request (page load, refresh, deep link) that isn't a
 // precached asset will be served with the cached index.html.

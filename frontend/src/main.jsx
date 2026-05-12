@@ -4,7 +4,6 @@ import { BrowserRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { Toaster } from 'react-hot-toast';
-import { registerSW } from 'virtual:pwa-register';
 import { store, persistor } from './redux/store.js';
 import App from './App.jsx';
 import Loader from './components/common/Loader.jsx';
@@ -18,8 +17,8 @@ if (typeof window !== 'undefined' && 'caches' in window) {
   );
 }
 
-// Register Service Worker
-registerSW({ immediate: true });
+// The Service Worker is now registered and managed by PwaUpdatePrompt.jsx
+// inside the React component tree to allow for UI update prompts.
 
 // App-like behaviors: Disable context menu and specific gestures
 if (typeof window !== 'undefined') {

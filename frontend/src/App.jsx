@@ -9,6 +9,7 @@ import { setNotifications } from './redux/notificationSlice.js';
 import Loader from './components/common/Loader.jsx';
 import { usePushNotifications } from './hooks/usePushNotifications.js';
 import InstallPrompt from './components/common/InstallPrompt.jsx';
+import PwaUpdatePrompt from './components/common/PwaUpdatePrompt.jsx';
 
 // Layout
 import AppLayout from './components/layout/AppLayout.jsx';
@@ -139,6 +140,7 @@ function App() {
   return (
     <>
     <InstallPrompt />
+    <PwaUpdatePrompt />
     <Routes>
       {/* Public Routes */}
       <Route

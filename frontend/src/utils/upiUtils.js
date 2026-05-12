@@ -92,6 +92,15 @@ export const hasPaymentMethod = (user) => {
 // ─── Deep Link Builder ────────────────────────────────────────────────────────
 
 /**
+ * Strips non-ASCII characters from a string.
+ * UPI apps (especially GPay) have strict ASCII-only parsers for parameters
+ * like `tn` (transaction note). Non-ASCII chars (e.g. en dash U+2013) get
+ * multi-byte encoded (%E2%80%93) which can cause the app to reject the
+ * payment with spurious errors like "payment limit reached".
+ */
+const sanitizeForUPI = (str) => str.replace(/[^\x20-\x7E]/g, '').trim();
+
+/**
  * Builds a URL-encoded UPI query string.
  */
 const buildUPIQuery = (upiId, name, amount, note) => {
@@ -99,15 +108,21 @@ const buildUPIQuery = (upiId, name, amount, note) => {
   
   // Defensive: Handle case where name might be a user object
   const rawName = typeof name === 'string' ? name : (name?.name || 'User');
-  const pn = encodeURIComponent(rawName.trim().substring(0, 50));
+  const pn = encodeURIComponent(sanitizeForUPI(rawName).substring(0, 50));
   
   const am = parseFloat(amount || 0).toFixed(2);
   
   // Defensive: Handle case where note might be missing or non-string
   const rawNote = typeof note === 'string' ? note : 'PayMatrix Settlement';
-  const tn = encodeURIComponent(rawNote.trim().substring(0, 100));
+  const tn = encodeURIComponent(sanitizeForUPI(rawNote).substring(0, 100));
   
-  return `pa=${pa}&pn=${pn}&am=${am}&cu=INR&tn=${tn}`;
+  // Add a unique Transaction Reference (tr). 
+  // While optional for basic P2P, apps like GPay use 'tr' for deduplication.
+  // Clicking a link twice without a unique 'tr' often triggers "payment limit reached"
+  // or "transaction failed" as a safeguard against duplicate payments.
+  const tr = 'PMX' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+  
+  return `pa=${pa}&pn=${pn}&am=${am}&cu=INR&tn=${tn}&tr=${tr}`;
 };
 
 /**
@@ -226,7 +241,28 @@ export const handleSmartPayment = (
 
   // ── All other cases → build deep link ────────────────────────────────────────
   const url = getAppDeepLink(app, receiver.upiId, receiver.name, amount, note);
-  window.location.href = url;
+  
+  // Use a hidden anchor tag to trigger the intent, which is more reliable than window.location.href
+  // on some Android WebViews and browsers.
+  const link = document.createElement('a');
+  link.href = url;
+  // Fallback for intent resolution failure (if app not installed)
+  if (platform === 'android' && url.startsWith('intent://')) {
+      const fallbackUrl = `upi://pay?${buildUPIQuery(receiver.upiId, receiver.name, amount, note)}`;
+      link.setAttribute('data-fallback', fallbackUrl);
+      
+      // Attempt to catch if intent fails to resolve
+      setTimeout(() => {
+        if(document.visibilityState === 'visible') {
+           window.location.href = fallbackUrl;
+        }
+      }, 1500);
+  }
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
   return { success: true, url, needsChooser: false, platform, error: null };
 };
 
