@@ -161,7 +161,7 @@ export const getAppDeepLink = (appId, upiId, name, amount, note) => {
   // to another UPI-registered app (e.g. WhatsApp Pay).
   switch (appId) {
     case 'gpay':
-      return `tez://upi/pay?${q}`;
+      return `gpay://upi/pay?${q}`;
     case 'phonepe':
       return `phonepe://pay?${q}`;
     case 'paytm':

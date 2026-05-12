@@ -555,12 +555,36 @@ const Profile = () => {
                 </div>
                 <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.currency || 'INR'}</span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pb-4 border-b border-white/5">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-white/60 font-inter">Interface</span>
                   <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">(coming soon)</span>
                 </div>
                 <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.theme || 'dark'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-white/60 font-inter">App Version</span>
+                  <span className="text-[10px] text-white/30 font-inter">v1.1.0 (Build 42)</span>
+                </div>
+                <button
+                  onClick={() => {
+                    toast.loading("Checking for updates...", { duration: 1000 });
+                    if ('serviceWorker' in navigator) {
+                      navigator.serviceWorker.getRegistrations().then(registrations => {
+                        registrations.forEach(registration => registration.update());
+                      });
+                    }
+                    setTimeout(() => {
+                      if (window.location) {
+                        window.location.reload(true);
+                      }
+                    }, 1200);
+                  }}
+                  className="h-8 px-4 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+                >
+                  Force Update
+                </button>
               </div>
             </div>
           </div>
