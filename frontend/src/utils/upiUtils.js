@@ -122,7 +122,9 @@ const buildUPIQuery = (upiId, name, amount, note) => {
   // or "transaction failed" as a safeguard against duplicate payments.
   const tr = 'PMX' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
   
-  return `pa=${pa}&pn=${pn}&am=${am}&cu=INR&tn=${tn}&tr=${tr}`;
+  // mc=0000 is the standard Merchant Category Code for P2P (Individual) transfers.
+  // Explicitly providing it helps UPI apps categorize the payment correctly.
+  return `pa=${pa}&pn=${pn}&mc=0000&am=${am}&cu=INR&tn=${tn}&tr=${tr}`;
 };
 
 /**
