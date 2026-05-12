@@ -116,9 +116,37 @@ const buildUPIQuery = (upiId, name, amount, note) => {
  */
 export const getAppDeepLink = (appId, upiId, name, amount, note) => {
   const q = buildUPIQuery(upiId, name, amount, note);
+  const platform = detectPlatform();
+
+  // On Android, use intent:// URLs to route through the standard UPI intent system.
+  // Custom schemes (gpay://, phonepe://) bypass intent resolution and cause apps
+  // to reject payments with spurious errors ("payment limit reached", etc.)
+  // because the browser origin is not a whitelisted/verified merchant.
+  if (platform === 'android') {
+    const packages = {
+      gpay: 'com.google.android.apps.nbu.paisa.user',
+      phonepe: 'com.phonepe.app',
+      paytm: 'net.one97.paytm',
+      bhim: 'in.org.npci.upiapp',
+    };
+    const pkg = packages[appId];
+    if (pkg) {
+      // intent://pay?pa=...#Intent;scheme=upi;package=...;end
+      // This opens the specific app via Android's intent system using the standard
+      // upi:// scheme, so the app treats it as a legitimate P2P payment.
+      return `intent://pay?${q}#Intent;scheme=upi;package=${pkg};end`;
+    }
+    // Default: standard upi:// lets Android show the app chooser
+    return `upi://pay?${q}`;
+  }
+
+  // On iOS, use the correct registered URL schemes for each app.
+  // Google Pay India on iOS uses `tez://` (legacy from the "Google Tez" era).
+  // `gpay://` does NOT resolve to Google Pay on iOS, causing iOS to hand off
+  // to another UPI-registered app (e.g. WhatsApp Pay).
   switch (appId) {
     case 'gpay':
-      return `gpay://upi/pay?${q}`;
+      return `tez://upi/pay?${q}`;
     case 'phonepe':
       return `phonepe://pay?${q}`;
     case 'paytm':
