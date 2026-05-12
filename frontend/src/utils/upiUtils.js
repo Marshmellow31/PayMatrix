@@ -103,7 +103,7 @@ const sanitizeForUPI = (str) => str.replace(/[^\x20-\x7E]/g, '').trim();
 /**
  * Builds a URL-encoded UPI query string.
  */
-const buildUPIQuery = (upiId, name, amount, note) => {
+const buildUPIQuery = (upiId, name, amount, note, platform) => {
   const pa = encodeURIComponent((upiId || '').toString().trim());
   
   // Defensive: Handle case where name might be a user object
@@ -116,6 +116,13 @@ const buildUPIQuery = (upiId, name, amount, note) => {
   // GPay's risk engine aggressively flags automated P2P links that contain 
   // auto-generated notes or reference IDs, leading to false "Bank Limit Exceeded" 
   // or "Security Risk" errors. 
+  
+  // For iOS specifically, omitting the amount forces the user to type it manually.
+  // This heavily mitigates "Bank Limit Exceeded" anti-fraud blocks.
+  if (platform === 'ios') {
+    return `pa=${pa}&pn=${pn}&cu=INR`;
+  }
+
   // Sending only the bare minimum required parameters (pa, pn, am, cu) is the 
   // safest way to ensure the intent is treated as a normal, manual user transfer.
   return `pa=${pa}&pn=${pn}&am=${am}&cu=INR`;
@@ -126,8 +133,8 @@ const buildUPIQuery = (upiId, name, amount, note) => {
  * @param {"default"|"gpay"|"phonepe"|"paytm"|"bhim"} appId
  */
 export const getAppDeepLink = (appId, upiId, name, amount, note) => {
-  const q = buildUPIQuery(upiId, name, amount, note);
   const platform = detectPlatform();
+  const q = buildUPIQuery(upiId, name, amount, note, platform);
 
   // On Android, use intent:// URLs to route through the standard UPI intent system.
   // Custom schemes (gpay://, phonepe://) bypass intent resolution and cause apps
@@ -151,13 +158,11 @@ export const getAppDeepLink = (appId, upiId, name, amount, note) => {
     return `upi://pay?${q}`;
   }
 
-  // On iOS, we use the standard `upi://` scheme for Google Pay as well.
-  // This allows the system to handle the request via the standard UPI 
-  // chooser or the user's preferred handler, ensuring the bank treats
-  // the transaction as a standard, non-whitelisted P2P payment.
+  // On iOS, we use the specific `gpay://` scheme to force Google Pay
+  // instead of relying on the generic `upi://` chooser.
   switch (appId) {
     case 'gpay':
-      return `upi://pay?${q}`;
+      return `gpay://upi/pay?${q}`;
     case 'phonepe':
       return `phonepe://pay?${q}`;
     case 'paytm':
