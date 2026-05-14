@@ -60,7 +60,7 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5080,
+    port: 5145,
     host: true,
     proxy: {
       '/api': {
