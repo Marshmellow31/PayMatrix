@@ -340,7 +340,14 @@ const ExpenseForm = ({
       {/* Category Selection */}
       <div className="space-y-4">
         <label className="block text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter px-1 opacity-60 text-center">Category Focus</label>
-        <div className="w-full flex gap-2.5 overflow-x-auto no-scrollbar justify-start sm:justify-center">
+        <div 
+          className="w-full flex gap-2.5 overflow-x-auto no-scrollbar justify-start"
+          onWheel={(e) => {
+            if (e.deltaY !== 0) {
+              e.currentTarget.scrollLeft += e.deltaY;
+            }
+          }}
+        >
           {EXPENSE_CATEGORIES.map((cat) => {
             const IconComp = LucideIcons[cat.icon] || LucideIcons.Hash;
             return (
@@ -402,7 +409,14 @@ const ExpenseForm = ({
       {/* Paid By Selection */}
       <div className="space-y-4">
         <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60 px-1">Paid By</label>
-        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+        <div 
+          className="flex gap-3 overflow-x-auto no-scrollbar pb-2"
+          onWheel={(e) => {
+            if (e.deltaY !== 0) {
+              e.currentTarget.scrollLeft += e.deltaY;
+            }
+          }}
+        >
                     {(() => {
                       const allMemberNames = uniqueMembers.map(m => m.user?.name).filter(Boolean);
                       return uniqueMembers.map(member => {
