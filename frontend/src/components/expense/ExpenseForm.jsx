@@ -484,7 +484,7 @@ const ExpenseForm = ({
         <div className="flex flex-col gap-6">
           <div className="space-y-4">
             <label className="block text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter px-1 opacity-60">Category Focus</label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:grid md:grid-cols-3 md:gap-2">
               {EXPENSE_CATEGORIES.map((cat) => {
                 const IconComp = LucideIcons[cat.icon] || LucideIcons.Hash;
                 return (
@@ -492,7 +492,7 @@ const ExpenseForm = ({
                     key={cat.value}
                     type="button"
                     onClick={() => handleCategorySelect(cat.value)}
-                    className={`w-full px-2 py-2.5 sm:px-1.5 rounded-full border transition-all text-[10px] font-bold flex items-center justify-center gap-1.5 ${
+                    className={`flex-shrink-0 md:w-full px-4 py-2.5 rounded-full border transition-all text-[10px] font-bold flex items-center justify-center gap-1.5 ${
                       form.category === cat.value 
                         ? 'bg-white text-black border-white shadow-lg' 
                         : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
