@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import {
   ScanLine, Camera, ImageIcon, IndianRupee, Store, Calendar,
-  Tag, List, ChevronDown, ChevronRight, RefreshCw, X,
+  Tag, ChevronRight, RefreshCw, X, Trash2, Check, Plus,
 } from 'lucide-react';
 import { HiX } from 'react-icons/hi';
 import { useBillScanner } from '../../hooks/useBillScanner.js';
@@ -44,7 +44,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
   const [editableData, setEditableData] = useState({
     amount: '', title: '', date: '', category: 'Other',
   });
-  const [showItems, setShowItems] = useState(false);
+  const [reviewItems, setReviewItems] = useState([]);
   const [fakeProgress, setFakeProgress] = useState(0);
   const [scanFailed, setScanFailed] = useState(false);
 
@@ -58,8 +58,8 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
       setStage(STAGE.CAPTURE);
       setImagePreview(null);
       setScanResult(null);
+      setReviewItems([]);
       setFakeProgress(0);
-      setShowItems(false);
       setScanFailed(false);
     }
   }, [isOpen]);
@@ -94,6 +94,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
     setTimeout(() => {
       if (result) {
         setScanResult(result);
+        setReviewItems((result.items || []).map(it => ({ ...it })));
         setEditableData({
           amount: result.amount != null ? result.amount.toFixed(2) : '',
           title: result.title || '',
@@ -108,16 +109,33 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
     }, 350);
   };
 
+  const updateItem = (idx, key, val) => {
+    setReviewItems(prev => prev.map((it, i) => i === idx ? { ...it, [key]: val } : it));
+  };
+  const deleteItem = (idx) => {
+    setReviewItems(prev => prev.filter((_, i) => i !== idx));
+  };
+  const addItem = () => {
+    setReviewItems(prev => [...prev, { name: '', price: 0 }]);
+  };
+
   const handleFillForm = () => {
+    const items = reviewItems
+      .map(it => ({ name: (it.name || '').trim() || 'Item', price: parseFloat(it.price) || 0 }))
+      .filter(it => it.price > 0);
     onFill({
       amount: editableData.amount,
       title: editableData.title,
       date: editableData.date,
       category: editableData.category,
-      items: scanResult?.items || [],
+      items,
     });
     onClose();
   };
+
+  const itemsTotal = reviewItems.reduce((s, it) => s + (parseFloat(it.price) || 0), 0);
+  const billTotal = parseFloat(editableData.amount) || 0;
+  const taxGap = billTotal - itemsTotal;
 
   const stageTitle = {
     [STAGE.CAPTURE]: 'Scan Receipt',
@@ -337,6 +355,32 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                           type="number"
                           placeholder="0.00"
                         />
+
+                        {/* Alternative detected amounts — bills vary, let the user override the pick */}
+                        {scanResult.candidates?.length > 1 && (
+                          <div className="flex items-center gap-2 flex-wrap px-1">
+                            <span className="text-[9px] font-black text-white/25 uppercase tracking-[0.15em] font-inter">Also found</span>
+                            {scanResult.candidates.map(c => {
+                              const cStr = c.toFixed(2);
+                              const active = cStr === editableData.amount;
+                              return (
+                                <button
+                                  key={cStr}
+                                  type="button"
+                                  onClick={() => setEditableData(p => ({ ...p, amount: cStr }))}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold font-manrope tabular-nums transition-all ${
+                                    active
+                                      ? 'bg-primary text-black'
+                                      : 'bg-white/[0.05] text-white/50 hover:bg-white/[0.1] hover:text-white'
+                                  }`}
+                                >
+                                  ₹{cStr}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
                         <FieldRow
                           icon={<Store size={14} />}
                           label="Merchant / Title"
@@ -371,54 +415,76 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                         </div>
                       </div>
 
-                      {/* Line items (collapsible) */}
-                      {scanResult.items?.length > 0 && (
-                        <div className="rounded-2xl border border-white/[0.06] overflow-hidden">
+                      {/* Detected items — editable, these get assigned to people later */}
+                      <div className="rounded-2xl border border-white/[0.06] overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-2.5 bg-white/[0.03]">
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-white/50 font-inter">
+                              Detected Items
+                            </span>
+                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-black">
+                              {reviewItems.length}
+                            </span>
+                          </div>
                           <button
                             type="button"
-                            onClick={() => setShowItems(s => !s)}
-                            className="w-full flex items-center justify-between px-4 py-3 bg-white/[0.03] hover:bg-white/[0.06] transition-all"
+                            onClick={addItem}
+                            className="flex items-center gap-1 text-[10px] font-bold text-white/40 hover:text-white transition-all uppercase tracking-wide"
                           >
-                            <div className="flex items-center gap-2.5">
-                              <List size={13} className="text-primary/60" />
-                              <span className="text-[10px] font-black uppercase tracking-[0.15em] text-white/50 font-inter">
-                                Line Items
-                              </span>
-                              <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-black">
-                                {scanResult.items.length}
-                              </span>
-                            </div>
-                            <ChevronDown
-                              size={14}
-                              className={`text-white/30 transition-transform duration-200 ${showItems ? 'rotate-180' : ''}`}
-                            />
+                            <Plus size={12} /> Add
                           </button>
-                          <AnimatePresence>
-                            {showItems && (
-                              <motion.div
-                                initial={{ height: 0 }}
-                                animate={{ height: 'auto' }}
-                                exit={{ height: 0 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="px-4 py-2 flex flex-col">
-                                  {scanResult.items.map((item, i) => (
-                                    <div
-                                      key={i}
-                                      className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-none"
-                                    >
-                                      <span className="text-xs text-white/50 font-inter truncate mr-4">{item.name}</span>
-                                      <span className="text-xs font-bold text-white font-manrope whitespace-nowrap">
-                                        ₹{item.price.toFixed(2)}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
                         </div>
-                      )}
+
+                        <div className="px-2 py-1.5 flex flex-col max-h-52 overflow-y-auto custom-scrollbar">
+                          {reviewItems.length === 0 && (
+                            <p className="text-[11px] text-white/25 font-inter text-center py-3">
+                              No items detected — add them manually or just use the total.
+                            </p>
+                          )}
+                          {reviewItems.map((item, i) => (
+                            <div key={i} className="flex items-center gap-2 py-1.5 border-b border-white/[0.04] last:border-none">
+                              <input
+                                value={item.name}
+                                onChange={e => updateItem(i, 'name', e.target.value)}
+                                placeholder="Item"
+                                className="flex-1 min-w-0 bg-transparent border-none outline-none text-xs text-white/80 font-inter focus:ring-0 p-0 placeholder:text-white/20"
+                              />
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <span className="text-[10px] text-white/30 font-bold">₹</span>
+                                <input
+                                  type="number"
+                                  value={item.price}
+                                  onChange={e => updateItem(i, 'price', e.target.value)}
+                                  placeholder="0"
+                                  className="w-16 bg-transparent border-none outline-none text-right text-xs font-bold text-white font-manrope focus:ring-0 p-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => deleteItem(i)}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg text-white/20 hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Items total vs bill total → the gap is tax/charges */}
+                        {reviewItems.length > 0 && (
+                          <div className="px-4 py-2.5 bg-white/[0.02] border-t border-white/[0.06] flex items-center justify-between text-[11px] font-manrope">
+                            <span className="text-white/40 font-bold">
+                              Items ₹{itemsTotal.toFixed(2)}
+                            </span>
+                            <span className={`font-bold flex items-center gap-1 ${taxGap < -0.5 ? 'text-red-400' : 'text-white/40'}`}>
+                              {taxGap < -0.5 ? <X size={11} /> : <Check size={11} className="text-primary" />}
+                              {taxGap < -0.5
+                                ? 'Items exceed total'
+                                : `Tax / charges ₹${Math.max(0, taxGap).toFixed(2)}`}
+                            </span>
+                          </div>
+                        )}
+                      </div>
 
                       {/* CTAs */}
                       <div className="flex flex-col gap-2.5 pt-2">
@@ -431,7 +497,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                           <ChevronRight size={18} strokeWidth={3} />
                         </button>
                         <button
-                          onClick={() => { setStage(STAGE.CAPTURE); setImagePreview(null); setScanResult(null); }}
+                          onClick={() => { setStage(STAGE.CAPTURE); setImagePreview(null); setScanResult(null); setReviewItems([]); }}
                           className="w-full h-11 rounded-2xl text-white/30 hover:text-white/60 font-manrope font-bold text-sm flex items-center justify-center gap-2 transition-all"
                         >
                           <RefreshCw size={13} />

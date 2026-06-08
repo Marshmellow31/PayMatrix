@@ -41,6 +41,10 @@ const ExpenseForm = ({
     dishAmounts: {}, // per-person pre-GST dish cost (itemized split)
   });
 
+  // Scanned-bill dish assignment (itemized split driven by detected items)
+  const [scannedItems, setScannedItems] = useState([]);          // [{ name, price }]
+  const [itemAssignments, setItemAssignments] = useState({});    // { itemIndex: [userId, ...] }
+
   // Initialization and Sync Logic
   useEffect(() => {
     // 1. Initial Data Loading (Edit Mode)
@@ -106,6 +110,13 @@ const ExpenseForm = ({
       if (Object.keys(updates).length > 0) {
         setForm(prev => ({ ...prev, ...updates }));
       }
+
+      // Scanned dishes → switch to itemized split and load items for assignment
+      if (prefillData?.items?.length > 0) {
+        setScannedItems(prefillData.items.map(it => ({ name: it.name, price: parseFloat(it.price) || 0 })));
+        setItemAssignments({});
+        setSplitType('itemized');
+      }
     }
   }, [initialData, initialGroupId, prefillData]);
 
@@ -144,6 +155,42 @@ const ExpenseForm = ({
     }
   }, [step, onStepChange]);
 
+  // Derive each person's dish total from item assignments (shared dishes split equally).
+  // This feeds the existing itemized engine, which distributes tax/charges by dish ratio.
+  useEffect(() => {
+    if (scannedItems.length === 0) return;
+    const dish = {};
+    participants.forEach(pid => { dish[pid] = 0; });
+    scannedItems.forEach((item, idx) => {
+      const assignees = (itemAssignments[idx] || []).filter(uid => participants.includes(uid));
+      if (assignees.length === 0) return;
+      const share = (parseFloat(item.price) || 0) / assignees.length;
+      assignees.forEach(uid => { dish[uid] = (dish[uid] || 0) + share; });
+    });
+    const dishStr = {};
+    Object.keys(dish).forEach(uid => { dishStr[uid] = dish[uid] ? dish[uid].toFixed(2) : '0'; });
+    setSplitData(prev => ({ ...prev, dishAmounts: dishStr }));
+  }, [scannedItems, itemAssignments, participants]);
+
+  const toggleItemAssignment = (idx, userId) => {
+    setItemAssignments(prev => {
+      const cur = prev[idx] || [];
+      const next = cur.includes(userId) ? cur.filter(u => u !== userId) : [...cur, userId];
+      return { ...prev, [idx]: next };
+    });
+  };
+
+  // Assign every still-unassigned dish to all current participants
+  const assignRemainingToEveryone = () => {
+    setItemAssignments(prev => {
+      const next = { ...prev };
+      scannedItems.forEach((_, idx) => {
+        const cur = (next[idx] || []).filter(uid => participants.includes(uid));
+        if (cur.length === 0) next[idx] = [...participants];
+      });
+      return next;
+    });
+  };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -189,9 +236,10 @@ const ExpenseForm = ({
         });
         setSplitData(prev => ({ ...prev, percentages: newPct }));
       }
-    } else if (newType === 'itemized') {
+    } else if (newType === 'itemized' && scannedItems.length === 0) {
       // Seed each dish with an equal slice of the total so GST starts at ₹0;
       // as the user types real dish prices, the leftover becomes GST.
+      // (Skipped when dishes came from a scanned bill — assignments drive the amounts.)
       const existingCount = Object.keys(splitData.dishAmounts).length;
       if (existingCount === 0 || existingCount < participants.length) {
         const perPerson = (currentAmount / participants.length).toFixed(2);
@@ -497,6 +545,12 @@ const ExpenseForm = ({
       splitType === 'itemized' ? isItemizedValid :
       true;
 
+    // Scanned-bill dish assignment state
+    const hasScannedItems = scannedItems.length > 0;
+    const unassignedCount = hasScannedItems
+      ? scannedItems.filter((_, idx) => (itemAssignments[idx] || []).filter(uid => participants.includes(uid)).length === 0).length
+      : 0;
+
     return (
     <motion.div
       initial={{ opacity: 0, scale: 1.05 }}
@@ -712,7 +766,7 @@ const ExpenseForm = ({
                       />
                     </div>
                     <AnimatePresence mode="wait">
-                      {isSelected && (splitType === 'exact' || splitType === 'itemized') && (
+                      {isSelected && (splitType === 'exact' || (splitType === 'itemized' && scannedItems.length === 0)) && (
                         <motion.div
                           key={`split-input-${userId}-${splitType}`}
                           initial={{ opacity: 0, scale: 0.95 }}
@@ -759,8 +813,90 @@ const ExpenseForm = ({
 
       </div>{/* end desktop grid */}
 
+      {/* Dish assignment — appears when the bill was scanned (itemized split) */}
+      {hasScannedItems && splitType === 'itemized' && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col gap-3 rounded-3xl border border-white/[0.07] bg-surface-container-low/40 p-4 sm:p-5"
+        >
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <LucideIcons.ReceiptText size={15} className="text-primary" />
+              <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-70">
+                Assign Dishes
+              </span>
+            </div>
+            {unassignedCount > 0 && (
+              <button
+                type="button"
+                onClick={assignRemainingToEveryone}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
+              >
+                <LucideIcons.Users size={11} />
+                {unassignedCount} left · share all
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2.5">
+            {scannedItems.map((item, idx) => {
+              const assignees = (itemAssignments[idx] || []).filter(uid => participants.includes(uid));
+              const isUnassigned = assignees.length === 0;
+              const perHead = assignees.length > 0 ? (parseFloat(item.price) || 0) / assignees.length : 0;
+              return (
+                <div
+                  key={idx}
+                  className={`rounded-2xl border p-3 transition-all ${
+                    isUnassigned ? 'border-orange-400/20 bg-orange-400/[0.04]' : 'border-white/5 bg-white/[0.02]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3 mb-2.5">
+                    <p className="font-manrope font-bold text-sm text-white truncate">{item.name}</p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {assignees.length > 1 && (
+                        <span className="text-[9px] text-on-surface-variant font-inter">₹{perHead.toFixed(2)} ea</span>
+                      )}
+                      <span className="font-manrope font-black text-sm text-white tabular-nums">₹{(parseFloat(item.price) || 0).toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {uniqueMembers.map(member => {
+                      const u = member.user || member;
+                      const uid = (u?._id || u?.uid || member._id || member).toString();
+                      if (!participants.includes(uid)) return null;
+                      const on = assignees.includes(uid);
+                      return (
+                        <button
+                          key={uid}
+                          type="button"
+                          onClick={() => toggleItemAssignment(idx, uid)}
+                          className={`flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border transition-all ${
+                            on
+                              ? 'bg-white text-black border-white shadow-md'
+                              : 'bg-transparent border-white/10 text-on-surface-variant hover:border-white/25'
+                          }`}
+                        >
+                          <Avatar name={u?.name} src={u?.avatar} size="sm" className="w-5 h-5 border-0" />
+                          <span className="text-[10px] font-bold whitespace-nowrap">{getShortName(u?.name, [])}</span>
+                          {on && <LucideIcons.Check size={11} strokeWidth={3} className="shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="text-[9px] text-on-surface-variant font-inter opacity-40 px-1 leading-snug">
+            Tap who shared each dish — split equally between them. Tax &amp; charges are added on top, shared by what each person ate.
+          </p>
+        </motion.div>
+      )}
+
       <div className="flex gap-4 mt-2">
-        <Button 
+        <Button
           variant="outline"
           onClick={() => setStep(1)}
           className="flex-1 h-14 rounded-3xl font-manrope font-bold text-white border-white/20 bg-transparent hover:bg-white/5 transition-all"
