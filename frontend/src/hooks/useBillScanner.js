@@ -4,7 +4,7 @@ import { EXPENSE_CATEGORIES } from '../utils/constants.js';
 const VALID_CATEGORIES = EXPENSE_CATEGORIES.map(c => c.value);
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-1.5-flash";
+const GEMINI_MODEL = "gemini-3.1-flash-lite";
 
 const RECEIPT_SCHEMA = {
   type: "OBJECT",
