@@ -45,6 +45,8 @@ const ExpenseForm = ({
   const [scannedItems, setScannedItems] = useState([]);          // [{ name, price }]
   const [itemAssignments, setItemAssignments] = useState({});    // { itemIndex: [userId, ...] }
 
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false);
+
   // Initialization and Sync Logic
   useEffect(() => {
     // 1. Initial Data Loading (Edit Mode)
@@ -452,22 +454,28 @@ const ExpenseForm = ({
 
           {/* Notes */}
           <div className="relative group">
-            <div className="absolute left-4 top-4 text-on-surface-variant opacity-40 group-focus-within:opacity-80 transition-opacity pointer-events-none">
+            <div className={`absolute left-4 text-on-surface-variant opacity-40 group-focus-within:opacity-80 transition-all pointer-events-none ${
+              (isNotesExpanded || !!form.notes.trim()) ? 'top-4' : 'top-1/2 -translate-y-1/2'
+            }`}>
               <LucideIcons.FileText size={16} />
             </div>
             <textarea
-              className="w-full bg-surface-container-low/50 border border-white/5 rounded-2xl py-3.5 pl-12 pr-6 pb-7 text-white font-manrope font-medium text-sm focus:bg-surface-container-high focus:ring-1 focus:ring-white/10 transition-all placeholder:text-on-surface-variant/30 resize-none leading-relaxed"
+              className={`w-full bg-surface-container-low/50 border border-white/5 rounded-2xl pl-12 pr-6 text-white font-manrope font-medium text-sm focus:bg-surface-container-high focus:ring-1 focus:ring-white/10 transition-all placeholder:text-on-surface-variant/30 resize-none leading-relaxed ${
+                (isNotesExpanded || !!form.notes.trim()) ? 'py-3.5 pb-7' : 'py-3.5 h-12 overflow-hidden'
+              }`}
               placeholder="Add a note (optional)"
               name="notes"
-              rows={3}
+              rows={(isNotesExpanded || !!form.notes.trim()) ? 3 : 1}
               value={form.notes}
+              onFocus={() => setIsNotesExpanded(true)}
+              onBlur={() => setIsNotesExpanded(false)}
               onChange={(e) => {
                 const text = e.target.value;
                 const wordCount = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
                 if (wordCount <= 300) setForm(prev => ({ ...prev, notes: text }));
               }}
             />
-            {(() => {
+            {(isNotesExpanded || !!form.notes.trim()) && (() => {
               const wc = form.notes.trim() === '' ? 0 : form.notes.trim().split(/\s+/).length;
               return (
                 <span className={`absolute bottom-2.5 right-4 text-[9px] font-bold tabular-nums pointer-events-none transition-colors ${
