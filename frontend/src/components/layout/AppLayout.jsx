@@ -15,6 +15,7 @@ const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [preSelectedGroupId, setPreSelectedGroupId] = useState('');
+  const [prefillData, setPrefillData] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -43,9 +44,10 @@ const AppLayout = () => {
     location.pathname.includes('/register') ||
     location.pathname.includes('/forgot-password');
 
-  const openAddExpense = (groupId = '', expense = null) => {
+  const openAddExpense = (groupId = '', expense = null, prefill = null) => {
     setPreSelectedGroupId(groupId || (expense ? (expense.group?._id || expense.group) : ''));
     setEditingExpense(expense);
+    setPrefillData(prefill);
     setExpenseStep(1);
     setIsAddExpenseOpen(true);
   };
@@ -108,6 +110,7 @@ const AppLayout = () => {
         onClose={() => {
           setIsAddExpenseOpen(false);
           setEditingExpense(null);
+          setPrefillData(null);
         }}
         title={editingExpense ? "Edit Transaction" : "Record Transaction"}
         size="3xl"
@@ -117,6 +120,7 @@ const AppLayout = () => {
             groups={groups}
             initialGroupId={preSelectedGroupId}
             initialData={editingExpense}
+            prefillData={prefillData}
             onSubmit={handleAddExpenseSubmit}
             loading={expenseLoading}
             onStepChange={setExpenseStep}

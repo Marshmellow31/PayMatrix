@@ -19,8 +19,9 @@ import Modal from '../components/common/Modal.jsx';
 import Input from '../components/common/Input.jsx';
 import SettleUpModal from '../components/group/SettleUpModal.jsx';
 import GroupInsightsTab from '../components/group/GroupInsightsTab.jsx';
-import { Plus, UserPlus, WalletCards, Trash2 } from 'lucide-react';
+import { Plus, UserPlus, WalletCards, Trash2, ScanLine } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
+import BillScannerModal from '../components/bill/BillScannerModal.jsx';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
 import expenseService from '../services/expenseService.js';
 import groupService from '../services/groupService.js';
@@ -72,6 +73,7 @@ const GroupDetail = () => {
   const [updatingGroup, setUpdatingGroup] = useState(false);
   const [showOnlyMe, setShowOnlyMe] = useState(false);
   const [groupLogs, setGroupLogs] = useState([]);
+  const [showBillScanner, setShowBillScanner] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -916,6 +918,16 @@ const GroupDetail = () => {
         </div>
       </Modal>
 
+      {/* Bill Scanner Modal */}
+      <BillScannerModal
+        isOpen={showBillScanner}
+        onClose={() => setShowBillScanner(false)}
+        onFill={(data) => {
+          setShowBillScanner(false);
+          openAddExpense(id, null, data);
+        }}
+      />
+
       {/* Edit Group Modal */}
       <Modal isOpen={showEditGroup} onClose={() => setShowEditGroup(false)} title="Edit Group" size="md">
         <form onSubmit={handleUpdateGroup} className="flex flex-col gap-8 py-4">
@@ -971,6 +983,15 @@ const GroupDetail = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Floating scan bill button */}
+      <button
+        onClick={() => setShowBillScanner(true)}
+        className="fixed bottom-24 right-4 lg:bottom-8 lg:right-8 z-50 flex items-center gap-2.5 pl-4 pr-5 h-12 rounded-full bg-[#1a1a1a] border border-white/10 text-white shadow-[0_8px_32px_rgba(0,0,0,0.6)] hover:bg-[#242424] hover:border-white/20 active:scale-95 transition-all"
+      >
+        <ScanLine size={17} className="text-primary shrink-0" />
+        <span className="text-[11px] font-black uppercase tracking-[0.15em] font-manrope">Scan Bill</span>
+      </button>
 
     </div>
   );

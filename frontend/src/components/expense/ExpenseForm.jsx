@@ -5,13 +5,14 @@ import * as LucideIcons from 'lucide-react';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 import Button from '../common/Button.jsx';
 import Avatar from '../common/Avatar.jsx';
-import { getShortName, getInitials } from '../../utils/nameUtils.js';
+import { getShortName } from '../../utils/nameUtils.js';
 
-const ExpenseForm = ({ 
-  groups = [], 
-  initialGroupId = '', 
+const ExpenseForm = ({
+  groups = [],
+  initialGroupId = '',
   initialData = null,
-  onSubmit, 
+  prefillData = null,
+  onSubmit,
   loading = false,
   onGroupChange,
   onStepChange
@@ -92,10 +93,21 @@ const ExpenseForm = ({
           dishAmounts: newDishes,
         });
       }
-    } else if (initialGroupId) {
-      setForm(prev => ({ ...prev, groupId: initialGroupId }));
+    } else {
+      // New expense — apply groupId and/or scan prefill
+      const updates = {};
+      if (initialGroupId) updates.groupId = initialGroupId;
+      if (prefillData) {
+        if (prefillData.amount != null) updates.amount = prefillData.amount.toString();
+        if (prefillData.title)    updates.title    = prefillData.title;
+        if (prefillData.date)     updates.date     = prefillData.date;
+        if (prefillData.category) updates.category = prefillData.category;
+      }
+      if (Object.keys(updates).length > 0) {
+        setForm(prev => ({ ...prev, ...updates }));
+      }
     }
-  }, [initialData, initialGroupId]);
+  }, [initialData, initialGroupId, prefillData]);
 
   // Group Member Sync Logic
   useEffect(() => {
@@ -315,10 +327,10 @@ const ExpenseForm = ({
             <p className="font-inter text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-3 opacity-60">Total Amount</p>
             <div className="flex items-center justify-center gap-1 relative">
               <span className="font-manrope text-3xl sm:text-4xl font-bold text-on-surface-variant opacity-40">₹</span>
-              <input 
+              <input
                 type="number"
                 step="0.01"
-                className="bg-transparent !border-none !outline-none font-manrope text-6xl lg:text-7xl font-black text-white focus:!ring-0 !ring-offset-0 placeholder:text-surface-container-highest tracking-tighter [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none !shadow-none text-center" 
+                className="bg-transparent !border-none !outline-none font-manrope text-6xl lg:text-7xl font-black text-white focus:!ring-0 !ring-offset-0 placeholder:text-surface-container-highest tracking-tighter [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none !shadow-none text-center"
                 placeholder="0"
                 value={form.amount}
                 name="amount"
