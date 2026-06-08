@@ -8,6 +8,7 @@ import {
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging } from "firebase/messaging";
+import { getFunctions } from "firebase/functions";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
@@ -29,5 +30,7 @@ const db = initializeFirestore(app, {
 const storage = getStorage(app);
 // messaging is only initialized in browser context (not in the service worker)
 const messaging = getMessaging(app);
+// Callable Cloud Functions (e.g. scanBill — Gemini receipt parsing)
+const functions = getFunctions(app);
 
-export { auth, db, storage, messaging };
+export { auth, db, storage, messaging, functions };

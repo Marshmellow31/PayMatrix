@@ -13,10 +13,10 @@ const STAGE = { CAPTURE: 'capture', SCANNING: 'scanning', REVIEW: 'review' };
 
 // Progress label text keyed on progress %
 const progressLabel = (p) => {
-  if (p < 25) return 'Loading OCR engine...';
-  if (p < 55) return 'Recognising text...';
-  if (p < 80) return 'Extracting amounts...';
-  return 'Finalising...';
+  if (p < 25) return 'Uploading bill...';
+  if (p < 55) return 'Reading with AI...';
+  if (p < 80) return 'Extracting items...';
+  return 'Almost done...';
 };
 
 // ─── Editable field row ───────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                           Amount, merchant, date and items are detected automatically.
                         </p>
                         <p className="text-[11px] text-primary/70 font-bold font-inter tracking-wide">
-                          Processed on-device · nothing uploaded
+                          Powered by Gemini AI · your bill isn't saved
                         </p>
                       </div>
 
@@ -312,7 +312,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
 
                       {/* Tip */}
                       <p className="text-[10px] text-white/20 font-inter text-center">
-                        First scan downloads ~4 MB of OCR data — cached after that.
+                        Powered by Gemini Vision — usually takes a few seconds.
                       </p>
                     </motion.div>
                   )}
