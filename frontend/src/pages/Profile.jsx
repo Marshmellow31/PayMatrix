@@ -704,7 +704,22 @@ const Profile = () => {
                  <div className="space-y-3">
                    <h4 className="text-[11px] font-black text-primary uppercase tracking-widest">New Features</h4>
                    <ul className="text-sm text-white/70 space-y-3 font-inter">
-                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> <strong>Scan Bill [Beta]</strong> — Auto-scan and extract bill amounts, vendor name, and line items with on-device OCR</li>
+                      <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />
+                        <div className="flex-1">
+                          <p><strong>Scan Bill [Beta]</strong> — Auto-scan and extract bill amounts, vendor name, and line items with Gemini OCR.</p>
+                          <div className="mt-2.5 p-3 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2 text-xs text-white/50">
+                            <p className="font-black text-[9px] uppercase tracking-wider text-primary">Steps to use:</p>
+                            <ol className="list-decimal pl-4 space-y-1 text-[11px] leading-relaxed text-white/60">
+                              <li>Navigate to any active group.</li>
+                              <li>Tap the floating <span className="text-primary font-bold">Scan Bill</span> button in the bottom corner.</li>
+                              <li>Upload or snap a photo of a receipt.</li>
+                              <li>Review the extracted total amount, merchant, date, and items.</li>
+                              <li>Assign line items to members (unallocated items split equally) and submit!</li>
+                            </ol>
+                          </div>
+                        </div>
+                      </li>
                      <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> <strong>Transaction Notes</strong> — Add custom notes/descriptions to details of any expense</li>
                      <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Mobile view optimizations for Record Transaction modal</li>
                      <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Scrollable group and category lists for better accessibility</li>
