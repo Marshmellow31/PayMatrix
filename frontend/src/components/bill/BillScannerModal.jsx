@@ -401,21 +401,24 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                           type="date"
                         />
                         {/* Category selector */}
-                        <div className="flex items-center gap-3 bg-white/[0.03] rounded-2xl px-4 py-3 border border-white/[0.06]">
+                        <div className="flex items-center gap-3 bg-white/[0.03] rounded-2xl px-4 py-3 border border-white/[0.06] relative">
                           <Tag size={14} className="text-primary/60 shrink-0" />
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 pr-6">
                             <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-1 font-inter">Category</p>
                             <select
                               value={editableData.category}
                               onChange={e => setEditableData(p => ({ ...p, category: e.target.value }))}
-                              className="w-full bg-transparent border-none outline-none text-white font-manrope font-bold text-sm focus:ring-0 p-0 cursor-pointer"
+                              className="w-full bg-transparent border-none outline-none text-white font-manrope font-bold text-sm focus:ring-0 py-0.5 cursor-pointer appearance-none"
                             >
                               {EXPENSE_CATEGORIES.map(c => (
-                                <option key={c.value} value={c.value} className="bg-[#141414]">
+                                <option key={c.value} value={c.value} className="bg-[#141414] text-white py-2">
                                   {c.label}
                                 </option>
                               ))}
                             </select>
+                          </div>
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
+                            <ChevronRight size={14} className="rotate-90" />
                           </div>
                         </div>
                       </div>
