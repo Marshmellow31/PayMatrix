@@ -131,7 +131,7 @@ const EXPENSE_CATEGORIES = [
   "Utilities", "Shopping", "Health", "Education", "Other",
 ];
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3.5-flash";
 
 const RECEIPT_SCHEMA = {
   type: "OBJECT",
@@ -191,7 +191,7 @@ exports.scanBill = onCall(
         role: "user",
         parts: [
           { text: PROMPT },
-          { inline_data: { mime_type: mimeType || "image/jpeg", data: imageBase64 } },
+          { inlineData: { mimeType: mimeType || "image/jpeg", data: imageBase64 } },
         ],
       }],
       generationConfig: {

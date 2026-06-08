@@ -1,9 +1,44 @@
 import { useState, useCallback } from 'react';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../config/firebase.js';
 import { EXPENSE_CATEGORIES } from '../utils/constants.js';
 
 const VALID_CATEGORIES = EXPENSE_CATEGORIES.map(c => c.value);
+
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const GEMINI_MODEL = "gemini-1.5-flash";
+
+const RECEIPT_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    amount: { type: "NUMBER", description: "Final grand total actually payable, including tax and charges" },
+    title: { type: "STRING", description: "Short merchant/store name" },
+    date: { type: "STRING", description: "Bill date as YYYY-MM-DD, or empty if not found" },
+    category: { type: "STRING", enum: VALID_CATEGORIES },
+    items: {
+      type: "ARRAY",
+      description: "Individual ordered items with their line price. Exclude tax/subtotal/total/discount rows.",
+      items: {
+        type: "OBJECT",
+        properties: {
+          name: { type: "STRING" },
+          price: { type: "NUMBER" },
+        },
+        required: ["name", "price"],
+      },
+    },
+  },
+  required: ["amount", "items"],
+};
+
+const PROMPT = [
+  "You are a precise receipt/bill parser for an Indian expense-splitting app.",
+  "Read the attached bill image and extract:",
+  "- amount: the FINAL grand total payable (the amount the customer actually pays, including GST/taxes/service charges). Not the subtotal.",
+  "- title: a short merchant or store name (e.g. 'Pizza Hut', 'More Supermarket').",
+  "- date: the bill date in YYYY-MM-DD. If absent, return an empty string.",
+  "- category: the single best fit from the allowed list.",
+  "- items: each ordered line item with its printed price. Combine quantity into the name (e.g. 'Coke x2'). Do NOT include tax, subtotal, total, discount, or rounding rows as items.",
+  "All amounts are in Indian Rupees as plain numbers (no symbols). If the image is unreadable, return amount 0 and an empty items array.",
+].join("\n");
 
 const loadImage = (file) => new Promise((resolve, reject) => {
   const img = new Image();
@@ -54,16 +89,48 @@ export const useBillScanner = () => {
     try {
       const { base64, mimeType } = await fileToCompressedBase64(file);
 
-      // Calls the secured Cloud Function; the Gemini key never reaches the client.
-      const scanBillFn = httpsCallable(functions, 'scanBill', { timeout: 70000 });
-      const { data } = await scanBillFn({ imageBase64: base64, mimeType });
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-      if (!data) return null;
+      const body = {
+        contents: [{
+          role: "user",
+          parts: [
+            { text: PROMPT },
+            { inlineData: { mimeType: mimeType || "image/jpeg", data: base64 } },
+          ],
+        }],
+        generationConfig: {
+          temperature: 0,
+          responseMimeType: "application/json",
+          responseSchema: RECEIPT_SCHEMA,
+        },
+      };
 
-      const amount = Number(data.amount) > 0 ? Number(data.amount) : null;
-      const category = VALID_CATEGORIES.includes(data.category) ? data.category : 'Other';
-      const items = Array.isArray(data.items)
-        ? data.items
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => "");
+        console.error(`[scanBill] Gemini REST Error ${resp.status}:`, errText);
+        return null;
+      }
+
+      const payload = await resp.json();
+      const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        console.error("[scanBill] Empty Gemini response:", payload);
+        return null;
+      }
+
+      const parsed = JSON.parse(text);
+
+      const amount = Number(parsed.amount) > 0 ? Number(parsed.amount) : null;
+      const category = VALID_CATEGORIES.includes(parsed.category) ? parsed.category : 'Other';
+      const items = Array.isArray(parsed.items)
+        ? parsed.items
             .map(it => ({ name: String(it?.name || '').trim(), price: Number(it?.price) || 0 }))
             .filter(it => it.name && it.price > 0)
         : [];
@@ -71,8 +138,8 @@ export const useBillScanner = () => {
       return {
         amount,
         candidates: amount != null ? [amount] : [],
-        title: String(data.title || '').trim(),
-        date: data.date || null,
+        title: String(parsed.title || '').trim(),
+        date: /^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ? parsed.date : null,
         category,
         items,
       };

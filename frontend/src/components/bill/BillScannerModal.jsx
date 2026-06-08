@@ -39,7 +39,6 @@ const FieldRow = ({ icon, label, value, onChange, type = 'text', placeholder }) 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 const BillScannerModal = ({ isOpen, onClose, onFill }) => {
   const [stage, setStage] = useState(STAGE.CAPTURE);
-  const [imagePreview, setImagePreview] = useState(null);
   const [scanResult, setScanResult] = useState(null);
   const [editableData, setEditableData] = useState({
     amount: '', title: '', date: '', category: 'Other',
@@ -56,7 +55,6 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
   useEffect(() => {
     if (isOpen) {
       setStage(STAGE.CAPTURE);
-      setImagePreview(null);
       setScanResult(null);
       setReviewItems([]);
       setFakeProgress(0);
@@ -81,10 +79,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    e.target.value = '';
 
-    const preview = URL.createObjectURL(file);
-    setImagePreview(preview);
     setScanFailed(false);
     setStage(STAGE.SCANNING);
 
@@ -107,6 +102,9 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
         setStage(STAGE.CAPTURE);
       }
     }, 350);
+
+    // Clear the input value so the same file can be scanned again if needed
+    e.target.value = '';
   };
 
   const updateItem = (idx, key, val) => {
@@ -269,22 +267,31 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                       transition={{ duration: 0.22, ease: 'easeOut' }}
                       className="flex flex-col gap-6 pt-3"
                     >
-                      {/* Image preview with sweeping scan-line */}
-                      <div className="relative w-full rounded-2xl overflow-hidden border border-white/[0.08]" style={{ height: 180 }}>
-                        <img
-                          src={imagePreview}
-                          alt="Receipt"
-                          className="w-full h-full object-cover object-top"
+                      {/* Beautiful radar/scanner screen with sweeping scan-line */}
+                      <div className="relative w-full rounded-2xl overflow-hidden border border-white/[0.08] bg-[#0c0c0c] flex items-center justify-center animate-pulse-slow" style={{ height: 180 }}>
+                        {/* Radial glow */}
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(var(--color-primary),0.08),transparent_70%)] pointer-events-none" />
+                        {/* Dot pattern */}
+                        <div 
+                          className="absolute inset-0 opacity-[0.03] pointer-events-none" 
+                          style={{
+                            backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)',
+                            backgroundSize: '16px 16px'
+                          }} 
                         />
-                        {/* Dark overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/50" />
+                        
+                        <div className="flex flex-col items-center gap-3 relative z-10">
+                          <ScanLine size={32} className="text-primary animate-pulse" />
+                          <span className="text-[10px] text-white/40 uppercase font-black tracking-[0.25em] font-manrope">Scanning Document</span>
+                        </div>
+
                         {/* Sweeping scan line */}
                         <motion.div
                           className="absolute left-0 right-0 h-[2px] bg-primary shadow-[0_0_12px_3px] shadow-primary/50"
                           animate={{ top: ['8%', '88%', '8%'] }}
                           transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
                         />
-                        {/* Corner brackets on the preview */}
+                        {/* Corner brackets */}
                         <span className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-primary/80 rounded-tl-lg" />
                         <span className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-primary/80 rounded-tr-lg" />
                         <span className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-primary/80 rounded-bl-lg" />
@@ -329,11 +336,9 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                     >
                       {/* Receipt thumbnail + headline */}
                       <div className="flex items-center gap-4 p-3 bg-white/[0.03] rounded-2xl border border-white/[0.06]">
-                        <img
-                          src={imagePreview}
-                          alt="Receipt"
-                          className="w-14 h-14 rounded-xl object-cover border border-white/10 shrink-0"
-                        />
+                        <div className="w-14 h-14 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-primary shrink-0">
+                          <ScanLine size={20} />
+                        </div>
                         <div className="min-w-0">
                           <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.2em] font-inter">Detected</p>
                           <p className="font-manrope font-black text-2xl text-white leading-tight">
@@ -497,7 +502,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                           <ChevronRight size={18} strokeWidth={3} />
                         </button>
                         <button
-                          onClick={() => { setStage(STAGE.CAPTURE); setImagePreview(null); setScanResult(null); setReviewItems([]); }}
+                          onClick={() => { setStage(STAGE.CAPTURE); setScanResult(null); setReviewItems([]); }}
                           className="w-full h-11 rounded-2xl text-white/30 hover:text-white/60 font-manrope font-bold text-sm flex items-center justify-center gap-2 transition-all"
                         >
                           <RefreshCw size={13} />
