@@ -32,7 +32,7 @@ async function broadcastUpdate() {
       const newNotificationRef = db.collection('notifications').doc();
       batch.set(newNotificationRef, {
         to: doc.id,
-        message: "App Update! Version 1.1.0 is here with mobile optimizations, an improved Profile UI, and more. Check the Changelog!",
+        message: "App Update! Version 1.2.0 is here with Scan Bill [Beta] (OCR parser) and Transaction Notes. Check the Changelog in your profile!",
         type: 'info',
         read: false,
         createdAt: timestamp

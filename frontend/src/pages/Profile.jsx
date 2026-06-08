@@ -371,7 +371,7 @@ const Profile = () => {
                 <div className="flex flex-col gap-1.5">
                   <div className="flex flex-col">
                     <span className="text-sm font-bold text-white/60 font-inter">App Version</span>
-                    <span className="text-[10px] text-white/30 font-inter">v1.1.0 (Build 42)</span>
+                    <span className="text-[10px] text-white/30 font-inter">v1.2.0 (Build 43)</span>
                   </div>
                   <button 
                     onClick={handleOpenChangelog}
@@ -697,17 +697,18 @@ const Profile = () => {
 
                <div className="space-y-2 shrink-0">
                  <h3 className="text-2xl font-black text-white font-manrope">What's New</h3>
-                 <p className="text-xs text-white/40 font-inter">Version 1.1.0 Updates</p>
+                 <p className="text-xs text-white/40 font-inter">Version 1.2.0 Updates</p>
                </div>
 
                <div className="overflow-y-auto custom-scrollbar flex-1 pr-2 space-y-5">
                  <div className="space-y-3">
                    <h4 className="text-[11px] font-black text-primary uppercase tracking-widest">New Features</h4>
                    <ul className="text-sm text-white/70 space-y-3 font-inter">
+                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> <strong>Scan Bill [Beta]</strong> — Auto-scan and extract bill amounts, vendor name, and line items with on-device OCR</li>
+                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> <strong>Transaction Notes</strong> — Add custom notes/descriptions to details of any expense</li>
                      <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Mobile view optimizations for Record Transaction modal</li>
                      <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Scrollable group and category lists for better accessibility</li>
                      <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Unified Profile & System Settings with intuitive UI</li>
-                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Payment App preferences</li>
                    </ul>
                  </div>
                  <div className="space-y-3 pt-4 border-t border-white/5">
