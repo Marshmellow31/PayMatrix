@@ -5,37 +5,72 @@ import Avatar from '../common/Avatar.jsx';
 import { formatCurrency, formatCompactCurrency } from '../../utils/formatCurrency.js';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 
-// ─── Animation helpers ────────────────────────────────────────────────────────
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 16 },
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.35, delay, ease: 'easeOut' },
 });
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-/** Simple data pill used in the hero strip */
-const StatPill = ({ icon: Icon, label, value, accent, className = '' }) => (
+// ─── Hero stat card with ambient glow ────────────────────────────────────────
+const StatCard = ({ icon: Icon, label, value, subValue, accent, delay = 0, className = '' }) => (
   <motion.div
-    {...fadeUp(0.05)}
-    className={`flex-1 min-w-0 flex flex-col gap-2 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors ${className}`}
+    {...fadeUp(delay)}
+    className={`relative overflow-hidden flex flex-col gap-3 p-4 sm:p-5 rounded-[1.5rem] border backdrop-blur-md transition-all hover:scale-[1.01] hover:border-white/10 ${className}`}
+    style={{ 
+      background: `linear-gradient(135deg, ${accent}0e 0%, ${accent}03 100%)`, 
+      borderColor: `${accent}20` 
+    }}
   >
     <div
-      className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-      style={{ background: `${accent}18`, border: `1px solid ${accent}28` }}
+      className="absolute -top-8 -right-8 w-24 h-24 rounded-full blur-2xl pointer-events-none opacity-60"
+      style={{ background: `${accent}40` }}
+    />
+    <div
+      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg"
+      style={{ 
+        background: `linear-gradient(135deg, ${accent}25 0%, ${accent}0e 100%)`, 
+        border: `1px solid ${accent}35` 
+      }}
     >
-      <Icon size={16} style={{ color: accent }} strokeWidth={2.5} />
+      <Icon size={18} style={{ color: accent }} strokeWidth={2.5} />
     </div>
-    <p className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.22em] truncate">
-      {label}
-    </p>
-    <p className="text-lg sm:text-xl font-black font-manrope text-white truncate leading-none">
-      {value}
-    </p>
+    <div className="relative">
+      <p
+        className="text-[9px] sm:text-[10px] font-black font-manrope uppercase tracking-[0.22em] mb-1"
+        style={{ color: `${accent}b0` }}
+      >
+        {label}
+      </p>
+      <p className="text-2xl sm:text-3xl font-black font-manrope text-white leading-none tracking-tight">
+        {value}
+      </p>
+      {subValue && (
+        <p className="text-[10px] text-white/40 font-inter mt-1.5 leading-snug">{subValue}</p>
+      )}
+    </div>
   </motion.div>
 );
 
-/** Horizontal category bar row */
+// ─── 2×2 scorecard mini-tile ─────────────────────────────────────────────────
+const ScoreTile = ({ icon: Icon, label, primary, secondary, accent, delay = 0 }) => (
+  <motion.div
+    {...fadeUp(delay)}
+    className="flex flex-col gap-2.5 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors overflow-hidden"
+  >
+    <div className="flex items-center gap-2">
+      <Icon size={13} style={{ color: accent }} strokeWidth={2.5} />
+      <p className="text-[9px] font-black font-manrope text-white/30 uppercase tracking-[0.2em] truncate">
+        {label}
+      </p>
+    </div>
+    <p className="text-sm font-black font-manrope text-white leading-tight truncate">{primary}</p>
+    {secondary && (
+      <p className="text-[10px] text-white/25 font-inter truncate leading-snug">{secondary}</p>
+    )}
+  </motion.div>
+);
+
+// ─── Category bar row ─────────────────────────────────────────────────────────
 const CategoryBar = ({ category, amount, total, delay }) => {
   const pct = total > 0 ? Math.round((amount / total) * 100) : 0;
   const cat = EXPENSE_CATEGORIES.find((c) => c.value === category);
@@ -52,9 +87,7 @@ const CategoryBar = ({ category, amount, total, delay }) => {
           >
             <IconCmp size={13} style={{ color }} strokeWidth={2.5} />
           </div>
-          <span className="text-[11px] font-bold text-white/70 truncate font-inter">
-            {category}
-          </span>
+          <span className="text-[11px] font-bold text-white/70 truncate font-inter">{category}</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[10px] font-bold text-white/30 font-mono">{pct}%</span>
@@ -63,7 +96,6 @@ const CategoryBar = ({ category, amount, total, delay }) => {
           </span>
         </div>
       </div>
-      {/* Animated bar */}
       <div className="h-1.5 w-full rounded-full bg-white/[0.05] overflow-hidden">
         <motion.div
           className="h-full rounded-full"
@@ -77,7 +109,7 @@ const CategoryBar = ({ category, amount, total, delay }) => {
   );
 };
 
-/** Per-member contribution card */
+// ─── Member contribution card ─────────────────────────────────────────────────
 const MemberCard = ({ member, paid, netBalance, actualShare, sharePct, maxPaid, rank, delay }) => {
   const user = member?.user || member || {};
   const name = user.name || user.email || 'Member';
@@ -90,7 +122,6 @@ const MemberCard = ({ member, paid, netBalance, actualShare, sharePct, maxPaid, 
       {...fadeUp(delay)}
       className="flex items-center gap-3 p-3.5 rounded-2xl bg-white/[0.025] border border-white/[0.05] hover:bg-white/[0.04] transition-colors"
     >
-      {/* Rank badge */}
       <div className="w-5 shrink-0 flex items-center justify-center">
         <span className="text-[10px] font-black text-white/20 font-manrope">#{rank}</span>
       </div>
@@ -101,16 +132,15 @@ const MemberCard = ({ member, paid, netBalance, actualShare, sharePct, maxPaid, 
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-black font-manrope text-white truncate">{name}</p>
           <div className="flex items-center gap-2 shrink-0">
-             <span className="text-[10px] font-bold text-white/30 font-mono italic">
-               {sharePct}% impact
-             </span>
-             <p className="text-[10px] font-bold text-white/40 font-mono">
-               paid {formatCompactCurrency(paid)}
-             </p>
+            <span className="text-[10px] font-bold text-white/30 font-mono italic">
+              {sharePct}% impact
+            </span>
+            <p className="text-[10px] font-bold text-white/40 font-mono">
+              paid {formatCompactCurrency(paid)}
+            </p>
           </div>
         </div>
-        
-        {/* Progress bar */}
+
         <div className="h-1 w-full rounded-full bg-white/[0.06] overflow-hidden">
           <motion.div
             className="h-full rounded-full bg-primary/70"
@@ -120,7 +150,6 @@ const MemberCard = ({ member, paid, netBalance, actualShare, sharePct, maxPaid, 
           />
         </div>
 
-        {/* Status indicator */}
         <div className="flex items-center justify-between gap-2">
           <p
             className={`text-[10px] font-bold uppercase tracking-wider ${
@@ -150,20 +179,19 @@ const GroupInsightsTab = ({
   settlements = [],
   netBalances = {},
 }) => {
-  // ── Derived stats (all pure from props, no Firestore) ──────────────────────
   const stats = useMemo(() => {
     const activeExp = expenses.filter(
       (e) => e.status !== 'deleted' && e.status !== 'archived'
     );
     const activeSett = settlements.filter((s) => s.status !== 'deleted');
 
-    // Total group spend & settlement
     const totalGroupSpend = activeExp.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
     const totalSettled = activeSett.reduce((s, st) => s + parseFloat(st.amount || 0), 0);
+    const unsettled = Math.max(0, totalGroupSpend - totalSettled);
     const settlementProgress =
       totalGroupSpend > 0 ? Math.min(100, Math.round((totalSettled / totalGroupSpend) * 100)) : 0;
 
-    // Per-member: how much they PAID (raw, not net)
+    // Per-member: how much they PAID
     const paidByMember = {};
     activeExp.forEach((e) => {
       const uid =
@@ -180,9 +208,8 @@ const GroupInsightsTab = ({
     });
     const categoryBreakdown = Object.entries(categoryTotals)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 6); // cap at 6 rows
+      .slice(0, 6);
 
-    // Average expense
     const avgExpense = activeExp.length > 0 ? totalGroupSpend / activeExp.length : 0;
 
     // Top payer
@@ -195,44 +222,56 @@ const GroupInsightsTab = ({
       const mid = m.user?._id || m.user?.uid || m.user || m._id || m.uid;
       return (mid || '').toString() === topPayerUid;
     });
-    const topPayerName =
-      topPayerMember?.user?.name ||
-      topPayerMember?.name ||
-      'N/A';
+    const topPayerName = topPayerMember?.user?.name || topPayerMember?.name || 'N/A';
+
+    // Largest single expense
+    const largestExp = activeExp.reduce(
+      (max, e) => (parseFloat(e.amount || 0) > parseFloat(max?.amount || 0) ? e : max),
+      null
+    );
+
+    // Most active member by number of expenses recorded
+    const expCountByMember = {};
+    activeExp.forEach((e) => {
+      const uid = (
+        e.admin ||
+        (typeof e.paidBy === 'string' ? e.paidBy : e.paidBy?._id) ||
+        ''
+      ).toString();
+      if (!uid) return;
+      expCountByMember[uid] = (expCountByMember[uid] || 0) + 1;
+    });
+    let mostActiveUid = '';
+    let mostActiveCount = 0;
+    Object.entries(expCountByMember).forEach(([uid, cnt]) => {
+      if (cnt > mostActiveCount) { mostActiveCount = cnt; mostActiveUid = uid; }
+    });
+    const mostActiveMember = members.find((m) => {
+      const mid = (m.user?._id || m.user?.uid || m.user || m._id || m.uid || '').toString();
+      return mid === mostActiveUid;
+    });
+    const mostActiveName = mostActiveMember?.user?.name || mostActiveMember?.name || 'N/A';
 
     // Member list sorted by paid desc
-    const memberStats = members.map((m) => {
-      const uid = (m.user?._id || m.user?.uid || m.user || m._id || m.uid || '').toString();
-      const paid = paidByMember[uid] || 0;
-      const netBalance = netBalances[uid] || 0;
-      // Core Insight Logic: ActualShare = paid - netBalance
-      // If you paid 100 but are owed 80, your actual share was 20.
-      const actualShare = paid - netBalance;
-      const sharePct = totalGroupSpend > 0 ? Math.round((actualShare / totalGroupSpend) * 100) : 0;
-
-      return {
-        member: m,
-        uid,
-        paid,
-        netBalance,
-        actualShare,
-        sharePct,
-      };
-    }).sort((a, b) => b.paid - a.paid);
+    const memberStats = members
+      .map((m) => {
+        const uid = (m.user?._id || m.user?.uid || m.user || m._id || m.uid || '').toString();
+        const paid = paidByMember[uid] || 0;
+        const netBalance = netBalances[uid] || 0;
+        const actualShare = paid - netBalance;
+        const sharePct =
+          totalGroupSpend > 0 ? Math.round((actualShare / totalGroupSpend) * 100) : 0;
+        return { member: m, uid, paid, netBalance, actualShare, sharePct };
+      })
+      .sort((a, b) => b.paid - a.paid);
 
     const maxPaid = memberStats[0]?.paid || 0;
 
     return {
-      totalGroupSpend,
-      totalSettled,
-      settlementProgress,
-      expenseCount: activeExp.length,
-      avgExpense,
-      categoryBreakdown,
-      topPayerName,
-      topPayerAmt,
-      memberStats,
-      maxPaid,
+      totalGroupSpend, totalSettled, unsettled, settlementProgress,
+      expenseCount: activeExp.length, avgExpense, categoryBreakdown,
+      topPayerName, topPayerAmt, largestExp, mostActiveName, mostActiveCount,
+      memberStats, maxPaid,
     };
   }, [expenses, settlements, members, netBalances]);
 
@@ -254,105 +293,123 @@ const GroupInsightsTab = ({
     );
   }
 
-  const { totalGroupSpend, totalSettled, settlementProgress, expenseCount,
-          avgExpense, categoryBreakdown, topPayerName, topPayerAmt,
-          memberStats, maxPaid } = stats;
+  const {
+    totalGroupSpend, totalSettled, unsettled, settlementProgress,
+    expenseCount, avgExpense, categoryBreakdown, topPayerName, topPayerAmt,
+    largestExp, mostActiveName, mostActiveCount, memberStats, maxPaid,
+  } = stats;
 
   return (
-    <div className="flex flex-col gap-6 pb-4">
+    <div className="flex flex-col gap-5 pb-4">
 
-      {/* ── Hero Strip ─────────────────────────────────────────────────────── */}
+      {/* ── Hero Stats Strip ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <StatPill
+        <StatCard
           icon={LucideIcons.IndianRupee}
           label="Total Spent"
-          value={formatCurrency(totalGroupSpend)}
+          value={formatCompactCurrency(totalGroupSpend)}
+          subValue={`${expenseCount} expense${expenseCount !== 1 ? 's' : ''}`}
           accent="#a78bfa"
+          delay={0.04}
           className="col-span-2 sm:col-span-1"
         />
-        <StatPill
+        <StatCard
           icon={LucideIcons.CheckCircle2}
           label="Settled"
-          value={formatCurrency(totalSettled)}
+          value={formatCompactCurrency(totalSettled)}
+          subValue={`${settlementProgress}% of total`}
           accent="#34d399"
+          delay={0.08}
+          className="col-span-1"
         />
-        <StatPill
-          icon={LucideIcons.Receipt}
-          label="Expenses"
-          value={expenseCount}
-          accent="#f97316"
+        <StatCard
+          icon={LucideIcons.AlertCircle}
+          label="Outstanding"
+          value={formatCompactCurrency(unsettled)}
+          subValue={unsettled <= 0 ? 'All clear!' : 'remaining'}
+          accent={unsettled <= 0 ? '#34d399' : '#f97316'}
+          delay={0.12}
+          className="col-span-1"
         />
       </div>
 
-      {/* ── Settlement Progress Bar ────────────────────────────────────────── */}
+      {/* ── Settlement Progress ───────────────────────────────────────────── */}
       <motion.div
-        {...fadeUp(0.1)}
-        className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06]"
+        {...fadeUp(0.14)}
+        className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06]"
       >
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.22em]">
-            Settlement Progress
-          </p>
-          <span className="text-xs font-black font-manrope text-emerald-400">
-            {settlementProgress}%
-          </span>
+          <div className="flex items-center gap-2">
+            <LucideIcons.TrendingUp size={12} className="text-emerald-400/60" />
+            <p className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.22em]">
+              Settlement Progress
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-white/20 font-inter hidden sm:block">
+              {formatCompactCurrency(totalSettled)} / {formatCompactCurrency(totalGroupSpend)}
+            </span>
+            <span className="text-xs font-black font-manrope text-emerald-400 tabular-nums">
+              {settlementProgress}%
+            </span>
+          </div>
         </div>
-        <div className="h-2 w-full rounded-full bg-white/[0.06] overflow-hidden">
+        <div className="h-2.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
           <motion.div
             className="h-full rounded-full"
-            style={{ background: 'linear-gradient(90deg, #34d39999, #34d399)' }}
+            style={{ background: 'linear-gradient(90deg, #059669, #34d399, #86efac)' }}
             initial={{ width: 0 }}
             animate={{ width: `${settlementProgress}%` }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
+            transition={{ duration: 0.9, ease: 'easeOut' }}
           />
         </div>
-        <div className="flex justify-between mt-2">
-          <p className="text-[10px] text-white/20 font-inter">
-            {formatCompactCurrency(totalSettled)} settled
-          </p>
-          <p className="text-[10px] text-white/20 font-inter">
-            {formatCompactCurrency(totalGroupSpend)} total
-          </p>
-        </div>
+        <p className="text-[10px] font-inter mt-2 leading-snug">
+          {settlementProgress >= 100 ? (
+            <span className="text-emerald-400/60">All expenses fully settled!</span>
+          ) : (
+            <span className="text-white/20">{formatCompactCurrency(unsettled)} left to settle</span>
+          )}
+        </p>
       </motion.div>
 
-      {/* ── Group Scorecard ────────────────────────────────────────────────── */}
-      <motion.div
-        {...fadeUp(0.12)}
-        className="grid grid-cols-2 gap-3"
-      >
-        {/* Avg expense */}
-        <div className="flex flex-col gap-1.5 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-          <div className="flex items-center gap-2">
-            <LucideIcons.TrendingUp size={13} className="text-blue-400/70" />
-            <p className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.18em]">
-              Avg Expense
-            </p>
-          </div>
-          <p className="text-base font-black font-manrope text-white leading-none">
-            {formatCompactCurrency(avgExpense)}
-          </p>
-        </div>
+      {/* ── 2×2 Scorecard ────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3">
+        <ScoreTile
+          icon={LucideIcons.TrendingUp}
+          label="Avg Expense"
+          primary={formatCompactCurrency(avgExpense)}
+          secondary="per transaction"
+          accent="#60a5fa"
+          delay={0.16}
+        />
+        <ScoreTile
+          icon={LucideIcons.Zap}
+          label="Largest Expense"
+          primary={largestExp ? formatCompactCurrency(parseFloat(largestExp.amount || 0)) : '—'}
+          secondary={largestExp?.title || '—'}
+          accent="#fbbf24"
+          delay={0.18}
+        />
+        <ScoreTile
+          icon={LucideIcons.Crown}
+          label="Top Payer"
+          primary={topPayerName}
+          secondary={`${formatCompactCurrency(topPayerAmt)} paid`}
+          accent="#eab308"
+          delay={0.20}
+        />
+        <ScoreTile
+          icon={LucideIcons.Activity}
+          label="Most Active"
+          primary={mostActiveName}
+          secondary={`${mostActiveCount} expense${mostActiveCount !== 1 ? 's' : ''} added`}
+          accent="#f472b6"
+          delay={0.22}
+        />
+      </div>
 
-        {/* Top payer */}
-        <div className="flex flex-col gap-1.5 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-          <div className="flex items-center gap-2">
-            <LucideIcons.Crown size={13} className="text-yellow-400/70" />
-            <p className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.18em] truncate">
-              Top Payer
-            </p>
-          </div>
-          <p className="text-base font-black font-manrope text-white leading-none truncate">
-            {topPayerName}
-          </p>
-          <p className="text-[10px] text-white/25 font-inter">
-            {formatCompactCurrency(topPayerAmt)} paid
-          </p>
-        </div>
-      </motion.div>
-
-      {/* ── Member Contributions ───────────────────────────────────────────── */}
-      <motion.div {...fadeUp(0.14)} className="flex flex-col gap-3">
+      {/* ── Member Contributions ──────────────────────────────────────────── */}
+      <motion.div {...fadeUp(0.24)} className="flex flex-col gap-3">
         <div className="flex items-center justify-between px-1">
           <p className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.3em]">
             Member Contributions
@@ -370,15 +427,15 @@ const GroupInsightsTab = ({
               sharePct={sharePct}
               maxPaid={maxPaid}
               rank={idx + 1}
-              delay={0.16 + idx * 0.04}
+              delay={0.26 + idx * 0.04}
             />
           ))}
         </div>
       </motion.div>
 
-      {/* ── Category Breakdown ─────────────────────────────────────────────── */}
+      {/* ── Category Breakdown ────────────────────────────────────────────── */}
       {categoryBreakdown.length > 0 && (
-        <motion.div {...fadeUp(0.18)} className="flex flex-col gap-4">
+        <motion.div {...fadeUp(0.28)} className="flex flex-col gap-4">
           <div className="flex items-center justify-between px-1">
             <p className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.3em]">
               By Category
@@ -387,14 +444,14 @@ const GroupInsightsTab = ({
               of {formatCompactCurrency(totalGroupSpend)}
             </p>
           </div>
-          <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-col gap-4">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-col gap-4">
             {categoryBreakdown.map(([category, amount], idx) => (
               <CategoryBar
                 key={category}
                 category={category}
                 amount={amount}
                 total={totalGroupSpend}
-                delay={0.2 + idx * 0.05}
+                delay={0.3 + idx * 0.05}
               />
             ))}
           </div>

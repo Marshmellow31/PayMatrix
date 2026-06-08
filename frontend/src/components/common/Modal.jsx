@@ -57,7 +57,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
             <motion.div
               layout
               className="bg-[#1a1a1a] rounded-3xl sm:rounded-[2.5rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)] border border-white/10 z-10 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] lg:max-h-[88vh]"
-              transition={{ layout: { type: 'spring', damping: 40, stiffness: 120 } }}
+              transition={{ layout: { type: 'spring', damping: 26, stiffness: 210 } }}
             >
               {/* Header - Fixed */}
               <div className="flex items-center justify-between px-5 sm:px-8 pt-6 sm:pt-8 pb-3 sm:pb-4 shrink-0 z-20">

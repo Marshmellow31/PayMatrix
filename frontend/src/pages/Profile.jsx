@@ -41,6 +41,9 @@ const Profile = () => {
   const [isRemoving, setIsRemoving] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
+  // Changelog modal state
+  const [showChangelog, setShowChangelog] = useState(false);
+
   const isOwnProfile = !id || id === currentUser?._id || id === currentUser?.uid;
 
   useEffect(() => {
@@ -87,6 +90,10 @@ const Profile = () => {
     } catch (err) {
       toast.error('An unexpected error occurred');
     }
+  };
+
+  const handleOpenChangelog = () => {
+    setShowChangelog(true);
   };
 
   const handleSavePaymentDetails = async () => {
@@ -361,9 +368,17 @@ const Profile = () => {
                 <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.theme || 'dark'}</span>
               </div>
               <div className="flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold text-white/60 font-inter">App Version</span>
-                  <span className="text-[10px] text-white/30 font-inter">v1.1.0 (Build 42)</span>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-white/60 font-inter">App Version</span>
+                    <span className="text-[10px] text-white/30 font-inter">v1.1.0 (Build 42)</span>
+                  </div>
+                  <button 
+                    onClick={handleOpenChangelog}
+                    className="text-[10px] font-black text-primary uppercase tracking-widest text-left hover:underline w-fit"
+                  >
+                    View Changelog
+                  </button>
                 </div>
                 <button
                   onClick={() => {
@@ -645,6 +660,73 @@ const Profile = () => {
                    disabled={isRemoving}
                  >
                    CANCEL
+                 </Button>
+               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Changelog Modal */}
+      <AnimatePresence>
+        {showChangelog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowChangelog(false)}
+              className="absolute inset-0 bg-background/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg glass-card border-primary/20 bg-primary/[0.02] p-6 sm:p-8 space-y-6 overflow-hidden max-h-[80vh] flex flex-col"
+            >
+               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-30" />
+               
+               <div className="flex items-center justify-between mb-2 shrink-0">
+                 <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                   <Flame size={24} className="text-primary" />
+                 </div>
+                 <button onClick={() => setShowChangelog(false)} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
+                   <X size={16} className="text-white/60" />
+                 </button>
+               </div>
+
+               <div className="space-y-2 shrink-0">
+                 <h3 className="text-2xl font-black text-white font-manrope">What's New</h3>
+                 <p className="text-xs text-white/40 font-inter">Version 1.1.0 Updates</p>
+               </div>
+
+               <div className="overflow-y-auto custom-scrollbar flex-1 pr-2 space-y-5">
+                 <div className="space-y-3">
+                   <h4 className="text-[11px] font-black text-primary uppercase tracking-widest">New Features</h4>
+                   <ul className="text-sm text-white/70 space-y-3 font-inter">
+                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Mobile view optimizations for Record Transaction modal</li>
+                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Scrollable group and category lists for better accessibility</li>
+                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Unified Profile & System Settings with intuitive UI</li>
+                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Payment App preferences</li>
+                   </ul>
+                 </div>
+                 <div className="space-y-3 pt-4 border-t border-white/5">
+                   <h4 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest">Improvements</h4>
+                   <ul className="text-sm text-white/70 space-y-3 font-inter">
+                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" /> Enhanced visual animations across menus</li>
+                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" /> Smooth settle button interactions</li>
+                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" /> Improved UI consistency and layout</li>
+                   </ul>
+                 </div>
+               </div>
+
+               <div className="pt-4 shrink-0 border-t border-white/5">
+                 <Button
+                   variant="ghost"
+                   className="h-12 rounded-xl bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all w-full border border-white/5"
+                   onClick={() => setShowChangelog(false)}
+                 >
+                   Got it
                  </Button>
                </div>
             </motion.div>
