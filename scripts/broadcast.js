@@ -32,7 +32,7 @@ async function broadcastUpdate() {
       const newNotificationRef = db.collection('notifications').doc();
       batch.set(newNotificationRef, {
         to: doc.id,
-        message: "App Update! Version 1.2.0 is here with Scan Bill [Beta] (OCR parser) and Transaction Notes. Check the Changelog in your profile!",
+        message: "App Update: The Scan Bill OCR feature is now live and fully functional! Try uploading a receipt for instant, smart expense splits.",
         type: 'info',
         read: false,
         createdAt: timestamp
