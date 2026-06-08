@@ -21,29 +21,46 @@ export const getInitials = (fullName) => {
 };
 
 /**
- * Returns a short version of a name, adding a last initial if it conflicts with others.
+ * Returns a short version of a name, adding disambiguation as needed:
+ *   "Meet"           → first name alone if unique
+ *   "Meet S."        → first name + last initial if first name clashes
+ *   "Meet Shah"      → full name if even first+last-initial clashes (e.g. two "Meet S.")
+ *
  * @param {string} fullName - The name to format.
  * @param {string[]} allNames - List of all names in the same context for collision check.
  */
 export const getShortName = (fullName, allNames = []) => {
   if (!fullName) return '?';
-  
+
   const parts = fullName.trim().split(/\s+/);
   const firstName = parts[0];
   const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
 
-  // Check if first name is unique among allNames
-  // We use filter(Boolean) to ignore empty names
-  const firstNameDuplicates = allNames.filter(name => {
+  const firstClashes = allNames.filter(name => {
     if (!name) return false;
     return name.trim().split(/\s+/)[0].toLowerCase() === firstName.toLowerCase();
   });
 
-  // If first name is unique, just return it
-  if (firstNameDuplicates.length <= 1) {
-    return firstName;
-  }
+  // First name is unique — done.
+  if (firstClashes.length <= 1) return firstName;
 
-  // If not unique, return First Name + Last Initial
-  return lastName ? `${firstName} ${lastName[0]}.` : firstName;
+  // No last name to help — return first name as-is.
+  if (!lastName) return firstName;
+
+  // Check if first + last-initial is still ambiguous.
+  const initialClashes = allNames.filter(name => {
+    if (!name) return false;
+    const p = name.trim().split(/\s+/);
+    const fn = p[0];
+    const ln = p.length > 1 ? p[p.length - 1] : '';
+    return (
+      fn.toLowerCase() === firstName.toLowerCase() &&
+      ln[0]?.toLowerCase() === lastName[0]?.toLowerCase()
+    );
+  });
+
+  if (initialClashes.length <= 1) return `${firstName} ${lastName[0]}.`;
+
+  // Both first name and initial clash — show the full name.
+  return fullName.trim();
 };

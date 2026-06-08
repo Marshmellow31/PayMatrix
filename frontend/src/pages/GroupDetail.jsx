@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link, useOutletContext, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
@@ -59,6 +59,13 @@ const GroupDetail = () => {
   const [leaving, setLeaving] = useState(false);
   const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false);
   const [deletingGroup, setDeletingGroup] = useState(false);
+  // Ref mirrors deletingGroup so onSnapshot error callbacks always read the current value
+  // (avoiding stale closure where the initial false is captured at subscription time).
+  const deletingGroupRef = useRef(false);
+  const setDeletingGroupSafe = (val) => {
+    deletingGroupRef.current = val;
+    setDeletingGroup(val);
+  };
   const [showEditGroup, setShowEditGroup] = useState(false);
   const [editName, setEditName] = useState('');
   const [editCategory, setEditCategory] = useState('');
@@ -86,8 +93,7 @@ const GroupDetail = () => {
         }
       }
     }, (err) => {
-      // Ignore permission errors if we are currently deleting the group
-      if (deletingGroup && err.code === 'permission-denied') return;
+      if (deletingGroupRef.current && err.code === 'permission-denied') return;
       console.error("Group metadata snapshot error:", err);
     });
 
@@ -103,7 +109,7 @@ const GroupDetail = () => {
       }));
       dispatch(setExpenses({ expenses: liveExpenses, groupId: id }));
     }, (err) => {
-      if (deletingGroup && err.code === 'permission-denied') return;
+      if (deletingGroupRef.current && err.code === 'permission-denied') return;
       console.error("Expenses snapshot error:", err);
     });
 
@@ -121,7 +127,7 @@ const GroupDetail = () => {
       }));
       setSettlements(liveSettlements);
     }, (err) => {
-      if (deletingGroup && err.code === 'permission-denied') return;
+      if (deletingGroupRef.current && err.code === 'permission-denied') return;
       console.error("Settlements snapshot error:", err);
     });
 
@@ -151,7 +157,7 @@ const GroupDetail = () => {
       }));
       setGroupLogs(liveLogs);
     }, (err) => {
-      if (deletingGroup && err.code === 'permission-denied') return;
+      if (deletingGroupRef.current && err.code === 'permission-denied') return;
       console.error("Logs snapshot error:", err);
     });
 
@@ -159,7 +165,7 @@ const GroupDetail = () => {
       setGroupLogs([]);
       unsubscribeLogs();
     };
-  }, [id, tab, deletingGroup]);
+  }, [id, tab]);
 
   const { netBalances, balanceList, debts, scopedExpenses } = useMemo(() => {
     const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
@@ -302,7 +308,7 @@ const GroupDetail = () => {
   };
 
   const handleDeleteGroup = async () => {
-    setDeletingGroup(true);
+    setDeletingGroupSafe(true);
     try {
       const result = await dispatch(deleteGroup(id));
       if (result.meta.requestStatus === 'fulfilled') {
@@ -314,7 +320,7 @@ const GroupDetail = () => {
     } catch (err) {
       toast.error('Failed to delete group');
     } finally {
-      setDeletingGroup(false);
+      setDeletingGroupSafe(false);
       setShowDeleteGroupConfirm(false);
     }
   };
@@ -366,64 +372,65 @@ const GroupDetail = () => {
   ).values());
 
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in pb-24">
-      {/* Compact Group Header */}
-      <div className="bg-surface-container-low mt-4 mb-6 p-4 sm:p-6 rounded-[2rem] border border-white/5">
-        <div className="relative z-10 flex flex-col gap-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shadow-inner backdrop-blur-sm">
-                {category?.icon ? (
-                  (() => {
-                    const IconComponent = LucideIcons[category.icon];
-                    return IconComponent ? <IconComponent size={24} style={{ color: category.color }} /> : <LucideIcons.Hash size={24} />;
-                  })()
-                ) : (
-                  <LucideIcons.Hash size={24} />
+    <div className="lg:max-w-6xl max-w-4xl mx-auto animate-fade-in pb-24">
+      <div className="lg:grid lg:grid-cols-[1fr_300px] lg:gap-8 lg:items-start">
+
+        {/* ── LEFT: Tabs + Content ─────────────────────────── */}
+        <div className="min-w-0">
+
+          {/* Mobile-only header — hidden on desktop */}
+          <div className="lg:hidden bg-surface-container-low mt-4 mb-6 p-4 sm:p-6 rounded-[2rem] border border-white/5">
+            <div className="relative z-10 flex flex-col gap-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shadow-inner backdrop-blur-sm">
+                    {category?.icon ? (
+                      (() => {
+                        const IconComponent = LucideIcons[category.icon];
+                        return IconComponent ? <IconComponent size={24} style={{ color: category.color }} /> : <LucideIcons.Hash size={24} />;
+                      })()
+                    ) : (
+                      <LucideIcons.Hash size={24} />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1 min-w-0 flex-1">
+                    <h1 className="text-lg font-black font-manrope text-white tracking-tight uppercase leading-tight truncate">
+                      {activeGroup.name || activeGroup.title}
+                    </h1>
+                    <p className="text-[9px] text-white/30 uppercase tracking-[0.22em] font-black font-manrope truncate">
+                      {activeGroup.category} <span className="mx-1.5 opacity-50">•</span> {uniqueMembers.length} Members
+                    </p>
+                  </div>
+                </div>
+                {isAdmin && (
+                  <button
+                    onClick={() => isOnline && setShowAddMember(true)}
+                    disabled={!isOnline}
+                    className={`w-10 h-10 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] transition-all border border-white/5 active:scale-90 text-white/40 flex items-center justify-center shrink-0 ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:text-primary'}`}
+                    title="Add Member"
+                  >
+                    <UserPlus size={18} />
+                  </button>
                 )}
               </div>
-              <div className="flex flex-col gap-1 min-w-0 flex-1">
-                <h1 className="text-lg md:text-xl font-black font-manrope text-white tracking-tight uppercase leading-tight truncate">
-                  {activeGroup.name || activeGroup.title}
-                </h1>
-                <p className="text-[9px] text-white/30 uppercase tracking-[0.22em] font-black font-manrope truncate">
-                  {activeGroup.category} <span className="mx-1.5 opacity-50">•</span> {uniqueMembers.length} Members
-                </p>
+              <div className="flex w-full gap-3">
+                <button
+                  onClick={() => openAddExpense(id)}
+                  className="flex-1 h-11 px-2 rounded-xl font-manrope font-black text-[10px] tracking-[0.12em] flex items-center justify-center gap-2 bg-white text-black hover:bg-white/90 transition-all active:scale-[0.97] uppercase shadow-lg shadow-white/5"
+                >
+                  <Plus size={16} strokeWidth={4} className="shrink-0" /> <span className="truncate">Record</span>
+                </button>
+                <button
+                  onClick={() => isOnline && setShowSettleUp(true)}
+                  disabled={!isOnline}
+                  className={`flex-1 h-11 px-2 rounded-xl font-manrope font-black text-[10px] tracking-[0.12em] flex items-center justify-center gap-2 bg-white/[0.03] text-white/60 transition-all border border-white/5 active:scale-[0.97] uppercase ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:bg-white/[0.08] hover:text-white'}`}
+                >
+                  <WalletCards size={16} className="shrink-0" />
+                  <span className="truncate">Settle</span>
+                </button>
               </div>
             </div>
-
-            {isAdmin && (
-              <button
-                onClick={() => isOnline && setShowAddMember(true)}
-                disabled={!isOnline}
-                className={`w-10 h-10 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] transition-all border border-white/5 active:scale-90 text-white/40 flex items-center justify-center shrink-0 ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:text-primary'}`}
-                title="Add Member"
-              >
-                <UserPlus size={18} />
-              </button>
-            )}
           </div>
-
-          <div className="flex w-full gap-3">
-            <button
-              onClick={() => openAddExpense(id)}
-              className="flex-1 h-11 px-2 rounded-xl font-manrope font-black text-[10px] sm:text-xs tracking-[0.12em] sm:tracking-[0.2em] flex items-center justify-center gap-2 bg-white text-black hover:bg-white/90 transition-all active:scale-[0.97] uppercase shadow-lg shadow-white/5"
-            >
-              <Plus size={16} strokeWidth={4} className="shrink-0" /> <span className="truncate">Record</span>
-            </button>
-
-            <button
-              onClick={() => isOnline && setShowSettleUp(true)}
-              disabled={!isOnline}
-              className={`flex-1 h-11 px-2 rounded-xl font-manrope font-black text-[10px] sm:text-xs tracking-[0.12em] sm:tracking-[0.2em] flex items-center justify-center gap-2 bg-white/[0.03] text-white/60 transition-all border border-white/5 active:scale-[0.97] uppercase ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:bg-white/[0.08] hover:text-white'}`}
-            >
-              <WalletCards size={16} className="shrink-0" />
-              <span className="truncate">Settle</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
 
       {/* Tabs */}
       <div
@@ -583,6 +590,97 @@ const GroupDetail = () => {
           netBalances={netBalances}
         />
       )}
+
+        </div>{/* end left column */}
+
+        {/* ── RIGHT: Sticky Sidebar (desktop only) ─────────────── */}
+        <aside className="hidden lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-6 mt-4">
+
+          {/* Group Identity Card */}
+          <div className="bg-surface-container-low p-6 rounded-[2rem] border border-white/5 flex flex-col gap-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shrink-0">
+                  {category?.icon ? (
+                    (() => {
+                      const IconComponent = LucideIcons[category.icon];
+                      return IconComponent ? <IconComponent size={20} style={{ color: category.color }} /> : <LucideIcons.Hash size={20} />;
+                    })()
+                  ) : (
+                    <LucideIcons.Hash size={20} />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-black font-manrope text-white tracking-tight uppercase truncate leading-tight">
+                    {activeGroup.name || activeGroup.title}
+                  </h2>
+                  <p className="text-[9px] text-white/30 uppercase tracking-[0.2em] font-black font-manrope mt-0.5">
+                    {activeGroup.category} <span className="mx-1 opacity-40">•</span> {uniqueMembers.length} Members
+                  </p>
+                </div>
+              </div>
+              {isAdmin && (
+                <button
+                  onClick={() => isOnline && setShowAddMember(true)}
+                  disabled={!isOnline}
+                  className={`w-8 h-8 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] transition-all border border-white/5 active:scale-90 text-white/40 flex items-center justify-center shrink-0 ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:text-primary'}`}
+                  title="Add Member"
+                >
+                  <UserPlus size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => openAddExpense(id)}
+                className="w-full h-10 px-4 rounded-xl font-manrope font-black text-[11px] tracking-[0.15em] flex items-center justify-center gap-2 bg-white text-black hover:bg-white/90 transition-all active:scale-[0.97] uppercase shadow-lg shadow-white/5"
+              >
+                <Plus size={14} strokeWidth={4} className="shrink-0" /> Record
+              </button>
+              <button
+                onClick={() => isOnline && setShowSettleUp(true)}
+                disabled={!isOnline}
+                className={`w-full h-10 px-4 rounded-xl font-manrope font-black text-[11px] tracking-[0.15em] flex items-center justify-center gap-2 bg-white/[0.03] text-white/60 transition-all border border-white/5 active:scale-[0.97] uppercase ${!isOnline ? 'opacity-20 grayscale cursor-not-allowed' : 'hover:bg-white/[0.08] hover:text-white'}`}
+              >
+                <WalletCards size={14} className="shrink-0" /> Settle
+              </button>
+            </div>
+          </div>
+
+          {/* Live Balance Summary */}
+          {balanceList.length > 0 && (
+            <div className="bg-surface-container-low p-5 rounded-[1.75rem] border border-white/5 flex flex-col gap-3">
+              <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.3em] font-manrope">Net Positions</p>
+              <div className="flex flex-col">
+                {balanceList.map(item => {
+                  const u = item.user || {};
+                  const uid = (u._id || u.uid || '').toString();
+                  const bal = item.balance;
+                  return (
+                    <div key={uid} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-none">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-6 h-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                          <span className="text-[9px] font-black text-white/50">{(u.name || '?')[0].toUpperCase()}</span>
+                        </div>
+                        <p className="text-[11px] font-bold text-white/60 font-inter truncate">{u.name || 'Member'}</p>
+                      </div>
+                      <p className={`text-[11px] font-black font-manrope whitespace-nowrap ml-2 ${
+                        bal > 0.01 ? 'text-green-400' : bal < -0.01 ? 'text-red-400' : 'text-white/20'
+                      }`}>
+                        {bal > 0.01 ? '+' : ''}{Math.abs(bal) > 0.01 ? formatCurrency(bal) : 'Settled'}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+        </aside>
+
+      </div>{/* end desktop grid */}
 
       {/* Add Member Modal */}
       <Modal isOpen={showAddMember} onClose={() => setShowAddMember(false)} title="Add Member" size="md">

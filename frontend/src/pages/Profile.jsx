@@ -166,7 +166,7 @@ const Profile = () => {
   const userHasPayment = hasPaymentMethod(currentUser);
 
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in pb-24 px-4 sm:px-6">
+    <div className="max-w-6xl mx-auto animate-fade-in pb-24 px-4 sm:px-6 lg:px-8">
       <div className="mb-6 pt-6">
         <h1 className="text-3xl font-black font-manrope text-white tracking-[-0.05em] mb-1">
           {isOwnProfile ? 'Identity & Security' : 'Network Profile'}
@@ -204,9 +204,9 @@ const Profile = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Identity & Actions */}
-        <div className="lg:col-span-12 xl:col-span-12 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 lg:gap-8 items-start">
+        {/* ── LEFT COLUMN: Identity + System ── */}
+        <div className="flex flex-col gap-6">
           <div className="glass-card overflow-hidden border border-white/5 relative">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50 opacity-20" />
 
@@ -333,11 +333,66 @@ const Profile = () => {
                </div>
             </div>
           )}
-        </div>
 
-        {/* ── Payment Details Card (own profile only) ── */}
-        {isOwnProfile && (
-          <div className="lg:col-span-12">
+          {/* System Settings Card */}
+          <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01]">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                <div className="w-7 h-7 flex items-center justify-center">
+                  <Settings size={16} />
+                </div>
+              </div>
+              <h3 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] font-manrope">System</h3>
+            </div>
+
+            <div className="space-y-6">
+              <div className="flex items-center justify-between pb-4 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white/60 font-inter">Currency</span>
+                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">(coming soon)</span>
+                </div>
+                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.currency || 'INR'}</span>
+              </div>
+              <div className="flex items-center justify-between pb-4 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white/60 font-inter">Interface</span>
+                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">(coming soon)</span>
+                </div>
+                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.theme || 'dark'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-white/60 font-inter">App Version</span>
+                  <span className="text-[10px] text-white/30 font-inter">v1.1.0 (Build 42)</span>
+                </div>
+                <button
+                  onClick={() => {
+                    toast.loading("Checking for updates...", { duration: 1000 });
+                    if ('serviceWorker' in navigator) {
+                      navigator.serviceWorker.getRegistrations().then(registrations => {
+                        registrations.forEach(registration => registration.update());
+                      });
+                    }
+                    setTimeout(() => {
+                      if (window.location) {
+                        window.location.reload(true);
+                      }
+                    }, 1200);
+                  }}
+                  className="h-8 px-4 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+                >
+                  Force Update
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>{/* end left column */}
+
+        {/* ── RIGHT COLUMN: Payments + App + History ── */}
+        <div className="flex flex-col gap-6">
+
+          {/* UPI Payment Details */}
+          {isOwnProfile && (
             <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01] relative overflow-hidden">
               {/* Subtle accent line */}
               <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
@@ -416,188 +471,110 @@ const Profile = () => {
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* ── Preferred Payment App Card (own profile only) ── */}
-        {isOwnProfile && (
-          <div className="lg:col-span-12">
-            <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01] relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
-
-              <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center shrink-0 border border-violet-500/20 shadow-[0_0_20px_-5px_rgba(139,92,246,0.1)]">
-                  <Smartphone size={20} className="text-violet-400" />
-                </div>
-                <div className="flex-1 space-y-1 mt-1">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="text-sm font-black text-white/60 uppercase tracking-[0.2em] font-manrope">Preferred App</h3>
-                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm">
-                      {(() => {
-                        const currentApp = UPI_APPS.find(a => a.id === preferredApp);
-                        if (currentApp?.id === 'default') return <Smartphone size={10} />;
-                        return (
-                          <img
-                            src={currentApp?.icon}
-                            alt={currentApp?.label}
-                            className="w-3 h-3 object-contain"
-                          />
-                        );
-                      })()}
-                      &nbsp;
-                      {UPI_APPS.find(a => a.id === preferredApp)?.shortLabel || 'Default'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-white/30 font-inter leading-relaxed">Choose which UPI application should trigger for instant settlements.</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mb-8">
-                {UPI_APPS.map((app) => {
-                  const isSelected = preferredApp === app.id;
-                  return (
-                    <button
-                      key={app.id}
-                      onClick={() => setPreferredApp(app.id)}
-                      disabled={!isOnline || savingPreferredApp}
-                      style={isSelected ? { borderColor: `${app.color}40`, boxShadow: `0 0 0 1px ${app.color}30, 0 4px 20px ${app.color}15` } : {}}
-                      className={`
-                        relative text-left p-4 rounded-2xl border transition-all duration-200
-                        flex items-center gap-4 group
-                        ${isSelected
-                          ? 'bg-white/[0.05] border-white/20'
-                          : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/10'}
-                        ${(!isOnline || savingPreferredApp) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'}
-                      `}
-                    >
-                      {/* App icon/logo */}
-                      <div
-                        className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 overflow-hidden ${isSelected ? 'bg-white/10' : 'bg-white/5'
-                          }`}
-                        style={isSelected ? { backgroundColor: `${app.color}18` } : {}}
-                      >
-                        {app.id === 'default' ? (
-                          <Smartphone size={24} className={isSelected ? 'text-violet-400' : 'text-white/40'} />
-                        ) : (
-                          <img
-                            src={app.icon}
-                            alt={app.label}
-                            className="w-7 h-7 object-contain transition-all duration-300"
-                          />
-                        )}
-                      </div>
-
-                      {/* Label */}
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-bold truncate transition-colors duration-200 ${isSelected ? 'text-white' : 'text-white/60 group-hover:text-white/80'
-                          }`}>{app.label}</p>
-                        <p className="text-[10px] text-white/25 font-inter mt-0.5 truncate">{app.description}</p>
-                      </div>
-
-                      {/* Check badge */}
-                      {isSelected && (
-                        <div
-                          className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                          style={{ backgroundColor: `${app.color}30`, border: `1.5px solid ${app.color}60` }}
-                        >
-                          <CheckCircle2 size={11} style={{ color: app.color }} />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* iOS note */}
-              <div className="mb-6 p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-3">
-                <AlertTriangle size={13} className="text-amber-400/60 mt-0.5 shrink-0" />
-                <p className="text-[10px] text-amber-400/50 font-inter leading-relaxed">
-                  <span className="font-bold text-amber-400/70">iOS note:</span> If set to "Default", you'll see a chooser prompt when paying — iOS doesn't support automatic UPI app detection.
-                  Selecting a specific app skips this step.
-                </p>
-              </div>
-
-              <Button
-                onClick={handleSavePreferredApp}
-                disabled={!isOnline || savingPreferredApp}
-                className={`h-14 w-full md:w-auto md:px-12 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-xl
-                  ${!isOnline ? 'opacity-20 cursor-not-allowed bg-white/5 border-white/5 text-white/40' : savingPreferredApp ? 'opacity-60 cursor-wait bg-white text-black/50' : 'bg-white text-black hover:bg-white/90'}`
-                }
-              >
-                {savingPreferredApp ? (
-                  <span className="flex items-center gap-3">
-                    <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                    SAVING…
-                  </span>
-                ) : isOnline ? 'SAVE PREFERENCE' : 'OFFLINE'}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* System Settings & Assets */}
-        <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01]">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                <div className="w-7 h-7 flex items-center justify-center">
-                  <Settings size={16} />
-                </div>
-              </div>
-              <h3 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] font-manrope">System</h3>
-            </div>
-
-            <div className="space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-white/5">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-white/60 font-inter">Currency</span>
-                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">(coming soon)</span>
-                </div>
-                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.currency || 'INR'}</span>
-              </div>
-              <div className="flex items-center justify-between pb-4 border-b border-white/5">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-white/60 font-inter">Interface</span>
-                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">(coming soon)</span>
-                </div>
-                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.theme || 'dark'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold text-white/60 font-inter">App Version</span>
-                  <span className="text-[10px] text-white/30 font-inter">v1.1.0 (Build 42)</span>
-                </div>
-                <button
-                  onClick={() => {
-                    toast.loading("Checking for updates...", { duration: 1000 });
-                    if ('serviceWorker' in navigator) {
-                      navigator.serviceWorker.getRegistrations().then(registrations => {
-                        registrations.forEach(registration => registration.update());
-                      });
-                    }
-                    setTimeout(() => {
-                      if (window.location) {
-                        window.location.reload(true);
-                      }
-                    }, 1200);
-                  }}
-                  className="h-8 px-4 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
-                >
-                  Force Update
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {isOwnProfile ? (
-            <div className="lg:col-span-1">
-              <CohortHistory userId={currentUser?._id} />
-            </div>
-          ) : (
-            <div className="lg:col-span-1">
-              <CohortHistory userId={id} myId={currentUser?._id} isFriendView={true} />
-            </div>
           )}
+
+        {isOwnProfile && (
+          <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01] relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
+
+            <div className="flex items-start gap-4 mb-6">
+              <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center shrink-0 border border-violet-500/20 shadow-[0_0_20px_-5px_rgba(139,92,246,0.1)]">
+                <Smartphone size={20} className="text-violet-400" />
+              </div>
+              <div className="flex-1 space-y-1 mt-1">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h3 className="text-sm font-black text-white/60 uppercase tracking-[0.2em] font-manrope">Preferred App</h3>
+                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm">
+                    {(() => {
+                      const currentApp = UPI_APPS.find(a => a.id === preferredApp);
+                      if (currentApp?.id === 'default') return <Smartphone size={10} />;
+                      return (
+                        <img
+                          src={currentApp?.icon}
+                          alt={currentApp?.label}
+                          className="w-3 h-3 object-contain"
+                        />
+                      );
+                    })()}
+                    &nbsp;
+                    {UPI_APPS.find(a => a.id === preferredApp)?.shortLabel || 'Default'}
+                  </span>
+                </div>
+                <p className="text-xs text-white/30 font-inter leading-relaxed">Choose which UPI application should trigger for instant settlements.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-6">
+              {UPI_APPS.map((app) => {
+                const isSelected = preferredApp === app.id;
+                return (
+                  <button
+                    key={app.id}
+                    onClick={() => setPreferredApp(app.id)}
+                    disabled={!isOnline || savingPreferredApp}
+                    style={isSelected ? { borderColor: `${app.color}40`, boxShadow: `0 0 0 1px ${app.color}30, 0 4px 20px ${app.color}15` } : {}}
+                    className={`
+                      relative text-left p-3 rounded-2xl border transition-all duration-200
+                      flex items-center gap-3 group
+                      ${isSelected
+                        ? 'bg-white/[0.05] border-white/20'
+                        : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/10'}
+                      ${(!isOnline || savingPreferredApp) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'}
+                    `}
+                  >
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 overflow-hidden ${isSelected ? 'bg-white/10' : 'bg-white/5'}`}
+                      style={isSelected ? { backgroundColor: `${app.color}18` } : {}}
+                    >
+                      {app.id === 'default' ? (
+                        <Smartphone size={20} className={isSelected ? 'text-violet-400' : 'text-white/40'} />
+                      ) : (
+                        <img src={app.icon} alt={app.label} className="w-6 h-6 object-contain transition-all duration-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-bold truncate transition-colors duration-200 ${isSelected ? 'text-white' : 'text-white/60 group-hover:text-white/80'}`}>{app.label}</p>
+                    </div>
+                    {isSelected && (
+                      <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${app.color}30`, border: `1.5px solid ${app.color}60` }}>
+                        <CheckCircle2 size={9} style={{ color: app.color }} />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mb-5 p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-3">
+              <AlertTriangle size={13} className="text-amber-400/60 mt-0.5 shrink-0" />
+              <p className="text-[10px] text-amber-400/50 font-inter leading-relaxed">
+                <span className="font-bold text-amber-400/70">iOS note:</span> If set to "Default", you'll see a chooser prompt when paying.
+              </p>
+            </div>
+
+            <Button
+              onClick={handleSavePreferredApp}
+              disabled={!isOnline || savingPreferredApp}
+              className={`h-14 w-full rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-xl
+                ${!isOnline ? 'opacity-20 cursor-not-allowed bg-white/5 border-white/5 text-white/40' : savingPreferredApp ? 'opacity-60 cursor-wait bg-white text-black/50' : 'bg-white text-black hover:bg-white/90'}`
+              }
+            >
+              {savingPreferredApp ? (
+                <span className="flex items-center gap-3">
+                  <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                  SAVING…
+                </span>
+              ) : isOnline ? 'SAVE PREFERENCE' : 'OFFLINE'}
+            </Button>
+          </div>
+        )}
+
+          {/* Cohort History */}
+          {isOwnProfile
+            ? <CohortHistory userId={currentUser?._id} />
+            : <CohortHistory userId={id} myId={currentUser?._id} isFriendView={true} />
+          }
+
         </div>
       </div>
 

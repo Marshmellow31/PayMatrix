@@ -52,6 +52,39 @@ export const calculateSplits = (amount, splitType, splitData, participants = [])
         return { user: uid, amount: amt, shares: userShares };
       });
     }
+    case 'itemized': {
+      // Restaurant-style split: each participant has a base "dish" cost, and the
+      // bill total includes GST/charges layered on top of the dish subtotal.
+      // We distribute the *whole* total proportionally to each dish, so a pricier
+      // dish absorbs a larger share of the tax. Algebraically each person pays
+      //   dish * (total / subtotal) === dish + (dish / subtotal) * (total - subtotal)
+      // i.e. their dish plus their proportional slice of the GST.
+      const dishes = splitData.dishAmounts || {};
+      const subtotal = participants.reduce(
+        (sum, uid) => sum + (parseFloat(dishes[uid]) || 0), 0
+      );
+
+      // No dishes entered yet → degrade gracefully to an equal split of the total.
+      if (subtotal <= 0) {
+        const perPerson = round2(total / participants.length);
+        return participants.map(uid => ({ user: uid, amount: perPerson, dish: 0 }));
+      }
+
+      // Allocate proportionally; the last participant absorbs any rounding drift
+      // so the splits always sum back to the stored total exactly.
+      let allocated = 0;
+      return participants.map((uid, idx) => {
+        const dish = round2(parseFloat(dishes[uid]) || 0);
+        let amount;
+        if (idx === participants.length - 1) {
+          amount = round2(total - allocated);
+        } else {
+          amount = round2((total * dish) / subtotal);
+          allocated = round2(allocated + amount);
+        }
+        return { user: uid, amount, dish };
+      });
+    }
     default:
       return [];
   }

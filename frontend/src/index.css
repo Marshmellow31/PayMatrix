@@ -77,6 +77,16 @@
     background: rgba(255, 255, 255, 0.15);
     color: #ffffff;
   }
+
+  /* Hide numeric input spinner controls globally */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 }
 
 @layer components {

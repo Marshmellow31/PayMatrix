@@ -142,7 +142,7 @@ const Groups = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto animate-fade-in pb-32 px-6">
+    <div className="max-w-6xl mx-auto animate-fade-in pb-32 px-4 sm:px-6 lg:px-8">
       <div className="mb-10 pt-8">
         <div className="flex items-center justify-between mb-2">
           <h1 className="font-headline text-3xl font-bold text-white tracking-tight">
@@ -182,7 +182,7 @@ const Groups = () => {
           </Button>
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
           {groups.map((group) => (
             <GroupCard
               key={group._id}
@@ -193,8 +193,8 @@ const Groups = () => {
         </div>
       )}
 
-      {/* Floating Action Button - Now for Add Expense */}
-      <div className="fixed bottom-28 right-6 z-40 lg:right-[calc(50%-22rem)]">
+      {/* Floating Action Button */}
+      <div className="fixed bottom-28 right-6 z-40 lg:bottom-10 lg:right-10">
         <button
           onClick={() => openAddExpense()}
           className="h-14 w-14 rounded-full bg-primary text-on-primary shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform duration-200"

@@ -12,7 +12,9 @@ import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus.js';
 
 const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRemoved, currentUserId }) => {
-  const [selectedMember, setSelectedMember] = useState(null);
+  // Store only the selected user ID — not a snapshot of the balance.
+  // The live balance is always derived from the `balances` prop to ensure real-time accuracy.
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(null); // id of user to remove
   const [relationshipStatus, setRelationshipStatus] = useState('none');
@@ -43,6 +45,23 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
     });
   }
 
+  // Derive the full selected member object from current props (always fresh / real-time)
+  const selectedMember = selectedMemberId
+    ? (() => {
+        const raw = uniqueMembers.find(m => {
+          const u = m.user || m;
+          return ((u._id || u.uid || u)?.toString()) === selectedMemberId;
+        });
+        if (!raw) return null;
+        const u = raw.user || raw;
+        return {
+          ...u,
+          balance: getMemberBalance(u._id || u.uid || u),
+          isMe: selectedMemberId === currentUserId?.toString(),
+        };
+      })()
+    : null;
+
   useEffect(() => {
     let isMounted = true;
     
@@ -63,7 +82,10 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
     }
     
     return () => { isMounted = false; };
-  }, [selectedMember]);
+  // Only re-run the relationship check when the selected member ID changes,
+  // NOT on every balance update (which would spam the API).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMemberId]);
 
   const handleRemove = (userId) => {
     setShowRemoveConfirm(userId);
@@ -94,7 +116,7 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
     try {
       await groupService.removeMember(groupId, showRemoveConfirm);
       toast.success('Member removed successfully');
-      setSelectedMember(null);
+      setSelectedMemberId(null);
       setShowRemoveConfirm(null);
       if (onMemberRemoved) onMemberRemoved();
     } catch (err) {
@@ -129,7 +151,7 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
         return (
           <button
             key={`member-${userIdStr}`}
-            onClick={() => setSelectedMember({ ...user, balance, isMe: userIdStr === currentUserId?.toString() })}
+            onClick={() => setSelectedMemberId(userIdStr)}
             className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-all group text-left w-full overflow-hidden"
           >
             <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -159,8 +181,8 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
 
       {/* Member Details Modal */}
       <Modal
-        isOpen={!!selectedMember}
-        onClose={() => setSelectedMember(null)}
+        isOpen={!!selectedMemberId}
+        onClose={() => setSelectedMemberId(null)}
         title="Member Details"
         size="sm"
       >

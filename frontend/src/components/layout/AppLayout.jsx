@@ -23,6 +23,7 @@ const AppLayout = () => {
   const { groups } = useSelector((state) => state.groups);
   const { loading: expenseLoading } = useSelector((state) => state.expenses);
   const [editingExpense, setEditingExpense] = useState(null);
+  const [expenseStep, setExpenseStep] = useState(1);
 
   useEffect(() => {
     dispatch(fetchGroups());
@@ -45,6 +46,7 @@ const AppLayout = () => {
   const openAddExpense = (groupId = '', expense = null) => {
     setPreSelectedGroupId(groupId || (expense ? (expense.group?._id || expense.group) : ''));
     setEditingExpense(expense);
+    setExpenseStep(1);
     setIsAddExpenseOpen(true);
   };
 
@@ -108,7 +110,7 @@ const AppLayout = () => {
           setEditingExpense(null);
         }}
         title={editingExpense ? "Edit Transaction" : "Record Transaction"}
-        size="md"
+        size="3xl"
       >
         <div className="py-2">
           <ExpenseForm
@@ -117,6 +119,7 @@ const AppLayout = () => {
             initialData={editingExpense}
             onSubmit={handleAddExpenseSubmit}
             loading={expenseLoading}
+            onStepChange={setExpenseStep}
           />
         </div>
       </Modal>

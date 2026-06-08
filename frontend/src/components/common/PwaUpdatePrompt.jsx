@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import toast from 'react-hot-toast';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, X } from 'lucide-react';
 
 const PwaUpdatePrompt = () => {
   const {
@@ -37,18 +37,38 @@ const PwaUpdatePrompt = () => {
       toast(
         (t) => (
           <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <RefreshCw size={16} className="text-emerald-400 animate-[spin_3s_linear_infinite]" />
+            <div className="flex items-start justify-between w-full">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                  <RefreshCw size={16} className="text-emerald-400 animate-[spin_3s_linear_infinite]" />
+                </div>
+                <div>
+                  <span className="font-bold text-white text-sm block">Update Available</span>
+                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">New Version</span>
+                </div>
               </div>
-              <div>
-                <span className="font-bold text-white text-sm block">Update Available</span>
-                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">New Version</span>
-              </div>
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  setNeedRefresh(false);
+                }}
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-all shrink-0"
+                aria-label="Close update prompt"
+              >
+                <X size={14} />
+              </button>
             </div>
-            <p className="text-xs text-white/60 leading-relaxed font-inter">
-              A new version of PayMatrix is ready. Update now to get the latest improvements and bug fixes.
-            </p>
+            
+            <div className="text-xs text-white/70 leading-relaxed font-inter flex flex-col gap-1.5 bg-white/[0.02] border border-white/5 p-3 rounded-2xl">
+              <span className="font-bold text-white/90 mb-0.5">What's New:</span>
+              <ul className="list-disc pl-4 space-y-1 text-white/60">
+                <li>Optimized modal padding & rounded corners on mobile</li>
+                <li>Responsive category grids to prevent text overflow</li>
+                <li>Horizontal scroll Paid By list with Swipe indicators</li>
+                <li>Auto-expanding distribution preview for large cohorts</li>
+              </ul>
+            </div>
+
             <div className="flex gap-2 mt-1">
               <button
                 onClick={() => {

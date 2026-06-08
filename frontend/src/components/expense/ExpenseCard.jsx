@@ -13,6 +13,15 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
     (s) => (s.user?._id || s.user) === currentUserId
   );
 
+  // Itemized (restaurant/GST) breakdown — dishes are pre-tax, the rest is GST/charges.
+  const isItemized = expense.splitType === 'itemized';
+  const dishSubtotal = isItemized
+    ? (expense.splits || []).reduce((sum, s) => sum + (parseFloat(s.dish) || 0), 0)
+    : 0;
+  const gstTotal = isItemized ? (parseFloat(expense.amount || 0) - dishSubtotal) : 0;
+  const userDish = isItemized ? (parseFloat(userSplit?.dish) || 0) : 0;
+  const userGst = isItemized ? ((parseFloat(userSplit?.amount) || 0) - userDish) : 0;
+
   // Safely derive display time; offline expenses may lack createdAt
   let loggedTime = 'Just now';
   try {
@@ -71,6 +80,11 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
               You: {formatCurrency(userSplit.amount)}
             </p>
           )}
+          {isItemized && gstTotal > 0.01 && (
+            <span className="inline-flex items-center gap-1 mt-1.5 text-[8px] font-black text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+              <LucideIcons.Receipt size={9} /> GST
+            </span>
+          )}
         </div>
       </div>
 
@@ -80,8 +94,31 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
             initial={{ height: 0, opacity: 0, marginTop: 0 }}
             animate={{ height: 'auto', opacity: 1, marginTop: 20 }}
             exit={{ height: 0, opacity: 0, marginTop: 0 }}
-            className="border-t border-white/5 pt-4 flex items-center justify-between"
+            className="border-t border-white/5 pt-4 flex flex-col gap-4"
           >
+            {/* Itemized GST breakdown */}
+            {isItemized && gstTotal > 0.01 && (
+              <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold opacity-40">Dishes subtotal</span>
+                  <span className="text-xs font-manrope font-bold text-white">{formatCurrency(dishSubtotal)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] uppercase tracking-widest text-primary/60 font-bold">GST / charges</span>
+                  <span className="text-xs font-manrope font-bold text-primary">+{formatCurrency(gstTotal)}</span>
+                </div>
+                {userSplit && (
+                  <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                    <span className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold opacity-40">
+                      Your dish {formatCurrency(userDish)} + GST {formatCurrency(userGst)}
+                    </span>
+                    <span className="text-xs font-manrope font-black text-white">{formatCurrency(userSplit.amount)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold opacity-40">Recorded</span>
               <p className="text-xs font-manrope font-bold text-on-surface">{loggedTime}</p>
@@ -112,6 +149,7 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
                   <span>Delete</span>
                 </button>
               )}
+            </div>
             </div>
           </motion.div>
         )}

@@ -42,7 +42,7 @@ export const ExpenseSchema = z.object({
   date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(), // ISO or YYYY-MM-DD
   paidBy: z.string().min(1, "Payer UID required"),
   paidByName: z.string().optional(),
-  splitType: z.enum(['equal', 'exact', 'percentage', 'shares']).default('equal'),
+  splitType: z.enum(['equal', 'exact', 'percentage', 'shares', 'itemized']).default('equal'),
   splitData: z.record(z.string(), z.any()), // Further validation in split logic
   participants: z.array(z.string()).min(1),
   category: z.string().max(50).optional(),
@@ -54,7 +54,8 @@ export const ExpenseSchema = z.object({
     user: z.string().min(1),
     amount: z.number(),
     percent: z.number().optional(),
-    shares: z.number().optional()
+    shares: z.number().optional(),
+    dish: z.number().optional() // pre-GST dish/item cost for itemized splits
   })).optional(),
   createdAt: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)).optional(),
   updatedAt: z.string().datetime().optional()

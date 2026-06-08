@@ -26,6 +26,8 @@ export const SPLIT_TYPES = [
   { value: 'equal', label: 'Equal' },
   { value: 'exact', label: 'Exact Amount' },
   { value: 'percentage', label: 'Percentage' },
+  { value: 'shares', label: 'Shares' },
+  { value: 'itemized', label: 'Itemized (GST)' },
 ];
 
 // API base URL
