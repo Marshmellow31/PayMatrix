@@ -21,6 +21,12 @@ A state-of-the-art UI focused on information density and premium ergonomics.
 - **Micro-Animations**: Buttery-smooth transitions powered by `Framer Motion`.
 - **Haptic Responsiveness**: Optimized for mobile as a fully capable PWA.
 
+### 🤖 AI Bill Scanning
+Eliminate manual data entry with state-of-the-art receipt analysis.
+- **Powered by Gemini**: Uses Gemini 3.5 Flash Vision to instantly extract amounts, merchants, dates, and line items from images.
+- **Smart Itemization**: Automatically splits multi-item bills into individual, assignable line items.
+- **Category Prediction**: Intelligently categorizes expenses based on merchant and item data.
+
 ### 💰 Precision Split Engine
 Sophisticated debt resolution logic that handles complex financial webs.
 - **Flexible Distribution**: Split equally, by fixed amounts, or by exact percentages.
@@ -32,6 +38,12 @@ Close the loop in seconds with direct banking integration.
 - **Native UPI Deep-Linking**: Generate direct payment triggers for GPay, PhonePe, and Paytm.
 - **Dynamic QR Generation**: Offline-ready scannable codes for instant transfers.
 - **Preferred App Selection**: Set your primary payment vector (GPay, BHIM, etc.) globally.
+
+### 🔔 Native Push Notifications
+Stay updated on group activities with real-time OS-level alerts.
+- **FCM Integration**: Delivered natively via Firebase Cloud Messaging.
+- **Actionable Alerts**: Tap notifications to navigate directly to the relevant expense, settlement, or friend request.
+- **Deduplication**: Intelligent notification bundling to prevent alert fatigue.
 
 ### 📈 Advanced Analytics
 Transform raw expenses into actionable financial intelligence.
@@ -53,7 +65,8 @@ Built on a foundation of trust and validation.
 | :--- | :--- |
 | **Foundation** | React 19.1, Vite 6.3, React Router 7.5 |
 | **State** | Redux Toolkit 2.6, Redux Persist 6.0 |
-| **Backend** | Firebase 12.11 (Firestore, Auth, Storage) |
+| **Backend** | Firebase 12.11 (Firestore, Auth, Storage, Functions, FCM) |
+| **AI / OCR** | Gemini 3.5 Flash (via Firebase Functions) |
 | **Motion** | Framer Motion 12.6 |
 | **Visualization** | Chart.js 4.5, React Chartjs 2 |
 | **Reporting** | jsPDF, jspdf-autotable, json-2-csv |
@@ -140,6 +153,14 @@ PayMatrix/
    ```bash
    npm install
    npm run dev
+   ```
+
+4. **Firebase Functions (Optional for OCR/Push)**:
+   ```bash
+   cd ../functions
+   npm install
+   firebase functions:secrets:set GEMINI_API_KEY
+   firebase deploy --only functions
    ```
 
 ### 📜 Environment Variables

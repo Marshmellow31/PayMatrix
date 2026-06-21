@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { Bell, Menu, BarChart3 } from 'lucide-react';
+import { Bell, Menu, BarChart3, Sparkles } from 'lucide-react';
 import Avatar from '../common/Avatar.jsx';
+
+import { useFeatureFlags } from '../../hooks/useFeatureFlags.js';
 
 const Header = ({ onToggleSidebar }) => {
   const { user } = useSelector((state) => state.auth);
   const { unreadCount } = useSelector((state) => state.notifications);
+  const flags = useFeatureFlags();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-white/5">
@@ -28,12 +31,21 @@ const Header = ({ onToggleSidebar }) => {
 
         {/* Right — Notifications + Profile */}
         <div className="flex items-center gap-3">
+          {flags.analyticsPage && (
+            <Link
+              to="/analytics"
+              className="p-2 rounded-md hover:bg-surface-container transition-colors text-on-surface-variant"
+              aria-label="Analytics"
+            >
+              <BarChart3 size={22} />
+            </Link>
+          )}
           <Link
-            to="/analytics"
-            className="p-2 rounded-md hover:bg-surface-container transition-colors text-on-surface-variant"
-            aria-label="Analytics"
+            to="/copilot"
+            className="p-2 rounded-md hover:bg-surface-container transition-colors text-primary"
+            aria-label="AI Copilot"
           >
-            <BarChart3 size={22} />
+            <Sparkles size={22} className="animate-pulse" />
           </Link>
           <Link
             to="/activity"

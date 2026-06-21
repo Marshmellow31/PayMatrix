@@ -7,22 +7,25 @@ import {
   User,
   X,
   Wallet,
-  BarChart3
+  BarChart3,
+  Sparkles
 } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/copilot', label: 'AI Copilot', icon: Sparkles },
   { to: '/friends', label: 'Friends', icon: Users },
   { to: '/groups', label: 'Groups', icon: LayoutGrid },
   { to: '/settlements', label: 'Settlements', icon: Wallet },
   { to: '/profile', label: 'Profile', icon: User },
 ];
 
-const Sidebar = ({ isOpen, onClose }) => {
+const Sidebar = ({ isOpen, onClose, maintenanceMode }) => {
+  const topOffset = maintenanceMode ? 'top-32 h-[calc(100vh-128px)]' : 'top-20 h-[calc(100vh-80px)]';
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 bg-surface-container-low/40 backdrop-blur-xl border-r border-outline-variant/5 h-[calc(100vh-80px)] fixed top-20 left-0 p-6 z-30">
+      <aside className={`hidden lg:flex flex-col w-64 bg-surface-container-low/40 backdrop-blur-xl border-r border-outline-variant/5 fixed left-0 p-6 z-30 transition-all ${topOffset}`}>
         <nav className="flex flex-col gap-1 mt-4">
           {navItems.map((item) => (
             <NavLink

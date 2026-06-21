@@ -1,28 +1,34 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // --- Helper Functions ---
-    
+
+    // ─── Helper Functions ─────────────────────────────────────────────────────
+
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Checks if the requester is an active member of a group
+    // Platform-level admin via Firebase Custom Claims or UID fallback
+    function isGlobalAdmin() {
+      return request.auth != null && (
+        request.auth.token.admin == true ||
+        request.auth.uid == 'eidrZjV5Nwcq6iY5Gp51L4KZLHs2'
+      );
+    }
+
     function isMember(groupId) {
       let groupPath = /databases/$(database)/documents/groups/$(groupId);
       return isSignedIn() && exists(groupPath) && request.auth.uid in get(groupPath).data.get('members', []);
     }
 
-    // Checks if the requester is an admin or creator of the group
     function isAdmin(groupId) {
       let groupPath = /databases/$(database)/documents/groups/$(groupId);
       let groupData = get(groupPath).data;
-      return isSignedIn() && exists(groupPath) && 
+      return isSignedIn() && exists(groupPath) &&
              (request.auth.uid == groupData.get('admin', '') || request.auth.uid == groupData.get('createdBy', ''));
     }
 
-    // --- Validation Helpers ---
+    // ─── Validation Helpers ───────────────────────────────────────────────────
 
     function isValidString(val, maxLen) {
       return val is string && val.size() <= maxLen;
@@ -32,19 +38,18 @@ service cloud.firestore {
       return val is number && val > 0 && val <= 1000000;
     }
 
-    // --- Collections ---
+    // ─── Users ────────────────────────────────────────────────────────────────
 
-    // Users: Owner can read/write.
     match /users/{userId} {
-      allow read: if isSignedIn() && (
-        request.auth.uid == userId || 
+      allow read: if isGlobalAdmin() || (isSignedIn() && (
+        request.auth.uid == userId ||
         request.auth.uid in resource.data.get('friends', []) ||
-        isSignedIn() 
-      );
+        isSignedIn()
+      ));
       allow create: if isSignedIn() && request.auth.uid == userId &&
                     isValidString(request.resource.data.get('displayName', ''), 50);
-      allow update: if isSignedIn() && (
-        (request.auth.uid == userId && 
+      allow update: if isGlobalAdmin() || (isSignedIn() && (
+        (request.auth.uid == userId &&
          isValidString(request.resource.data.get('displayName', ''), 50) &&
          isValidString(request.resource.data.get('upiId', ''), 100) &&
          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email', 'createdAt'])
@@ -57,91 +62,110 @@ service cloud.firestore {
          )
         ) ||
         (
-         // Allow users to write/delete their own FCM push token
          request.auth.uid == userId &&
          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken'])
         )
-      );
+      ));
       allow delete: if false;
     }
 
-    // Groups: Membership-based read.
+    // ─── Groups ───────────────────────────────────────────────────────────────
+
     match /groups/{groupId} {
-      allow read: if isSignedIn() && (
-        request.auth.uid in resource.data.members || 
+      allow read: if isGlobalAdmin() || (isSignedIn() && (
+        request.auth.uid in resource.data.members ||
         request.auth.uid in resource.data.get('historicalMembers', [])
-      );
-      allow create: if isSignedIn() && 
+      ));
+      allow create: if isSignedIn() &&
                     isValidString(request.resource.data.name, 100) &&
                     request.resource.data.members is list;
-      allow update: if isSignedIn() && (
+      allow update: if isGlobalAdmin() || (isSignedIn() && (
         isAdmin(groupId) ||
-        (request.resource.data.get('members', []).hasAll(resource.data.get('members', [])) && 
+        (request.resource.data.get('members', []).hasAll(resource.data.get('members', [])) &&
          request.resource.data.get('inviteCode', '') == resource.data.get('inviteCode', '')) ||
         (resource.data.get('members', []).removeAll(request.resource.data.get('members', [])) == [request.auth.uid] &&
          request.resource.data.get('inviteCode', '') == resource.data.get('inviteCode', ''))
-      ) && isValidString(request.resource.data.get('name', request.resource.data.get('title', '')), 100);
-      allow delete: if isAdmin(groupId);
+      ) && isValidString(request.resource.data.get('name', request.resource.data.get('title', '')), 100));
+      allow delete: if isGlobalAdmin() || isAdmin(groupId);
 
-      // Subcollection: Expenses
       match /expenses/{expenseId} {
-        allow read: if isMember(groupId);
-        allow create: if isMember(groupId) && 
+        allow read: if isGlobalAdmin() || isMember(groupId);
+        allow create: if isMember(groupId) &&
                       isValidString(request.resource.data.title, 100) &&
                       isValidAmount(request.resource.data.amount) &&
                       request.resource.data.participants is list;
         allow update: if isMember(groupId) &&
                       isValidString(request.resource.data.get('title', ''), 100) &&
                       (request.resource.data.get('amount', 0) == 0 || isValidAmount(request.resource.data.amount));
-        allow delete: if isMember(groupId);
+        allow delete: if isGlobalAdmin() || isMember(groupId);
       }
 
-      // Subcollection: Settlements
       match /settlements/{settlementId} {
-        allow read: if isMember(groupId);
+        allow read: if isGlobalAdmin() || isMember(groupId);
         allow create: if isMember(groupId) && isValidAmount(request.resource.data.amount);
-        allow update, delete: if isAdmin(groupId) || request.auth.uid == resource.data.payer;
+        allow update, delete: if isGlobalAdmin() || isAdmin(groupId) || request.auth.uid == resource.data.payer;
       }
 
-      // Subcollection: Logs
       match /logs/{logId} {
-        allow read: if isMember(groupId);
+        allow read: if isGlobalAdmin() || isMember(groupId);
         allow create: if isMember(groupId);
         allow update, delete: if false;
       }
     }
 
-    // Friend Requests
+    // ─── Friend Requests ──────────────────────────────────────────────────────
+
     match /friendRequests/{requestId} {
-      allow read, delete: if isSignedIn() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
-      allow create: if isSignedIn() && 
+      allow read: if isGlobalAdmin() || (isSignedIn() && (
+        request.auth.uid == resource.data.from || request.auth.uid == resource.data.to
+      ));
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
+      allow create: if isSignedIn() &&
                     request.auth.uid == request.resource.data.from &&
                     request.resource.data.to is string;
       allow update: if isSignedIn() && request.auth.uid == resource.data.to;
     }
 
-    // Notifications
+    // ─── Notifications ────────────────────────────────────────────────────────
+
     match /notifications/{notificationId} {
-      allow read, update, delete: if isSignedIn() && request.auth.uid == resource.data.to;
-      allow create: if isSignedIn(); 
+      allow read, update, delete: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == resource.data.to);
+      allow create: if isSignedIn();
     }
 
-    // Security Logs
+    // ─── Security Logs ────────────────────────────────────────────────────────
+
     match /security_logs/{logId} {
       allow create: if isSignedIn();
-      allow read, update, delete: if false;
+      allow read: if isGlobalAdmin();
+      allow update, delete: if false;
     }
 
-    // Rate Limits
+    // ─── Rate Limits ──────────────────────────────────────────────────────────
+
     match /rate_limits/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == userId);
     }
 
-    // AI Context/Requests
+    // ─── AI Requests ──────────────────────────────────────────────────────────
+
     match /ai_requests/{requestId} {
-      allow read: if isSignedIn() && request.auth.uid == resource.data.uid;
+      allow read: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == resource.data.uid);
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.uid;
       allow update, delete: if false;
+    }
+
+    // ─── Feature Flags (admin write, all signed-in users read) ───────────────
+
+    match /config/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isGlobalAdmin();
+    }
+
+    // ─── Admin Notification History ───────────────────────────────────────────
+
+    match /admin_notifications/{docId} {
+      allow read, write: if isGlobalAdmin();
     }
   }
 }

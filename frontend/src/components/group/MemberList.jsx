@@ -6,12 +6,14 @@ import Button from '../common/Button.jsx';
 import Modal from '../common/Modal.jsx';
 import groupService from '../../services/groupService.js';
 import friendService from '../../services/friendService.js';
+import { useFeatureFlags } from '../../hooks/useFeatureFlags.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus.js';
 
 const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRemoved, currentUserId }) => {
+  const flags = useFeatureFlags();
   // Store only the selected user ID — not a snapshot of the balance.
   // The live balance is always derived from the `balances` prop to ensure real-time accuracy.
   const [selectedMemberId, setSelectedMemberId] = useState(null);
@@ -250,15 +252,21 @@ const MemberList = ({ members = [], adminId, balances = [], groupId, onMemberRem
                 {relationshipStatus === 'loading' ? (
                    <div className="flex justify-center py-3"><div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin"></div></div>
                 ) : relationshipStatus === 'none' ? (
-                  <Button 
-                    className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest gap-2"
-                    onClick={handleSendFriendRequest}
-                    loading={isRequesting}
-                    disabled={!isOnline}
-                  >
-                    <Lucide.UserPlus size={16} />
-                    Add Friend
-                  </Button>
+                  flags.friendRequests ? (
+                    <Button 
+                      className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest gap-2"
+                      onClick={handleSendFriendRequest}
+                      loading={isRequesting}
+                      disabled={!isOnline}
+                    >
+                      <Lucide.UserPlus size={16} />
+                      Add Friend
+                    </Button>
+                  ) : (
+                    <p className="text-[10px] text-[#919191] font-bold uppercase tracking-[0.2em] text-center py-3 bg-[#242424] border border-white/[0.03] rounded-2xl">
+                      Bridge requests disabled
+                    </p>
+                  )
                 ) : relationshipStatus === 'pending_outgoing' ? (
                   <Button 
                     variant="outline"

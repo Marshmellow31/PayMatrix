@@ -145,6 +145,7 @@ const friendService = {
     if (!userId) return wrap({ networkAnalytics: [] });
 
     try {
+      const { computeGroupBalances, simplifyDebts } = await import('../utils/balanceEngine.js');
       // 1. Get current user's friend list
       const uDoc = await getDoc(doc(db, 'users', userId));
       const friendIds = uDoc.data()?.friends || [];
@@ -153,7 +154,9 @@ const friendService = {
       // 2. Get all groups user is in
       const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
       const groupSnap = await getDocs(q);
-      const myGroups = groupSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const myGroups = groupSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(g => g.status !== 'deleted');
 
       // 3. Pre-fetch all group data to avoid redundant calls in the friend loop
       const groupDataCache = {};
@@ -163,8 +166,9 @@ const friendService = {
           getDocs(collection(db, 'groups', group.id, 'settlements'))
         ]);
         groupDataCache[group.id] = {
-          expenses: expSnap.docs.map(d => d.data()),
-          settlements: stlSnap.docs.map(d => d.data())
+          expenses: expSnap.docs.map(d => ({ _id: d.id, ...d.data() })).filter(e => e.status !== 'deleted'),
+          settlements: stlSnap.docs.map(d => ({ _id: d.id, ...d.data() })).filter(s => s.status !== 'deleted'),
+          members: group.members || []
         };
       }));
 
@@ -181,65 +185,34 @@ const friendService = {
         const mutualGroupsEx = [];
 
         for (const group of mutualGroups) {
-          const { expenses, settlements } = groupDataCache[group.id];
+          const { expenses, settlements, members } = groupDataCache[group.id];
           
           let groupSpecificBalance = 0;
 
+          // 1. Calculate totalTurnover raw from expenses
           expenses.forEach(exp => {
-            if (exp.status === 'deleted') return;
-            const rawSplits = exp.splits || [];
-            
-            // In Firestore, splits are [ { user: uid, amount: x }, ... ]
-            // We need to find our share and the friend's share
-            let myShare = 0;
-            let friendShare = 0;
-
-            if (Array.isArray(rawSplits)) {
-              rawSplits.forEach(s => {
-                const sUid = s.user?._id || s.user?.uid || s.user || '';
-                if (sUid === userId) myShare = parseFloat(s.amount || 0);
-                if (sUid === fId) friendShare = parseFloat(s.amount || 0);
-              });
-            } else {
-              // Fallback for legacy object-based splits (if any exist)
-              myShare = parseFloat(rawSplits[userId] || 0);
-              friendShare = parseFloat(rawSplits[fId] || 0);
-            }
-
             const paidByUid = exp.paidBy?._id || exp.paidBy?.uid || exp.paidBy || '';
-            
-            if (paidByUid === userId) {
-              netBalance += friendShare;
-              groupSpecificBalance += friendShare;
-            }
-            if (paidByUid === fId) {
-              netBalance -= myShare;
-              groupSpecificBalance -= myShare;
-            }
-            
             const isParticipant = paidByUid === userId || paidByUid === fId || 
                                 (Array.isArray(exp.participants) && (exp.participants.includes(userId) || exp.participants.includes(fId)));
-                             
             if (isParticipant) {
-                totalTurnover += parseFloat(exp.amount || 0);
+              totalTurnover += parseFloat(exp.amount || 0);
             }
           });
 
-          settlements.forEach(stl => {
-            if (stl.status === 'deleted') return;
-            const amt = parseFloat(stl.amount || 0);
-            const payerUid = stl.payer?._id || stl.payer?.uid || stl.payer || stl.from || '';
-            const payeeUid = stl.payee?._id || stl.payee?.uid || stl.payee || stl.to || '';
+          // 2. Compute group balances and simplify debts to get actual pairwise balance
+          const groupBalances = computeGroupBalances(expenses, settlements, members.map(uid => ({ uid })));
+          const simplifiedTx = simplifyDebts(groupBalances);
 
-            if (payerUid === userId && payeeUid === fId) {
-              netBalance -= amt;
-              groupSpecificBalance -= amt;
+          simplifiedTx.forEach(tx => {
+            if (tx.from === userId && tx.to === fId) {
+              groupSpecificBalance -= tx.amount;
             }
-            if (payerUid === fId && payeeUid === userId) {
-              netBalance += amt;
-              groupSpecificBalance += amt;
+            if (tx.from === fId && tx.to === userId) {
+              groupSpecificBalance += tx.amount;
             }
           });
+
+          netBalance += groupSpecificBalance;
 
           mutualGroupsEx.push({
             id: group.id,

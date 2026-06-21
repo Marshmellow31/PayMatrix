@@ -1,41 +1,26 @@
-/**
- * PayMatrix — Firebase Cloud Functions
- * 
- * Trigger: Fires on every new document created in `notifications/{id}`
- * (these are written by `notificationHelper.js` on the frontend for every
- * expense_added, settlement_received, friend_request, etc.)
- * 
- * It reads the recipient's FCM token from their user document and sends
- * a native OS push notification via Firebase Cloud Messaging.
- */
-
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
 
-// Gemini API key — stored as a Functions secret, never shipped to the client.
-// Set with: firebase functions:secrets:set GEMINI_API_KEY
-const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
+// Set this to your Firebase User UID to bypass custom claims complexity
+const FALLBACK_ADMIN_UID = "eidrZjV5Nwcq6iY5Gp51L4KZLHs2";
 
-// Map notification types to meaningful titles
 const NOTIFICATION_TITLES = {
-  expense_added:      "💸 New Expense",
+  expense_added:       "💸 New Expense",
   settlement_received: "✅ Payment Received",
   settlement_deleted:  "❌ Settlement Removed",
-  friend_request:     "👋 Friend Request",
-  friend_accepted:    "🤝 Now Connected",
+  friend_request:      "👋 Friend Request",
+  friend_accepted:     "🤝 Now Connected",
 };
 
-// Map notification types to the correct in-app route
 const getNavigationUrl = (type, groupId) => {
-  if (type === "expense_added" && groupId)      return `/groups/${groupId}`;
-  if (type === "settlement_received" && groupId) return `/groups/${groupId}`;
-  if (type === "settlement_deleted" && groupId)  return `/groups/${groupId}`;
-  if (type === "friend_request")                 return "/friends";
-  if (type === "friend_accepted")                return "/friends";
+  if (type === "expense_added" && groupId)       return `/groups/${groupId}`;
+  if (type === "settlement_received" && groupId)  return `/groups/${groupId}`;
+  if (type === "settlement_deleted" && groupId)   return `/groups/${groupId}`;
+  if (type === "friend_request")                  return "/friends";
+  if (type === "friend_accepted")                 return "/friends";
   return "/dashboard";
 };
 
@@ -47,13 +32,11 @@ exports.sendPushOnNotification = onDocumentCreated(
 
     const { to, message, type, relatedId, groupId } = snap.data();
 
-    // Guard: recipient UID and message are required
     if (!to || !message) {
       console.warn("[PUSH_SKIP] Missing 'to' or 'message' field — skipping.");
       return;
     }
 
-    // Fetch the recipient's FCM token from their user document
     const userRef = admin.firestore().doc(`users/${to}`);
     const userSnap = await userRef.get();
 
@@ -63,33 +46,23 @@ exports.sendPushOnNotification = onDocumentCreated(
     }
 
     const fcmToken = userSnap.data().fcmToken;
-    if (!fcmToken) {
-      // Normal case — user hasn't granted push permission yet
-      return;
-    }
+    if (!fcmToken) return;
 
-    const targetUrl  = getNavigationUrl(type, groupId);
-    const title      = NOTIFICATION_TITLES[type] || "PayMatrix";
+    const targetUrl = getNavigationUrl(type, groupId);
+    const title     = NOTIFICATION_TITLES[type] || "PayMatrix";
 
     const fcmPayload = {
       token: fcmToken,
-      notification: {
-        title,
-        body: message,
-      },
+      notification: { title, body: message },
       webpush: {
         notification: {
           icon:     "/logo.png",
           badge:    "/logo.png",
-          tag:      event.params.notificationId, // deduplicate identical pushes
+          tag:      event.params.notificationId,
           renotify: true,
         },
-        fcmOptions: {
-          // Opens the correct section directly when the user taps the notification
-          link: targetUrl,
-        },
+        fcmOptions: { link: targetUrl },
       },
-      // Raw data is also available to the SW push handler for custom routing
       data: {
         url:            targetUrl,
         type:           type           || "info",
@@ -103,7 +76,6 @@ exports.sendPushOnNotification = onDocumentCreated(
       const response = await admin.messaging().send(fcmPayload);
       console.log(`[PUSH_SENT] ${type} → ${to} | messageId: ${response}`);
     } catch (error) {
-      // Token is no longer valid — remove it to stop sending dead pushes
       if (
         error.code === "messaging/registration-token-not-registered" ||
         error.code === "messaging/invalid-registration-token"
@@ -117,137 +89,191 @@ exports.sendPushOnNotification = onDocumentCreated(
   }
 );
 
-/**
- * scanBill — Gemini Vision receipt parser (callable).
- *
- * The client sends a base64 image; this function asks Gemini 2.5 Flash to return
- * structured JSON (total, merchant, date, category, line items). The API key stays
- * server-side as a secret, so it is never exposed in the frontend bundle.
- *
- * The image is forwarded to Google for analysis but is NOT persisted anywhere.
- */
-const EXPENSE_CATEGORIES = [
-  "Food", "Travel", "Rent", "Entertainment",
-  "Utilities", "Shopping", "Health", "Education", "Other",
-];
 
-const GEMINI_MODEL = "gemini-3.5-flash";
 
-const RECEIPT_SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    amount: { type: "NUMBER", description: "Final grand total actually payable, including tax and charges" },
-    title: { type: "STRING", description: "Short merchant/store name" },
-    date: { type: "STRING", description: "Bill date as YYYY-MM-DD, or empty if not found" },
-    category: { type: "STRING", enum: EXPENSE_CATEGORIES },
-    items: {
-      type: "ARRAY",
-      description: "Individual ordered items with their line price. Exclude tax/subtotal/total/discount rows.",
-      items: {
-        type: "OBJECT",
-        properties: {
-          name: { type: "STRING" },
-          price: { type: "NUMBER" },
-        },
-        required: ["name", "price"],
-      },
-    },
-  },
-  required: ["amount", "items"],
-};
+// ─── Admin: Manage User (suspend/enable/clearFcm/grantAdmin/revokeAdmin) ──────
 
-const PROMPT = [
-  "You are a precise receipt/bill parser for an Indian expense-splitting app.",
-  "Read the attached bill image and extract:",
-  "- amount: the FINAL grand total payable (the amount the customer actually pays, including GST/taxes/service charges). Not the subtotal.",
-  "- title: a short merchant or store name (e.g. 'Pizza Hut', 'More Supermarket').",
-  "- date: the bill date in YYYY-MM-DD. If absent, return an empty string.",
-  "- category: the single best fit from the allowed list.",
-  "- items: each ordered line item with its printed price. Combine quantity into the name (e.g. 'Coke x2'). Do NOT include tax, subtotal, total, discount, or rounding rows as items.",
-  "All amounts are in Indian Rupees as plain numbers (no symbols). If the image is unreadable, return amount 0 and an empty items array.",
-].join("\n");
-
-exports.scanBill = onCall(
-  { secrets: [GEMINI_API_KEY], timeoutSeconds: 60, memory: "256MiB" },
+exports.adminManageUser = onCall(
+  { memory: "128MiB" },
   async (request) => {
-    // Require an authenticated user
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Sign in to scan bills.");
+    if (!request.auth?.token?.admin && request.auth?.uid !== FALLBACK_ADMIN_UID) {
+      throw new HttpsError("permission-denied", "Admin access required.");
     }
 
-    const { imageBase64, mimeType } = request.data || {};
-    if (!imageBase64 || typeof imageBase64 !== "string") {
-      throw new HttpsError("invalid-argument", "imageBase64 is required.");
+    const { uid, action } = request.data || {};
+    if (!uid || !action) throw new HttpsError("invalid-argument", "uid and action are required.");
+
+    const db  = admin.firestore();
+    const now = new Date().toISOString();
+
+    switch (action) {
+      case "disable":
+        await admin.auth().updateUser(uid, { disabled: true });
+        await db.doc(`users/${uid}`).update({ suspended: true, suspendedAt: now });
+        break;
+      case "enable":
+        await admin.auth().updateUser(uid, { disabled: false });
+        await db.doc(`users/${uid}`).update({ suspended: false, suspendedAt: null });
+        break;
+      case "clearFcm":
+        await db.doc(`users/${uid}`).update({ fcmToken: admin.firestore.FieldValue.delete() });
+        break;
+      case "grantAdmin":
+        await admin.auth().setCustomUserClaims(uid, { admin: true });
+        break;
+      case "revokeAdmin":
+        await admin.auth().setCustomUserClaims(uid, { admin: false });
+        break;
+      default:
+        throw new HttpsError("invalid-argument", `Unknown action: ${action}`);
     }
-    // Guard against oversized payloads (~7MB of base64 ≈ 5MB image)
-    if (imageBase64.length > 7_000_000) {
-      throw new HttpsError("invalid-argument", "Image is too large. Use a smaller photo.");
+
+    console.log(`[ADMIN_MANAGE] uid=${uid} action=${action} by=${request.auth.uid}`);
+    return { success: true };
+  }
+);
+
+// ─── Admin: Get Platform Stats ────────────────────────────────────────────────
+
+exports.getAdminStats = onCall(
+  { memory: "512MiB", timeoutSeconds: 60 },
+  async (request) => {
+    if (!request.auth?.token?.admin && request.auth?.uid !== FALLBACK_ADMIN_UID) {
+      throw new HttpsError("permission-denied", "Admin access required.");
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY.value()}`;
+    const db = admin.firestore();
 
-    const body = {
-      contents: [{
-        role: "user",
-        parts: [
-          { text: PROMPT },
-          { inlineData: { mimeType: mimeType || "image/jpeg", data: imageBase64 } },
-        ],
-      }],
-      generationConfig: {
-        temperature: 0,
-        responseMimeType: "application/json",
-        responseSchema: RECEIPT_SCHEMA,
-      },
-    };
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    let resp;
-    try {
-      resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+    const [
+      usersCount,
+      groupsCount,
+      notifCount,
+      securityCount,
+      aiCount,
+      newUsers7,
+      newUsers30,
+      activeGroups,
+      recentSecurity,
+      recentNotifs,
+    ] = await Promise.all([
+      db.collection("users").count().get(),
+      db.collection("groups").count().get(),
+      db.collection("notifications").count().get(),
+      db.collection("security_logs").count().get(),
+      db.collection("ai_requests").count().get(),
+      db.collection("users").where("createdAt", ">=", sevenDaysAgo.toISOString()).count().get(),
+      db.collection("users").where("createdAt", ">=", thirtyDaysAgo.toISOString()).count().get(),
+      db.collection("groups").where("status", "==", "active").count().get(),
+      db.collection("security_logs").where("timestamp", ">=", sevenDaysAgo.toISOString()).count().get(),
+      db.collection("notifications").where("createdAt", ">=", thirtyDaysAgo.toISOString()).count().get(),
+    ]);
+
+    // User signup trend — one count per day for the last 7 days
+    const dailyCounts = [];
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = new Date();
+      dayStart.setDate(dayStart.getDate() - i);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const snap = await db.collection("users")
+        .where("createdAt", ">=", dayStart.toISOString())
+        .where("createdAt", "<=", dayEnd.toISOString())
+        .count().get();
+
+      dailyCounts.push({
+        date:  dayStart.toISOString().split("T")[0],
+        count: snap.data().count,
       });
-    } catch (err) {
-      console.error("[SCAN_BILL] Network error calling Gemini:", err.message);
-      throw new HttpsError("unavailable", "Could not reach the scanning service.");
     }
-
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => "");
-      console.error(`[SCAN_BILL] Gemini ${resp.status}:`, errText.slice(0, 500));
-      throw new HttpsError("internal", "Scanning failed. Please try again.");
-    }
-
-    const payload = await resp.json();
-    const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      console.error("[SCAN_BILL] Empty Gemini response:", JSON.stringify(payload).slice(0, 500));
-      throw new HttpsError("internal", "Couldn't read the bill.");
-    }
-
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      console.error("[SCAN_BILL] Non-JSON Gemini text:", text.slice(0, 300));
-      throw new HttpsError("internal", "Couldn't read the bill.");
-    }
-
-    // Normalise before returning to the client
-    const category = EXPENSE_CATEGORIES.includes(parsed.category) ? parsed.category : "Other";
-    const items = Array.isArray(parsed.items)
-      ? parsed.items
-          .map((it) => ({ name: String(it?.name || "").trim(), price: Number(it?.price) || 0 }))
-          .filter((it) => it.name && it.price > 0)
-      : [];
 
     return {
-      amount: Number(parsed.amount) > 0 ? Number(parsed.amount) : null,
-      title: String(parsed.title || "").trim(),
-      date: /^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ? parsed.date : null,
-      category,
-      items,
+      totalUsers:             usersCount.data().count,
+      totalGroups:            groupsCount.data().count,
+      activeGroups:           activeGroups.data().count,
+      totalNotifications:     notifCount.data().count,
+      totalSecurityEvents:    securityCount.data().count,
+      totalAiRequests:        aiCount.data().count,
+      newUsersLast7Days:      newUsers7.data().count,
+      newUsersLast30Days:     newUsers30.data().count,
+      recentSecurityEvents:   recentSecurity.data().count,
+      recentNotifications:    recentNotifs.data().count,
+      signupTrend:            dailyCounts,
     };
+  }
+);
+
+// ─── Admin: Broadcast Push Notification ──────────────────────────────────────
+
+exports.broadcastNotification = onCall(
+  { memory: "512MiB", timeoutSeconds: 120 },
+  async (request) => {
+    if (!request.auth?.token?.admin && request.auth?.uid !== FALLBACK_ADMIN_UID) {
+      throw new HttpsError("permission-denied", "Admin access required.");
+    }
+
+    const { title, body, url, targetUid } = request.data || {};
+    if (!title || !body) throw new HttpsError("invalid-argument", "title and body are required.");
+
+    const db        = admin.firestore();
+    const messaging = admin.messaging();
+
+    let tokens         = [];
+    let recipientCount = 0;
+
+    if (targetUid) {
+      const userSnap = await db.doc(`users/${targetUid}`).get();
+      if (!userSnap.exists) throw new HttpsError("not-found", "User not found.");
+      const fcmToken = userSnap.data().fcmToken;
+      if (fcmToken) tokens.push(fcmToken);
+      recipientCount = 1;
+    } else {
+      const usersSnap = await db.collection("users")
+        .where("fcmToken", "!=", null)
+        .select("fcmToken")
+        .get();
+      tokens         = usersSnap.docs.map((d) => d.data().fcmToken).filter(Boolean);
+      recipientCount = tokens.length;
+    }
+
+    let sent   = 0;
+    let failed = 0;
+    const BATCH = 500;
+
+    for (let i = 0; i < tokens.length; i += BATCH) {
+      const batch = tokens.slice(i, i + BATCH);
+      const response = await messaging.sendEachForMulticast({
+        tokens: batch,
+        notification: { title, body },
+        webpush: {
+          notification: { icon: "/logo.png", badge: "/logo.png" },
+          fcmOptions:   { link: url || "/dashboard" },
+        },
+        data: { url: url || "/dashboard", type: "admin_broadcast" },
+      });
+      sent   += response.successCount;
+      failed += response.failureCount;
+    }
+
+    await db.collection("admin_notifications").add({
+      title,
+      body,
+      url:            url || "",
+      targetUid:      targetUid || null,
+      sentBy:         request.auth.uid,
+      recipientCount,
+      successCount:   sent,
+      failureCount:   failed,
+      createdAt:      new Date().toISOString(),
+    });
+
+    console.log(`[BROADCAST] title="${title}" sent=${sent} failed=${failed} by=${request.auth.uid}`);
+    return { sent, failed, recipientCount };
   }
 );

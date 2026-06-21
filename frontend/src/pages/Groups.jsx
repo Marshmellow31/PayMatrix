@@ -13,6 +13,7 @@ import Loader from '../components/common/Loader.jsx';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
 import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
+import { useFeatureFlags } from '../hooks/useFeatureFlags.js';
 import friendService from '../services/friendService.js';
 import groupService from '../services/groupService.js';
 import expenseService from '../services/expenseService.js';
@@ -28,6 +29,7 @@ const Groups = () => {
   const { groups, loading } = useSelector((state) => state.groups);
   const { user } = useSelector((state) => state.auth);
   const isOnline = useOnlineStatus();
+  const flags = useFeatureFlags();
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ name: '', category: 'Other', members: [] });
   const [friends, setFriends] = useState([]);
@@ -148,14 +150,16 @@ const Groups = () => {
           <h1 className="font-headline text-3xl font-bold text-white tracking-tight">
             Groups
           </h1>
-          <button
-            onClick={() => isOnline && setShowModal(true)}
-            disabled={!isOnline}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${!isOnline ? 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed opacity-50 grayscale' : 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/20'}`}
-          >
-            <LucideIcons.Plus size={16} />
-            <span className="text-[10px] uppercase tracking-widest font-bold">{isOnline ? 'New Cohort' : 'Offline'}</span>
-          </button>
+          {flags.groupCreation && (
+            <button
+              onClick={() => isOnline && setShowModal(true)}
+              disabled={!isOnline}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${!isOnline ? 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed opacity-50 grayscale' : 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/20'}`}
+            >
+              <LucideIcons.Plus size={16} />
+              <span className="text-[10px] uppercase tracking-widest font-bold">{isOnline ? 'New Cohort' : 'Offline'}</span>
+            </button>
+          )}
         </div>
         <p className="text-on-surface-variant text-sm tracking-wide font-inter opacity-70">
           Manage shared expenses and collective balances
@@ -173,13 +177,17 @@ const Groups = () => {
           <p className="text-base text-on-surface-variant mb-10 max-w-xs mx-auto font-inter leading-relaxed opacity-70">
             Create your first group to establish a shared expense ledger and start managing finances with clarity.
           </p>
-          <Button
-            onClick={() => isOnline && setShowModal(true)}
-            disabled={!isOnline}
-            className={`h-12 px-8 rounded-xl font-bold ${!isOnline ? 'bg-white/5 text-white/20 cursor-not-allowed opacity-50' : 'bg-primary text-on-primary'}`}
-          >
-            {isOnline ? 'Establish Group' : 'Network Required'}
-          </Button>
+          {flags.groupCreation ? (
+            <Button
+              onClick={() => isOnline && setShowModal(true)}
+              disabled={!isOnline}
+              className={`h-12 px-8 rounded-xl font-bold ${!isOnline ? 'bg-white/5 text-white/20 cursor-not-allowed opacity-50' : 'bg-primary text-on-primary'}`}
+            >
+              {isOnline ? 'Establish Group' : 'Network Required'}
+            </Button>
+          ) : (
+            <p className="text-[10px] uppercase tracking-widest text-white/20 font-black">Cohort creation is disabled by admin</p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">

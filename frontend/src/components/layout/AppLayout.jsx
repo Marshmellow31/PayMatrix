@@ -10,6 +10,7 @@ import ExpenseForm from '../expense/ExpenseForm.jsx';
 import { fetchGroups } from '../../redux/groupSlice.js';
 import { addExpense, updateExpense } from '../../redux/expenseSlice.js';
 import toast from 'react-hot-toast';
+import { useFeatureFlags } from '../../hooks/useFeatureFlags.js';
 
 const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -25,6 +26,7 @@ const AppLayout = () => {
   const { loading: expenseLoading } = useSelector((state) => state.expenses);
   const [editingExpense, setEditingExpense] = useState(null);
   const [expenseStep, setExpenseStep] = useState(1);
+  const flags = useFeatureFlags();
 
   useEffect(() => {
     dispatch(fetchGroups());
@@ -87,15 +89,23 @@ const AppLayout = () => {
     <div className="min-h-screen bg-background text-white selection:bg-primary/30 overflow-x-hidden">
       {!isFocusJourney && <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />}
 
-      <div className={`flex ${!isFocusJourney ? 'pt-20' : ''}`}>
+      {!isFocusJourney && flags.maintenanceMode && (
+        <div className="fixed top-20 left-0 right-0 z-40 bg-orange-500/10 border-b border-orange-500/25 text-orange-500 py-2.5 px-4 text-center text-xs font-bold font-inter tracking-wide flex items-center justify-center gap-2 backdrop-blur-md">
+          <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+          PayMatrix is currently undergoing scheduled maintenance. Some services may be temporarily unavailable.
+        </div>
+      )}
+
+      <div className={`flex ${!isFocusJourney ? (flags.maintenanceMode ? 'pt-32' : 'pt-20') : ''}`}>
         {!isFocusJourney && (
           <Sidebar
             isOpen={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
+            maintenanceMode={flags.maintenanceMode}
           />
         )}
 
-        <main className={`flex-1 ${!isFocusJourney ? 'px-4 sm:px-6 pt-1 lg:px-8 lg:pt-4 pb-32 lg:pb-8 min-h-[calc(100vh-80px)] lg:ml-64' : 'min-h-screen flex flex-col'}`}>
+        <main className={`flex-1 ${!isFocusJourney ? `px-4 sm:px-6 pt-1 lg:px-8 lg:pt-4 pb-32 lg:pb-8 lg:ml-64 transition-all ${flags.maintenanceMode ? 'min-h-[calc(100vh-128px)]' : 'min-h-[calc(100vh-80px)]'}` : 'min-h-screen flex flex-col'}`}>
           <ErrorBoundary>
             <Outlet context={{ openAddExpense }} />
           </ErrorBoundary>

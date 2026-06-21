@@ -22,6 +22,7 @@ import GroupInsightsTab from '../components/group/GroupInsightsTab.jsx';
 import { Plus, UserPlus, WalletCards, Trash2, ScanLine } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import BillScannerModal from '../components/bill/BillScannerModal.jsx';
+import { useFeatureFlags } from '../hooks/useFeatureFlags.js';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
 import expenseService from '../services/expenseService.js';
 import groupService from '../services/groupService.js';
@@ -46,6 +47,7 @@ const GroupDetail = () => {
   const { expenses = [], loading: expenseLoading } = useSelector((state) => state.expenses);
   const { user } = useSelector((state) => state.auth);
   const isOnline = useOnlineStatus();
+  const flags = useFeatureFlags();
 
   const [tab, setTab] = useState('expenses');
   const [settlements, setSettlements] = useState([]);
@@ -985,13 +987,15 @@ const GroupDetail = () => {
       </Modal>
 
       {/* Floating scan bill button */}
-      <button
-        onClick={() => setShowBillScanner(true)}
-        className="fixed bottom-24 right-4 lg:bottom-8 lg:right-8 z-50 flex items-center gap-2.5 pl-4 pr-5 h-12 rounded-full bg-[#1a1a1a] border border-white/10 text-white shadow-[0_8px_32px_rgba(0,0,0,0.6)] hover:bg-[#242424] hover:border-white/20 active:scale-95 transition-all"
-      >
-        <ScanLine size={17} className="text-primary shrink-0" />
-        <span className="text-[11px] font-black uppercase tracking-[0.15em] font-manrope">Scan Bill</span>
-      </button>
+      {flags.billScanning && (
+        <button
+          onClick={() => setShowBillScanner(true)}
+          className="fixed bottom-24 right-4 lg:bottom-8 lg:right-8 z-50 flex items-center gap-2.5 pl-4 pr-5 h-12 rounded-full bg-[#1a1a1a] border border-white/10 text-white shadow-[0_8px_32px_rgba(0,0,0,0.6)] hover:bg-[#242424] hover:border-white/20 active:scale-95 transition-all"
+        >
+          <ScanLine size={17} className="text-primary shrink-0" />
+          <span className="text-[11px] font-black uppercase tracking-[0.15em] font-manrope">Scan Bill</span>
+        </button>
+      )}
 
     </div>
   );

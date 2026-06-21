@@ -539,7 +539,8 @@ const expenseService = {
         groupSnap = await getDocsFromCache(q);
       }
 
-      const groupIds = groupSnap.docs.map(d => d.id);
+      const activeGroupDocs = groupSnap.docs.filter(d => d.data()?.status !== 'deleted');
+      const groupIds = activeGroupDocs.map(d => d.id);
       let totalOwed = 0;
       let totalOwe = 0;
       const categoryTotals = {};
@@ -662,7 +663,9 @@ const expenseService = {
     try {
       const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
       const groupSnap = await getDocs(q);
-      const groupIds = groupSnap.docs.map(d => d.id);
+      const groupIds = groupSnap.docs
+        .filter(d => d.data()?.status !== 'deleted')
+        .map(d => d.id);
 
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);

@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
 import { EXPENSE_CATEGORIES } from '../utils/constants.js';
+import { db, auth } from '../config/firebase.js';
+import { collection, addDoc } from 'firebase/firestore';
 
 const VALID_CATEGORIES = EXPENSE_CATEGORIES.map(c => c.value);
 
@@ -81,11 +83,33 @@ const fileToCompressedBase64 = async (file) => {
   return { base64: dataUrl.split(',')[1], mimeType: 'image/jpeg' };
 };
 
+const logAiRequest = async (status, duration, parsedData = null, errorMsg = null) => {
+  try {
+    const user = auth.currentUser;
+    const logData = {
+      uid: user?.uid || 'anonymous',
+      userName: user?.displayName || user?.email || 'Anonymous User',
+      email: user?.email || '',
+      status, // 'passed' | 'failed'
+      duration, // in ms
+      timestamp: new Date().toISOString(),
+      parsedAmount: parsedData?.amount || null,
+      itemsCount: parsedData?.items?.length || 0,
+      error: errorMsg || null,
+      model: GEMINI_MODEL,
+    };
+    await addDoc(collection(db, 'ai_requests'), logData);
+  } catch (err) {
+    console.error('[logAiRequest] failed:', err);
+  }
+};
+
 export const useBillScanner = () => {
   const [scanning, setScanning] = useState(false);
 
   const scanBill = useCallback(async (file) => {
     setScanning(true);
+    const startTime = performance.now();
     try {
       const { base64, mimeType } = await fileToCompressedBase64(file);
 
@@ -114,14 +138,20 @@ export const useBillScanner = () => {
 
       if (!resp.ok) {
         const errText = await resp.text().catch(() => "");
-        console.error(`[scanBill] Gemini REST Error ${resp.status}:`, errText);
+        const duration = Math.round(performance.now() - startTime);
+        const errMsg = `Gemini REST Error ${resp.status}: ${errText}`;
+        console.error(`[scanBill] ${errMsg}`);
+        await logAiRequest('failed', duration, null, errMsg);
         return null;
       }
 
       const payload = await resp.json();
       const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) {
+        const duration = Math.round(performance.now() - startTime);
+        const errMsg = "Empty Gemini response";
         console.error("[scanBill] Empty Gemini response:", payload);
+        await logAiRequest('failed', duration, null, errMsg);
         return null;
       }
 
@@ -135,7 +165,7 @@ export const useBillScanner = () => {
             .filter(it => it.name && it.price > 0)
         : [];
 
-      return {
+      const result = {
         amount,
         candidates: amount != null ? [amount] : [],
         title: String(parsed.title || '').trim(),
@@ -143,8 +173,16 @@ export const useBillScanner = () => {
         category,
         items,
       };
+
+      const duration = Math.round(performance.now() - startTime);
+      await logAiRequest('passed', duration, result, null);
+
+      return result;
     } catch (err) {
-      console.error('[scanBill] failed:', err?.message || err);
+      const duration = Math.round(performance.now() - startTime);
+      const errMsg = err?.message || String(err);
+      console.error('[scanBill] failed:', errMsg);
+      await logAiRequest('failed', duration, null, errMsg);
       return null;
     } finally {
       setScanning(false);

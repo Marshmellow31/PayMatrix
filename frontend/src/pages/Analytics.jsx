@@ -18,6 +18,9 @@ import TrendAreaChart from '../components/charts/TrendAreaChart';
 import FriendLedger from '../components/charts/FriendLedger';
 import Loader from '../components/common/Loader';
 
+import { useNavigate } from 'react-router-dom';
+import { useFeatureFlags } from '../hooks/useFeatureFlags.js';
+
 const fmt = (n) => {
   const abs = Math.abs(n);
   if (abs >= 100000) return `₹${(abs / 100000).toFixed(1)}L`;
@@ -59,12 +62,21 @@ const BalanceCard = ({ label, value, icon: Icon, accent, delay = 0, prefix = '' 
 );
 
 const Analytics = () => {
+  const flags = useFeatureFlags();
+  const navigate = useNavigate();
+
   const [summary, setSummary] = useState(null);
   const [trends, setTrends] = useState([]);
   const [networkStats, setNetworkStats] = useState([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [days, setDays] = useState(30);
+
+  useEffect(() => {
+    if (flags && flags.analyticsPage === false) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [flags, navigate]);
 
   useEffect(() => {
     const fetchAnalytics = async () => {

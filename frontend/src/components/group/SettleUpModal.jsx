@@ -13,6 +13,7 @@ import Input from '../common/Input.jsx';
 import expenseService from '../../services/expenseService.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { handleSmartPayment, hasPaymentMethod, IOS_CHOOSER_APPS, getAppDeepLink, UPI_APPS } from '../../utils/upiUtils.js';
+import { useFeatureFlags } from '../../hooks/useFeatureFlags.js';
 import Avatar from '../common/Avatar.jsx';
 import { getShortName } from '../../utils/nameUtils.js';
 
@@ -31,6 +32,7 @@ const customVariants = {
 const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPayeeId = null }) => {
   const { currentGroup } = useSelector((state) => state.groups);
   const { user: currentUser } = useSelector((state) => state.auth);
+  const flags = useFeatureFlags();
 
   const [loading, setLoading] = useState(true);
   const [totalOwe, setTotalOwe] = useState(0);
@@ -345,18 +347,20 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                                         Mark Paid
                                       </Button>
                                     </div>
-                                    <button
-                                      disabled={processing || !receiverHasPayment || fetchingPayments}
-                                      onClick={() => handleUPIPay(debt, receiverDetails)}
-                                      title={receiverHasPayment ? `Pay ${receiverUser.name} via UPI` : `${receiverUser.name} has not added a UPI ID`}
-                                      className={`w-full h-11 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border ${
-                                        receiverHasPayment && !fetchingPayments
-                                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
-                                          : 'bg-white/[0.03] border-white/5 text-white/20 opacity-40 cursor-not-allowed grayscale'
-                                      }`}
-                                    >
-                                      <LucideIcons.Smartphone size={14} /> Pay via UPI
-                                    </button>
+                                    {flags.upiDeepLinks && (
+                                      <button
+                                        disabled={processing || !receiverHasPayment || fetchingPayments}
+                                        onClick={() => handleUPIPay(debt, receiverDetails)}
+                                        title={receiverHasPayment ? `Pay ${receiverUser.name} via UPI` : `${receiverUser.name} has not added a UPI ID`}
+                                        className={`w-full h-11 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border ${
+                                          receiverHasPayment && !fetchingPayments
+                                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
+                                            : 'bg-white/[0.03] border-white/5 text-white/20 opacity-40 cursor-not-allowed grayscale'
+                                        }`}
+                                      >
+                                        <LucideIcons.Smartphone size={14} /> Pay via UPI
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </motion.div>
@@ -501,23 +505,25 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                               {processing ? '…' : 'Mark Paid'}
                             </button>
 
-                            <button
-                              disabled={!isValid || !receiverHasUpi || fetchingPayments || processing}
-                              onClick={() => { if (isValid) handleUPIPay(customDebt, receiverDetails); }}
-                              title={
-                                !payeeUid ? 'Select a member first'
-                                  : !isValid ? 'Enter a valid amount'
-                                  : !receiverHasUpi ? 'This member has no UPI ID set'
-                                  : 'Pay via UPI'
-                              }
-                              className={`w-full h-11 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border ${
-                                isValid && receiverHasUpi && !fetchingPayments && !processing
-                                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
-                                  : 'bg-white/[0.03] border-white/5 text-white/20 opacity-40 cursor-not-allowed grayscale'
-                              }`}
-                            >
-                              <LucideIcons.Smartphone size={14} /> Pay via UPI
-                            </button>
+                            {flags.upiDeepLinks && (
+                              <button
+                                disabled={!isValid || !receiverHasUpi || fetchingPayments || processing}
+                                onClick={() => { if (isValid) handleUPIPay(customDebt, receiverDetails); }}
+                                title={
+                                  !payeeUid ? 'Select a member first'
+                                    : !isValid ? 'Enter a valid amount'
+                                    : !receiverHasUpi ? 'This member has no UPI ID set'
+                                    : 'Pay via UPI'
+                                }
+                                className={`w-full h-11 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border ${
+                                  isValid && receiverHasUpi && !fetchingPayments && !processing
+                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
+                                    : 'bg-white/[0.03] border-white/5 text-white/20 opacity-40 cursor-not-allowed grayscale'
+                                }`}
+                              >
+                                <LucideIcons.Smartphone size={14} /> Pay via UPI
+                              </button>
+                            )}
                           </div>
                         );
                       })()}

@@ -38,8 +38,11 @@ import friendService from '../services/friendService';
 import toast from 'react-hot-toast';
 import Modal from '../components/common/Modal';
 
+import { useFeatureFlags } from '../hooks/useFeatureFlags.js';
+
 const Friends = () => {
   const navigate = useNavigate();
+  const flags = useFeatureFlags();
   const [friends, setFriends] = useState([]);
   const [totalSharedBalance, setTotalSharedBalance] = useState(0);
   const [requests, setRequests] = useState({ incoming: [], outgoing: [] });
@@ -227,17 +230,19 @@ const Friends = () => {
             <h1 className="text-xl font-black font-manrope text-white tracking-tight uppercase leading-none">Friends</h1>
             <p className="text-[10px] font-black font-manrope tracking-[0.4em] text-white/20 uppercase">Social Matrix v3.1</p>
           </div>
-          <button
-            onClick={() => setShowInvite(!showInvite)}
-            className={`flex items-center justify-center gap-2 px-6 py-4 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl border transition-all duration-500 font-bold text-[10px] uppercase tracking-widest w-full sm:w-auto ${
-              showInvite 
-                ? 'bg-white text-black border-white shadow-xl translate-y-[-2px]' 
-                : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
-            }`}
-          >
-            <UserPlus size={14} strokeWidth={3} />
-            {showInvite ? 'Hide Invite' : 'Invite Friend'}
-          </button>
+          {flags.friendRequests && (
+            <button
+              onClick={() => setShowInvite(!showInvite)}
+              className={`flex items-center justify-center gap-2 px-6 py-4 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl border transition-all duration-500 font-bold text-[10px] uppercase tracking-widest w-full sm:w-auto ${
+                showInvite 
+                  ? 'bg-white text-black border-white shadow-xl translate-y-[-2px]' 
+                  : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
+              }`}
+            >
+              <UserPlus size={14} strokeWidth={3} />
+              {showInvite ? 'Hide Invite' : 'Invite Friend'}
+            </button>
+          )}
         </div>
 
         <AnimatePresence>
