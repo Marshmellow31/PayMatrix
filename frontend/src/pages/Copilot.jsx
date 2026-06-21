@@ -7,10 +7,11 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { db, auth } from '../config/firebase.js';
-import { collection, getDocs, query, where, getDoc, doc, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, getDoc, doc, limit, orderBy } from 'firebase/firestore';
 import friendService from '../services/friendService.js';
 import groupService from '../services/groupService.js';
 import toast from 'react-hot-toast';
+import DOMPurify from 'dompurify';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_MODEL = "gemini-2.5-flash";
@@ -90,7 +91,10 @@ const parseMarkdown = (text) => {
       }
       let processedLine = line.substring(2).trim();
       processedLine = processedLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      processedLine = processedLine.replace(/`(.*?)`/g, '<code class="px-1.5 py-0.5 rounded bg-white/10 text-xs font-mono">$1</code>');
+      processedLine = processedLine.replace(/`(.*?)`/g, (match, p1) => {
+        const escaped = p1.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<code class="px-1.5 py-0.5 rounded bg-white/10 text-xs font-mono">${escaped}</code>`;
+      });
       finalHtml.push(`${listHtml}<li class="leading-relaxed py-0.5">${processedLine}</li>`);
     } 
     // Handle Numbered List
@@ -112,7 +116,10 @@ const parseMarkdown = (text) => {
       }
       let processedLine = line.replace(/^\d+\.\s/, '').trim();
       processedLine = processedLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      processedLine = processedLine.replace(/`(.*?)`/g, '<code class="px-1.5 py-0.5 rounded bg-white/10 text-xs font-mono">$1</code>');
+      processedLine = processedLine.replace(/`(.*?)`/g, (match, p1) => {
+        const escaped = p1.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<code class="px-1.5 py-0.5 rounded bg-white/10 text-xs font-mono">${escaped}</code>`;
+      });
       finalHtml.push(`${listHtml}<li class="leading-relaxed py-0.5">${processedLine}</li>`);
     } 
     // Handle Regular Paragraph / Headers
@@ -139,7 +146,10 @@ const parseMarkdown = (text) => {
         processedLine = `<h1 class="text-base font-black text-white mt-6 mb-3 uppercase tracking-normal font-manrope">${processedLine.substring(2)}</h1>`;
       } else {
         processedLine = processedLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        processedLine = processedLine.replace(/`(.*?)`/g, '<code class="px-1.5 py-0.5 rounded bg-white/10 text-xs font-mono">$1</code>');
+        processedLine = processedLine.replace(/`(.*?)`/g, (match, p1) => {
+        const escaped = p1.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<code class="px-1.5 py-0.5 rounded bg-white/10 text-xs font-mono">${escaped}</code>`;
+      });
         processedLine = `<p class="mb-2 leading-relaxed text-white/80">${processedLine}</p>`;
       }
       finalHtml.push(processedLine);
@@ -198,23 +208,19 @@ const Copilot = () => {
       rawRequests.forEach(d => reqMap.set(d.id, { id: d.id, ...d.data() }));
       const friendRequests = Array.from(reqMap.values());
 
-      // 3. Fetch notifications (recent 30, sorted client-side)
+      // 3. Fetch notifications (recent 30, sorted efficiently by database)
       const notificationsSnap = await getDocs(
-        query(collection(db, 'notifications'), where('to', '==', userId))
+        query(collection(db, 'notifications'), where('to', '==', userId), orderBy('createdAt', 'desc'), limit(30))
       );
       const notifications = notificationsSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-        .slice(0, 30);
+        .map(d => ({ id: d.id, ...d.data() }));
 
-      // 4. Fetch AI receipt scanning history (recent 20, sorted client-side)
+      // 4. Fetch AI receipt scanning history (recent 20, sorted efficiently by database)
       const aiRequestsSnap = await getDocs(
-        query(collection(db, 'ai_requests'), where('uid', '==', userId))
+        query(collection(db, 'ai_requests'), where('uid', '==', userId), orderBy('timestamp', 'desc'), limit(20))
       );
       const aiRequests = aiRequestsSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
-        .slice(0, 20);
+        .map(d => ({ id: d.id, ...d.data() }));
 
       // 5. Fetch system configurations/feature flags
       const configSnap = await getDoc(doc(db, 'config', 'featureFlags')).catch(() => null);
@@ -231,9 +237,9 @@ const Copilot = () => {
       const groups = await Promise.all(
         rawGroups.map(async (g) => {
           const [expensesSnap, settlementsSnap, logsSnap, resolvedProfiles] = await Promise.all([
-            getDocs(collection(db, `groups/${g.id}/expenses`)),
-            getDocs(collection(db, `groups/${g.id}/settlements`)),
-            getDocs(query(collection(db, `groups/${g.id}/logs`), limit(15))),
+            getDocs(query(collection(db, `groups/${g.id}/expenses`), limit(50))),
+            getDocs(query(collection(db, `groups/${g.id}/settlements`), limit(50))),
+            getDocs(query(collection(db, `groups/${g.id}/logs`), orderBy('createdAt', 'desc'), limit(15))),
             groupService.resolveMemberProfiles(g.id, g.members || []).catch(() => [])
           ]);
           return {
@@ -386,7 +392,7 @@ Instructions:
           role: "model",
           parts: [{ text: "Understood. I have loaded your financial database. How can I help you today?" }]
         },
-        ...messages.filter(msg => msg.id !== 'welcome').map(msg => ({
+        ...messages.filter(msg => msg.id !== 'welcome' && !msg.isError).map(msg => ({
           role: msg.sender === 'user' ? 'user' : 'model',
           parts: [{ text: msg.text }]
         })),
@@ -461,6 +467,7 @@ Instructions:
         friendlyText = "The requested AI intelligence service endpoint was not found. Please verify the model configuration.";
       }
       toast.error(friendlyText);
+      setInput(queryText);
       setMessages(prev => [...prev, {
         id: Math.random().toString(),
         sender: 'copilot',
@@ -565,7 +572,7 @@ Instructions:
                         )}
                         <div
                           className="markdown-body select-text"
-                          dangerouslySetInnerHTML={{ __html: isUser ? msg.text : parseMarkdown(msg.text) }}
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(isUser ? msg.text : parseMarkdown(msg.text)) }}
                         />
                         <span className="absolute bottom-1 right-2.5 text-[8px] text-white/25 select-none font-manrope font-medium">
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
