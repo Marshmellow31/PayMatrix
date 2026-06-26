@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ChevronRight, X, Users, Loader2 } from 'lucide-react';
+import { Search, ChevronRight, X, Users } from 'lucide-react';
 import adminService from '../../services/adminService.js';
 import Loader from '../../components/common/Loader.jsx';
 import toast from 'react-hot-toast';

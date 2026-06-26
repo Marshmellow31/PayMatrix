@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Structured logger for PayMatrix frontend.
  *

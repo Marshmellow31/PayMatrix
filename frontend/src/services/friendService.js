@@ -4,7 +4,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  setDoc,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -12,9 +11,7 @@ import {
   where,
   arrayUnion,
   arrayRemove,
-  limit,
   getDocFromCache,
-  getDocsFromCache,
 } from 'firebase/firestore';
 import { createNotification } from '../utils/notificationHelper.js';
 import validationService, { FriendRequestSchema } from './validationService.js';
@@ -32,7 +29,7 @@ const _normalize = (userData) => {
 };
 
 const friendService = {
-  searchUsers: async (searchTerm) => {
+  searchUsers: (_searchTerm) => {
     // Feature disabled for enhanced privacy.
     // Users can only be added via common groups or shared links.
     return wrap({ users: [] });
@@ -331,7 +328,7 @@ const friendService = {
     }
   },
 
-  getFriendAnalytics: async (friendId) => {
+  getFriendAnalytics: (_friendId) => {
     return wrap({ analytics: {} });
   },
 

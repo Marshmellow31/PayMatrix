@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp,
@@ -9,7 +9,6 @@ import {
   Wallet,
   BarChart3,
   Users,
-  Minus,
 } from 'lucide-react';
 import expenseService from '../services/expenseService.js';
 import friendService from '../services/friendService.js';
@@ -106,6 +105,7 @@ const Analytics = () => {
     };
 
     fetchAnalytics();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days]);
 
   if (isInitialLoading && !summary)

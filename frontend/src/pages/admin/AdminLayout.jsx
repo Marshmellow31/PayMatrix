@@ -13,7 +13,6 @@ import {
   X,
   Menu,
   ArrowLeft,
-  ChevronRight,
   Brain,
 } from 'lucide-react';
 import Avatar from '../../components/common/Avatar.jsx';

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Users, User, BarChart3, Wallet, LayoutGrid } from 'lucide-react';
+import { Home, Users, User, Wallet, LayoutGrid } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', label: 'Home', icon: Home },
@@ -17,9 +17,7 @@ const BottomNav = () => {
           <NavLink
             key={item.to}
             to={item.to}
-            className={({ isActive }) =>
-              `flex items-center justify-center w-14 h-14 rounded-full transition-all duration-300 relative`
-            }
+            className="flex items-center justify-center w-14 h-14 rounded-full transition-all duration-300 relative"
           >
             {({ isActive }) => (
               <div

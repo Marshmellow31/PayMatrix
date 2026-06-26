@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * PayMatrix FCM Service
  *

@@ -15,7 +15,7 @@ const AddExpense = () => {
   const { groups, loading: groupsLoading } = useSelector((state) => state.groups);
   const { loading: expenseLoading } = useSelector((state) => state.expenses);
 
-  const [initialGroupId, setInitialGroupId] = useState(
+  const [initialGroupId, _setInitialGroupId] = useState(
     id || localStorage.getItem('lastGroupId') || ''
   );
 

@@ -7,7 +7,7 @@ import {
   setDoc,
   addDoc,
   updateDoc,
-  deleteDoc,
+
   query,
   where,
   orderBy,
@@ -72,7 +72,7 @@ export const clearSummaryCache = () => {
 };
 
 const expenseService = {
-  getExpenses: async (groupId, page = 1) => {
+  getExpenses: async (groupId, _page = 1) => {
     const q = query(collection(db, 'groups', groupId, 'expenses'), orderBy('createdAt', 'desc'));
     let querySnapshot;
     try {
@@ -623,9 +623,11 @@ const expenseService = {
         const stlCol = collection(db, 'groups', groupId, 'settlements');
 
         try {
+          // eslint-disable-next-line no-await-in-loop
           [expSnap, stlSnap] = await Promise.all([getDocs(expCol), getDocs(stlCol)]);
         } catch (err) {
-          const { getDocsFromCache } = await import('firebase/firestore');
+          const { getDocsFromCache } = await import('firebase/firestore'); // eslint-disable-line no-await-in-loop
+          // eslint-disable-next-line no-await-in-loop
           [expSnap, stlSnap] = await Promise.all([
             getDocsFromCache(expCol).catch(() => ({ docs: [] })),
             getDocsFromCache(stlCol).catch(() => ({ docs: [] })),
@@ -754,7 +756,7 @@ const expenseService = {
           where('createdAt', '>=', startDateStr),
           orderBy('createdAt', 'asc')
         );
-        const expSnap = await getDocs(expQ);
+        const expSnap = await getDocs(expQ); // eslint-disable-line no-await-in-loop
         expSnap.forEach((d) => allExpenseData.push(d.data()));
       }
 

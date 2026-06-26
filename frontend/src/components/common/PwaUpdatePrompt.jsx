@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import toast from 'react-hot-toast';

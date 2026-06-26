@@ -159,7 +159,7 @@ const AdminAnalytics = () => {
     ],
   };
 
-  const barOptions = (yLabel) => ({
+  const barOptions = (_yLabel) => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {

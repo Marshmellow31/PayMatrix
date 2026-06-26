@@ -4,10 +4,9 @@ import {
   doc,
   getDoc,
   getDocs,
-  setDoc,
+
   addDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   arrayUnion,
@@ -17,7 +16,6 @@ import {
   getDocsFromCache,
 } from 'firebase/firestore';
 import loggingService from './loggingService.js';
-import rateLimitService from './rateLimitService.js';
 import validationService, { GroupSchema, GroupBaseSchema } from './validationService.js';
 import sanitizationService from './sanitizationService.js';
 
@@ -52,7 +50,7 @@ const groupService = {
   },
 
   // 2. Profile Resolution (Asynchronously resolves UIDs to user metadata)
-  resolveMemberProfiles: async (groupId, memberIds, skipRateLimit = false) => {
+  resolveMemberProfiles: async (groupId, memberIds, _skipRateLimit = false) => {
     try {
       // Limit profile resolution frequency to prevent address book scraping
       // skipRateLimit is used when called from a bulk operation like getGroups() that already performed the check
@@ -275,7 +273,7 @@ const groupService = {
     return wrap({ group: { _id: id, ...validData } });
   },
 
-  deleteGroup: async (id, userId) => {
+  deleteGroup: async (id, _userId) => {
     try {
       // 1. Balance Safeguard: Prevent deletion if any net balance is non-zero
       const { default: expenseService } = await import('./expenseService.js');

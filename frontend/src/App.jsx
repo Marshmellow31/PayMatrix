@@ -4,11 +4,10 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './config/firebase.js';
 import { setUser } from './redux/authSlice.js';
-import { doc, getDoc, onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { setNotifications } from './redux/notificationSlice.js';
 import Loader from './components/common/Loader.jsx';
 import { usePushNotifications } from './hooks/usePushNotifications.js';
-import { useAdminAuth } from './hooks/useAdminAuth.js';
 import InstallPrompt from './components/common/InstallPrompt.jsx';
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt.jsx';
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Avatar from '../common/Avatar.jsx';
 
@@ -65,7 +65,7 @@ const FriendLedger = ({ networkData }) => {
           const balancePct = (Math.abs(stat.netBalance) / maxBalance) * 100;
           const turnoverPct = (stat.totalTurnover / maxTurnover) * 100;
           const name = stat.friend?.name || 'Member';
-          const initial = name.charAt(0).toUpperCase();
+          const _initial = name.charAt(0).toUpperCase();
 
           return (
             <motion.div

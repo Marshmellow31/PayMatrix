@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import * as Lucide from 'lucide-react';
 import Avatar from '../common/Avatar.jsx';
 import Button from '../common/Button.jsx';
@@ -32,12 +31,12 @@ const MemberList = ({
 
   // Icons from Lucide (using robust access)
   const UserMinus = Lucide.UserMinus || Lucide.Trash2;
-  const X = Lucide.X || Lucide.XCircle;
+  const _X = Lucide.X || Lucide.XCircle;
   const Mail = Lucide.Mail;
   const Clock = Lucide.Clock;
   const CreditCard = Lucide.CreditCard;
   const ChevronRight = Lucide.ChevronRight;
-  const AlertCircle = Lucide.AlertCircle;
+  const _AlertCircle = Lucide.AlertCircle;
 
   // De-duplicate members by user ID for visual consistency
   const uniqueMembers = [];

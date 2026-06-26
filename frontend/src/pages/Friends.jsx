@@ -1,31 +1,21 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus,
-  Search,
   Check,
   X,
   Users,
-  ArrowRight,
-  ArrowUpRight,
-  ArrowDownRight,
-  TrendingUp,
   Loader2,
-  User as UserIcon,
   Clock,
   ExternalLink,
   ChevronRight,
   Layers,
-  Sparkles,
-  Link as LinkIcon,
   Copy,
-  QrCode,
   ShieldCheck,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link, useNavigate } from 'react-router-dom';
 import Avatar from '../components/common/Avatar';
-import { getInitials } from '../utils/nameUtils.js';
 import { onSnapshot, doc, collection, query, where } from 'firebase/firestore';
 import { auth, db } from '../config/firebase.js';
 import friendService from '../services/friendService';
@@ -38,7 +28,7 @@ const Friends = () => {
   const navigate = useNavigate();
   const flags = useFeatureFlags();
   const [friends, setFriends] = useState([]);
-  const [totalSharedBalance, setTotalSharedBalance] = useState(0);
+  const [_totalSharedBalance, setTotalSharedBalance] = useState(0);
   const [requests, setRequests] = useState({ incoming: [], outgoing: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
@@ -185,7 +175,7 @@ const Friends = () => {
       });
   };
 
-  const sendRequest = async (userId) => {
+  const _sendRequest = async (userId) => {
     try {
       await friendService.sendRequest(userId);
       toast.success('Connection request broadcasted');

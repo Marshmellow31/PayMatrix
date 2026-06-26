@@ -4,18 +4,18 @@ import { Link, useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Plus,
-  Users,
   ArrowUpRight,
   ArrowDownLeft,
-  PieChart,
   ChevronRight,
   Filter,
-  Wallet,
   WifiOff,
   Sparkles,
   Camera,
+  Hash,
 } from 'lucide-react';
-import { fetchGroups, setGroups } from '../redux/groupSlice.js';
+import * as LucideIcons from 'lucide-react';
+import { setGroups } from '../redux/groupSlice.js';
+import { GROUP_CATEGORIES } from '../utils/constants.js';
 import groupService from '../services/groupService.js';
 import expenseService from '../services/expenseService.js';
 import Loader from '../components/common/Loader.jsx';
@@ -48,11 +48,11 @@ const Dashboard = () => {
 
     const qGroups = query(collection(db, 'groups'), where('members', 'array-contains', userId));
 
-    const isInitialLoad = !groups.length;
+    const _isInitialLoad = !groups.length;
 
     const unsubscribeGroups = onSnapshot(
       qGroups,
-      async (snapshot) => {
+      (snapshot) => {
         try {
           // 1. Instant Step: Extract basic doc data (IDs, Titles, etc)
           const basicGroups = snapshot.docs.map((doc) => groupService.getBasicGroup(doc));
@@ -94,6 +94,7 @@ const Dashboard = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, user?._id, user?.uid]);
 
   // 3. Reactive summary - updates whenever any group's metadata is "touched"
@@ -114,6 +115,7 @@ const Dashboard = () => {
     };
 
     updateSummary();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupsUpdatedHash, user?._id, user?.uid]);
 
   const recentActivity = notifications.slice(0, 5);
@@ -322,14 +324,19 @@ const Dashboard = () => {
               key={group._id}
               className="flex flex-col items-center shrink-0 w-16 group"
             >
-              {/* Circular Avatar Container with colorful border */}
-              <div className="w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 group-hover:scale-105 transition-all shadow-md">
-                <div className="w-full h-full rounded-full bg-[#131313] flex items-center justify-center border border-[#131313] overflow-hidden">
-                  <span className="font-manrope font-extrabold text-white text-xs uppercase">
-                    {(group.name || group.title)?.[0] || '?'}
-                  </span>
-                </div>
-              </div>
+              {/* Rounded-square icon matching GroupDetail header style */}
+              {(() => {
+                const cat = GROUP_CATEGORIES.find((c) => c.value === group.category);
+                const IconComp = cat?.icon ? LucideIcons[cat.icon] || Hash : Hash;
+                const iconColor = cat?.color || '#919191';
+                return (
+                  <div
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shadow-inner group-hover:scale-105 transition-all"
+                  >
+                    <IconComp size={20} style={{ color: iconColor }} />
+                  </div>
+                );
+              })()}
               <span className="text-[9px] text-white/70 mt-2 truncate w-full text-center font-semibold font-inter group-hover:text-white transition-colors">
                 {group.name || group.title}
               </span>

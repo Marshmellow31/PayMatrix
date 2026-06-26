@@ -40,7 +40,7 @@ export const createGroup = createAsyncThunk('groups/create', async (data, thunkA
 export const deleteGroup = createAsyncThunk('groups/delete', async (id, thunkAPI) => {
   try {
     const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
-    const response = await groupService.deleteGroup(id, userId);
+    const _response = await groupService.deleteGroup(id, userId);
     return id;
   } catch (error) {
     return thunkAPI.rejectWithValue(error.message || 'Failed to delete group');
@@ -87,10 +87,10 @@ const groupSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      .addCase(createGroup.fulfilled, (state, action) => {
+      .addCase(createGroup.fulfilled, (_state, _action) => {
         // No manual unshift here. The onSnapshot listener in Groups.jsx will handle the UI update.
       })
-      .addCase(deleteGroup.fulfilled, (state, action) => {
+      .addCase(deleteGroup.fulfilled, (_state, _action) => {
         // No manual filter here. The onSnapshot listener in Groups.jsx will handle the UI update.
       });
   },

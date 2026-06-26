@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import Loader from '../components/common/Loader.jsx';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { UserPlus, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import Button from '../components/common/Button.jsx';
 import groupService from '../services/groupService.js';
 

@@ -41,7 +41,7 @@ export const usePushNotifications = () => {
       const body = notification.body || '';
 
       // Show an in-app toast so the user doesn't miss the event
-      toast((t) => `${title}${body ? ': ' + body : ''}`, {
+      toast((_t) => `${title}${body ? ': ' + body : ''}`, {
         icon: '🔔',
         duration: 5000,
         style: {

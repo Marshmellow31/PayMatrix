@@ -158,6 +158,7 @@ const ExpenseForm = ({
         }
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.groupId, groups, initialData]); // Note: participants is omitted from deps to prevent re-runs when toggling members
   useEffect(() => {
     if (onStepChange) {

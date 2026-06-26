@@ -8,16 +8,13 @@ import Avatar from '../components/common/Avatar.jsx';
 import Button from '../components/common/Button.jsx';
 import Input from '../components/common/Input.jsx';
 import {
-  LogOut,
   Download,
   Mail,
-  User,
   Settings,
   Archive,
   Flame,
   CreditCard,
   AtSign,
-  Link2,
   AlertTriangle,
   CheckCircle2,
   X,

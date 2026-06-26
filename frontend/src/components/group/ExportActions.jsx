@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Download, FileText, Table, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { exportToPDF, exportToCSV } from '../../utils/exportUtils';
 
 const ExportActions = ({ group, expenses, balances, logs = [], iconOnly = false }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [_isExporting, setIsExporting] = useState(false);
 
-  const handleExport = async (type) => {
+  const handleExport = (type) => {
     setIsExporting(true);
     try {
       if (type === 'pdf') {

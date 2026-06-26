@@ -7,7 +7,6 @@ import {
   User,
   X,
   Wallet,
-  BarChart3,
   Sparkles,
 } from 'lucide-react';
 

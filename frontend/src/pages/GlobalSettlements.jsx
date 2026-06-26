@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowUpRight, ArrowDownRight, Wallet, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { fetchGroups } from '../redux/groupSlice.js';
 import expenseService from '../services/expenseService.js';
 import Loader from '../components/common/Loader.jsx';
@@ -58,6 +58,7 @@ const GlobalSettlements = () => {
     } else if (!groupsLoading) {
       setLoadingBalances(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groups, user]);
 
   if (groupsLoading || loadingBalances) return <Loader className="py-20" />;

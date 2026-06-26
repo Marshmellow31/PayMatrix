@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useParams, Link, useOutletContext, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useOutletContext, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { collection, onSnapshot, query, orderBy, doc, limit } from 'firebase/firestore';
@@ -11,7 +11,7 @@ import MemberList from '../components/group/MemberList.jsx';
 import ActivityFeed from '../components/group/ActivityFeed.jsx';
 import ExportActions from '../components/group/ExportActions.jsx';
 import ExpenseCard from '../components/expense/ExpenseCard.jsx';
-import BalanceSummary from '../components/balance/BalanceSummary.jsx';
+
 import { computeGroupBalances, simplifyDebts } from '../utils/balanceEngine.js';
 import Loader from '../components/common/Loader.jsx';
 import Button from '../components/common/Button.jsx';
@@ -24,7 +24,7 @@ import * as LucideIcons from 'lucide-react';
 import BillScannerModal from '../components/bill/BillScannerModal.jsx';
 import { useFeatureFlags } from '../hooks/useFeatureFlags.js';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
-import expenseService from '../services/expenseService.js';
+
 import groupService from '../services/groupService.js';
 import friendService from '../services/friendService.js';
 import toast from 'react-hot-toast';
@@ -262,7 +262,7 @@ const GroupDetail = () => {
   }, [currentGroup, groups, id, user, isOnline, dispatch]);
 
   const balances = balanceList;
-  const simplifiedDebts = debts;
+  const _simplifiedDebts = debts;
   const { hasPending, myBalance } = {
     hasPending: debts.length > 0 || Object.values(netBalances).some((v) => Math.abs(v) > 0.01),
     myBalance: netBalances[user?._id || user?.uid] || 0,

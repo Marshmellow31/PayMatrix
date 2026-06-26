@@ -1,13 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Plus, Loader2, Hash } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
-import { fetchGroups, createGroup, setGroups } from '../redux/groupSlice.js';
+import { createGroup, setGroups } from '../redux/groupSlice.js';
 import GroupCard from '../components/group/GroupCard.jsx';
 import Modal from '../components/common/Modal.jsx';
-import Input from '../components/common/Input.jsx';
+
 import Button from '../components/common/Button.jsx';
 import Loader from '../components/common/Loader.jsx';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
@@ -24,7 +23,7 @@ import { getInitials } from '../utils/nameUtils.js';
 const Groups = () => {
   const dispatch = useDispatch();
   const location = useLocation();
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const { openAddExpense } = useOutletContext();
   const { groups, loading } = useSelector((state) => state.groups);
   const { user } = useSelector((state) => state.auth);
@@ -34,7 +33,7 @@ const Groups = () => {
   const [form, setForm] = useState({ name: '', category: 'Other', members: [] });
   const [friends, setFriends] = useState([]);
   const [summary, setSummary] = useState(null);
-  const [loadingSummary, setLoadingSummary] = useState(true);
+  const [_loadingSummary, setLoadingSummary] = useState(true);
 
   const groupsUpdatedHash = useMemo(
     () => JSON.stringify(groups.map((g) => g.updatedAt || g._id)),
@@ -50,7 +49,7 @@ const Groups = () => {
     // Real-time listener for groups
     const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       try {
         // Step 1: Instant load of basic group data (names, IDs)
         const basicGroups = snapshot.docs.map((doc) => groupService.getBasicGroup(doc));

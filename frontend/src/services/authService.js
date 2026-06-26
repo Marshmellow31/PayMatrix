@@ -1,15 +1,11 @@
 import { auth, db } from '../config/firebase.js';
 import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
-  sendPasswordResetEmail,
   updateProfile as updateFirebaseProfile,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import loggingService from './loggingService.js';
-import rateLimitService from './rateLimitService.js';
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -98,7 +94,7 @@ const authService = {
     if (!user) throw new Error('Authentication required to update profile.');
 
     // Sanitize data: remove core fields that shouldn't be updated via profile update
-    const { uid, email, createdAt, ...sanitizedData } = data;
+    const { uid: _uid, email: _email, createdAt: _createdAt, ...sanitizedData } = data;
 
     if (sanitizedData.name) {
       await updateFirebaseProfile(user, { displayName: sanitizedData.name });

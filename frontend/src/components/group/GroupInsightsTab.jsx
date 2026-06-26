@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
 import Avatar from '../common/Avatar.jsx';
-import { formatCurrency, formatCompactCurrency } from '../../utils/formatCurrency.js';
+import { formatCompactCurrency } from '../../utils/formatCurrency.js';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 
 const fadeUp = (delay = 0) => ({

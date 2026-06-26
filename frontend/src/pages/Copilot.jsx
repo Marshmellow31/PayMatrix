@@ -1,17 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
 import {
   Sparkles,
   Send,
-  Brain,
   ArrowLeft,
   Loader2,
-  MessageSquare,
   RefreshCw,
   TrendingUp,
   Wallet,
   Users,
-  HelpCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -380,6 +376,7 @@ const Copilot = () => {
 
   useEffect(() => {
     hydrateContext();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   useEffect(() => {
@@ -459,6 +456,7 @@ Instructions:
         let delay = 1000;
         for (let i = 0; i < attempts; i++) {
           try {
+            // eslint-disable-next-line no-await-in-loop
             const resp = await fetch(url, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -474,6 +472,7 @@ Instructions:
               return resp;
             }
 
+            // eslint-disable-next-line no-await-in-loop
             const errDetails = await resp.text().catch(() => 'Unknown error');
             console.warn(`[Gemini REST Attempt ${i + 1} Failed]`, resp.status, errDetails);
 
@@ -485,6 +484,7 @@ Instructions:
             if (i === attempts - 1) throw err;
           }
 
+          // eslint-disable-next-line no-await-in-loop
           await new Promise((res) => setTimeout(res, delay));
           delay *= 2;
         }

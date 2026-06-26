@@ -25,7 +25,7 @@ const AppLayout = () => {
   const { groups } = useSelector((state) => state.groups);
   const { loading: expenseLoading } = useSelector((state) => state.expenses);
   const [editingExpense, setEditingExpense] = useState(null);
-  const [expenseStep, setExpenseStep] = useState(1);
+  const [_expenseStep, setExpenseStep] = useState(1);
   const flags = useFeatureFlags();
 
   useEffect(() => {

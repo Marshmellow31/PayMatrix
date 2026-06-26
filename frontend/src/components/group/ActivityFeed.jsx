@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Clock, Plus, Receipt, UserPlus, UserMinus, Edit, Trash2, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { db } from '../../config/firebase.js';

@@ -4,11 +4,10 @@ import { Hash } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { GROUP_CATEGORIES } from '../../utils/constants.js';
 import Avatar from '../common/Avatar.jsx';
-import { getInitials } from '../../utils/nameUtils.js';
 
 const GroupCard = ({ group, balance = 0 }) => {
   const category = GROUP_CATEGORIES.find((c) => c.value === group.category);
-  const IconComponent = category?.icon ? LucideIcons[category.icon] || Hash : Hash;
+  const _IconComponent = category?.icon ? LucideIcons[category.icon] || Hash : Hash;
 
   // De-duplicate members by user ID (handles both raw UIDs and expanded objects)
   const uniqueMembers = Array.from(

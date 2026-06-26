@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -120,6 +120,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
       setCustomAmount('');
       loadSettlementPlan();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, groupId, userId, forcedPayeeId]);
 
   useEffect(() => {
@@ -149,7 +150,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
 
   // ── settle actions ───────────────────────────────────────────────────────────
 
-  const handleSettle = async (payeeId, amount, notes = 'Settled up') => {
+  const handleSettle = (payeeId, amount, notes = 'Settled up') => {
     setProcessing(true);
     if (onSettled) onSettled();
     toast.success('Payment recorded successfully');
@@ -161,7 +162,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
       .catch((err) => console.warn('Settlement delayed or failed:', err));
   };
 
-  const handleSettleAll = async () => {
+  const handleSettleAll = () => {
     if (settlements.length === 0) return;
     setProcessing(true);
     if (onSettled) onSettled();
