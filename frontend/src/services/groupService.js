@@ -61,7 +61,8 @@ const groupService = {
       if (!memberIds || memberIds.length === 0) return [];
 
       const memberPromises = memberIds.map(async (item) => {
-        const uid = item && typeof item === 'object' ? item.user?._id || item.uid || item._id : item;
+        const uid =
+          item && typeof item === 'object' ? item.user?._id || item.uid || item._id : item;
         if (!uid || typeof uid !== 'string' || uid === 'undefined') return null;
 
         if (userCache[uid]) {

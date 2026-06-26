@@ -505,9 +505,7 @@ const expenseService = {
       createdAt: new Date().toISOString(),
     }).catch(() => {});
 
-    updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(
-      () => {}
-    );
+    updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
     return wrap({ message: 'Settlement restored' });
   },
 

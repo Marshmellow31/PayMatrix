@@ -211,7 +211,8 @@ function IOSGuide({ onDismiss }) {
           Safari&apos;s toolbar
         </li>
         <li>
-          Scroll down and tap <strong style={{ color: '#e5e2e1' }}>&quot;Add to Home Screen&quot;</strong>
+          Scroll down and tap{' '}
+          <strong style={{ color: '#e5e2e1' }}>&quot;Add to Home Screen&quot;</strong>
         </li>
         <li>
           Tap <strong style={{ color: '#e5e2e1' }}>&quot;Add&quot;</strong> in the top-right corner
