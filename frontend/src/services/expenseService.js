@@ -1,10 +1,11 @@
 import { db, auth } from '../config/firebase.js';
-import { 
-  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, 
+import {
+  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, getDocFromCache, serverTimestamp
 } from 'firebase/firestore';
 import { calculateSplits } from '../utils/balanceEngine.js';
 import { createNotification } from '../utils/notificationHelper.js';
+import { withRetry } from '../utils/retryOperation.js';
 import loggingService from './loggingService.js';
 import validationService, { ExpenseSchema } from './validationService.js';
 import sanitizationService from './sanitizationService.js';
@@ -44,6 +45,13 @@ let summaryCache = {
   data: null,
   timestamp: 0,
   hash: ''
+};
+
+/** Called by authSlice logout reducer to purge stale cross-user data after sign-out. */
+export const clearSummaryCache = () => {
+  summaryCache.data      = null;
+  summaryCache.timestamp = 0;
+  summaryCache.hash      = '';
 };
 
 const expenseService = {
@@ -104,12 +112,14 @@ const expenseService = {
     // Final schema check
     validationService.validate(ExpenseSchema, payload);
     
+    // Pre-generate docRef so the ID is known before the write (idempotency: safe to retry setDoc)
     const docRef = doc(collection(db, 'groups', groupId, 'expenses'));
-    
-    // Primary write: Non-blocking for instant offline responsiveness
-    setDoc(docRef, payload).catch(err => console.error("[OFFLINE_SYNC_ERROR] Expense write failed:", err));
 
-    // Refresh group's updatedAt to trigger listeners (non-blocking)
+    // Primary write: awaited with retry — financial data must not be lost silently.
+    // Firebase offline persistence means this resolves from local cache even when offline.
+    await withRetry(() => setDoc(docRef, payload));
+
+    // Refresh group's updatedAt to trigger listeners (non-blocking — non-critical)
     updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
 
     // Secondary tasks: Log and metadata lookups happen in background (non-blocking)
@@ -170,10 +180,10 @@ const expenseService = {
       updatedAt: new Date().toISOString()
     });
     
-    // Primary write: Non-blocking for instant offline responsiveness
-    updateDoc(docRef, payload).catch(err => console.error("[OFFLINE_SYNC_ERROR] Expense update failed:", err));
+    // Primary write: awaited with retry — financial data must not be lost silently.
+    await withRetry(() => updateDoc(docRef, payload));
 
-    // Refresh group's updatedAt to trigger listeners (non-blocking)
+    // Refresh group's updatedAt to trigger listeners (non-blocking — non-critical)
     if (groupId) {
       updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
     }
@@ -222,11 +232,11 @@ const expenseService = {
 
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
     
-    // Primary write: Soft-delete for undo support
-    updateDoc(docRef, { 
-      status: 'deleted', 
-      updatedAt: new Date().toISOString() 
-    }).catch(err => console.error("[OFFLINE_SYNC_ERROR] Expense soft-delete failed:", err));
+    // Primary write: awaited with retry — soft-delete must be confirmed before returning.
+    await withRetry(() => updateDoc(docRef, {
+      status: 'deleted',
+      updatedAt: new Date().toISOString(),
+    }));
 
     // Secondary task: Resolution happens in background
     (async () => {
@@ -356,11 +366,11 @@ const expenseService = {
     if (!groupId) throw new Error("deleteSettlement requires groupId");
     const docRef = doc(db, 'groups', groupId, 'settlements', id);
     
-    // Soft-delete
-    updateDoc(docRef, { 
-      status: 'deleted', 
-      updatedAt: new Date().toISOString() 
-    }).catch(err => console.error("[OFFLINE_SYNC_ERROR] Settlement soft-delete failed:", err));
+    // Primary write: awaited with retry — settlement deletion must be confirmed.
+    await withRetry(() => updateDoc(docRef, {
+      status: 'deleted',
+      updatedAt: new Date().toISOString(),
+    }));
 
     // Log the deletion
     (async () => {
@@ -466,13 +476,10 @@ const expenseService = {
     const docRef = doc(collection(db, 'groups', groupId, 'settlements'));
 
     try {
-      // Primary write: Non-blocking for instant offline responsiveness
-      setDoc(docRef, settlementData).catch(err => {
-        console.error("[OFFLINE_SYNC_ERROR] Settlement write failed:", err);
-        loggingService.logError('expenseService', 'createSettlement/setDoc', err);
-      });
-      
-      // Refresh group's updatedAt to trigger listeners (non-blocking)
+      // Primary write: awaited with retry — settlement amount is financial data.
+      await withRetry(() => setDoc(docRef, settlementData));
+
+      // Refresh group's updatedAt to trigger listeners (non-blocking — non-critical)
       updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
     } catch (error) {
       await loggingService.logError('expenseService', 'createSettlement', error);

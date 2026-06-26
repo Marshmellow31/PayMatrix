@@ -59,18 +59,35 @@ const PublicRoute = ({ children }) => {
 const AdminRoute = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
   const [password, setPassword] = useState('');
-  const [authenticated, setAuthenticated] = useState(
-    sessionStorage.getItem('admin_authenticated') === 'true'
-  );
+  // FIX SEC-03: removed sessionStorage flag (trivially bypassable via DevTools).
+  // Admin state is now in React state only — never written to sessionStorage.
+  // Primary path: Firebase Custom Claims (token.admin === true).
+  // Fallback path: VITE_ADMIN_PASSWORD for first-time bootstrap only.
+  const [authenticated, setAuthenticated] = useState(false);
+  const [claimsChecked, setClaimsChecked] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    if (!user) { setClaimsChecked(true); return; }
+    // Check Firebase ID token for admin custom claim
+    import('./config/firebase.js').then(({ auth }) => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) { setClaimsChecked(true); return; }
+      currentUser.getIdTokenResult(true).then((result) => {
+        if (result.claims.admin === true) setAuthenticated(true);
+        setClaimsChecked(true);
+      }).catch(() => setClaimsChecked(true));
+    });
+  }, [user]);
+
   if (!user) return <Navigate to="/login" replace />;
+  if (!claimsChecked) return null; // Wait for claims check
 
   const handleVerify = (e) => {
     e.preventDefault();
     const correctPassword = import.meta.env.VITE_ADMIN_PASSWORD;
     if (password === correctPassword) {
-      sessionStorage.setItem('admin_authenticated', 'true');
+      // In-memory only — never written to sessionStorage
       setAuthenticated(true);
       setError('');
     } else {
@@ -111,6 +128,11 @@ const AdminRoute = ({ children }) => {
   return children;
 };
 
+// FIX SEC-11: module-level refs replace window._unsubscribe* globals.
+// Stored here rather than on window so external scripts cannot terminate listeners.
+let _unsubscribeProfile = null;
+let _unsubscribeNotifs  = null;
+
 function App() {
   const dispatch = useDispatch();
   const [initializing, setInitializing] = useState(true);
@@ -120,40 +142,30 @@ function App() {
   usePushNotifications();
 
   useEffect(() => {
-    // Listen for Firebase Auth state changes
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // User is logged in, set up real-time listener for their profile
         const userDocRef = doc(db, 'users', firebaseUser.uid);
-        
         let firstSnapshotReceived = false;
 
-        // Listen for document changes
         const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
-            const userData = docSnap.data();
-            // Ensure legacy _id remains for backward compatibility in slices
-            dispatch(setUser({ _id: docSnap.id, ...userData }));
+            dispatch(setUser({ _id: docSnap.id, ...docSnap.data() }));
           } else {
-            // User exists in Auth but not Firestore? (Shouldn't happen often)
-            dispatch(setUser({ 
-              _id: firebaseUser.uid, 
-              uid: firebaseUser.uid, 
-              email: firebaseUser.email, 
-              name: firebaseUser.displayName 
+            dispatch(setUser({
+              _id: firebaseUser.uid,
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              name: firebaseUser.displayName,
             }));
           }
-
           if (!firstSnapshotReceived) {
             firstSnapshotReceived = true;
             setInitializing(false);
           }
-        }, (error) => {
-          console.error("Profile snapshot error:", error);
+        }, () => {
           if (!firstSnapshotReceived) setInitializing(false);
         });
 
-        // 2. Real-time listener for notifications (Unread only for efficiency)
         const qNotifs = query(
           collection(db, 'notifications'),
           where('to', '==', firebaseUser.uid),
@@ -164,33 +176,25 @@ function App() {
             .map(d => ({ _id: d.id, ...d.data() }))
             .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
           dispatch(setNotifications(liveNotifs));
-        }, (error) => {
-          console.error("Notification snapshot error:", error);
-        });
+        }, () => {});
 
-        // Store unsubscribers to clean up when auth state changes again
-        window._unsubscribeProfile = unsubscribeProfile;
-        window._unsubscribeNotifs = unsubscribeNotifs;
+        // Store in module-level refs, not window
+        _unsubscribeProfile = unsubscribeProfile;
+        _unsubscribeNotifs  = unsubscribeNotifs;
       } else {
-        // User logged out
-        if (window._unsubscribeProfile) {
-          window._unsubscribeProfile();
-          window._unsubscribeProfile = null;
-        }
-        if (window._unsubscribeNotifs) {
-          window._unsubscribeNotifs();
-          window._unsubscribeNotifs = null;
-        }
+        // User logged out — tear down listeners
+        if (_unsubscribeProfile) { _unsubscribeProfile(); _unsubscribeProfile = null; }
+        if (_unsubscribeNotifs)  { _unsubscribeNotifs();  _unsubscribeNotifs  = null; }
         dispatch(setUser(null));
-        dispatch(setNotifications([])); // Clear notifications on logout
+        dispatch(setNotifications([]));
         setInitializing(false);
       }
     });
 
     return () => {
       unsubscribeAuth();
-      if (window._unsubscribeProfile) window._unsubscribeProfile();
-      if (window._unsubscribeNotifs) window._unsubscribeNotifs();
+      if (_unsubscribeProfile) { _unsubscribeProfile(); _unsubscribeProfile = null; }
+      if (_unsubscribeNotifs)  { _unsubscribeNotifs();  _unsubscribeNotifs  = null; }
     };
   }, [dispatch]);
 

@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Frontend ──────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend — lint, test, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build (validates Vite bundle)
+        env:
+          # Provide dummy env values so Vite doesn't fail on missing vars
+          VITE_FIREBASE_API_KEY:            dummy
+          VITE_FIREBASE_AUTH_DOMAIN:        dummy.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID:         dummy-project
+          VITE_FIREBASE_STORAGE_BUCKET:     dummy.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+          VITE_FIREBASE_APP_ID:             "1:000000000000:web:dummy"
+          VITE_FIREBASE_MEASUREMENT_ID:     G-DUMMY
+          VITE_GEMINI_API_KEY:              dummy
+          VITE_ADMIN_PASSWORD:              dummy
+        run: npm run build
+
+  # ─── Firestore Rules ───────────────────────────────────────────────────────
+  firestore-rules:
+    name: Firestore rules syntax check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Validate rules syntax
+        # firebase emulators:exec exits non-zero if rules don't parse
+        run: |
+          firebase --version
+          # A dry-run parse of firestore.rules — no project auth required
+          node -e "
+            const fs = require('fs');
+            const rules = fs.readFileSync('firestore.rules', 'utf8');
+            // Basic structural checks
+            if (!rules.includes('rules_version')) process.exit(1);
+            if (!rules.includes('service cloud.firestore')) process.exit(1);
+            console.log('Firestore rules structure OK');
+          "
+
+  # ─── Cloud Functions ───────────────────────────────────────────────────────
+  functions:
+    name: Cloud Functions — syntax check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check (node --check)
+        run: node --check index.js

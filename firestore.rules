@@ -8,12 +8,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Platform-level admin via Firebase Custom Claims or UID fallback
+    // Platform-level admin via Firebase Custom Claims only.
+    // UID fallback removed — grant admin via Admin Panel > Users > Grant Admin Claims.
     function isGlobalAdmin() {
-      return request.auth != null && (
-        request.auth.token.admin == true ||
-        request.auth.uid == 'eidrZjV5Nwcq6iY5Gp51L4KZLHs2'
-      );
+      return request.auth != null && request.auth.token.admin == true;
     }
 
     function isMember(groupId) {
@@ -41,10 +39,11 @@ service cloud.firestore {
     // ─── Users ────────────────────────────────────────────────────────────────
 
     match /users/{userId} {
+      // FIX SEC-04: removed dangling '|| isSignedIn()' that granted every authenticated
+      // user read access to every other user's full profile document.
       allow read: if isGlobalAdmin() || (isSignedIn() && (
         request.auth.uid == userId ||
-        request.auth.uid in resource.data.get('friends', []) ||
-        isSignedIn()
+        request.auth.uid in resource.data.get('friends', [])
       ));
       allow create: if isSignedIn() && request.auth.uid == userId &&
                     isValidString(request.resource.data.get('displayName', ''), 50);
@@ -101,9 +100,13 @@ service cloud.firestore {
       }
 
       match /settlements/{settlementId} {
-        allow read: if isGlobalAdmin() || isMember(groupId);
+        allow read:   if isGlobalAdmin() || isMember(groupId);
         allow create: if isMember(groupId) && isValidAmount(request.resource.data.amount);
-        allow update, delete: if isGlobalAdmin() || isAdmin(groupId) || request.auth.uid == resource.data.payer;
+        // FIX: payer can no longer unilaterally delete a settlement (fraud vector).
+        // Any member can soft-delete (status:'deleted') via update.
+        // Hard deletes require group admin or global admin.
+        allow update: if isMember(groupId);
+        allow delete: if isGlobalAdmin() || isAdmin(groupId);
       }
 
       match /logs/{logId} {
@@ -130,7 +133,10 @@ service cloud.firestore {
 
     match /notifications/{notificationId} {
       allow read, update, delete: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == resource.data.to);
-      allow create: if isSignedIn();
+      // FIX SEC-08: any signed-in user could previously create notifications targeting any other user.
+      // Now clients may only create notifications targeting themselves (system alerts).
+      // Cross-user notifications are created by trusted Cloud Functions.
+      allow create: if isSignedIn() && request.resource.data.to == request.auth.uid;
     }
 
     // ─── Security Logs ────────────────────────────────────────────────────────
@@ -144,7 +150,10 @@ service cloud.firestore {
     // ─── Rate Limits ──────────────────────────────────────────────────────────
 
     match /rate_limits/{userId} {
-      allow read, write: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == userId);
+      // FIX: users can read their own limit doc but cannot write it directly —
+      // users could previously reset their own rate-limit counters.
+      allow read:  if isGlobalAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow write: if isGlobalAdmin();
     }
 
     // ─── AI Requests ──────────────────────────────────────────────────────────

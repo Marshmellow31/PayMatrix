@@ -49,6 +49,5 @@ export const useFeatureFlags = () => {
     };
   }, []);
 
-  console.log("[useFeatureFlags] flags returned:", flags);
   return flags;
 };

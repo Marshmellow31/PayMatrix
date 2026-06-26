@@ -11,31 +11,18 @@ import sanitizationService from './sanitizationService.js';
 // Helper to mimic Axios response
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
 
-// In-memory cache for user metadata to speed up repeated expansions offline
+// FIX SEC-05: userCache is in-memory only — never persisted to sessionStorage.
+// sessionStorage persistence was a PII leak (names, emails, avatars survived tab sessions).
+// Cache is cleared on logout via clearUserCache() called from authSlice.
 const userCache = {};
 
-// Initialize cache from session storage if available
-if (typeof window !== 'undefined' && window.sessionStorage) {
-  try {
-    const storedCache = window.sessionStorage.getItem('paymatrix_user_cache');
-    if (storedCache) {
-      Object.assign(userCache, JSON.parse(storedCache));
-    }
-  } catch (err) {
-    console.warn("Failed to load user cache from session storage:", err);
-  }
-}
+/** Called by authSlice logout reducer to purge PII after sign-out. */
+export const clearUserCache = () => {
+  Object.keys(userCache).forEach(k => delete userCache[k]);
+};
 
-// Helper to update both in-memory and session storage cache
 const updateCache = (uid, userData) => {
   userCache[uid] = userData;
-  if (typeof window !== 'undefined' && window.sessionStorage) {
-    try {
-      window.sessionStorage.setItem('paymatrix_user_cache', JSON.stringify(userCache));
-    } catch (err) {
-      console.warn("Failed to save user cache to session storage:", err);
-    }
-  }
 };
 
 const groupService = {

@@ -4,8 +4,8 @@ const admin = require("firebase-admin");
 
 admin.initializeApp();
 
-// Set this to your Firebase User UID to bypass custom claims complexity
-const FALLBACK_ADMIN_UID = "eidrZjV5Nwcq6iY5Gp51L4KZLHs2";
+// FIX SEC-02: FALLBACK_ADMIN_UID removed. All admin checks now rely solely on
+// Custom Claims (token.admin === true). Grant claims via Admin Panel → Users → Grant Admin.
 
 const NOTIFICATION_TITLES = {
   expense_added:       "💸 New Expense",
@@ -96,7 +96,7 @@ exports.sendPushOnNotification = onDocumentCreated(
 exports.adminManageUser = onCall(
   { memory: "128MiB" },
   async (request) => {
-    if (!request.auth?.token?.admin && request.auth?.uid !== FALLBACK_ADMIN_UID) {
+    if (!request.auth?.token?.admin) {
       throw new HttpsError("permission-denied", "Admin access required.");
     }
 
@@ -138,7 +138,7 @@ exports.adminManageUser = onCall(
 exports.getAdminStats = onCall(
   { memory: "512MiB", timeoutSeconds: 60 },
   async (request) => {
-    if (!request.auth?.token?.admin && request.auth?.uid !== FALLBACK_ADMIN_UID) {
+    if (!request.auth?.token?.admin) {
       throw new HttpsError("permission-denied", "Admin access required.");
     }
 
@@ -214,7 +214,7 @@ exports.getAdminStats = onCall(
 exports.broadcastNotification = onCall(
   { memory: "512MiB", timeoutSeconds: 120 },
   async (request) => {
-    if (!request.auth?.token?.admin && request.auth?.uid !== FALLBACK_ADMIN_UID) {
+    if (!request.auth?.token?.admin) {
       throw new HttpsError("permission-denied", "Admin access required.");
     }
 
@@ -275,5 +275,209 @@ exports.broadcastNotification = onCall(
 
     console.log(`[BROADCAST] title="${title}" sent=${sent} failed=${failed} by=${request.auth.uid}`);
     return { sent, failed, recipientCount };
+  }
+);
+
+// ─── Scan Bill with Gemini ────────────────────────────────────────────────────
+//
+// Moves the Gemini API call server-side so VITE_GEMINI_API_KEY is never
+// exposed in the browser bundle. The client sends compressed base64 image
+// data; this function calls Gemini and returns the parsed receipt fields.
+//
+// Required env var: GEMINI_API_KEY
+// Set it in Firebase Console → Functions → Configuration, or via:
+//   firebase functions:config:set gemini.api_key="YOUR_KEY"
+// (The key value is the same as VITE_GEMINI_API_KEY in frontend/.env)
+
+const GEMINI_MODEL = "gemini-2.0-flash-lite";
+
+const RECEIPT_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    amount:   { type: "NUMBER",  description: "Final grand total actually payable, including tax" },
+    title:    { type: "STRING",  description: "Short merchant/store name" },
+    date:     { type: "STRING",  description: "Bill date as YYYY-MM-DD, or empty if not found" },
+    category: { type: "STRING",  enum: ["Food","Travel","Rent","Entertainment","Utilities","Shopping","Health","Education","Other"] },
+    items: {
+      type: "ARRAY",
+      description: "Individual line items. Exclude tax/subtotal/total rows.",
+      items: {
+        type: "OBJECT",
+        properties: { name: { type: "STRING" }, price: { type: "NUMBER" } },
+        required: ["name", "price"],
+      },
+    },
+  },
+  required: ["amount", "items"],
+};
+
+const RECEIPT_PROMPT = [
+  "You are a precise receipt/bill parser for an Indian expense-splitting app.",
+  "Read the attached bill image and extract:",
+  "- amount: the FINAL grand total payable (including GST/taxes/service charges). Not the subtotal.",
+  "- title: a short merchant or store name (e.g. 'Pizza Hut', 'More Supermarket').",
+  "- date: the bill date in YYYY-MM-DD. If absent, return an empty string.",
+  "- category: the single best fit from the allowed list.",
+  "- items: each ordered line item with its printed price. Combine quantity into the name. Do NOT include tax, subtotal, total, or discount rows.",
+  "All amounts are in Indian Rupees as plain numbers (no symbols). If the image is unreadable, return amount 0 and an empty items array.",
+].join("\n");
+
+exports.scanBillWithGemini = onCall(
+  { memory: "256MiB", timeoutSeconds: 30 },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in to scan bills.");
+    }
+
+    const { imageBase64, mimeType = "image/jpeg" } = request.data || {};
+    if (!imageBase64) {
+      throw new HttpsError("invalid-argument", "imageBase64 is required.");
+    }
+    if (imageBase64.length > 2_000_000) { // ~1.5 MB base64 ≈ 1.1 MB binary
+      throw new HttpsError("invalid-argument", "Image too large. Please use an image under 1.5 MB.");
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("[scanBillWithGemini] GEMINI_API_KEY environment variable not set.");
+      throw new HttpsError("internal", "AI service is not configured.");
+    }
+
+    const uid      = request.auth.uid;
+    const db       = admin.firestore();
+    const started  = Date.now();
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+    const body = {
+      contents: [{
+        role: "user",
+        parts: [
+          { text: RECEIPT_PROMPT },
+          { inlineData: { mimeType, data: imageBase64 } },
+        ],
+      }],
+      generationConfig: {
+        temperature: 0,
+        responseMimeType: "application/json",
+        responseSchema: RECEIPT_SCHEMA,
+      },
+    };
+
+    let parsed = null;
+    let errorMsg = null;
+
+    try {
+      const resp = await fetch(url, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(body),
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(`Gemini ${resp.status}: ${text.slice(0, 200)}`);
+      }
+
+      const payload = await resp.json();
+      const text    = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error("Empty Gemini response");
+
+      const raw = JSON.parse(text);
+
+      const VALID_CATEGORIES = ["Food","Travel","Rent","Entertainment","Utilities","Shopping","Health","Education","Other"];
+      parsed = {
+        amount:   Number(raw.amount) > 0 ? Number(raw.amount) : null,
+        title:    String(raw.title || "").trim(),
+        date:     /^\d{4}-\d{2}-\d{2}$/.test(raw.date) ? raw.date : null,
+        category: VALID_CATEGORIES.includes(raw.category) ? raw.category : "Other",
+        items:    Array.isArray(raw.items)
+          ? raw.items
+              .map(it => ({ name: String(it?.name || "").trim(), price: Number(it?.price) || 0 }))
+              .filter(it => it.name && it.price > 0)
+          : [],
+      };
+    } catch (err) {
+      errorMsg = err.message || String(err);
+      console.error("[scanBillWithGemini] error:", errorMsg);
+    }
+
+    const duration = Date.now() - started;
+
+    // Log result to Firestore (admin write bypasses client rules on ai_requests)
+    await db.collection("ai_requests").add({
+      uid,
+      status:        errorMsg ? "failed" : "passed",
+      duration,
+      timestamp:     new Date().toISOString(),
+      parsedAmount:  parsed?.amount ?? null,
+      itemsCount:    parsed?.items?.length ?? 0,
+      error:         errorMsg ?? null,
+      model:         GEMINI_MODEL,
+    }).catch(() => {});
+
+    if (errorMsg) {
+      throw new HttpsError("internal", "Bill scanning failed. Please try again.");
+    }
+
+    return parsed;
+  }
+);
+
+// ─── Create Cross-User Notification ──────────────────────────────────────────
+//
+// Firestore rules block client-side writes to notifications/{id} when
+// `to !== request.auth.uid`. Any time one user needs to notify another (e.g.
+// expense added, settlement created, friend request accepted), the client calls
+// this function instead of writing to Firestore directly.
+//
+// The function validates that the caller is a legitimate member of any related
+// group before creating the notification, preventing notification spam.
+
+exports.createCrossUserNotification = onCall(
+  { memory: "128MiB" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in.");
+    }
+
+    const { to, message, type, relatedId, groupId } = request.data || {};
+    if (!to || !message) {
+      throw new HttpsError("invalid-argument", "'to' and 'message' are required.");
+    }
+
+    const db  = admin.firestore();
+    const uid = request.auth.uid;
+
+    // Authorization: if a groupId is provided the caller must be a member
+    if (groupId) {
+      const groupSnap = await db.doc(`groups/${groupId}`).get();
+      if (!groupSnap.exists) {
+        throw new HttpsError("not-found", "Related group not found.");
+      }
+      const members = groupSnap.data().members || [];
+      if (!members.includes(uid)) {
+        throw new HttpsError("permission-denied", "Caller is not a member of the related group.");
+      }
+    }
+
+    // Verify the recipient exists
+    const recipientSnap = await db.doc(`users/${to}`).get();
+    if (!recipientSnap.exists) {
+      throw new HttpsError("not-found", "Recipient user not found.");
+    }
+
+    await db.collection("notifications").add({
+      to,
+      message: String(message).slice(0, 500), // cap length
+      type:      type      || "info",
+      relatedId: relatedId || null,
+      groupId:   groupId   || null,
+      read:      false,
+      createdAt: new Date().toISOString(),
+      createdBy: uid,
+    });
+
+    console.log(`[NOTIF_CREATED] type=${type} to=${to} by=${uid}`);
+    return { success: true };
   }
 );

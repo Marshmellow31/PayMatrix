@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    /* ─── Incremental JS → TS migration ───────────────────────────────── */
+    "allowJs": true,           // process existing .js files without rewriting
+    "checkJs": false,          // enable per-file with // @ts-check when ready
+    "strict": false,           // tighten file-by-file as TypeScript adoption grows
+
+    /* ─── Target / output ─────────────────────────────────────────────── */
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+
+    /* ─── Interop ──────────────────────────────────────────────────────── */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+
+    /* ─── Output ───────────────────────────────────────────────────────── */
+    "noEmit": true,            // Vite handles the actual transpile; TS is type-check only
+    "sourceMap": true,
+
+    /* ─── Quality (gradually raise as codebase migrates) ──────────────── */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+
+    /* ─── Path aliases ────────────────────────────────────────────────── */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src", "vite.config.js"],
+  "exclude": ["node_modules", "dist"]
+}

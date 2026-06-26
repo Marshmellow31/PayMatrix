@@ -76,4 +76,5 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
   },
+  // Test configuration lives in vitest.config.js to avoid loading PWA plugins in Node.
 });

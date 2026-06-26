@@ -30,6 +30,5 @@ export const SPLIT_TYPES = [
   { value: 'itemized', label: 'Itemized (GST)' },
 ];
 
-// API base URL
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
-export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+// API_URL and SOCKET_URL removed — no backend server exists.
+// All data access goes through Firestore SDK and Firebase Cloud Functions directly.

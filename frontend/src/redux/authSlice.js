@@ -2,6 +2,8 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import authService from '../services/authService.js';
 import { auth } from '../config/firebase.js';
 import { signOut } from 'firebase/auth';
+import { clearSummaryCache } from '../services/expenseService.js';
+import { clearUserCache } from '../services/groupService.js';
 
 // Safe localStorage parser
 const safeParse = (key) => {
@@ -74,7 +76,10 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = null;
       localStorage.removeItem('paymatrix_user');
-      signOut(auth).catch(console.error); // Fire-and-forget sign out
+      // Clear in-memory service caches so stale PII doesn't leak to the next user
+      clearSummaryCache();
+      clearUserCache();
+      signOut(auth).catch(console.error);
     },
     clearError: (state) => {
       state.error = null;
