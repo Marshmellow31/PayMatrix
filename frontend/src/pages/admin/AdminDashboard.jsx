@@ -1,12 +1,23 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Users, LayoutGrid, Bell, Shield, Brain,
-  TrendingUp, Activity, AlertTriangle,
+  Users,
+  LayoutGrid,
+  Bell,
+  Shield,
+  Brain,
+  TrendingUp,
+  Activity,
+  AlertTriangle,
 } from 'lucide-react';
 import {
-  Chart as ChartJS, CategoryScale, LinearScale,
-  PointElement, LineElement, Filler, Tooltip,
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import adminService from '../../services/adminService.js';
@@ -16,7 +27,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, 
 
 const fmt = (n) => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}k`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
 };
 
@@ -32,13 +43,17 @@ const StatCard = ({ label, value, icon: Icon, sub, delay = 0 }) => (
       <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
         <Icon size={14} className="text-on-surface-variant" />
       </div>
-      <span className="font-inter text-[8px] sm:text-[10px] font-bold tracking-widest uppercase text-on-surface-variant opacity-60">{label}</span>
+      <span className="font-inter text-[8px] sm:text-[10px] font-bold tracking-widest uppercase text-on-surface-variant opacity-60">
+        {label}
+      </span>
     </div>
     <h3 className="font-manrope font-bold text-xl sm:text-2xl font-black text-white leading-none mb-1">
       {value === null ? '—' : fmt(value)}
     </h3>
     {sub && (
-      <p className="text-[10px] mt-2 text-on-surface-variant opacity-50 font-inter leading-none">{sub}</p>
+      <p className="text-[10px] mt-2 text-on-surface-variant opacity-50 font-inter leading-none">
+        {sub}
+      </p>
     )}
     <div className="absolute -right-2 -bottom-2 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity text-white">
       <Icon size={56} />
@@ -47,48 +62,63 @@ const StatCard = ({ label, value, icon: Icon, sub, delay = 0 }) => (
 );
 
 const AdminDashboard = () => {
-  const [stats, setStats]     = useState(null);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    adminService.getStats()
+    adminService
+      .getStats()
       .then((res) => setStats(res.data))
       .catch((e) => setError(e.message || 'Failed to load stats'))
       .finally(() => setLoading(false));
   }, []);
 
-  const signupChartData = stats?.signupTrend ? {
-    labels: stats.signupTrend.map((d) => {
-      const date = new Date(d.date);
-      return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
-    }),
-    datasets: [{
-      data:            stats.signupTrend.map((d) => d.count),
-      borderColor:     '#f97316',
-      backgroundColor: 'rgba(249,115,22,0.1)',
-      fill:            true,
-      tension:         0.4,
-      pointRadius:     4,
-      pointBackgroundColor: '#f97316',
-      borderWidth:     2,
-    }],
-  } : null;
+  const signupChartData = stats?.signupTrend
+    ? {
+        labels: stats.signupTrend.map((d) => {
+          const date = new Date(d.date);
+          return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+        }),
+        datasets: [
+          {
+            data: stats.signupTrend.map((d) => d.count),
+            borderColor: '#f97316',
+            backgroundColor: 'rgba(249,115,22,0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointBackgroundColor: '#f97316',
+            borderWidth: 2,
+          },
+        ],
+      }
+    : null;
 
   const chartOptions = {
-    responsive:          true,
+    responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: false }, tooltip: {
-      backgroundColor: '#1a1a1a',
-      titleColor:      '#f97316',
-      bodyColor:       '#e5e2e1',
-      borderColor:     'rgba(249,115,22,0.2)',
-      borderWidth:     1,
-      padding:         10,
-    }},
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1a1a1a',
+        titleColor: '#f97316',
+        bodyColor: '#e5e2e1',
+        borderColor: 'rgba(249,115,22,0.2)',
+        borderWidth: 1,
+        padding: 10,
+      },
+    },
     scales: {
-      x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 } } },
-      y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 } }, beginAtZero: true },
+      x: {
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 } },
+      },
+      y: {
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 } },
+        beginAtZero: true,
+      },
     },
   };
 
@@ -118,16 +148,51 @@ const AdminDashboard = () => {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total Users"  value={stats?.totalUsers}  icon={Users}      sub={`+${stats?.newUsersLast7Days ?? 0} this week`} delay={0} />
-        <StatCard label="Total Groups" value={stats?.totalGroups} icon={LayoutGrid}  sub={`${stats?.activeGroups ?? 0} active`}          delay={0.05} />
-        <StatCard label="Notifications" value={stats?.recentNotifications} icon={Bell} sub="last 30 days" delay={0.1} />
-        <StatCard label="AI Scans"     value={stats?.totalAiRequests} icon={Brain}   sub="total bill scans"                              delay={0.15} />
+        <StatCard
+          label="Total Users"
+          value={stats?.totalUsers}
+          icon={Users}
+          sub={`+${stats?.newUsersLast7Days ?? 0} this week`}
+          delay={0}
+        />
+        <StatCard
+          label="Total Groups"
+          value={stats?.totalGroups}
+          icon={LayoutGrid}
+          sub={`${stats?.activeGroups ?? 0} active`}
+          delay={0.05}
+        />
+        <StatCard
+          label="Notifications"
+          value={stats?.recentNotifications}
+          icon={Bell}
+          sub="last 30 days"
+          delay={0.1}
+        />
+        <StatCard
+          label="AI Scans"
+          value={stats?.totalAiRequests}
+          icon={Brain}
+          sub="total bill scans"
+          delay={0.15}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-        <StatCard label="New Users (7d)"   value={stats?.newUsersLast7Days}    icon={TrendingUp}  delay={0.2} />
-        <StatCard label="Security Events"  value={stats?.recentSecurityEvents} icon={Shield}      sub="last 7 days" delay={0.25} />
-        <StatCard label="Active Groups"    value={stats?.activeGroups}         icon={Activity}    delay={0.3} />
+        <StatCard
+          label="New Users (7d)"
+          value={stats?.newUsersLast7Days}
+          icon={TrendingUp}
+          delay={0.2}
+        />
+        <StatCard
+          label="Security Events"
+          value={stats?.recentSecurityEvents}
+          icon={Shield}
+          sub="last 7 days"
+          delay={0.25}
+        />
+        <StatCard label="Active Groups" value={stats?.activeGroups} icon={Activity} delay={0.3} />
       </div>
 
       {/* Signup trend chart */}
@@ -140,7 +205,9 @@ const AdminDashboard = () => {
         >
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp size={15} style={{ color: '#f97316' }} />
-            <p className="text-sm font-bold text-white/80 font-manrope">New Signups — Last 7 Days</p>
+            <p className="text-sm font-bold text-white/80 font-manrope">
+              New Signups — Last 7 Days
+            </p>
           </div>
           <div className="h-52">
             <Line data={signupChartData} options={chartOptions} />
@@ -153,7 +220,7 @@ const AdminDashboard = () => {
         {[
           { label: 'Total Notifications', value: stats?.totalNotifications },
           { label: 'Total Security Logs', value: stats?.totalSecurityEvents },
-          { label: 'New Users (30d)',      value: stats?.newUsersLast30Days  },
+          { label: 'New Users (30d)', value: stats?.newUsersLast30Days },
         ].map((item, i) => (
           <motion.div
             key={item.label}

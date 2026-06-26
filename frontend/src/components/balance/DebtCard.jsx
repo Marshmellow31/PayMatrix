@@ -15,9 +15,7 @@ const DebtCard = ({ from, to, amount }) => {
       </div>
 
       <div className="flex-shrink-0 text-center">
-        <p className="text-sm font-bold text-error font-manrope">
-          {formatCurrency(amount)}
-        </p>
+        <p className="text-sm font-bold text-error font-manrope">{formatCurrency(amount)}</p>
         <div className="w-8 h-px bg-outline-variant mx-auto mt-1" />
       </div>
 

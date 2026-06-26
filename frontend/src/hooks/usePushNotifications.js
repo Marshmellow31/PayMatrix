@@ -38,24 +38,19 @@ export const usePushNotifications = () => {
     const unsubscribe = fcmService.onForegroundMessage((payload) => {
       const notification = payload.notification || {};
       const title = notification.title || 'PayMatrix';
-      const body  = notification.body  || '';
+      const body = notification.body || '';
 
       // Show an in-app toast so the user doesn't miss the event
-      toast(
-        (t) => (
-          `${title}${body ? ': ' + body : ''}`
-        ),
-        {
-          icon: '🔔',
-          duration: 5000,
-          style: {
-            background: '#1c1c1c',
-            color:      '#e5e2e1',
-            border:     '1px solid rgba(255, 255, 255, 0.08)',
-            fontSize:   '0.875rem',
-          },
-        }
-      );
+      toast((t) => `${title}${body ? ': ' + body : ''}`, {
+        icon: '🔔',
+        duration: 5000,
+        style: {
+          background: '#1c1c1c',
+          color: '#e5e2e1',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          fontSize: '0.875rem',
+        },
+      });
     });
 
     // Clean up foreground listener on logout (user state becomes null)

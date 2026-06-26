@@ -36,7 +36,7 @@ export const getShortName = (fullName, allNames = []) => {
   const firstName = parts[0];
   const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
 
-  const firstClashes = allNames.filter(name => {
+  const firstClashes = allNames.filter((name) => {
     if (!name) return false;
     return name.trim().split(/\s+/)[0].toLowerCase() === firstName.toLowerCase();
   });
@@ -48,7 +48,7 @@ export const getShortName = (fullName, allNames = []) => {
   if (!lastName) return firstName;
 
   // Check if first + last-initial is still ambiguous.
-  const initialClashes = allNames.filter(name => {
+  const initialClashes = allNames.filter((name) => {
     if (!name) return false;
     const p = name.trim().split(/\s+/);
     const fn = p[0];

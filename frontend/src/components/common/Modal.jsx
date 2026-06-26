@@ -76,10 +76,11 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
               </div>
 
               {/* Body - Scrollable */}
-              <div className="px-5 sm:px-8 pb-6 sm:pb-10 pt-2 sm:pt-4 overflow-y-auto custom-scrollbar flex-1">{children}</div>
+              <div className="px-5 sm:px-8 pb-6 sm:pb-10 pt-2 sm:pt-4 overflow-y-auto custom-scrollbar flex-1">
+                {children}
+              </div>
             </motion.div>
           </motion.div>
-
         </div>
       )}
     </AnimatePresence>,

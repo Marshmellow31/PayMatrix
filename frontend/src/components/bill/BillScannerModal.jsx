@@ -2,8 +2,19 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import {
-  ScanLine, Camera, ImageIcon, IndianRupee, Store, Calendar,
-  Tag, ChevronRight, RefreshCw, X, Trash2, Check, Plus,
+  ScanLine,
+  Camera,
+  ImageIcon,
+  IndianRupee,
+  Store,
+  Calendar,
+  Tag,
+  ChevronRight,
+  RefreshCw,
+  X,
+  Trash2,
+  Check,
+  Plus,
 } from 'lucide-react';
 import { HiX } from 'react-icons/hi';
 import { useBillScanner } from '../../hooks/useBillScanner.js';
@@ -24,11 +35,13 @@ const FieldRow = ({ icon, label, value, onChange, type = 'text', placeholder }) 
   <div className="flex items-center gap-3 bg-white/[0.03] rounded-2xl px-4 py-3 border border-white/[0.06]">
     <div className="text-primary/60 shrink-0">{icon}</div>
     <div className="flex-1 min-w-0">
-      <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-1 font-inter">{label}</p>
+      <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-1 font-inter">
+        {label}
+      </p>
       <input
         type={type}
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="w-full bg-transparent border-none outline-none text-white font-manrope font-bold text-sm focus:ring-0 p-0 placeholder:text-white/20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
@@ -41,7 +54,10 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
   const [stage, setStage] = useState(STAGE.CAPTURE);
   const [scanResult, setScanResult] = useState(null);
   const [editableData, setEditableData] = useState({
-    amount: '', title: '', date: '', category: 'Other',
+    amount: '',
+    title: '',
+    date: '',
+    category: 'Other',
   });
   const [reviewItems, setReviewItems] = useState([]);
   const [fakeProgress, setFakeProgress] = useState(0);
@@ -67,12 +83,14 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
     if (stage !== STAGE.SCANNING) return;
     setFakeProgress(8);
     const steps = [
-      [400, 22], [900, 42], [1800, 60],
-      [3000, 74], [4500, 86], [6000, 93],
+      [400, 22],
+      [900, 42],
+      [1800, 60],
+      [3000, 74],
+      [4500, 86],
+      [6000, 93],
     ];
-    const timers = steps.map(([delay, val]) =>
-      setTimeout(() => setFakeProgress(val), delay)
-    );
+    const timers = steps.map(([delay, val]) => setTimeout(() => setFakeProgress(val), delay));
     return () => timers.forEach(clearTimeout);
   }, [stage]);
 
@@ -89,7 +107,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
     setTimeout(() => {
       if (result) {
         setScanResult(result);
-        setReviewItems((result.items || []).map(it => ({ ...it })));
+        setReviewItems((result.items || []).map((it) => ({ ...it })));
         setEditableData({
           amount: result.amount != null ? result.amount.toFixed(2) : '',
           title: result.title || '',
@@ -108,19 +126,19 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
   };
 
   const updateItem = (idx, key, val) => {
-    setReviewItems(prev => prev.map((it, i) => i === idx ? { ...it, [key]: val } : it));
+    setReviewItems((prev) => prev.map((it, i) => (i === idx ? { ...it, [key]: val } : it)));
   };
   const deleteItem = (idx) => {
-    setReviewItems(prev => prev.filter((_, i) => i !== idx));
+    setReviewItems((prev) => prev.filter((_, i) => i !== idx));
   };
   const addItem = () => {
-    setReviewItems(prev => [...prev, { name: '', price: 0 }]);
+    setReviewItems((prev) => [...prev, { name: '', price: 0 }]);
   };
 
   const handleFillForm = () => {
     const items = reviewItems
-      .map(it => ({ name: (it.name || '').trim() || 'Item', price: parseFloat(it.price) || 0 }))
-      .filter(it => it.price > 0);
+      .map((it) => ({ name: (it.name || '').trim() || 'Item', price: parseFloat(it.price) || 0 }))
+      .filter((it) => it.price > 0);
     onFill({
       amount: editableData.amount,
       title: editableData.title,
@@ -177,7 +195,9 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
               {/* Header */}
               <div className="flex items-center justify-between px-6 pt-4 sm:pt-7 pb-3 shrink-0">
                 <div>
-                  <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.3em] font-inter mb-0.5">PayMatrix</p>
+                  <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.3em] font-inter mb-0.5">
+                    PayMatrix
+                  </p>
                   <h2 className="text-lg font-black font-manrope text-white tracking-tight uppercase">
                     {stageTitle[stage]}
                   </h2>
@@ -193,7 +213,6 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
               {/* Body */}
               <div className="px-6 pb-8 sm:pb-10 pt-1 overflow-y-auto flex-1">
                 <AnimatePresence mode="wait">
-
                   {/* ── CAPTURE ─────────────────────────────────── */}
                   {stage === STAGE.CAPTURE && (
                     <motion.div
@@ -217,12 +236,14 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                       </div>
 
                       <div className="text-center space-y-2">
-                        <h3 className="font-manrope font-black text-xl text-white">Point at a Bill</h3>
+                        <h3 className="font-manrope font-black text-xl text-white">
+                          Point at a Bill
+                        </h3>
                         <p className="text-sm text-white/40 font-inter leading-relaxed max-w-xs mx-auto">
                           Amount, merchant, date and items are detected automatically.
                         </p>
                         <p className="text-[11px] text-primary/70 font-bold font-inter tracking-wide">
-                          Powered by Gemini AI · your bill isn't saved
+                          Powered by Gemini AI · your bill isn&apos;t saved
                         </p>
                       </div>
 
@@ -230,7 +251,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                         <div className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-red-500/[0.08] border border-red-500/20">
                           <X size={14} className="text-red-400 shrink-0" />
                           <p className="text-xs font-bold text-red-400 font-inter">
-                            Couldn't read the bill. Try a clearer, well-lit photo.
+                            Couldn&apos;t read the bill. Try a clearer, well-lit photo.
                           </p>
                         </div>
                       )}
@@ -252,8 +273,21 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                         </button>
                       </div>
 
-                      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelect} />
-                      <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+                      <input
+                        ref={cameraRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                      />
+                      <input
+                        ref={galleryRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                      />
                     </motion.div>
                   )}
 
@@ -268,21 +302,27 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                       className="flex flex-col gap-6 pt-3"
                     >
                       {/* Beautiful radar/scanner screen with sweeping scan-line */}
-                      <div className="relative w-full rounded-2xl overflow-hidden border border-white/[0.08] bg-[#0c0c0c] flex items-center justify-center animate-pulse-slow" style={{ height: 180 }}>
+                      <div
+                        className="relative w-full rounded-2xl overflow-hidden border border-white/[0.08] bg-[#0c0c0c] flex items-center justify-center animate-pulse-slow"
+                        style={{ height: 180 }}
+                      >
                         {/* Radial glow */}
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(var(--color-primary),0.08),transparent_70%)] pointer-events-none" />
                         {/* Dot pattern */}
-                        <div 
-                          className="absolute inset-0 opacity-[0.03] pointer-events-none" 
+                        <div
+                          className="absolute inset-0 opacity-[0.03] pointer-events-none"
                           style={{
-                            backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)',
-                            backgroundSize: '16px 16px'
-                          }} 
+                            backgroundImage:
+                              'radial-gradient(circle, #ffffff 1px, transparent 1px)',
+                            backgroundSize: '16px 16px',
+                          }}
                         />
-                        
+
                         <div className="flex flex-col items-center gap-3 relative z-10">
                           <ScanLine size={32} className="text-primary animate-pulse" />
-                          <span className="text-[10px] text-white/40 uppercase font-black tracking-[0.25em] font-manrope">Scanning Document</span>
+                          <span className="text-[10px] text-white/40 uppercase font-black tracking-[0.25em] font-manrope">
+                            Scanning Document
+                          </span>
                         </div>
 
                         {/* Sweeping scan line */}
@@ -340,12 +380,20 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                           <ScanLine size={20} />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.2em] font-inter">Detected</p>
+                          <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.2em] font-inter">
+                            Detected
+                          </p>
                           <p className="font-manrope font-black text-2xl text-white leading-tight">
-                            {editableData.amount ? `₹${editableData.amount}` : <span className="text-white/30">No amount</span>}
+                            {editableData.amount ? (
+                              `₹${editableData.amount}`
+                            ) : (
+                              <span className="text-white/30">No amount</span>
+                            )}
                           </p>
                           {editableData.title && (
-                            <p className="text-xs text-white/40 font-inter truncate mt-0.5">{editableData.title}</p>
+                            <p className="text-xs text-white/40 font-inter truncate mt-0.5">
+                              {editableData.title}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -356,7 +404,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                           icon={<IndianRupee size={14} />}
                           label="Total Amount"
                           value={editableData.amount}
-                          onChange={v => setEditableData(p => ({ ...p, amount: v }))}
+                          onChange={(v) => setEditableData((p) => ({ ...p, amount: v }))}
                           type="number"
                           placeholder="0.00"
                         />
@@ -364,15 +412,17 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                         {/* Alternative detected amounts — bills vary, let the user override the pick */}
                         {scanResult.candidates?.length > 1 && (
                           <div className="flex items-center gap-2 flex-wrap px-1">
-                            <span className="text-[9px] font-black text-white/25 uppercase tracking-[0.15em] font-inter">Also found</span>
-                            {scanResult.candidates.map(c => {
+                            <span className="text-[9px] font-black text-white/25 uppercase tracking-[0.15em] font-inter">
+                              Also found
+                            </span>
+                            {scanResult.candidates.map((c) => {
                               const cStr = c.toFixed(2);
                               const active = cStr === editableData.amount;
                               return (
                                 <button
                                   key={cStr}
                                   type="button"
-                                  onClick={() => setEditableData(p => ({ ...p, amount: cStr }))}
+                                  onClick={() => setEditableData((p) => ({ ...p, amount: cStr }))}
                                   className={`px-2.5 py-1 rounded-lg text-[11px] font-bold font-manrope tabular-nums transition-all ${
                                     active
                                       ? 'bg-primary text-black'
@@ -390,28 +440,36 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                           icon={<Store size={14} />}
                           label="Merchant / Title"
                           value={editableData.title}
-                          onChange={v => setEditableData(p => ({ ...p, title: v }))}
+                          onChange={(v) => setEditableData((p) => ({ ...p, title: v }))}
                           placeholder="e.g. Pizza Hut"
                         />
                         <FieldRow
                           icon={<Calendar size={14} />}
                           label="Date"
                           value={editableData.date}
-                          onChange={v => setEditableData(p => ({ ...p, date: v }))}
+                          onChange={(v) => setEditableData((p) => ({ ...p, date: v }))}
                           type="date"
                         />
                         {/* Category selector */}
                         <div className="flex items-center gap-3 bg-white/[0.03] rounded-2xl px-4 py-3 border border-white/[0.06] relative">
                           <Tag size={14} className="text-primary/60 shrink-0" />
                           <div className="flex-1 min-w-0 pr-6">
-                            <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-1 font-inter">Category</p>
+                            <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-1 font-inter">
+                              Category
+                            </p>
                             <select
                               value={editableData.category}
-                              onChange={e => setEditableData(p => ({ ...p, category: e.target.value }))}
+                              onChange={(e) =>
+                                setEditableData((p) => ({ ...p, category: e.target.value }))
+                              }
                               className="w-full bg-transparent border-none outline-none text-white font-manrope font-bold text-sm focus:ring-0 py-0.5 cursor-pointer appearance-none"
                             >
-                              {EXPENSE_CATEGORIES.map(c => (
-                                <option key={c.value} value={c.value} className="bg-[#141414] text-white py-2">
+                              {EXPENSE_CATEGORIES.map((c) => (
+                                <option
+                                  key={c.value}
+                                  value={c.value}
+                                  className="bg-[#141414] text-white py-2"
+                                >
                                   {c.label}
                                 </option>
                               ))}
@@ -450,10 +508,13 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                             </p>
                           )}
                           {reviewItems.map((item, i) => (
-                            <div key={i} className="flex items-center gap-2 py-1.5 border-b border-white/[0.04] last:border-none">
+                            <div
+                              key={i}
+                              className="flex items-center gap-2 py-1.5 border-b border-white/[0.04] last:border-none"
+                            >
                               <input
                                 value={item.name}
-                                onChange={e => updateItem(i, 'name', e.target.value)}
+                                onChange={(e) => updateItem(i, 'name', e.target.value)}
                                 placeholder="Item"
                                 className="flex-1 min-w-0 bg-transparent border-none outline-none text-xs text-white/80 font-inter focus:ring-0 p-0 placeholder:text-white/20"
                               />
@@ -462,7 +523,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                                 <input
                                   type="number"
                                   value={item.price}
-                                  onChange={e => updateItem(i, 'price', e.target.value)}
+                                  onChange={(e) => updateItem(i, 'price', e.target.value)}
                                   placeholder="0"
                                   className="w-16 bg-transparent border-none outline-none text-right text-xs font-bold text-white font-manrope focus:ring-0 p-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                 />
@@ -484,8 +545,14 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                             <span className="text-white/40 font-bold">
                               Items ₹{itemsTotal.toFixed(2)}
                             </span>
-                            <span className={`font-bold flex items-center gap-1 ${taxGap < -0.5 ? 'text-red-400' : 'text-white/40'}`}>
-                              {taxGap < -0.5 ? <X size={11} /> : <Check size={11} className="text-primary" />}
+                            <span
+                              className={`font-bold flex items-center gap-1 ${taxGap < -0.5 ? 'text-red-400' : 'text-white/40'}`}
+                            >
+                              {taxGap < -0.5 ? (
+                                <X size={11} />
+                              ) : (
+                                <Check size={11} className="text-primary" />
+                              )}
                               {taxGap < -0.5
                                 ? 'Items exceed total'
                                 : `Tax / charges ₹${Math.max(0, taxGap).toFixed(2)}`}
@@ -505,7 +572,11 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                           <ChevronRight size={18} strokeWidth={3} />
                         </button>
                         <button
-                          onClick={() => { setStage(STAGE.CAPTURE); setScanResult(null); setReviewItems([]); }}
+                          onClick={() => {
+                            setStage(STAGE.CAPTURE);
+                            setScanResult(null);
+                            setReviewItems([]);
+                          }}
                           className="w-full h-11 rounded-2xl text-white/30 hover:text-white/60 font-manrope font-bold text-sm flex items-center justify-center gap-2 transition-all"
                         >
                           <RefreshCw size={13} />
@@ -514,7 +585,6 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                       </div>
                     </motion.div>
                   )}
-
                 </AnimatePresence>
               </div>
             </motion.div>

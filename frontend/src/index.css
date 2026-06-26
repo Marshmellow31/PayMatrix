@@ -52,7 +52,7 @@
   /* Re-enable selection for inputs and specific content */
   input,
   textarea,
-  [contenteditable="true"],
+  [contenteditable='true'],
   .selectable-text {
     -webkit-user-select: text;
     user-select: text;
@@ -79,18 +79,17 @@
   }
 
   /* Hide numeric input spinner controls globally */
-  input[type="number"]::-webkit-outer-spin-button,
-  input[type="number"]::-webkit-inner-spin-button {
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
-  input[type="number"] {
+  input[type='number'] {
     -moz-appearance: textfield;
   }
 }
 
 @layer components {
-
   /* Glass Card - Refined for Digital Obsidian */
   .glass-card {
     background: rgba(24, 24, 24, 0.4);
@@ -243,7 +242,6 @@
 }
 
 @layer utilities {
-
   /* Noise texture overlay for gradient anti-banding */
   .noise {
     position: relative;
@@ -283,69 +281,49 @@
   }
 
   @keyframes gemini-glow {
-    0%, 100% {
-      box-shadow: 0 0 20px rgba(66, 133, 244, 0.25), 0 0 40px rgba(155, 81, 224, 0.15);
+    0%,
+    100% {
+      box-shadow:
+        0 0 20px rgba(66, 133, 244, 0.25),
+        0 0 40px rgba(155, 81, 224, 0.15);
     }
     50% {
-      box-shadow: 0 0 35px rgba(236, 72, 153, 0.45), 0 0 55px rgba(249, 115, 22, 0.2);
+      box-shadow:
+        0 0 35px rgba(236, 72, 153, 0.45),
+        0 0 55px rgba(249, 115, 22, 0.2);
     }
   }
 
   .gemini-animated-border {
     position: relative;
-    background: rgba(20, 20, 20, 0.45) !important;
+    background: rgba(12, 12, 14, 0.7) !important;
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 2px solid transparent !important;
-    background-clip: padding-box !important;
-    animation: gemini-glow 8s ease infinite;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    isolation: isolate;
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
   }
 
   .gemini-animated-border::before {
-    content: '';
-    position: absolute;
-    top: -2px;
-    bottom: -2px;
-    left: -2px;
-    right: -2px;
-    z-index: -1;
-    border-radius: inherit;
-    background: linear-gradient(135deg, #4285f4, #a855f7, #ec4899, #f97316, #06b6d4, #4285f4);
-    background-size: 300% 300%;
-    animation: gemini-gradient 8s ease infinite;
-    pointer-events: none;
+    display: none;
   }
 
   .gemini-animated-border-input {
     position: relative;
-    background: rgba(24, 24, 24, 0.55) !important;
+    background: rgba(20, 20, 22, 0.6) !important;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 2px solid transparent !important;
-    background-clip: padding-box !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
     transition: all 0.3s ease;
   }
 
   .gemini-animated-border-input::before {
-    content: '';
-    position: absolute;
-    top: -2px;
-    bottom: -2px;
-    left: -2px;
-    right: -2px;
-    z-index: -1;
-    border-radius: inherit;
-    background: linear-gradient(135deg, #4285f4, #a855f7, #ec4899, #f97316, #06b6d4, #4285f4);
-    background-size: 300% 300%;
-    animation: gemini-gradient 8s ease infinite;
-    pointer-events: none;
-    opacity: 0.3;
-    transition: opacity 0.3s ease;
+    display: none;
   }
 
-  .gemini-animated-border-input:focus-within::before,
-  .gemini-animated-border-input.is-loading::before {
-    opacity: 1;
-    box-shadow: 0 0 25px rgba(66, 133, 244, 0.35), 0 0 45px rgba(168, 85, 247, 0.2);
+  .gemini-animated-border-input:focus-within,
+  .gemini-animated-border-input.is-loading {
+    border-color: rgba(99, 102, 241, 0.4) !important;
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.05);
   }
 }

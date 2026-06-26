@@ -27,29 +27,26 @@ const initialState = {
 };
 
 // Google Auth
-export const googleLogin = createAsyncThunk(
-  'auth/googleLogin',
-  async (_, thunkAPI) => {
-    try {
-      const { user } = await authService.googleAuth();
-      localStorage.setItem('paymatrix_user', JSON.stringify(user));
-      return { user };
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.message || 'Google Auth failed');
-    }
+export const googleLogin = createAsyncThunk('auth/googleLogin', async (_, thunkAPI) => {
+  try {
+    const { user } = await authService.googleAuth();
+    localStorage.setItem('paymatrix_user', JSON.stringify(user));
+    return { user };
+  } catch (error) {
+    return thunkAPI.rejectWithValue(error.message || 'Google Auth failed');
   }
-);
+});
 
 // Get current user (sync with firestore)
 export const getMe = createAsyncThunk('auth/getMe', async (_, thunkAPI) => {
-    try {
-      const response = await authService.getMe();
-      const user = response.data.data.user;
-      localStorage.setItem('paymatrix_user', JSON.stringify(user));
-      return { user };
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.message || 'Failed to fetch user');
-    }
+  try {
+    const response = await authService.getMe();
+    const user = response.data.data.user;
+    localStorage.setItem('paymatrix_user', JSON.stringify(user));
+    return { user };
+  } catch (error) {
+    return thunkAPI.rejectWithValue(error.message || 'Failed to fetch user');
+  }
 });
 
 // Update profile
@@ -89,7 +86,7 @@ const authSlice = createSlice({
       if (userData && userData.uid && !userData._id) userData._id = userData.uid;
       state.user = userData;
       localStorage.setItem('paymatrix_user', JSON.stringify(userData));
-    }
+    },
   },
   extraReducers: (builder) => {
     builder

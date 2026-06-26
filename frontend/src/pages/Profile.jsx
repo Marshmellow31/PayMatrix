@@ -7,7 +7,22 @@ import useAuth from '../hooks/useAuth.js';
 import Avatar from '../components/common/Avatar.jsx';
 import Button from '../components/common/Button.jsx';
 import Input from '../components/common/Input.jsx';
-import { LogOut, Download, Mail, User, Settings, Archive, Flame, CreditCard, AtSign, Link2, AlertTriangle, CheckCircle2, X, Smartphone } from 'lucide-react';
+import {
+  LogOut,
+  Download,
+  Mail,
+  User,
+  Settings,
+  Archive,
+  Flame,
+  CreditCard,
+  AtSign,
+  Link2,
+  AlertTriangle,
+  CheckCircle2,
+  X,
+  Smartphone,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 import groupService from '../services/groupService.js';
@@ -64,12 +79,12 @@ const Profile = () => {
         if (docSnap.exists()) {
           setTargetUser({ _id: docSnap.id, ...docSnap.data() });
         } else {
-          toast.error("User not found");
+          toast.error('User not found');
           navigate('/friends');
         }
       } catch (err) {
-        console.error("Error fetching profile:", err);
-        toast.error("Failed to load profile");
+        console.error('Error fetching profile:', err);
+        toast.error('Failed to load profile');
       } finally {
         setLoading(false);
       }
@@ -151,22 +166,23 @@ const Profile = () => {
     setIsRemoving(true);
     try {
       await friendService.removeFriend(id);
-      toast.success("Connection Severed");
+      toast.success('Connection Severed');
       navigate('/friends');
     } catch (err) {
-      console.error("Removal failed:", err);
-      toast.error("Failed to remove node");
+      console.error('Removal failed:', err);
+      toast.error('Failed to remove node');
     } finally {
       setIsRemoving(false);
       setShowRemoveConfirm(false);
     }
   };
 
-  if (loading) return (
-    <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-    </div>
-  );
+  if (loading)
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
 
   const displayUser = isOwnProfile ? currentUser : targetUser;
 
@@ -179,14 +195,18 @@ const Profile = () => {
           {isOwnProfile ? 'Identity & Security' : 'Network Profile'}
         </h1>
         <div className="flex items-center gap-3 mt-2">
-          <div className={`w-2 h-2 rounded-full animate-pulse ${isOnline ? 'bg-emerald-500 shadow-[0_0_10px_2px_rgba(16,185,129,0.3)]' : 'bg-red-500'}`} />
+          <div
+            className={`w-2 h-2 rounded-full animate-pulse ${isOnline ? 'bg-emerald-500 shadow-[0_0_10px_2px_rgba(16,185,129,0.3)]' : 'bg-red-500'}`}
+          />
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
             {isOnline ? 'System Operational' : 'Node Offline'}
           </span>
           {!isOwnProfile && (
             <>
               <span className="text-white/10 text-[8px]">•</span>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Verified Connection</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">
+                Verified Connection
+              </span>
             </>
           )}
         </div>
@@ -196,11 +216,15 @@ const Profile = () => {
       {isOwnProfile && !userHasPayment && showPaymentWarningBanner && (
         <div className="mb-8 flex items-center gap-4 p-5 rounded-3xl bg-amber-500/5 border border-amber-500/10">
           <div className="shrink-0">
-             <AlertTriangle size={20} className="text-amber-500/70" />
+            <AlertTriangle size={20} className="text-amber-500/70" />
           </div>
           <div className="flex-1">
-            <p className="text-[11px] font-black text-amber-500/80 uppercase tracking-widest mb-0.5">Missing Payment Vector</p>
-            <p className="text-xs text-white/30 font-inter">Add your UPI ID to ensure seamless arrivals of settlements into your account.</p>
+            <p className="text-[11px] font-black text-amber-500/80 uppercase tracking-widest mb-0.5">
+              Missing Payment Vector
+            </p>
+            <p className="text-xs text-white/30 font-inter">
+              Add your UPI ID to ensure seamless arrivals of settlements into your account.
+            </p>
           </div>
           <button
             onClick={() => setShowPaymentWarningBanner(false)}
@@ -218,126 +242,135 @@ const Profile = () => {
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50 opacity-20" />
 
             <div className="p-6 sm:p-8">
-                <div className="w-full">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-                      <div className="relative group shrink-0">
-                        <div className="absolute -inset-2 bg-primary/20 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-700" />
-                        <Avatar
-                          name={displayUser?.name}
-                          src={displayUser?.avatar || displayUser?.photoURL}
-                          size="xl"
-                          className="relative w-20 h-20 sm:w-24 sm:h-24 text-2xl border-4 border-white/5 shadow-2xl"
-                        />
-                      </div>
-
-                    <div className="flex-1 min-w-0 space-y-3">
-                      {editing ? (
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-1">Identity Name</label>
-                          <Input
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            id="profile-name"
-                            className="h-11 bg-white/[0.03] text-lg font-bold border-white/10 rounded-[1.25rem] px-5"
-                            disabled={!isOnline}
-                          />
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          <h2 className="text-3xl sm:text-4xl font-black font-manrope text-white tracking-[-0.03em] truncate">{displayUser?.name}</h2>
-                          <div className="flex items-center gap-3 text-white/40">
-                            <Mail size={14} className="shrink-0" />
-                            <span className="text-sm font-medium font-inter truncate tracking-tight">{displayUser?.email}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {!editing && (
-                        <div className="flex flex-wrap items-center gap-2 pt-2">
-                           {isOwnProfile ? (
-                             <div className="flex gap-2">
-                                <button 
-                                  onClick={() => setEditing(true)}
-                                  className="h-10 px-6 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest text-white/60 transition-all active:scale-95"
-                                >
-                                  Configure Profile
-                                </button>
-                               <button 
-                                 onClick={logout}
-                                 className="h-10 px-6 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/10 text-[10px] font-black uppercase tracking-widest text-red-500 transition-all active:scale-95"
-                               >
-                                 Logout
-                               </button>
-                             </div>
-                           ) : (
-                             <div className="flex items-center gap-2">
-                               {hasPaymentMethod(targetUser) ? (
-                                  <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
-                                    <CheckCircle2 size={12} /> UPI Verified
-                                  </div>
-                               ) : (
-                                  <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/80 text-[10px] font-black uppercase tracking-widest">
-                                    <AlertTriangle size={12} /> Pending UPI
-                                  </div>
-                               )}
-                             </div>
-                           )}
-                        </div>
-                      )}
-                    </div>
+              <div className="w-full">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+                  <div className="relative group shrink-0">
+                    <div className="absolute -inset-2 bg-primary/20 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-700" />
+                    <Avatar
+                      name={displayUser?.name}
+                      src={displayUser?.avatar || displayUser?.photoURL}
+                      size="xl"
+                      className="relative w-20 h-20 sm:w-24 sm:h-24 text-2xl border-4 border-white/5 shadow-2xl"
+                    />
                   </div>
 
-                  {editing && isOwnProfile && (
-                    <div className="flex gap-3 pt-6">
-                      <Button 
-                        onClick={handleSave} 
-                        className="flex-1 h-10 font-black uppercase text-[9px] tracking-[0.2em] rounded-xl flex items-center justify-center gap-2 whitespace-nowrap bg-white text-black hover:bg-neutral-200 transition-colors" 
-                        disabled={!isOnline || !name.trim()}
-                      >
-                        {isOnline ? (
-                          <>
-                            <CheckCircle2 size={12} strokeWidth={3} />
-                            <span>Confirm</span>
-                          </>
+                  <div className="flex-1 min-w-0 space-y-3">
+                    {editing ? (
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-1">
+                          Identity Name
+                        </label>
+                        <Input
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          id="profile-name"
+                          className="h-11 bg-white/[0.03] text-lg font-bold border-white/10 rounded-[1.25rem] px-5"
+                          disabled={!isOnline}
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <h2 className="text-3xl sm:text-4xl font-black font-manrope text-white tracking-[-0.03em] truncate">
+                          {displayUser?.name}
+                        </h2>
+                        <div className="flex items-center gap-3 text-white/40">
+                          <Mail size={14} className="shrink-0" />
+                          <span className="text-sm font-medium font-inter truncate tracking-tight">
+                            {displayUser?.email}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {!editing && (
+                      <div className="flex flex-wrap items-center gap-2 pt-2">
+                        {isOwnProfile ? (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setEditing(true)}
+                              className="h-10 px-6 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest text-white/60 transition-all active:scale-95"
+                            >
+                              Configure Profile
+                            </button>
+                            <button
+                              onClick={logout}
+                              className="h-10 px-6 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/10 text-[10px] font-black uppercase tracking-widest text-red-500 transition-all active:scale-95"
+                            >
+                              Logout
+                            </button>
+                          </div>
                         ) : (
-                          'OFFLINE'
+                          <div className="flex items-center gap-2">
+                            {hasPaymentMethod(targetUser) ? (
+                              <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
+                                <CheckCircle2 size={12} /> UPI Verified
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/80 text-[10px] font-black uppercase tracking-widest">
+                                <AlertTriangle size={12} /> Pending UPI
+                              </div>
+                            )}
+                          </div>
                         )}
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        onClick={() => setEditing(false)} 
-                        className="flex-1 h-10 font-black uppercase text-[9px] tracking-[0.2em] bg-white/[0.08] text-white/80 border border-white/10 hover:bg-white/[0.12] rounded-xl flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 transition-all"
-                      >
-                        <X size={14} strokeWidth={3} />
-                        <span>Cancel</span>
-                      </Button>
-                    </div>
-                  )}
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {editing && isOwnProfile && (
+                  <div className="flex gap-3 pt-6">
+                    <Button
+                      onClick={handleSave}
+                      className="flex-1 h-10 font-black uppercase text-[9px] tracking-[0.2em] rounded-xl flex items-center justify-center gap-2 whitespace-nowrap bg-white text-black hover:bg-neutral-200 transition-colors"
+                      disabled={!isOnline || !name.trim()}
+                    >
+                      {isOnline ? (
+                        <>
+                          <CheckCircle2 size={12} strokeWidth={3} />
+                          <span>Confirm</span>
+                        </>
+                      ) : (
+                        'OFFLINE'
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setEditing(false)}
+                      className="flex-1 h-10 font-black uppercase text-[9px] tracking-[0.2em] bg-white/[0.08] text-white/80 border border-white/10 hover:bg-white/[0.12] rounded-xl flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 transition-all"
+                    >
+                      <X size={14} strokeWidth={3} />
+                      <span>Cancel</span>
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-          
+
           {!isOwnProfile && (
             <div className="glass-card p-6 sm:p-8 border-red-500/10 bg-red-500/[0.01] relative overflow-hidden group">
-               <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                 <AlertTriangle size={80} className="text-red-500" />
-               </div>
-               
-               <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                 <div className="space-y-1">
-                   <h3 className="text-xs font-black text-red-500/60 uppercase tracking-[0.2em] font-manrope">Security Zone</h3>
-                   <p className="text-[11px] text-white/30 font-inter leading-relaxed max-w-sm">
-                     Sever the network connection with this node. This operation is bidirectional and cannot be undone.
-                   </p>
-                 </div>
-                 
-                 <button
-                   onClick={() => setShowRemoveConfirm(true)}
-                   className="h-12 px-8 rounded-2xl bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 transition-all active:scale-95 text-[10px] font-black uppercase tracking-widest shadow-lg shrink-0"
-                 >
-                   Terminate Connection
-                 </button>
-               </div>
+              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <AlertTriangle size={80} className="text-red-500" />
+              </div>
+
+              <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                <div className="space-y-1">
+                  <h3 className="text-xs font-black text-red-500/60 uppercase tracking-[0.2em] font-manrope">
+                    Security Zone
+                  </h3>
+                  <p className="text-[11px] text-white/30 font-inter leading-relaxed max-w-sm">
+                    Sever the network connection with this node. This operation is bidirectional and
+                    cannot be undone.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setShowRemoveConfirm(true)}
+                  className="h-12 px-8 rounded-2xl bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 transition-all active:scale-95 text-[10px] font-black uppercase tracking-widest shadow-lg shrink-0"
+                >
+                  Terminate Connection
+                </button>
+              </div>
             </div>
           )}
 
@@ -349,23 +382,33 @@ const Profile = () => {
                   <Settings size={16} />
                 </div>
               </div>
-              <h3 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] font-manrope">System</h3>
+              <h3 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] font-manrope">
+                System
+              </h3>
             </div>
 
             <div className="space-y-6">
               <div className="flex items-center justify-between pb-4 border-b border-white/5">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-white/60 font-inter">Currency</span>
-                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">(coming soon)</span>
+                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">
+                    (coming soon)
+                  </span>
                 </div>
-                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.currency || 'INR'}</span>
+                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">
+                  {currentUser?.preferences?.currency || 'INR'}
+                </span>
               </div>
               <div className="flex items-center justify-between pb-4 border-b border-white/5">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-white/60 font-inter">Interface</span>
-                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">(coming soon)</span>
+                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">
+                    (coming soon)
+                  </span>
                 </div>
-                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">{currentUser?.preferences?.theme || 'dark'}</span>
+                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">
+                  {currentUser?.preferences?.theme || 'dark'}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1.5">
@@ -373,7 +416,7 @@ const Profile = () => {
                     <span className="text-sm font-bold text-white/60 font-inter">App Version</span>
                     <span className="text-[10px] text-white/30 font-inter">v1.2.0 (Build 43)</span>
                   </div>
-                  <button 
+                  <button
                     onClick={handleOpenChangelog}
                     className="text-[10px] font-black text-primary uppercase tracking-widest text-left hover:underline w-fit"
                   >
@@ -382,10 +425,10 @@ const Profile = () => {
                 </div>
                 <button
                   onClick={() => {
-                    toast.loading("Checking for updates...", { duration: 1000 });
+                    toast.loading('Checking for updates...', { duration: 1000 });
                     if ('serviceWorker' in navigator) {
-                      navigator.serviceWorker.getRegistrations().then(registrations => {
-                        registrations.forEach(registration => registration.update());
+                      navigator.serviceWorker.getRegistrations().then((registrations) => {
+                        registrations.forEach((registration) => registration.update());
                       });
                     }
                     setTimeout(() => {
@@ -401,11 +444,11 @@ const Profile = () => {
               </div>
             </div>
           </div>
-        </div>{/* end left column */}
+        </div>
+        {/* end left column */}
 
         {/* ── RIGHT COLUMN: Payments + App + History ── */}
         <div className="flex flex-col gap-6">
-
           {/* UPI Payment Details */}
           {isOwnProfile && (
             <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01] relative overflow-hidden">
@@ -418,7 +461,9 @@ const Profile = () => {
                 </div>
                 <div className="flex-1 space-y-1 mt-1">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-black text-white/60 uppercase tracking-[0.2em] font-manrope">Payment Details</h3>
+                    <h3 className="text-sm font-black text-white/60 uppercase tracking-[0.2em] font-manrope">
+                      Payment Details
+                    </h3>
                     {userHasPayment ? (
                       <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/15 text-emerald-400 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm">
                         <CheckCircle2 size={10} /> UPI ACTIVE
@@ -429,7 +474,9 @@ const Profile = () => {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-white/30 font-inter leading-relaxed">Connect your UPI ID to receive payments directly with real-time verification.</p>
+                  <p className="text-xs text-white/30 font-inter leading-relaxed">
+                    Connect your UPI ID to receive payments directly with real-time verification.
+                  </p>
                 </div>
               </div>
 
@@ -446,7 +493,10 @@ const Profile = () => {
                     <Input
                       id="upi-id"
                       value={upiId}
-                      onChange={(e) => { setUpiId(e.target.value); setPaymentError(''); }}
+                      onChange={(e) => {
+                        setUpiId(e.target.value);
+                        setPaymentError('');
+                      }}
                       placeholder="example@okhdfc"
                       className="h-14 bg-white/[0.03] font-manrope text-base text-white focus:bg-white/[0.05] transition-all"
                       disabled={!isOnline || savingPayment}
@@ -467,15 +517,18 @@ const Profile = () => {
                     onClick={handleSavePaymentDetails}
                     disabled={!isOnline || savingPayment}
                     className={`h-14 w-full md:w-auto md:px-12 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-xl
-                      ${!isOnline ? 'opacity-20 cursor-not-allowed bg-white/5 border-white/5 text-white/40' : savingPayment ? 'opacity-60 cursor-wait bg-white text-black/50' : 'bg-white text-black hover:bg-white/90'}`
-                    }
+                      ${!isOnline ? 'opacity-20 cursor-not-allowed bg-white/5 border-white/5 text-white/40' : savingPayment ? 'opacity-60 cursor-wait bg-white text-black/50' : 'bg-white text-black hover:bg-white/90'}`}
                   >
                     {savingPayment ? (
                       <span className="flex items-center gap-3">
                         <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
                         UPDATING…
                       </span>
-                    ) : isOnline ? 'SAVE UPI ID' : 'OFFLINE'}
+                    ) : isOnline ? (
+                      'SAVE UPI ID'
+                    ) : (
+                      'OFFLINE'
+                    )}
                   </Button>
 
                   {!userHasPayment && isOnline && !savingPayment && (
@@ -488,108 +541,142 @@ const Profile = () => {
             </div>
           )}
 
-        {isOwnProfile && (
-          <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01] relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
+          {isOwnProfile && (
+            <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01] relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
 
-            <div className="flex items-start gap-4 mb-6">
-              <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center shrink-0 border border-violet-500/20 shadow-[0_0_20px_-5px_rgba(139,92,246,0.1)]">
-                <Smartphone size={20} className="text-violet-400" />
-              </div>
-              <div className="flex-1 space-y-1 mt-1">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h3 className="text-sm font-black text-white/60 uppercase tracking-[0.2em] font-manrope">Preferred App</h3>
-                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm">
-                    {(() => {
-                      const currentApp = UPI_APPS.find(a => a.id === preferredApp);
-                      if (currentApp?.id === 'default') return <Smartphone size={10} />;
-                      return (
-                        <img
-                          src={currentApp?.icon}
-                          alt={currentApp?.label}
-                          className="w-3 h-3 object-contain"
-                        />
-                      );
-                    })()}
-                    &nbsp;
-                    {UPI_APPS.find(a => a.id === preferredApp)?.shortLabel || 'Default'}
-                  </span>
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center shrink-0 border border-violet-500/20 shadow-[0_0_20px_-5px_rgba(139,92,246,0.1)]">
+                  <Smartphone size={20} className="text-violet-400" />
                 </div>
-                <p className="text-xs text-white/30 font-inter leading-relaxed">Choose which UPI application should trigger for instant settlements.</p>
+                <div className="flex-1 space-y-1 mt-1">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h3 className="text-sm font-black text-white/60 uppercase tracking-[0.2em] font-manrope">
+                      Preferred App
+                    </h3>
+                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm">
+                      {(() => {
+                        const currentApp = UPI_APPS.find((a) => a.id === preferredApp);
+                        if (currentApp?.id === 'default') return <Smartphone size={10} />;
+                        return (
+                          <img
+                            src={currentApp?.icon}
+                            alt={currentApp?.label}
+                            className="w-3 h-3 object-contain"
+                          />
+                        );
+                      })()}
+                      &nbsp;
+                      {UPI_APPS.find((a) => a.id === preferredApp)?.shortLabel || 'Default'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/30 font-inter leading-relaxed">
+                    Choose which UPI application should trigger for instant settlements.
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-2 mb-6">
-              {UPI_APPS.map((app) => {
-                const isSelected = preferredApp === app.id;
-                return (
-                  <button
-                    key={app.id}
-                    onClick={() => setPreferredApp(app.id)}
-                    disabled={!isOnline || savingPreferredApp}
-                    style={isSelected ? { borderColor: `${app.color}40`, boxShadow: `0 0 0 1px ${app.color}30, 0 4px 20px ${app.color}15` } : {}}
-                    className={`
+              <div className="grid grid-cols-2 gap-2 mb-6">
+                {UPI_APPS.map((app) => {
+                  const isSelected = preferredApp === app.id;
+                  return (
+                    <button
+                      key={app.id}
+                      onClick={() => setPreferredApp(app.id)}
+                      disabled={!isOnline || savingPreferredApp}
+                      style={
+                        isSelected
+                          ? {
+                              borderColor: `${app.color}40`,
+                              boxShadow: `0 0 0 1px ${app.color}30, 0 4px 20px ${app.color}15`,
+                            }
+                          : {}
+                      }
+                      className={`
                       relative text-left p-3 rounded-2xl border transition-all duration-200
                       flex items-center gap-3 group
-                      ${isSelected
-                        ? 'bg-white/[0.05] border-white/20'
-                        : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/10'}
-                      ${(!isOnline || savingPreferredApp) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'}
+                      ${
+                        isSelected
+                          ? 'bg-white/[0.05] border-white/20'
+                          : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/10'
+                      }
+                      ${!isOnline || savingPreferredApp ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'}
                     `}
-                  >
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 overflow-hidden ${isSelected ? 'bg-white/10' : 'bg-white/5'}`}
-                      style={isSelected ? { backgroundColor: `${app.color}18` } : {}}
                     >
-                      {app.id === 'default' ? (
-                        <Smartphone size={20} className={isSelected ? 'text-violet-400' : 'text-white/40'} />
-                      ) : (
-                        <img src={app.icon} alt={app.label} className="w-6 h-6 object-contain transition-all duration-300" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-bold truncate transition-colors duration-200 ${isSelected ? 'text-white' : 'text-white/60 group-hover:text-white/80'}`}>{app.label}</p>
-                    </div>
-                    {isSelected && (
-                      <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${app.color}30`, border: `1.5px solid ${app.color}60` }}>
-                        <CheckCircle2 size={9} style={{ color: app.color }} />
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 overflow-hidden ${isSelected ? 'bg-white/10' : 'bg-white/5'}`}
+                        style={isSelected ? { backgroundColor: `${app.color}18` } : {}}
+                      >
+                        {app.id === 'default' ? (
+                          <Smartphone
+                            size={20}
+                            className={isSelected ? 'text-violet-400' : 'text-white/40'}
+                          />
+                        ) : (
+                          <img
+                            src={app.icon}
+                            alt={app.label}
+                            className="w-6 h-6 object-contain transition-all duration-300"
+                          />
+                        )}
                       </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`text-xs font-bold truncate transition-colors duration-200 ${isSelected ? 'text-white' : 'text-white/60 group-hover:text-white/80'}`}
+                        >
+                          {app.label}
+                        </p>
+                      </div>
+                      {isSelected && (
+                        <div
+                          className="w-4 h-4 rounded-full flex items-center justify-center shrink-0"
+                          style={{
+                            backgroundColor: `${app.color}30`,
+                            border: `1.5px solid ${app.color}60`,
+                          }}
+                        >
+                          <CheckCircle2 size={9} style={{ color: app.color }} />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
 
-            <div className="mb-5 p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-3">
-              <AlertTriangle size={13} className="text-amber-400/60 mt-0.5 shrink-0" />
-              <p className="text-[10px] text-amber-400/50 font-inter leading-relaxed">
-                <span className="font-bold text-amber-400/70">iOS note:</span> If set to "Default", you'll see a chooser prompt when paying.
-              </p>
-            </div>
+              <div className="mb-5 p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-3">
+                <AlertTriangle size={13} className="text-amber-400/60 mt-0.5 shrink-0" />
+                <p className="text-[10px] text-amber-400/50 font-inter leading-relaxed">
+                  <span className="font-bold text-amber-400/70">iOS note:</span> If set to
+                  &quot;Default&quot;, you&apos;ll see a chooser prompt when paying.
+                </p>
+              </div>
 
-            <Button
-              onClick={handleSavePreferredApp}
-              disabled={!isOnline || savingPreferredApp}
-              className={`h-14 w-full rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-xl
-                ${!isOnline ? 'opacity-20 cursor-not-allowed bg-white/5 border-white/5 text-white/40' : savingPreferredApp ? 'opacity-60 cursor-wait bg-white text-black/50' : 'bg-white text-black hover:bg-white/90'}`
-              }
-            >
-              {savingPreferredApp ? (
-                <span className="flex items-center gap-3">
-                  <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                  SAVING…
-                </span>
-              ) : isOnline ? 'SAVE PREFERENCE' : 'OFFLINE'}
-            </Button>
-          </div>
-        )}
+              <Button
+                onClick={handleSavePreferredApp}
+                disabled={!isOnline || savingPreferredApp}
+                className={`h-14 w-full rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-xl
+                ${!isOnline ? 'opacity-20 cursor-not-allowed bg-white/5 border-white/5 text-white/40' : savingPreferredApp ? 'opacity-60 cursor-wait bg-white text-black/50' : 'bg-white text-black hover:bg-white/90'}`}
+              >
+                {savingPreferredApp ? (
+                  <span className="flex items-center gap-3">
+                    <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                    SAVING…
+                  </span>
+                ) : isOnline ? (
+                  'SAVE PREFERENCE'
+                ) : (
+                  'OFFLINE'
+                )}
+              </Button>
+            </div>
+          )}
 
           {/* Cohort History */}
-          {isOwnProfile
-            ? <CohortHistory userId={currentUser?._id} />
-            : <CohortHistory userId={id} myId={currentUser?._id} isFriendView={true} />
-          }
-
+          {isOwnProfile ? (
+            <CohortHistory userId={currentUser?._id} />
+          ) : (
+            <CohortHistory userId={id} myId={currentUser?._id} isFriendView={true} />
+          )}
         </div>
       </div>
 
@@ -613,7 +700,6 @@ const Profile = () => {
         </div>
       )}
 
-
       {/* Confirmation Modal for Removal */}
       <AnimatePresence>
         {showRemoveConfirm && (
@@ -631,37 +717,38 @@ const Profile = () => {
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="relative w-full max-w-sm glass-card border-red-500/20 bg-red-500/[0.02] p-8 space-y-6 overflow-hidden"
             >
-               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-30" />
-               
-               <div className="w-16 h-16 rounded-3xl bg-red-500/10 flex items-center justify-center mx-auto mb-2 border border-red-500/20">
-                 <AlertTriangle size={32} className="text-red-500 animate-pulse" />
-               </div>
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-30" />
 
-               <div className="text-center space-y-2">
-                 <h3 className="text-xl font-black text-white font-manrope">Sever Connection?</h3>
-                 <p className="text-sm text-white/40 font-inter leading-relaxed">
-                   This will remove <span className="text-white font-bold">{displayUser?.name}</span> from your network. Bidirectional disconnection will be operationalized.
-                 </p>
-               </div>
+              <div className="w-16 h-16 rounded-3xl bg-red-500/10 flex items-center justify-center mx-auto mb-2 border border-red-500/20">
+                <AlertTriangle size={32} className="text-red-500 animate-pulse" />
+              </div>
 
-               <div className="flex flex-col gap-3 pt-2">
-                 <Button
-                   variant="ghost"
-                   className="h-14 rounded-2xl bg-red-500 text-white hover:bg-red-600 font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all w-full"
-                   onClick={handleRemoveFriend}
-                   disabled={isRemoving}
-                 >
-                   {isRemoving ? 'SEVERING...' : 'CONFIRM REMOVAL'}
-                 </Button>
-                 <Button
-                   variant="ghost"
-                   className="h-14 rounded-2xl bg-white/5 hover:bg-white/10 text-white/60 font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all w-full border border-white/5"
-                   onClick={() => setShowRemoveConfirm(false)}
-                   disabled={isRemoving}
-                 >
-                   CANCEL
-                 </Button>
-               </div>
+              <div className="text-center space-y-2">
+                <h3 className="text-xl font-black text-white font-manrope">Sever Connection?</h3>
+                <p className="text-sm text-white/40 font-inter leading-relaxed">
+                  This will remove <span className="text-white font-bold">{displayUser?.name}</span>{' '}
+                  from your network. Bidirectional disconnection will be operationalized.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 pt-2">
+                <Button
+                  variant="ghost"
+                  className="h-14 rounded-2xl bg-red-500 text-white hover:bg-red-600 font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all w-full"
+                  onClick={handleRemoveFriend}
+                  disabled={isRemoving}
+                >
+                  {isRemoving ? 'SEVERING...' : 'CONFIRM REMOVAL'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="h-14 rounded-2xl bg-white/5 hover:bg-white/10 text-white/60 font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all w-full border border-white/5"
+                  onClick={() => setShowRemoveConfirm(false)}
+                  disabled={isRemoving}
+                >
+                  CANCEL
+                </Button>
+              </div>
             </motion.div>
           </div>
         )}
@@ -684,67 +771,108 @@ const Profile = () => {
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="relative w-full max-w-lg glass-card border-primary/20 bg-primary/[0.02] p-6 sm:p-8 space-y-6 overflow-hidden max-h-[80vh] flex flex-col"
             >
-               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-30" />
-               
-               <div className="flex items-center justify-between mb-2 shrink-0">
-                 <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
-                   <Flame size={24} className="text-primary" />
-                 </div>
-                 <button onClick={() => setShowChangelog(false)} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
-                   <X size={16} className="text-white/60" />
-                 </button>
-               </div>
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-30" />
 
-               <div className="space-y-2 shrink-0">
-                 <h3 className="text-2xl font-black text-white font-manrope">What's New</h3>
-                 <p className="text-xs text-white/40 font-inter">Version 1.2.0 Updates</p>
-               </div>
+              <div className="flex items-center justify-between mb-2 shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                  <Flame size={24} className="text-primary" />
+                </div>
+                <button
+                  onClick={() => setShowChangelog(false)}
+                  className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+                >
+                  <X size={16} className="text-white/60" />
+                </button>
+              </div>
 
-               <div className="overflow-y-auto custom-scrollbar flex-1 pr-2 space-y-5">
-                 <div className="space-y-3">
-                   <h4 className="text-[11px] font-black text-primary uppercase tracking-widest">New Features</h4>
-                   <ul className="text-sm text-white/70 space-y-3 font-inter">
-                      <li className="flex items-start gap-3">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />
-                        <div className="flex-1">
-                          <p><strong>Scan Bill [Beta]</strong> — Auto-scan and extract bill amounts, vendor name, and line items with Gemini OCR.</p>
-                          <div className="mt-2.5 p-3 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2 text-xs text-white/50">
-                            <p className="font-black text-[9px] uppercase tracking-wider text-primary">Steps to use:</p>
-                            <ol className="list-decimal pl-4 space-y-1 text-[11px] leading-relaxed text-white/60">
-                              <li>Navigate to any active group.</li>
-                              <li>Tap the floating <span className="text-primary font-bold">Scan Bill</span> button in the bottom corner.</li>
-                              <li>Upload or snap a photo of a receipt.</li>
-                              <li>Review the extracted total amount, merchant, date, and items.</li>
-                              <li>Assign line items to members (unallocated items split equally) and submit!</li>
-                            </ol>
-                          </div>
+              <div className="space-y-2 shrink-0">
+                <h3 className="text-2xl font-black text-white font-manrope">What&apos;s New</h3>
+                <p className="text-xs text-white/40 font-inter">Version 1.2.0 Updates</p>
+              </div>
+
+              <div className="overflow-y-auto custom-scrollbar flex-1 pr-2 space-y-5">
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-black text-primary uppercase tracking-widest">
+                    New Features
+                  </h4>
+                  <ul className="text-sm text-white/70 space-y-3 font-inter">
+                    <li className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />
+                      <div className="flex-1">
+                        <p>
+                          <strong>Scan Bill [Beta]</strong> — Auto-scan and extract bill amounts,
+                          vendor name, and line items with Gemini OCR.
+                        </p>
+                        <div className="mt-2.5 p-3 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2 text-xs text-white/50">
+                          <p className="font-black text-[9px] uppercase tracking-wider text-primary">
+                            Steps to use:
+                          </p>
+                          <ol className="list-decimal pl-4 space-y-1 text-[11px] leading-relaxed text-white/60">
+                            <li>Navigate to any active group.</li>
+                            <li>
+                              Tap the floating{' '}
+                              <span className="text-primary font-bold">Scan Bill</span> button in
+                              the bottom corner.
+                            </li>
+                            <li>Upload or snap a photo of a receipt.</li>
+                            <li>Review the extracted total amount, merchant, date, and items.</li>
+                            <li>
+                              Assign line items to members (unallocated items split equally) and
+                              submit!
+                            </li>
+                          </ol>
                         </div>
-                      </li>
-                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> <strong>Transaction Notes</strong> — Add custom notes/descriptions to details of any expense</li>
-                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Mobile view optimizations for Record Transaction modal</li>
-                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Scrollable group and category lists for better accessibility</li>
-                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" /> Unified Profile & System Settings with intuitive UI</li>
-                   </ul>
-                 </div>
-                 <div className="space-y-3 pt-4 border-t border-white/5">
-                   <h4 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest">Improvements</h4>
-                   <ul className="text-sm text-white/70 space-y-3 font-inter">
-                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" /> Enhanced visual animations across menus</li>
-                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" /> Smooth settle button interactions</li>
-                     <li className="flex items-start gap-3"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" /> Improved UI consistency and layout</li>
-                   </ul>
-                 </div>
-               </div>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />{' '}
+                      <strong>Transaction Notes</strong> — Add custom notes/descriptions to details
+                      of any expense
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />{' '}
+                      Mobile view optimizations for Record Transaction modal
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />{' '}
+                      Scrollable group and category lists for better accessibility
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />{' '}
+                      Unified Profile & System Settings with intuitive UI
+                    </li>
+                  </ul>
+                </div>
+                <div className="space-y-3 pt-4 border-t border-white/5">
+                  <h4 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest">
+                    Improvements
+                  </h4>
+                  <ul className="text-sm text-white/70 space-y-3 font-inter">
+                    <li className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />{' '}
+                      Enhanced visual animations across menus
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />{' '}
+                      Smooth settle button interactions
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />{' '}
+                      Improved UI consistency and layout
+                    </li>
+                  </ul>
+                </div>
+              </div>
 
-               <div className="pt-4 shrink-0 border-t border-white/5">
-                 <Button
-                   variant="ghost"
-                   className="h-12 rounded-xl bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all w-full border border-white/5"
-                   onClick={() => setShowChangelog(false)}
-                 >
-                   Got it
-                 </Button>
-               </div>
+              <div className="pt-4 shrink-0 border-t border-white/5">
+                <Button
+                  variant="ghost"
+                  className="h-12 rounded-xl bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all w-full border border-white/5"
+                  onClick={() => setShowChangelog(false)}
+                >
+                  Got it
+                </Button>
+              </div>
             </motion.div>
           </div>
         )}
@@ -768,8 +896,8 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
       : groupService.getPastGroups(userId);
 
     fetchAction
-      .then(res => setGroups(res.data.data.groups))
-      .catch(err => console.error("Failed to fetch cohorts:", err))
+      .then((res) => setGroups(res.data.data.groups))
+      .catch((err) => console.error('Failed to fetch cohorts:', err))
       .finally(() => setLoading(false));
   }, [userId, myId, isFriendView]);
 
@@ -779,7 +907,7 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
       const [expRes, stlRes, logRes] = await Promise.all([
         expenseService.getExpenses(group._id),
         expenseService.getSettlements(group._id),
-        expenseService.getActivity(group._id)
+        expenseService.getActivity(group._id),
       ]);
 
       const expenses = expRes.data.data.expenses;
@@ -790,14 +918,14 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
       const calculatedBalances = computeGroupBalances(expenses, settlements, group.members);
 
       // Map to the format exportToPDF expects
-      const formattedBalances = Object.keys(calculatedBalances).map(uid => {
-        const member = group.members.find(m => {
+      const formattedBalances = Object.keys(calculatedBalances).map((uid) => {
+        const member = group.members.find((m) => {
           const mid = (m.user?._id || m.user?.uid || m.user || '').toString();
           return mid === uid;
         });
         return {
           user: member?.user || { name: 'Member', email: 'N/A' },
-          balance: calculatedBalances[uid]
+          balance: calculatedBalances[uid],
         };
       });
 
@@ -805,13 +933,11 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
       toast.success(`PDF Security Report exported for ${group.name || group.title}`);
     } catch (err) {
       console.error(err);
-      toast.error("Export failed. Please try again.");
+      toast.error('Export failed. Please try again.');
     } finally {
       setExporting(null);
     }
   };
-
-
 
   if (loading) return null;
 
@@ -834,43 +960,57 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
             </p>
           </div>
         ) : (
-          groups.map(group => {
+          groups.map((group) => {
             const isExpanded = expandedGroupId === group._id;
 
             return (
-              <div 
-                key={group._id} 
+              <div
+                key={group._id}
                 className={`flex flex-col rounded-3xl bg-white/[0.02] border transition-all duration-300 overflow-hidden ${
-                  isExpanded ? 'border-primary/30 bg-primary/[0.03]' : 'border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
+                  isExpanded
+                    ? 'border-primary/30 bg-primary/[0.03]'
+                    : 'border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
                 }`}
               >
                 {/* Header Row (Click to toggle) */}
-                <div 
+                <div
                   onClick={() => setExpandedGroupId(isExpanded ? null : group._id)}
                   className="flex items-center justify-between p-5 cursor-pointer select-none group"
                 >
                   <div className="flex flex-col gap-1">
-                    <span className={`text-md font-black transition-colors ${isExpanded ? 'text-primary' : 'text-white'}`}>
+                    <span
+                      className={`text-md font-black transition-colors ${isExpanded ? 'text-primary' : 'text-white'}`}
+                    >
                       {group.name || group.title}
                     </span>
                     <div className="flex items-center gap-3">
-                      <span className={`text-[8px] font-black uppercase tracking-[0.15em] px-2 py-0.5 rounded-full ${
-                        group.status === 'deleted' ? 'bg-red-500/10 text-red-400 border border-red-500/10' : 'bg-white/5 text-white/40 border border-white/5'
-                      }`}>
+                      <span
+                        className={`text-[8px] font-black uppercase tracking-[0.15em] px-2 py-0.5 rounded-full ${
+                          group.status === 'deleted'
+                            ? 'bg-red-500/10 text-red-400 border border-red-500/10'
+                            : 'bg-white/5 text-white/40 border border-white/5'
+                        }`}
+                      >
                         {group.status === 'deleted' ? 'Deleted' : 'Former Member'}
                       </span>
                       <span className="text-[9px] text-white/20 font-inter font-bold">
-                        • {new Date(group.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}
+                        •{' '}
+                        {new Date(group.createdAt).toLocaleDateString(undefined, {
+                          year: 'numeric',
+                          month: 'short',
+                        })}
                       </span>
                     </div>
                   </div>
-                  
+
                   {/* Indicator Icon */}
                   <motion.div
                     animate={{ rotate: isExpanded ? 180 : 0 }}
                     transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                     className={`w-8 h-8 rounded-full flex items-center justify-center border ${
-                      isExpanded ? 'bg-primary/20 border-primary/40 text-primary' : 'bg-white/5 border-white/10 text-white/30 group-hover:text-white/60'
+                      isExpanded
+                        ? 'bg-primary/20 border-primary/40 text-primary'
+                        : 'bg-white/5 border-white/10 text-white/30 group-hover:text-white/60'
                     }`}
                   >
                     <Smartphone size={14} className={isExpanded ? 'rotate-180' : ''} />

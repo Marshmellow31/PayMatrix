@@ -9,18 +9,16 @@ import { format } from 'date-fns';
 const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const category = EXPENSE_CATEGORIES.find((c) => c.value === expense.category);
-  const userSplit = expense.splits?.find(
-    (s) => (s.user?._id || s.user) === currentUserId
-  );
+  const userSplit = expense.splits?.find((s) => (s.user?._id || s.user) === currentUserId);
 
   // Itemized (restaurant/GST) breakdown — dishes are pre-tax, the rest is GST/charges.
   const isItemized = expense.splitType === 'itemized';
   const dishSubtotal = isItemized
     ? (expense.splits || []).reduce((sum, s) => sum + (parseFloat(s.dish) || 0), 0)
     : 0;
-  const gstTotal = isItemized ? (parseFloat(expense.amount || 0) - dishSubtotal) : 0;
-  const userDish = isItemized ? (parseFloat(userSplit?.dish) || 0) : 0;
-  const userGst = isItemized ? ((parseFloat(userSplit?.amount) || 0) - userDish) : 0;
+  const gstTotal = isItemized ? parseFloat(expense.amount || 0) - dishSubtotal : 0;
+  const userDish = isItemized ? parseFloat(userSplit?.dish) || 0 : 0;
+  const userGst = isItemized ? (parseFloat(userSplit?.amount) || 0) - userDish : 0;
 
   // Safely derive display time; offline expenses may lack createdAt
   let loggedTime = 'Just now';
@@ -30,8 +28,9 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
     if (!isNaN(parsed.getTime())) {
       loggedTime = format(parsed, 'p, MMM dd');
     }
-  } catch (_) { /* silently keep 'Just now' */ }
-
+  } catch (_) {
+    /* silently keep 'Just now' */
+  }
 
   return (
     <motion.div
@@ -50,7 +49,11 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
           {category?.icon ? (
             (() => {
               const IconComponent = LucideIcons[category.icon];
-              return IconComponent ? <IconComponent size={20} style={{ color: category.color }} /> : <LucideIcons.Hash size={20} />;
+              return IconComponent ? (
+                <IconComponent size={20} style={{ color: category.color }} />
+              ) : (
+                <LucideIcons.Hash size={20} />
+              );
             })()
           ) : (
             <LucideIcons.Hash size={20} />
@@ -60,8 +63,11 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
         {/* Title and Payer */}
         <div className="min-w-0 flex flex-col justify-center">
           <h4
-            className={`text-[13px] font-bold font-manrope text-white tracking-tight uppercase leading-tight transition-all duration-300 ${isExpanded ? 'whitespace-normal break-words underline-offset-4 decoration-primary/30' : 'truncate'
-              }`}
+            className={`text-[13px] font-bold font-manrope text-white tracking-tight uppercase leading-tight transition-all duration-300 ${
+              isExpanded
+                ? 'whitespace-normal break-words underline-offset-4 decoration-primary/30'
+                : 'truncate'
+            }`}
           >
             {expense.title}
           </h4>
@@ -100,56 +106,68 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
             {isItemized && gstTotal > 0.01 && (
               <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold opacity-40">Dishes subtotal</span>
-                  <span className="text-xs font-manrope font-bold text-white">{formatCurrency(dishSubtotal)}</span>
+                  <span className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold opacity-40">
+                    Dishes subtotal
+                  </span>
+                  <span className="text-xs font-manrope font-bold text-white">
+                    {formatCurrency(dishSubtotal)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] uppercase tracking-widest text-primary/60 font-bold">GST / charges</span>
-                  <span className="text-xs font-manrope font-bold text-primary">+{formatCurrency(gstTotal)}</span>
+                  <span className="text-[9px] uppercase tracking-widest text-primary/60 font-bold">
+                    GST / charges
+                  </span>
+                  <span className="text-xs font-manrope font-bold text-primary">
+                    +{formatCurrency(gstTotal)}
+                  </span>
                 </div>
                 {userSplit && (
                   <div className="flex items-center justify-between pt-2 border-t border-white/5">
                     <span className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold opacity-40">
                       Your dish {formatCurrency(userDish)} + GST {formatCurrency(userGst)}
                     </span>
-                    <span className="text-xs font-manrope font-black text-white">{formatCurrency(userSplit.amount)}</span>
+                    <span className="text-xs font-manrope font-black text-white">
+                      {formatCurrency(userSplit.amount)}
+                    </span>
                   </div>
                 )}
               </div>
             )}
 
             <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold opacity-40">Recorded</span>
-              <p className="text-xs font-manrope font-bold text-on-surface">{loggedTime}</p>
-            </div>
+              <div className="flex flex-col">
+                <span className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold opacity-40">
+                  Recorded
+                </span>
+                <p className="text-xs font-manrope font-bold text-on-surface">{loggedTime}</p>
+              </div>
 
-            <div className="flex items-center gap-2">
-              {onEdit && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(expense);
-                  }}
-                  className="p-2.5 rounded-xl bg-surface-container-high hover:bg-white hover:text-black text-on-surface-variant transition-all flex items-center gap-2 text-xs font-bold"
-                >
-                  <HiPencil size={16} />
-                  <span>Edit</span>
-                </button>
-              )}
-              {onDelete && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(expense._id);
-                  }}
-                  className="p-2.5 rounded-xl bg-error/10 hover:bg-error hover:text-white text-error transition-all flex items-center gap-2 text-xs font-bold"
-                >
-                  <HiTrash size={16} />
-                  <span>Delete</span>
-                </button>
-              )}
-            </div>
+              <div className="flex items-center gap-2">
+                {onEdit && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(expense);
+                    }}
+                    className="p-2.5 rounded-xl bg-surface-container-high hover:bg-white hover:text-black text-on-surface-variant transition-all flex items-center gap-2 text-xs font-bold"
+                  >
+                    <HiPencil size={16} />
+                    <span>Edit</span>
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(expense._id);
+                    }}
+                    className="p-2.5 rounded-xl bg-error/10 hover:bg-error hover:text-white text-error transition-all flex items-center gap-2 text-xs font-bold"
+                  >
+                    <HiTrash size={16} />
+                    <span>Delete</span>
+                  </button>
+                )}
+              </div>
             </div>
           </motion.div>
         )}

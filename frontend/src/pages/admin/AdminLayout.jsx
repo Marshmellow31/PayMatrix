@@ -3,22 +3,31 @@ import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import {
-  LayoutDashboard, Users, LayoutGrid, Bell,
-  BarChart3, Shield, ToggleLeft, X, Menu,
-  ArrowLeft, ChevronRight, Brain,
+  LayoutDashboard,
+  Users,
+  LayoutGrid,
+  Bell,
+  BarChart3,
+  Shield,
+  ToggleLeft,
+  X,
+  Menu,
+  ArrowLeft,
+  ChevronRight,
+  Brain,
 } from 'lucide-react';
 import Avatar from '../../components/common/Avatar.jsx';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags.js';
 
 const navItems = [
-  { to: '/admin',              label: 'Overview',      icon: LayoutDashboard, end: true },
-  { to: '/admin/users',        label: 'Users',         icon: Users },
-  { to: '/admin/groups',       label: 'Groups',        icon: LayoutGrid },
-  { to: '/admin/notifications',label: 'Notifications', icon: Bell },
-  { to: '/admin/analytics',    label: 'Analytics',     icon: BarChart3 },
-  { to: '/admin/ai-scans',     label: 'AI Scans',      icon: Brain },
-  { to: '/admin/security',     label: 'Security Logs', icon: Shield },
-  { to: '/admin/flags',        label: 'Feature Flags', icon: ToggleLeft },
+  { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/admin/users', label: 'Users', icon: Users },
+  { to: '/admin/groups', label: 'Groups', icon: LayoutGrid },
+  { to: '/admin/notifications', label: 'Notifications', icon: Bell },
+  { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/admin/ai-scans', label: 'AI Scans', icon: Brain },
+  { to: '/admin/security', label: 'Security Logs', icon: Shield },
+  { to: '/admin/flags', label: 'Feature Flags', icon: ToggleLeft },
 ];
 
 const SidebarContent = ({ onClose }) => {
@@ -108,13 +117,16 @@ const AdminLayout = () => {
       {flags.maintenanceMode && (
         <div className="fixed top-20 left-0 right-0 z-40 bg-orange-500/10 border-b border-orange-500/25 text-orange-500 py-2.5 px-4 text-center text-xs font-bold font-inter tracking-wide flex items-center justify-center gap-2 backdrop-blur-md">
           <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-          PayMatrix is currently undergoing scheduled maintenance. Some services may be temporarily unavailable.
+          PayMatrix is currently undergoing scheduled maintenance. Some services may be temporarily
+          unavailable.
         </div>
       )}
 
       <div className={`flex ${flags.maintenanceMode ? 'pt-12' : ''}`}>
         {/* Desktop sidebar */}
-        <aside className={`hidden lg:flex flex-col w-64 bg-surface-container-low/40 backdrop-blur-xl border-r border-outline-variant/5 fixed left-0 p-6 z-30 transition-all ${desktopSidebarClasses}`}>
+        <aside
+          className={`hidden lg:flex flex-col w-64 bg-surface-container-low/40 backdrop-blur-xl border-r border-outline-variant/5 fixed left-0 p-6 z-30 transition-all ${desktopSidebarClasses}`}
+        >
           <SidebarContent />
         </aside>
 
@@ -163,7 +175,9 @@ const AdminLayout = () => {
           )}
         </AnimatePresence>
 
-        <main className={`flex-1 px-4 sm:px-6 pt-1 lg:px-8 lg:pt-4 pb-32 lg:pb-8 lg:ml-64 transition-all ${flags.maintenanceMode ? 'min-h-[calc(100vh-128px)]' : 'min-h-[calc(100vh-80px)]'}`}>
+        <main
+          className={`flex-1 px-4 sm:px-6 pt-1 lg:px-8 lg:pt-4 pb-32 lg:pb-8 lg:ml-64 transition-all ${flags.maintenanceMode ? 'min-h-[calc(100vh-128px)]' : 'min-h-[calc(100vh-80px)]'}`}
+        >
           <Outlet />
         </main>
       </div>

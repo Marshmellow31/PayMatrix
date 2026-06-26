@@ -9,19 +9,22 @@ import { useState, useCallback } from 'react';
 export const useThrottledAction = (callback, delay = 1000) => {
   const [isThrottled, setIsThrottled] = useState(false);
 
-  const throttledAction = useCallback(async (...args) => {
-    if (isThrottled) return;
+  const throttledAction = useCallback(
+    async (...args) => {
+      if (isThrottled) return;
 
-    setIsThrottled(true);
-    try {
-      await callback(...args);
-    } finally {
-      // Set a timer to reset the throttle state
-      setTimeout(() => {
-        setIsThrottled(false);
-      }, delay);
-    }
-  }, [callback, delay, isThrottled]);
+      setIsThrottled(true);
+      try {
+        await callback(...args);
+      } finally {
+        // Set a timer to reset the throttle state
+        setTimeout(() => {
+          setIsThrottled(false);
+        }, delay);
+      }
+    },
+    [callback, delay, isThrottled]
+  );
 
   return { throttledAction, isThrottled };
 };
@@ -38,31 +41,33 @@ export const useAbuseProtection = (actionKey, callback, options = {}) => {
   const [error, setError] = useState(null);
 
   // Lazy import rateLimitService to avoid circular dependencies
-  const execute = useCallback(async (...args) => {
-    if (loading) return;
+  const execute = useCallback(
+    async (...args) => {
+      if (loading) return;
 
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const rateLimitService = (await import('../services/rateLimitService')).default;
-      
-      // 1. Check persistent rate limit (Firestore-backed)
-      await rateLimitService.checkAndConsume(actionKey, limit, windowMinutes);
-      
-      // 2. Execute protected callback
-      await callback(...args);
-      
-      // 3. UI-level delay to discourage rapid spamming
-      await new Promise(resolve => setTimeout(resolve, uiDelay));
-      
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [actionKey, callback, limit, windowMinutes, uiDelay, loading]);
+      setLoading(true);
+      setError(null);
+
+      try {
+        const rateLimitService = (await import('../services/rateLimitService')).default;
+
+        // 1. Check persistent rate limit (Firestore-backed)
+        await rateLimitService.checkAndConsume(actionKey, limit, windowMinutes);
+
+        // 2. Execute protected callback
+        await callback(...args);
+
+        // 3. UI-level delay to discourage rapid spamming
+        await new Promise((resolve) => setTimeout(resolve, uiDelay));
+      } catch (err) {
+        setError(err.message);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [actionKey, callback, limit, windowMinutes, uiDelay, loading]
+  );
 
   return { execute, loading, error };
 };

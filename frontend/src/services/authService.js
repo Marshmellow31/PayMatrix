@@ -1,11 +1,11 @@
 import { auth, db } from '../config/firebase.js';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   sendPasswordResetEmail,
-  updateProfile as updateFirebaseProfile
+  updateProfile as updateFirebaseProfile,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import loggingService from './loggingService.js';
@@ -38,7 +38,7 @@ const authService = {
         nameLowerCase: user.displayName?.toLowerCase(),
         photoURL: user.photoURL,
         avatar: user.photoURL,
-        friends: []
+        friends: [],
       };
 
       if (!userDoc.exists()) {
@@ -77,42 +77,41 @@ const authService = {
       // Log authentication failure
       await loggingService.logSecurityEvent('auth/login-failure', {
         code: error.code,
-        message: error.message
+        message: error.message,
       });
       throw error;
     }
   },
-  
+
   getMe: async () => {
-     const user = auth.currentUser;
-     if (!user) throw new Error("Authentication session expired. Please sign in again.");
-     const userDoc = await getDoc(doc(db, 'users', user.uid));
-     if (!userDoc.exists()) throw new Error("User document not found");
-     const userData = userDoc.data();
-     if (userData.photoURL && !userData.avatar) userData.avatar = userData.photoURL;
-     return { data: { data: { user: userData } } }; 
+    const user = auth.currentUser;
+    if (!user) throw new Error('Authentication session expired. Please sign in again.');
+    const userDoc = await getDoc(doc(db, 'users', user.uid));
+    if (!userDoc.exists()) throw new Error('User document not found');
+    const userData = userDoc.data();
+    if (userData.photoURL && !userData.avatar) userData.avatar = userData.photoURL;
+    return { data: { data: { user: userData } } };
   },
-  
+
   updateProfile: async (data) => {
     const user = auth.currentUser;
-    if (!user) throw new Error("Authentication required to update profile.");
-    
+    if (!user) throw new Error('Authentication required to update profile.');
+
     // Sanitize data: remove core fields that shouldn't be updated via profile update
     const { uid, email, createdAt, ...sanitizedData } = data;
-    
+
     if (sanitizedData.name) {
       await updateFirebaseProfile(user, { displayName: sanitizedData.name });
     }
-    
+
     const updateData = { ...sanitizedData, updatedAt: new Date().toISOString() };
     await updateDoc(doc(db, 'users', user.uid), updateData);
-    
+
     const updatedDoc = await getDoc(doc(db, 'users', user.uid));
     const userData = updatedDoc.data();
     if (userData.photoURL && !userData.avatar) userData.avatar = userData.photoURL;
     return { data: { data: { user: userData } } };
   },
-
 };
 
 export default authService;

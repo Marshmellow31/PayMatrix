@@ -14,7 +14,7 @@ const loggingService = {
   logSecurityEvent: async (type, metadata = {}) => {
     try {
       const user = auth.currentUser;
-      
+
       // Serialize metadata to handle non-plain objects like Errors
       const serializedMetadata = loggingService.serializeMetadata(metadata);
 
@@ -26,7 +26,7 @@ const loggingService = {
         metadata: serializedMetadata,
         userAgent: navigator.userAgent,
         platform: navigator.platform,
-        url: window.location.href
+        url: window.location.href,
       };
 
       await addDoc(collection(db, 'security_logs'), logEntry);
@@ -42,19 +42,19 @@ const loggingService = {
    */
   serializeMetadata: (data) => {
     if (!data || typeof data !== 'object') return data;
-    
+
     // Handle Error object specifically
     if (data instanceof Error) {
       return {
         message: data.message,
         stack: data.stack,
-        code: data.code || null
+        code: data.code || null,
       };
     }
 
     // Handle arrays
     if (Array.isArray(data)) {
-      return data.map(item => loggingService.serializeMetadata(item));
+      return data.map((item) => loggingService.serializeMetadata(item));
     }
 
     // Handle plain objects
@@ -80,7 +80,7 @@ const loggingService = {
         service,
         method,
         error: errorMessage,
-        stack
+        stack,
       });
     } catch (e) {
       console.error('Error logging failed:', e);
@@ -94,9 +94,9 @@ const loggingService = {
   logSuspiciousActivity: async (description, context = {}) => {
     await loggingService.logSecurityEvent('security/suspicious-activity', {
       description,
-      ...context
+      ...context,
     });
-  }
+  },
 };
 
 export default loggingService;

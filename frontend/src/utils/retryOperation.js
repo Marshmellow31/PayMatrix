@@ -30,7 +30,7 @@ export const withRetry = async (fn, maxAttempts = 3, baseDelayMs = 400) => {
       lastErr = err;
 
       const code = err?.code ?? '';
-      const msg  = err?.message ?? '';
+      const msg = err?.message ?? '';
       const isTransient =
         TRANSIENT_CODES.has(code) ||
         msg.includes('network') ||
@@ -40,7 +40,7 @@ export const withRetry = async (fn, maxAttempts = 3, baseDelayMs = 400) => {
       if (!isTransient || attempt === maxAttempts) throw err;
 
       const delay = baseDelayMs * Math.pow(2, attempt - 1);
-      await new Promise(r => setTimeout(r, delay));
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
   throw lastErr;

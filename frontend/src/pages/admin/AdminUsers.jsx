@@ -1,9 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Search, UserX, UserCheck, WifiOff,
-  ChevronRight, X, Loader2,
-} from 'lucide-react';
+import { Search, UserX, UserCheck, WifiOff, ChevronRight, X, Loader2 } from 'lucide-react';
 import adminService from '../../services/adminService.js';
 import Avatar from '../../components/common/Avatar.jsx';
 import Loader from '../../components/common/Loader.jsx';
@@ -22,11 +19,12 @@ const ActionBtn = ({ onClick, icon: Icon, label, accent, loading }) => (
 );
 
 const UserDetailDrawer = ({ user, onClose }) => {
-  const [details, setDetails]   = useState(null);
-  const [loading, setLoading]   = useState(true);
+  const [details, setDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    adminService.getUserDetails(user._id)
+    adminService
+      .getUserDetails(user._id)
       .then(setDetails)
       .catch(() => setDetails(null))
       .finally(() => setLoading(false));
@@ -42,7 +40,10 @@ const UserDetailDrawer = ({ user, onClose }) => {
     >
       <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
         <h3 className="font-bold text-white font-manrope">User Details</h3>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-white/40 hover:text-white/70 transition-colors">
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg hover:bg-white/5 text-white/40 hover:text-white/70 transition-colors"
+        >
           <X size={16} />
         </button>
       </div>
@@ -55,7 +56,11 @@ const UserDetailDrawer = ({ user, onClose }) => {
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {/* Profile */}
           <div className="flex items-center gap-3">
-            <Avatar name={details?.user?.name || user.name} src={details?.user?.avatar || details?.user?.photoURL || user.avatar || user.photoURL} size="md" />
+            <Avatar
+              name={details?.user?.name || user.name}
+              src={details?.user?.avatar || details?.user?.photoURL || user.avatar || user.photoURL}
+              size="md"
+            />
             <div>
               <p className="font-bold text-white text-sm">{details?.user?.name || '—'}</p>
               <p className="text-xs text-white/40">{details?.user?.email}</p>
@@ -64,26 +69,43 @@ const UserDetailDrawer = ({ user, onClose }) => {
 
           {/* Info rows */}
           {[
-            { label: 'UID',      value: user._id },
-            { label: 'UPI ID',   value: details?.user?.upiId || '—' },
-            { label: 'Joined',   value: details?.user?.createdAt ? new Date(details.user.createdAt).toLocaleDateString('en-IN') : '—' },
-            { label: 'Friends',  value: `${details?.user?.friends?.length ?? 0} connections` },
-            { label: 'Status',   value: details?.user?.suspended ? 'Suspended' : 'Active' },
+            { label: 'UID', value: user._id },
+            { label: 'UPI ID', value: details?.user?.upiId || '—' },
+            {
+              label: 'Joined',
+              value: details?.user?.createdAt
+                ? new Date(details.user.createdAt).toLocaleDateString('en-IN')
+                : '—',
+            },
+            { label: 'Friends', value: `${details?.user?.friends?.length ?? 0} connections` },
+            { label: 'Status', value: details?.user?.suspended ? 'Suspended' : 'Active' },
           ].map((row) => (
-            <div key={row.label} className="flex justify-between items-center py-3 border-b border-white/[0.04]">
+            <div
+              key={row.label}
+              className="flex justify-between items-center py-3 border-b border-white/[0.04]"
+            >
               <span className="text-xs text-white/40">{row.label}</span>
-              <span className="text-xs text-white/80 font-mono break-all text-right max-w-[180px]">{row.value}</span>
+              <span className="text-xs text-white/80 font-mono break-all text-right max-w-[180px]">
+                {row.value}
+              </span>
             </div>
           ))}
 
           {/* Groups */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-white/30 mb-2">Groups ({details?.groups?.length ?? 0})</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-white/30 mb-2">
+              Groups ({details?.groups?.length ?? 0})
+            </p>
             <div className="space-y-1.5">
               {details?.groups?.map((g) => (
-                <div key={g._id} className="flex items-center justify-between rounded-xl px-3 py-2 border border-white/[0.02] bg-white/[0.04]">
+                <div
+                  key={g._id}
+                  className="flex items-center justify-between rounded-xl px-3 py-2 border border-white/[0.02] bg-white/[0.04]"
+                >
                   <span className="text-xs text-white/70">{g.name || g.title || 'Unnamed'}</span>
-                  <span className="text-[10px] text-white/30">{g.members?.length ?? 0} members</span>
+                  <span className="text-[10px] text-white/30">
+                    {g.members?.length ?? 0} members
+                  </span>
                 </div>
               ))}
               {(!details?.groups || details.groups.length === 0) && (
@@ -98,31 +120,36 @@ const UserDetailDrawer = ({ user, onClose }) => {
 };
 
 const AdminUsers = () => {
-  const [users, setUsers]         = useState([]);
-  const [loading, setLoading]     = useState(true);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [lastDoc, setLastDoc]     = useState(null);
-  const [hasMore, setHasMore]     = useState(false);
-  const [search, setSearch]       = useState('');
-  const [selected, setSelected]   = useState(null);
-  const [acting, setActing]       = useState({});
+  const [lastDoc, setLastDoc] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState(null);
+  const [acting, setActing] = useState({});
 
-  const loadUsers = useCallback(async (reset = false) => {
-    try {
-      reset ? setLoading(true) : setLoadingMore(true);
-      const res = await adminService.getAllUsers(20, reset ? null : lastDoc);
-      setUsers((prev) => reset ? res.users : [...prev, ...res.users]);
-      setLastDoc(res.lastDoc);
-      setHasMore(res.hasMore);
-    } catch (e) {
-      toast.error('Failed to load users');
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [lastDoc]);
+  const loadUsers = useCallback(
+    async (reset = false) => {
+      try {
+        reset ? setLoading(true) : setLoadingMore(true);
+        const res = await adminService.getAllUsers(20, reset ? null : lastDoc);
+        setUsers((prev) => (reset ? res.users : [...prev, ...res.users]));
+        setLastDoc(res.lastDoc);
+        setHasMore(res.hasMore);
+      } catch (e) {
+        toast.error('Failed to load users');
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [lastDoc]
+  );
 
-  useEffect(() => { loadUsers(true); }, []); // eslint-disable-line
+  useEffect(() => {
+    loadUsers(true);
+  }, []); // eslint-disable-line
 
   const act = async (uid, action, fn) => {
     setActing((prev) => ({ ...prev, [`${uid}_${action}`]: true }));
@@ -140,7 +167,9 @@ const AdminUsers = () => {
   const filtered = search.trim()
     ? users.filter((u) => {
         const q = search.toLowerCase();
-        return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+        return (
+          (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
+        );
       })
     : users;
 
@@ -189,7 +218,9 @@ const AdminUsers = () => {
                 <Avatar name={user.name} src={user.avatar || user.photoURL} size="sm" />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-white truncate">{user.name || 'No name'}</p>
+                    <p className="text-sm font-medium text-white truncate">
+                      {user.name || 'No name'}
+                    </p>
                     {user.suspended && (
                       <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
                         Suspended
@@ -199,14 +230,45 @@ const AdminUsers = () => {
                   <p className="text-xs text-white/35 truncate">{user.email}</p>
                 </div>
                 <span className="hidden sm:block text-xs text-white/30 whitespace-nowrap">
-                  {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
+                  {user.createdAt
+                    ? new Date(user.createdAt).toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: '2-digit',
+                      })
+                    : '—'}
                 </span>
                 <div className="flex items-center gap-1.5">
-                  {user.suspended
-                    ? <ActionBtn onClick={() => act(user._id, 'enable', () => adminService.enableUser(user._id))} icon={UserCheck} label="Enable" accent="#22c55e" loading={acting[`${user._id}_enable`]} />
-                    : <ActionBtn onClick={() => act(user._id, 'suspend', () => adminService.suspendUser(user._id))} icon={UserX} label="Suspend" accent="#ef4444" loading={acting[`${user._id}_suspend`]} />
-                  }
-                  <ActionBtn onClick={() => act(user._id, 'clearFCM', () => adminService.clearUserFCM(user._id))} icon={WifiOff} label="Clear FCM token" accent="#eab308" loading={acting[`${user._id}_clearFCM`]} />
+                  {user.suspended ? (
+                    <ActionBtn
+                      onClick={() =>
+                        act(user._id, 'enable', () => adminService.enableUser(user._id))
+                      }
+                      icon={UserCheck}
+                      label="Enable"
+                      accent="#22c55e"
+                      loading={acting[`${user._id}_enable`]}
+                    />
+                  ) : (
+                    <ActionBtn
+                      onClick={() =>
+                        act(user._id, 'suspend', () => adminService.suspendUser(user._id))
+                      }
+                      icon={UserX}
+                      label="Suspend"
+                      accent="#ef4444"
+                      loading={acting[`${user._id}_suspend`]}
+                    />
+                  )}
+                  <ActionBtn
+                    onClick={() =>
+                      act(user._id, 'clearFCM', () => adminService.clearUserFCM(user._id))
+                    }
+                    icon={WifiOff}
+                    label="Clear FCM token"
+                    accent="#eab308"
+                    loading={acting[`${user._id}_clearFCM`]}
+                  />
                   <button
                     onClick={() => setSelected(user)}
                     className="p-2 rounded-xl hover:bg-white/8 text-white/30 hover:text-white/60 transition-colors"
@@ -240,7 +302,13 @@ const AdminUsers = () => {
       <AnimatePresence>
         {selected && (
           <>
-            <motion.div className="fixed inset-0 bg-black/50 z-40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelected(null)} />
+            <motion.div
+              className="fixed inset-0 bg-black/50 z-40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelected(null)}
+            />
             <UserDetailDrawer user={selected} onClose={() => setSelected(null)} />
           </>
         )}

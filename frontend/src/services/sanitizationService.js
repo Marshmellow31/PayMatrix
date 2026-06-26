@@ -12,11 +12,11 @@ const sanitizationService = {
    */
   sanitize: (input) => {
     if (typeof input !== 'string') return input;
-    // Strip all HTML tags entirely for plain-text fields, 
+    // Strip all HTML tags entirely for plain-text fields,
     // or allow a safe subset if needed. For PayMatrix, we mostly want pure text.
     return DOMPurify.sanitize(input, {
       ALLOWED_TAGS: [], // No HTML allowed in titles/descriptions
-      ALLOWED_ATTR: []
+      ALLOWED_ATTR: [],
     }).trim();
   },
 
@@ -27,9 +27,9 @@ const sanitizationService = {
    */
   sanitizeObject: (obj) => {
     if (!obj || typeof obj !== 'object') return obj;
-    
+
     const sanitized = Array.isArray(obj) ? [] : {};
-    
+
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === 'string') {
         sanitized[key] = sanitizationService.sanitize(value);
@@ -39,9 +39,9 @@ const sanitizationService = {
         sanitized[key] = value;
       }
     }
-    
+
     return sanitized;
-  }
+  },
 };
 
 export default sanitizationService;

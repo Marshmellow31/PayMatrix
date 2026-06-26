@@ -28,7 +28,7 @@ export const UPI_APPS = [
     id: 'phonepe',
     label: 'PhonePe',
     shortLabel: 'PhonePe',
-    description: 'India\'s most trusted wallet',
+    description: "India's most trusted wallet",
     color: '#5f259f',
     icon: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/phonepe-icon.png',
   },
@@ -51,9 +51,7 @@ export const UPI_APPS = [
 ];
 
 // Apps shown in the iOS chooser modal (exclude Default and BHIM since BHIM = upi://)
-export const IOS_CHOOSER_APPS = UPI_APPS.filter(
-  (a) => a.id !== 'default' && a.id !== 'bhim'
-);
+export const IOS_CHOOSER_APPS = UPI_APPS.filter((a) => a.id !== 'default' && a.id !== 'bhim');
 
 // ─── Platform Detection ───────────────────────────────────────────────────────
 
@@ -105,25 +103,25 @@ const sanitizeForUPI = (str) => str.replace(/[^\x20-\x7E]/g, '').trim();
  */
 const buildUPIQuery = (upiId, name, amount, note, platform) => {
   const pa = encodeURIComponent((upiId || '').toString().trim());
-  
+
   // Defensive: Handle case where name might be a user object
-  const rawName = typeof name === 'string' ? name : (name?.name || 'User');
+  const rawName = typeof name === 'string' ? name : name?.name || 'User';
   const pn = encodeURIComponent(sanitizeForUPI(rawName).substring(0, 50));
-  
+
   const am = parseFloat(amount || 0).toFixed(2);
-  
+
   // Removing tn (Transaction Note), tr (Transaction Reference), and mc (Merchant Code).
-  // GPay's risk engine aggressively flags automated P2P links that contain 
-  // auto-generated notes or reference IDs, leading to false "Bank Limit Exceeded" 
-  // or "Security Risk" errors. 
-  
+  // GPay's risk engine aggressively flags automated P2P links that contain
+  // auto-generated notes or reference IDs, leading to false "Bank Limit Exceeded"
+  // or "Security Risk" errors.
+
   // For iOS specifically, omitting the amount forces the user to type it manually.
   // This heavily mitigates "Bank Limit Exceeded" anti-fraud blocks.
   if (platform === 'ios') {
     return `pa=${pa}&pn=${pn}&cu=INR`;
   }
 
-  // Sending only the bare minimum required parameters (pa, pn, am, cu) is the 
+  // Sending only the bare minimum required parameters (pa, pn, am, cu) is the
   // safest way to ensure the intent is treated as a normal, manual user transfer.
   return `pa=${pa}&pn=${pn}&am=${am}&cu=INR`;
 };
@@ -219,17 +217,35 @@ export const handleSmartPayment = (
 ) => {
   // ── Guard: no receiver ───────────────────────────────────────────────────────
   if (!receiver) {
-    return { success: false, url: null, needsChooser: false, platform: 'unknown', error: 'Receiver information is missing.' };
+    return {
+      success: false,
+      url: null,
+      needsChooser: false,
+      platform: 'unknown',
+      error: 'Receiver information is missing.',
+    };
   }
 
   // ── Guard: no amount ──────────────────────────────────────────────────────────
   if (!amount || amount <= 0) {
-    return { success: false, url: null, needsChooser: false, platform: 'unknown', error: 'Payment amount must be greater than zero.' };
+    return {
+      success: false,
+      url: null,
+      needsChooser: false,
+      platform: 'unknown',
+      error: 'Payment amount must be greater than zero.',
+    };
   }
 
   // ── Guard: no UPI ID ──────────────────────────────────────────────────────────
   if (!receiver.upiId || !validateUPIId(receiver.upiId)) {
-    return { success: false, url: null, needsChooser: false, platform: 'unknown', error: 'This user has not added a UPI ID.' };
+    return {
+      success: false,
+      url: null,
+      needsChooser: false,
+      platform: 'unknown',
+      error: 'This user has not added a UPI ID.',
+    };
   }
 
   const platform = detectPlatform();
@@ -242,24 +258,24 @@ export const handleSmartPayment = (
 
   // ── All other cases → build deep link ────────────────────────────────────────
   const url = getAppDeepLink(app, receiver.upiId, receiver.name, amount, note);
-  
+
   // Use a hidden anchor tag to trigger the intent, which is more reliable than window.location.href
   // on some Android WebViews and browsers.
   const link = document.createElement('a');
   link.href = url;
   // Fallback for intent resolution failure (if app not installed)
   if (platform === 'android' && url.startsWith('intent://')) {
-      const fallbackUrl = `upi://pay?${buildUPIQuery(receiver.upiId, receiver.name, amount, note)}`;
-      link.setAttribute('data-fallback', fallbackUrl);
-      
-      // Attempt to catch if intent fails to resolve
-      setTimeout(() => {
-        if(document.visibilityState === 'visible') {
-           window.location.href = fallbackUrl;
-        }
-      }, 1500);
+    const fallbackUrl = `upi://pay?${buildUPIQuery(receiver.upiId, receiver.name, amount, note)}`;
+    link.setAttribute('data-fallback', fallbackUrl);
+
+    // Attempt to catch if intent fails to resolve
+    setTimeout(() => {
+      if (document.visibilityState === 'visible') {
+        window.location.href = fallbackUrl;
+      }
+    }, 1500);
   }
-  
+
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

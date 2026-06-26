@@ -1,7 +1,19 @@
 import { db, auth } from '../config/firebase.js';
 import {
-  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, getDocFromCache, serverTimestamp
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocFromCache,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { calculateSplits } from '../utils/balanceEngine.js';
 import { createNotification } from '../utils/notificationHelper.js';
@@ -16,9 +28,14 @@ const wrap = (data, message = 'Success') => ({ data: { data, message, status: 's
 // Recursively remove undefined values for Firestore
 const clean = (obj) => {
   const newObj = {};
-  Object.keys(obj).forEach(key => {
+  Object.keys(obj).forEach((key) => {
     if (obj[key] === undefined) return;
-    if (obj[key] && typeof obj[key] === 'object' && !Array.isArray(obj[key]) && !(obj[key] instanceof Date)) {
+    if (
+      obj[key] &&
+      typeof obj[key] === 'object' &&
+      !Array.isArray(obj[key]) &&
+      !(obj[key] instanceof Date)
+    ) {
       newObj[key] = clean(obj[key]);
     } else {
       newObj[key] = obj[key];
@@ -44,14 +61,14 @@ const getStoredName = async (uid, fallback = 'Member') => {
 let summaryCache = {
   data: null,
   timestamp: 0,
-  hash: ''
+  hash: '',
 };
 
 /** Called by authSlice logout reducer to purge stale cross-user data after sign-out. */
 export const clearSummaryCache = () => {
-  summaryCache.data      = null;
+  summaryCache.data = null;
   summaryCache.timestamp = 0;
-  summaryCache.hash      = '';
+  summaryCache.hash = '';
 };
 
 const expenseService = {
@@ -61,57 +78,62 @@ const expenseService = {
     try {
       querySnapshot = await getDocs(q);
     } catch (err) {
-      console.warn("[OFFLINE_FALLBACK] getExpenses: fetching from cache");
+      console.warn('[OFFLINE_FALLBACK] getExpenses: fetching from cache');
       const { getDocsFromCache } = await import('firebase/firestore');
       querySnapshot = await getDocsFromCache(q);
     }
     const expenses = querySnapshot.docs
-      .map(doc => ({ _id: doc.id, ...doc.data() }))
-      .filter(exp => exp.status !== 'deleted' && exp.status !== 'archived');
-    
+      .map((doc) => ({ _id: doc.id, ...doc.data() }))
+      .filter((exp) => exp.status !== 'deleted' && exp.status !== 'archived');
+
     // Mimic the backend pagination signature
     return wrap({ expenses, totalPages: 1, currentPage: 1 });
   },
 
   getExpense: async (groupId, id) => {
-    if (!groupId || !id) throw new Error("groupId and id are required for getExpense");
+    if (!groupId || !id) throw new Error('groupId and id are required for getExpense');
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
     const docSnap = await getDoc(docRef);
-    if (!docSnap.exists()) throw new Error("Expense not found");
+    if (!docSnap.exists()) throw new Error('Expense not found');
     return wrap({ expense: { _id: docSnap.id, ...docSnap.data() } });
   },
 
   addExpense: async (groupId, data, userId) => {
-    if (!userId) throw new Error("Authentication required to record transactions.");
-    if (!groupId) throw new Error("Group ID required for expense");
+    if (!userId) throw new Error('Authentication required to record transactions.');
+    if (!groupId) throw new Error('Group ID required for expense');
     const amount = parseFloat(data.amount || 0);
-    if (isNaN(amount) || amount <= 0) throw new Error("Invalid expense amount");
-    if (amount > 1000000) throw new Error("Expense amount exceeds safety threshold (1M)");
+    if (isNaN(amount) || amount <= 0) throw new Error('Invalid expense amount');
+    if (amount > 1000000) throw new Error('Expense amount exceeds safety threshold (1M)');
 
     // Calculate splits array from form structure before saving
-    const splits = calculateSplits(amount, data.splitType || 'equal', data.splitData || {}, data.participants || []);
+    const splits = calculateSplits(
+      amount,
+      data.splitType || 'equal',
+      data.splitData || {},
+      data.participants || []
+    );
 
     const currentUid = auth.currentUser?.uid;
-    if (!currentUid) throw new Error("Auth session missing");
+    if (!currentUid) throw new Error('Auth session missing');
 
     // Sanitize and Validate input
     const cleanData = sanitizationService.sanitizeObject(data);
-    
+
     const payload = clean({
       ...cleanData,
       amount,
-      groupId, 
+      groupId,
       paidBy: data.paidBy || currentUid,
-      paidByName: 'Member', 
+      paidByName: 'Member',
       splits,
-      admin: currentUid, 
+      admin: currentUid,
       createdAt: data.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     });
 
     // Final schema check
     validationService.validate(ExpenseSchema, payload);
-    
+
     // Pre-generate docRef so the ID is known before the write (idempotency: safe to retry setDoc)
     const docRef = doc(collection(db, 'groups', groupId, 'expenses'));
 
@@ -127,7 +149,7 @@ const expenseService = {
       try {
         const [resolvedPaidByName, actorName] = await Promise.all([
           getStoredName(data.paidBy || userId, 'Member'),
-          getStoredName(userId, 'Someone')
+          getStoredName(userId, 'Someone'),
         ]);
 
         // Update the expense with resolved name if it changed (silent)
@@ -147,45 +169,57 @@ const expenseService = {
 
         // Create global notifications for all participants (except the actor)
         const participantIds = data.participants || [];
-        participantIds.forEach(pId => {
+        participantIds.forEach((pId) => {
           if (pId !== userId) {
             createNotification(
-              pId, 
-              `${actorName} added "${data.title || 'an expense'}" (₹${parseFloat(data.amount || 0).toFixed(2)})`, 
-              'expense_added', 
-              docRef.id, 
+              pId,
+              `${actorName} added "${data.title || 'an expense'}" (₹${parseFloat(data.amount || 0).toFixed(2)})`,
+              'expense_added',
+              docRef.id,
               groupId
             );
           }
         });
-      } catch (_) {}
+      } catch (_) {
+        // ignore background logging failures
+      }
     })().catch(() => {});
 
-    return wrap({ expense: { _id: docRef.id, ...payload } }, 'Expense saved instantly offline/online');
+    return wrap(
+      { expense: { _id: docRef.id, ...payload } },
+      'Expense saved instantly offline/online'
+    );
   },
 
   updateExpense: async (id, data, userId) => {
     const groupId = data.groupId;
     const currentUid = auth.currentUser?.uid;
-    if (!currentUid) throw new Error("Auth session missing");
+    if (!currentUid) throw new Error('Auth session missing');
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
 
     // Re-calculate splits if amount or split configuration changed
-    const splits = calculateSplits(data.amount, data.splitType, data.splitData || {}, data.participants || []);
+    const splits = calculateSplits(
+      data.amount,
+      data.splitType,
+      data.splitData || {},
+      data.participants || []
+    );
 
     const payload = clean({
       ...data,
       paidByName: data.paidByName || 'Member',
       splits,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     });
-    
+
     // Primary write: awaited with retry — financial data must not be lost silently.
     await withRetry(() => updateDoc(docRef, payload));
 
     // Refresh group's updatedAt to trigger listeners (non-blocking — non-critical)
     if (groupId) {
-      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(
+        () => {}
+      );
     }
 
     // Secondary tasks (non-blocking)
@@ -194,7 +228,7 @@ const expenseService = {
         const [resolvedPaidByName, actorName, prevDoc] = await Promise.all([
           getStoredName(data.paidBy || userId, 'Member'),
           getStoredName(userId, 'Someone'),
-          getDoc(docRef).catch(() => null)
+          getDoc(docRef).catch(() => null),
         ]);
 
         let diffMessage = '';
@@ -202,8 +236,10 @@ const expenseService = {
           const old = prevDoc.data();
           const changes = [];
           if (old.title !== data.title) changes.push(`title: "${old.title}" -> "${data.title}"`);
-          if (parseFloat(old.amount) !== parseFloat(data.amount)) changes.push(`amount: ${old.amount} -> ${data.amount}`);
-          if (old.category !== data.category) changes.push(`category: ${old.category} -> ${data.category}`);
+          if (parseFloat(old.amount) !== parseFloat(data.amount))
+            changes.push(`amount: ${old.amount} -> ${data.amount}`);
+          if (old.category !== data.category)
+            changes.push(`category: ${old.category} -> ${data.category}`);
           if (changes.length > 0) diffMessage = ` (${changes.join(', ')})`;
         }
 
@@ -221,22 +257,26 @@ const expenseService = {
             createdAt: new Date().toISOString(),
           }).catch(() => {});
         }
-      } catch (_) {}
+      } catch (_) {
+        // ignore background logging failures
+      }
     })().catch(() => {});
 
     return wrap({ expense: { _id: id, ...payload } });
   },
 
   deleteExpense: async (id, groupId, userId) => {
-    if (!groupId) throw new Error("deleteExpense requires groupId");
+    if (!groupId) throw new Error('deleteExpense requires groupId');
 
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
-    
+
     // Primary write: awaited with retry — soft-delete must be confirmed before returning.
-    await withRetry(() => updateDoc(docRef, {
-      status: 'deleted',
-      updatedAt: new Date().toISOString(),
-    }));
+    await withRetry(() =>
+      updateDoc(docRef, {
+        status: 'deleted',
+        updatedAt: new Date().toISOString(),
+      })
+    );
 
     // Secondary task: Resolution happens in background
     (async () => {
@@ -244,9 +284,9 @@ const expenseService = {
         let expenseTitle = 'an expense';
         const [expSnap, actorName] = await Promise.all([
           getDoc(docRef).catch(() => null),
-          getStoredName(userId, 'Someone')
+          getStoredName(userId, 'Someone'),
         ]);
-        
+
         if (expSnap?.exists()) expenseTitle = expSnap.data().title || 'an expense';
 
         addDoc(collection(db, 'groups', groupId, 'logs'), {
@@ -257,7 +297,9 @@ const expenseService = {
           relatedId: id,
           createdAt: new Date().toISOString(),
         }).catch(() => {});
-      } catch (_) {}
+      } catch (_) {
+        // ignore background logging failures
+      }
     })().catch(() => {});
 
     // Refresh group's updatedAt to trigger listeners (non-blocking)
@@ -267,19 +309,25 @@ const expenseService = {
   },
 
   restoreExpense: async (id, groupId, userId) => {
-    if (!groupId) throw new Error("restoreExpense requires groupId");
+    if (!groupId) throw new Error('restoreExpense requires groupId');
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
 
     try {
       const snap = await getDoc(docRef);
       if (!snap.exists()) {
-        return wrap({ error: 'This record was permanently deleted in an older version and cannot be restored.' }, 404);
+        return wrap(
+          {
+            error:
+              'This record was permanently deleted in an older version and cannot be restored.',
+          },
+          404
+        );
       }
 
       // Primary write: Restore to active state
-      await updateDoc(docRef, { 
-        status: 'active', 
-        updatedAt: new Date().toISOString() 
+      await updateDoc(docRef, {
+        status: 'active',
+        updatedAt: new Date().toISOString(),
       });
 
       // Log restoration
@@ -294,92 +342,104 @@ const expenseService = {
         createdAt: new Date().toISOString(),
       }).catch(() => {});
 
-      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(
+        () => {}
+      );
       return wrap({ message: 'Expense restored' });
     } catch (err) {
-      console.error("Restore failed:", err);
+      console.error('Restore failed:', err);
       // If it's a "No document to update" error from Firebase directly (rare but possible with race conditions)
       if (err.code === 'not-found' || err.message?.includes('No document to update')) {
-         return wrap({ error: 'Expense record not found in the database.' }, 404);
+        return wrap({ error: 'Expense record not found in the database.' }, 404);
       }
       throw err;
     }
   },
 
   // Notice: For balances, we actually compute this on the client now when the store updates.
-  // But to satisfy old Thunks, we can mock it by pulling all expenses + settlements 
+  // But to satisfy old Thunks, we can mock it by pulling all expenses + settlements
   // and running balanceEngine directly here.
   getBalances: async (groupId) => {
-     const { computeGroupBalances } = await import('../utils/balanceEngine.js');
-     
-     // Fetch expenses and settlements
-     // Fetch expenses and settlements with offline fallback
-     const expQ = query(collection(db, 'groups', groupId, 'expenses'));
-     const stlQ = query(collection(db, 'groups', groupId, 'settlements'));
-     
-     let expSnap, stlSnap;
-     try {
-       [expSnap, stlSnap] = await Promise.all([getDocs(expQ), getDocs(stlQ)]);
-     } catch (err) {
-       console.warn("[OFFLINE_FALLBACK] getBalances: fetching from cache");
-       const { getDocsFromCache } = await import('firebase/firestore');
-       [expSnap, stlSnap] = await Promise.all([
-         getDocsFromCache(expQ).catch(() => ({ docs: [] })),
-         getDocsFromCache(stlQ).catch(() => ({ docs: [] }))
-       ]);
-     }
-     
-     const grpRef = doc(db, 'groups', groupId);
-     let grpSnap;
-     try {
-       grpSnap = await getDoc(grpRef);
-     } catch (err) {
-       const { getDocFromCache } = await import('firebase/firestore');
-       grpSnap = await getDocFromCache(grpRef).catch(() => null);
-     }
-     
-     const expenses = expSnap.docs.map(d => ({ _id: d.id, ...d.data() })).filter(e => e.status !== 'deleted');
-     const settlements = stlSnap.docs.map(d => ({ _id: d.id, ...d.data() })).filter(s => s.status !== 'deleted');
-     const groupMembers = (grpSnap.exists() && grpSnap.data().members) || [];
-     
-     const balances = computeGroupBalances(expenses, settlements, groupMembers.map(uid => ({ uid })));
-     return wrap({ balances });
+    const { computeGroupBalances } = await import('../utils/balanceEngine.js');
+
+    // Fetch expenses and settlements
+    // Fetch expenses and settlements with offline fallback
+    const expQ = query(collection(db, 'groups', groupId, 'expenses'));
+    const stlQ = query(collection(db, 'groups', groupId, 'settlements'));
+
+    let expSnap, stlSnap;
+    try {
+      [expSnap, stlSnap] = await Promise.all([getDocs(expQ), getDocs(stlQ)]);
+    } catch (err) {
+      console.warn('[OFFLINE_FALLBACK] getBalances: fetching from cache');
+      const { getDocsFromCache } = await import('firebase/firestore');
+      [expSnap, stlSnap] = await Promise.all([
+        getDocsFromCache(expQ).catch(() => ({ docs: [] })),
+        getDocsFromCache(stlQ).catch(() => ({ docs: [] })),
+      ]);
+    }
+
+    const grpRef = doc(db, 'groups', groupId);
+    let grpSnap;
+    try {
+      grpSnap = await getDoc(grpRef);
+    } catch (err) {
+      const { getDocFromCache } = await import('firebase/firestore');
+      grpSnap = await getDocFromCache(grpRef).catch(() => null);
+    }
+
+    const expenses = expSnap.docs
+      .map((d) => ({ _id: d.id, ...d.data() }))
+      .filter((e) => e.status !== 'deleted');
+    const settlements = stlSnap.docs
+      .map((d) => ({ _id: d.id, ...d.data() }))
+      .filter((s) => s.status !== 'deleted');
+    const groupMembers = (grpSnap.exists() && grpSnap.data().members) || [];
+
+    const balances = computeGroupBalances(
+      expenses,
+      settlements,
+      groupMembers.map((uid) => ({ uid }))
+    );
+    return wrap({ balances });
   },
-  
+
   getSettlements: async (groupId) => {
     const q = query(collection(db, 'groups', groupId, 'settlements'), orderBy('createdAt', 'desc'));
     let querySnapshot;
     try {
       querySnapshot = await getDocs(q);
     } catch (err) {
-      console.warn("[OFFLINE_FALLBACK] getSettlements: fetching from cache");
+      console.warn('[OFFLINE_FALLBACK] getSettlements: fetching from cache');
       const { getDocsFromCache } = await import('firebase/firestore');
       querySnapshot = await getDocsFromCache(q);
     }
     const settlements = querySnapshot.docs
-      .map(doc => ({ _id: doc.id, ...doc.data() }))
-      .filter(s => s.status !== 'deleted');
+      .map((doc) => ({ _id: doc.id, ...doc.data() }))
+      .filter((s) => s.status !== 'deleted');
     return wrap({ settlements });
   },
 
   deleteSettlement: async (id, groupId, userId) => {
-    if (!groupId) throw new Error("deleteSettlement requires groupId");
+    if (!groupId) throw new Error('deleteSettlement requires groupId');
     const docRef = doc(db, 'groups', groupId, 'settlements', id);
-    
+
     // Primary write: awaited with retry — settlement deletion must be confirmed.
-    await withRetry(() => updateDoc(docRef, {
-      status: 'deleted',
-      updatedAt: new Date().toISOString(),
-    }));
+    await withRetry(() =>
+      updateDoc(docRef, {
+        status: 'deleted',
+        updatedAt: new Date().toISOString(),
+      })
+    );
 
     // Log the deletion
     (async () => {
       try {
         const [settSnap, actorName] = await Promise.all([
           getDoc(docRef).catch(() => null),
-          getStoredName(userId, 'Someone')
+          getStoredName(userId, 'Someone'),
         ]);
-        
+
         let amount = 0;
         let payeeName = 'someone';
         if (settSnap?.exists()) {
@@ -403,15 +463,17 @@ const expenseService = {
           if (userId !== data.payee) {
             const { createNotification } = await import('../utils/notificationHelper.js');
             createNotification(
-              data.payee, 
-              `${actorName} deleted a previous settlement of ₹${(data.amount || 0).toFixed(2)} with you.`, 
-              'settlement_deleted', 
-              id, 
+              data.payee,
+              `${actorName} deleted a previous settlement of ₹${(data.amount || 0).toFixed(2)} with you.`,
+              'settlement_deleted',
+              id,
               groupId
             ).catch(() => {});
           }
         }
-      } catch (_) {}
+      } catch (_) {
+        // ignore background logging failures
+      }
     })().catch(() => {});
 
     updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
@@ -419,58 +481,56 @@ const expenseService = {
   },
 
   restoreSettlement: async (id, groupId, userId) => {
-    if (!groupId) throw new Error("restoreSettlement requires groupId");
+    if (!groupId) throw new Error('restoreSettlement requires groupId');
     const docRef = doc(db, 'groups', groupId, 'settlements', id);
 
-    try {
-      const snap = await getDoc(docRef);
-      if (!snap.exists()) return wrap({ error: 'Settlement record not found.' }, 404);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) return wrap({ error: 'Settlement record not found.' }, 404);
 
-      await updateDoc(docRef, { 
-        status: 'active', 
-        updatedAt: new Date().toISOString() 
-      });
+    await updateDoc(docRef, {
+      status: 'active',
+      updatedAt: new Date().toISOString(),
+    });
 
-      const actorName = await getStoredName(userId, 'Someone');
-      const data = snap.data();
-      const payeeName = await getStoredName(data.payee, 'Member');
-      
-      await addDoc(collection(db, 'groups', groupId, 'logs'), {
-        type: 'settlement_restored',
-        message: `${actorName} restored a settlement of ₹${(data.amount || 0).toFixed(2)} to ${payeeName}`,
-        actorId: userId || 'unknown',
-        actorName,
-        relatedId: id,
-        createdAt: new Date().toISOString(),
-      }).catch(() => {});
+    const actorName = await getStoredName(userId, 'Someone');
+    const data = snap.data();
+    const payeeName = await getStoredName(data.payee, 'Member');
 
-      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
-      return wrap({ message: 'Settlement restored' });
-    } catch (err) {
-      throw err;
-    }
+    await addDoc(collection(db, 'groups', groupId, 'logs'), {
+      type: 'settlement_restored',
+      message: `${actorName} restored a settlement of ₹${(data.amount || 0).toFixed(2)} to ${payeeName}`,
+      actorId: userId || 'unknown',
+      actorName,
+      relatedId: id,
+      createdAt: new Date().toISOString(),
+    }).catch(() => {});
+
+    updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(
+      () => {}
+    );
+    return wrap({ message: 'Settlement restored' });
   },
 
   createSettlement: async (groupId, data, userId) => {
-    if (!userId) throw new Error("Authentication required to settle up.");
-    if (!groupId) throw new Error("Group ID required for settlement");
-    
+    if (!userId) throw new Error('Authentication required to settle up.');
+    if (!groupId) throw new Error('Group ID required for settlement');
+
     // Safety check: ensure amount is a valid positive number
     const amount = parseFloat(data.amount || 0);
-    if (isNaN(amount) || amount <= 0) throw new Error("Invalid settlement amount");
-    if (amount > 1000000) throw new Error("Settlement amount exceeds safety threshold (1M)");
+    if (isNaN(amount) || amount <= 0) throw new Error('Invalid settlement amount');
+    if (amount > 1000000) throw new Error('Settlement amount exceeds safety threshold (1M)');
 
     const currentUid = auth.currentUser?.uid;
-    if (!currentUid) throw new Error("Auth session missing");
+    if (!currentUid) throw new Error('Auth session missing');
 
     const settlementData = {
       payer: currentUid,
       payee: data.payee,
       amount,
       notes: data.notes || 'Settled up',
-      groupId, 
+      groupId,
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     };
 
     const docRef = doc(collection(db, 'groups', groupId, 'settlements'));
@@ -480,7 +540,9 @@ const expenseService = {
       await withRetry(() => setDoc(docRef, settlementData));
 
       // Refresh group's updatedAt to trigger listeners (non-blocking — non-critical)
-      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(
+        () => {}
+      );
     } catch (error) {
       await loggingService.logError('expenseService', 'createSettlement', error);
       throw error;
@@ -491,7 +553,7 @@ const expenseService = {
       try {
         const [actorName, payeeName] = await Promise.all([
           getStoredName(currentUid, 'Someone'),
-          getStoredName(data.payee, 'Member')
+          getStoredName(data.payee, 'Member'),
         ]);
 
         // Write activity log with resolved names
@@ -501,21 +563,21 @@ const expenseService = {
           actorId: currentUid,
           relatedId: docRef.id,
           groupId,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
         });
-        
+
         // Trigger notification for the recipient
         if (currentUid !== data.payee) {
           createNotification(
-            data.payee, 
-            `${actorName} settled ₹${amount.toFixed(2)} with you.`, 
-            'settlement_received', 
-            docRef.id, 
+            data.payee,
+            `${actorName} settled ₹${amount.toFixed(2)} with you.`,
+            'settlement_received',
+            docRef.id,
             groupId
           ).catch(() => {});
         }
       } catch (err) {
-        console.warn("Background task failure:", err);
+        console.warn('Background task failure:', err);
       }
     })();
 
@@ -524,30 +586,31 @@ const expenseService = {
 
   getSummary: async () => {
     const userId = auth.currentUser?.uid;
-    if (!userId) return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [], groupBalances: {} });
+    if (!userId)
+      return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [], groupBalances: {} });
 
     const now = Date.now();
     // Use a 30s TTL for the summary to prevent heavy fan-out reads on rapid sequential updates
-    if (summaryCache.data && summaryCache.hash === userId && (now - summaryCache.timestamp < 30000)) {
-       return wrap(summaryCache.data);
+    if (summaryCache.data && summaryCache.hash === userId && now - summaryCache.timestamp < 30000) {
+      return wrap(summaryCache.data);
     }
 
     try {
       // 1. Resolve Groups first (Cache-first for speed on Dashboard)
       const groupCol = collection(db, 'groups');
       const q = query(groupCol, where('members', 'array-contains', userId));
-      
+
       let groupSnap;
       try {
         groupSnap = await getDocs(q);
       } catch (err) {
-        console.warn("[OFFLINE_FALLBACK] getSummary: fetching groups from cache");
+        console.warn('[OFFLINE_FALLBACK] getSummary: fetching groups from cache');
         const { getDocsFromCache } = await import('firebase/firestore');
         groupSnap = await getDocsFromCache(q);
       }
 
-      const activeGroupDocs = groupSnap.docs.filter(d => d.data()?.status !== 'deleted');
-      const groupIds = activeGroupDocs.map(d => d.id);
+      const activeGroupDocs = groupSnap.docs.filter((d) => d.data()?.status !== 'deleted');
+      const groupIds = activeGroupDocs.map((d) => d.id);
       let totalOwed = 0;
       let totalOwe = 0;
       const categoryTotals = {};
@@ -567,34 +630,39 @@ const expenseService = {
           const { getDocsFromCache } = await import('firebase/firestore');
           [expSnap, stlSnap] = await Promise.all([
             getDocsFromCache(expCol).catch(() => ({ docs: [] })),
-            getDocsFromCache(stlCol).catch(() => ({ docs: [] }))
+            getDocsFromCache(stlCol).catch(() => ({ docs: [] })),
           ]);
         }
 
-        const expenses = expSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
-        const settlements = stlSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
-        
+        const expenses = expSnap.docs.map((d) => ({ _id: d.id, ...d.data() }));
+        const settlements = stlSnap.docs.map((d) => ({ _id: d.id, ...d.data() }));
+
         // Category distribution (Your actual share) - SKIP DELETED
-        expenses.forEach(exp => {
+        expenses.forEach((exp) => {
           if (exp.status === 'deleted' || exp.status === 'archived') return;
-          
+
           // Find the user's specific share in this expense
-          const userSplit = exp.splits?.find(s => {
+          const userSplit = exp.splits?.find((s) => {
             const sUid = s.user?._id || s.user?.uid || s.user || '';
             return sUid === userId;
           });
 
           if (userSplit && exp.category) {
-            categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + parseFloat(userSplit.amount || 0);
+            categoryTotals[exp.category] =
+              (categoryTotals[exp.category] || 0) + parseFloat(userSplit.amount || 0);
           }
         });
 
         // Compute balances
-        const groupDoc = groupSnap.docs.find(d => d.id === groupId);
+        const groupDoc = groupSnap.docs.find((d) => d.id === groupId);
         const members = groupDoc.data().members || [];
-        const activeExpenses = expenses.filter(e => e.status !== 'deleted');
-        const activeSettlements = settlements.filter(s => s.status !== 'deleted');
-        const balances = computeGroupBalances(activeExpenses, activeSettlements, members.map(uid => ({ uid })));
+        const activeExpenses = expenses.filter((e) => e.status !== 'deleted');
+        const activeSettlements = settlements.filter((s) => s.status !== 'deleted');
+        const balances = computeGroupBalances(
+          activeExpenses,
+          activeSettlements,
+          members.map((uid) => ({ uid }))
+        );
         const myBalance = balances[userId] || 0;
 
         groupBalances[groupId] = myBalance;
@@ -602,29 +670,31 @@ const expenseService = {
         else if (myBalance < 0) totalOwe += Math.abs(myBalance);
       }
 
-      const categories = Object.keys(categoryTotals).map(name => ({
-        name,
-        value: categoryTotals[name]
-      })).sort((a, b) => b.value - a.value);
+      const categories = Object.keys(categoryTotals)
+        .map((name) => ({
+          name,
+          value: categoryTotals[name],
+        }))
+        .sort((a, b) => b.value - a.value);
 
       const finalData = {
         totalOwed,
         totalOwe,
         netBalance: totalOwed - totalOwe,
         categories,
-        groupBalances
+        groupBalances,
       };
 
       // Save to cache
       summaryCache = {
         data: finalData,
         timestamp: Date.now(),
-        hash: userId
+        hash: userId,
       };
 
       return wrap(finalData);
     } catch (error) {
-      console.error("[CRITICAL] Summary engine error:", error);
+      console.error('[CRITICAL] Summary engine error:', error);
       return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [], groupBalances: {} });
     }
   },
@@ -633,15 +703,15 @@ const expenseService = {
     const balancesReq = await expenseService.getBalances(groupId);
     const balancesMap = balancesReq.data.data.balances;
     const { simplifyDebts } = await import('../utils/balanceEngine.js');
-    const plan = simplifyDebts(balancesMap); 
-    
-    const userDebts = plan.filter(tx => tx.from === userId);
+    const plan = simplifyDebts(balancesMap);
+
+    const userDebts = plan.filter((tx) => tx.from === userId);
     const total_owe = userDebts.reduce((sum, tx) => sum + tx.amount, 0);
-    
-    return wrap({ 
-        total_owe,
-        settlements: userDebts,
-        simplifiedDebts: plan
+
+    return wrap({
+      total_owe,
+      settlements: userDebts,
+      simplifiedDebts: plan,
     });
   },
 
@@ -655,11 +725,11 @@ const expenseService = {
     try {
       snap = await getDocs(q);
     } catch (err) {
-      console.warn("[OFFLINE_FALLBACK] getActivity: fetching from cache");
+      console.warn('[OFFLINE_FALLBACK] getActivity: fetching from cache');
       const { getDocsFromCache } = await import('firebase/firestore');
       snap = await getDocsFromCache(q);
     }
-    const activity = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    const activity = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
     return wrap({ activity });
   },
 
@@ -671,8 +741,8 @@ const expenseService = {
       const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
       const groupSnap = await getDocs(q);
       const groupIds = groupSnap.docs
-        .filter(d => d.data()?.status !== 'deleted')
-        .map(d => d.id);
+        .filter((d) => d.data()?.status !== 'deleted')
+        .map((d) => d.id);
 
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
@@ -682,30 +752,32 @@ const expenseService = {
 
       for (const groupId of groupIds) {
         const expQ = query(
-          collection(db, 'groups', groupId, 'expenses'), 
+          collection(db, 'groups', groupId, 'expenses'),
           where('createdAt', '>=', startDateStr),
           orderBy('createdAt', 'asc')
         );
         const expSnap = await getDocs(expQ);
-        expSnap.forEach(d => allExpenseData.push(d.data()));
+        expSnap.forEach((d) => allExpenseData.push(d.data()));
       }
 
       // Group by date - SKIP DELETED
       const trendsMap = {};
-      allExpenseData.forEach(exp => {
+      allExpenseData.forEach((exp) => {
         if (exp.status === 'deleted') return;
         const date = exp.createdAt.split('T')[0];
         trendsMap[date] = (trendsMap[date] || 0) + parseFloat(exp.amount || 0);
       });
 
-      const trends = Object.keys(trendsMap).map(date => ({
-        date,
-        amount: trendsMap[date]
-      })).sort((a, b) => a.date.localeCompare(b.date));
+      const trends = Object.keys(trendsMap)
+        .map((date) => ({
+          date,
+          amount: trendsMap[date],
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
 
       return wrap({ trends });
     } catch (error) {
-      console.error("Trends calc error:", error);
+      console.error('Trends calc error:', error);
       return wrap({ trends: [] });
     }
   },

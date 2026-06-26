@@ -12,7 +12,7 @@ import './index.css';
 // Purge ALL old avatar caches from the service worker.
 // Avatars are no longer SW-cached (cross-origin opaque responses caused failures).
 if (typeof window !== 'undefined' && 'caches' in window) {
-  ['google-avatars-cache', 'google-avatars-v2'].forEach(name =>
+  ['google-avatars-cache', 'google-avatars-v2'].forEach((name) =>
     caches.delete(name).catch(() => {})
   );
 }
@@ -22,15 +22,23 @@ if (typeof window !== 'undefined' && 'caches' in window) {
 
 // App-like behaviors: Disable context menu and specific gestures
 if (typeof window !== 'undefined') {
-  window.addEventListener('contextmenu', (e) => {
-    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-      e.preventDefault();
-    }
-  }, false);
+  window.addEventListener(
+    'contextmenu',
+    (e) => {
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+      }
+    },
+    false
+  );
 
-  window.addEventListener('touchstart', (e) => {
-    if (e.touches.length > 1) return;
-  }, { passive: true });
+  window.addEventListener(
+    'touchstart',
+    (e) => {
+      if (e.touches.length > 1) return;
+    },
+    { passive: true }
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(

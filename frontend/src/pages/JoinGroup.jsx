@@ -40,7 +40,7 @@ const JoinGroup = () => {
       try {
         const userId = user.uid || user._id; // Ensure consistent UID usage
         const response = await groupService.joinGroupByCode(cleanCode, userId);
-        
+
         setStatus('success');
         setGroupData({ groupId: response.data.data.groupId });
         toast.success(response.data.message || 'Successfully joined the cohort!');
@@ -66,11 +66,11 @@ const JoinGroup = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-background relative overflow-hidden">
-        {/* Background elements */}
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-white/5 blur-[100px] pointer-events-none" />
+      {/* Background elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-white/5 blur-[100px] pointer-events-none" />
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="glass-panel max-w-sm w-full p-10 rounded-[3rem] border border-white/5 text-center relative z-10"
@@ -90,15 +90,15 @@ const JoinGroup = () => {
         <h1 className="font-manrope font-black text-3xl text-white mb-4 tracking-tighter leading-none">
           {status === 'success' ? 'Cohort Joined' : 'Access Denied'}
         </h1>
-        
+
         <p className="font-inter text-on-surface-variant text-sm mb-10 leading-relaxed opacity-70">
-          {status === 'success' 
+          {status === 'success'
             ? "You've been successfully integrated into the group ledger. You can now track shared expenses with this cohort."
             : error}
         </p>
 
         {status === 'success' ? (
-          <Button 
+          <Button
             onClick={() => navigate(`/groups/${groupData.groupId}`)}
             className="w-full h-16 rounded-3xl font-manrope font-black text-lg bg-white text-black hover:bg-neutral-200 transition-all flex items-center justify-center gap-3 shadow-2xl"
           >
@@ -106,7 +106,7 @@ const JoinGroup = () => {
             <ArrowRight size={20} />
           </Button>
         ) : (
-          <Button 
+          <Button
             onClick={() => navigate('/dashboard')}
             className="w-full h-16 rounded-3xl font-manrope font-black text-lg bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all"
           >

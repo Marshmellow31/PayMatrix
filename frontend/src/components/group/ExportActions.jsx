@@ -36,7 +36,10 @@ const ExportActions = ({ group, expenses, balances, logs = [], iconOnly = false 
         {!iconOnly && (
           <>
             Export
-            <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              size={14}
+              className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+            />
           </>
         )}
       </button>
@@ -44,10 +47,7 @@ const ExportActions = ({ group, expenses, balances, logs = [], iconOnly = false 
       <AnimatePresence>
         {isOpen && (
           <>
-            <div 
-              className="fixed inset-0 z-40" 
-              onClick={() => setIsOpen(false)} 
-            />
+            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
             <motion.div
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -64,7 +64,9 @@ const ExportActions = ({ group, expenses, balances, logs = [], iconOnly = false 
                   </div>
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-on-surface">PDF Report</span>
-                    <span className="text-[10px] text-on-surface-variant/60">Formatted Summary</span>
+                    <span className="text-[10px] text-on-surface-variant/60">
+                      Formatted Summary
+                    </span>
                   </div>
                 </button>
 

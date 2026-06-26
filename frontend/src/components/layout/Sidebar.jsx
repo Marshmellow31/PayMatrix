@@ -8,7 +8,7 @@ import {
   X,
   Wallet,
   BarChart3,
-  Sparkles
+  Sparkles,
 } from 'lucide-react';
 
 const navItems = [
@@ -21,20 +21,25 @@ const navItems = [
 ];
 
 const Sidebar = ({ isOpen, onClose, maintenanceMode }) => {
-  const topOffset = maintenanceMode ? 'top-32 h-[calc(100vh-128px)]' : 'top-20 h-[calc(100vh-80px)]';
+  const topOffset = maintenanceMode
+    ? 'top-32 h-[calc(100vh-128px)]'
+    : 'top-20 h-[calc(100vh-80px)]';
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className={`hidden lg:flex flex-col w-64 bg-surface-container-low/40 backdrop-blur-xl border-r border-outline-variant/5 fixed left-0 p-6 z-30 transition-all ${topOffset}`}>
+      <aside
+        className={`hidden lg:flex flex-col w-64 bg-surface-container-low/40 backdrop-blur-xl border-r border-outline-variant/5 fixed left-0 p-6 z-30 transition-all ${topOffset}`}
+      >
         <nav className="flex flex-col gap-1 mt-4">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive
-                  ? 'bg-surface-container-high text-primary'
-                  : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-surface-container-high text-primary'
+                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                 }`
               }
             >
@@ -82,9 +87,10 @@ const Sidebar = ({ isOpen, onClose, maintenanceMode }) => {
                     to={item.to}
                     onClick={onClose}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive
-                        ? 'bg-surface-container-high text-primary'
-                        : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                      `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-surface-container-high text-primary'
+                          : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                       }`
                     }
                   >

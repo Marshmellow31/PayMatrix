@@ -14,8 +14,10 @@ const AddExpense = () => {
   const navigate = useNavigate();
   const { groups, loading: groupsLoading } = useSelector((state) => state.groups);
   const { loading: expenseLoading } = useSelector((state) => state.expenses);
-  
-  const [initialGroupId, setInitialGroupId] = useState(id || localStorage.getItem('lastGroupId') || '');
+
+  const [initialGroupId, setInitialGroupId] = useState(
+    id || localStorage.getItem('lastGroupId') || ''
+  );
 
   useEffect(() => {
     dispatch(fetchGroups());
@@ -43,7 +45,7 @@ const AddExpense = () => {
 
       {/* Header */}
       <header className="flex items-center justify-between mb-8 sm:mb-10 relative z-10 px-5 sm:px-8">
-        <button 
+        <button
           onClick={() => navigate(-1)}
           className="w-12 h-12 rounded-2xl bg-surface-container-low/50 border border-white/5 flex items-center justify-center hover:bg-surface-container-high transition-colors"
         >
@@ -51,7 +53,9 @@ const AddExpense = () => {
         </button>
         <div className="text-center">
           <h1 className="font-manrope font-black text-xl tracking-tighter">PayMatrix</h1>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant opacity-50">Focused Session</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant opacity-50">
+            Focused Session
+          </p>
         </div>
         <div className="w-12 h-12" /> {/* Spacer */}
       </header>

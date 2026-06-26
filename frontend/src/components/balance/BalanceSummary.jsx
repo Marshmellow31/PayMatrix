@@ -11,21 +11,14 @@ const BalanceSummary = ({ balances = [] }) => {
         const isZero = balance === 0;
 
         return (
-          <div
-            key={user._id}
-            className="flex items-center justify-between py-2"
-          >
+          <div key={user._id} className="flex items-center justify-between py-2">
             <div className="flex items-center gap-3">
               <Avatar name={user.name} src={user.avatar} size="sm" />
               <p className="text-sm font-medium text-on-surface">{user.name}</p>
             </div>
             <p
               className={`text-sm font-semibold font-manrope ${
-                isZero
-                  ? 'text-on-surface-variant'
-                  : isPositive
-                  ? 'text-green-400'
-                  : 'text-error'
+                isZero ? 'text-on-surface-variant' : isPositive ? 'text-green-400' : 'text-error'
               }`}
             >
               {isPositive ? '+' : ''}

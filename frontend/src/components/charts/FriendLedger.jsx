@@ -14,8 +14,8 @@ const FriendLedger = ({ networkData }) => {
   const count = top4.length;
 
   // Max value for bar scaling
-  const maxBalance = Math.max(...top4.map(d => Math.abs(d.netBalance)), 1);
-  const maxTurnover = Math.max(...top4.map(d => d.totalTurnover), 1);
+  const maxBalance = Math.max(...top4.map((d) => Math.abs(d.netBalance)), 1);
+  const maxTurnover = Math.max(...top4.map((d) => d.totalTurnover), 1);
 
   useEffect(() => {
     const t = setTimeout(() => setAnimated(true), 100);
@@ -26,9 +26,23 @@ const FriendLedger = ({ networkData }) => {
   const rowHeight = count === 1 ? 120 : count === 2 ? 100 : count === 3 ? 84 : 72;
 
   const getLabel = (balance) => {
-    if (Math.abs(balance) < 1) return { text: 'Settled', color: 'text-white/30', badge: 'bg-white/5 text-white/30 border-white/10' };
-    if (balance > 0) return { text: 'Owes you', color: 'text-emerald-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' };
-    return { text: 'You owe', color: 'text-orange-400', badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20' };
+    if (Math.abs(balance) < 1)
+      return {
+        text: 'Settled',
+        color: 'text-white/30',
+        badge: 'bg-white/5 text-white/30 border-white/10',
+      };
+    if (balance > 0)
+      return {
+        text: 'Owes you',
+        color: 'text-emerald-400',
+        badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      };
+    return {
+      text: 'You owe',
+      color: 'text-orange-400',
+      badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+    };
   };
 
   const getBarColor = (balance) => {
@@ -44,10 +58,7 @@ const FriendLedger = ({ networkData }) => {
   };
 
   return (
-    <div
-      className="w-full flex flex-col"
-      style={{ gap: count > 2 ? '12px' : '16px' }}
-    >
+    <div className="w-full flex flex-col" style={{ gap: count > 2 ? '12px' : '16px' }}>
       <AnimatePresence>
         {top4.map((stat, idx) => {
           const { text, color, badge } = getLabel(stat.netBalance);
@@ -72,10 +83,10 @@ const FriendLedger = ({ networkData }) => {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   {/* Avatar */}
-                  <Avatar 
-                    name={name} 
-                    src={stat.friend?.avatar} 
-                    size="sm" 
+                  <Avatar
+                    name={name}
+                    src={stat.friend?.avatar}
+                    size="sm"
                     className={`rounded-xl ${
                       Math.abs(stat.netBalance) < 1
                         ? 'bg-white/10 text-white/50 border-white/5'
@@ -85,7 +96,9 @@ const FriendLedger = ({ networkData }) => {
                     }`}
                   />
                   <div>
-                    <p className="text-sm font-black text-white leading-none tracking-tight">{name}</p>
+                    <p className="text-sm font-black text-white leading-none tracking-tight">
+                      {name}
+                    </p>
                     <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest mt-0.5">
                       {stat.mutualGroupsCount} group{stat.mutualGroupsCount !== 1 ? 's' : ''}
                     </p>
@@ -94,7 +107,9 @@ const FriendLedger = ({ networkData }) => {
 
                 {/* Status Badge */}
                 <div className={`flex items-center gap-2 ${count <= 2 ? '' : ''}`}>
-                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border ${badge}`}>
+                  <span
+                    className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border ${badge}`}
+                  >
                     {text}
                   </span>
                   <span className={`text-sm font-black font-manrope tracking-tight ${color}`}>
@@ -106,7 +121,9 @@ const FriendLedger = ({ networkData }) => {
               {/* Bar: Net Balance */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.15em]">Net Balance</span>
+                  <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.15em]">
+                    Net Balance
+                  </span>
                   <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.15em]">
                     ₹{(stat.totalTurnover || 0).toLocaleString()} turnover
                   </span>

@@ -11,13 +11,15 @@ const GroupCard = ({ group, balance = 0 }) => {
   const IconComponent = category?.icon ? LucideIcons[category.icon] || Hash : Hash;
 
   // De-duplicate members by user ID (handles both raw UIDs and expanded objects)
-  const uniqueMembers = Array.from(new Map(
-    (group.members || []).map(m => {
-      const u = m.user || m;
-      const id = typeof u === 'string' ? u : (u?._id || u?.uid || '').toString();
-      return [id, m];
-    })
-  ).values());
+  const uniqueMembers = Array.from(
+    new Map(
+      (group.members || []).map((m) => {
+        const u = m.user || m;
+        const id = typeof u === 'string' ? u : (u?._id || u?.uid || '').toString();
+        return [id, m];
+      })
+    ).values()
+  );
 
   return (
     <Link to={`/groups/${group._id}`} className="block">
@@ -42,8 +44,15 @@ const GroupCard = ({ group, balance = 0 }) => {
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
               Your Balance
             </p>
-            <p className={`font-headline text-2xl font-black ${balance >= 0 ? 'text-white' : 'text-red-400'}`}>
-              {balance >= 0 ? '+' : '-'}{group.currency || '₹'}{Math.abs(balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <p
+              className={`font-headline text-2xl font-black ${balance >= 0 ? 'text-white' : 'text-red-400'}`}
+            >
+              {balance >= 0 ? '+' : '-'}
+              {group.currency || '₹'}
+              {Math.abs(balance).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
           </div>
         </div>
@@ -57,24 +66,27 @@ const GroupCard = ({ group, balance = 0 }) => {
               const id = u?._id || (typeof member === 'string' ? member : idx);
 
               return (
-                <div key={id} className="relative transition-transform duration-300 hover:z-20 hover:-translate-y-0.5">
-                  <Avatar
-                    name={name}
-                    src={src}
-                    size="sm"
-                    className="shadow-xl"
-                  />
+                <div
+                  key={id}
+                  className="relative transition-transform duration-300 hover:z-20 hover:-translate-y-0.5"
+                >
+                  <Avatar name={name} src={src} size="sm" className="shadow-xl" />
                 </div>
               );
             })}
             {uniqueMembers.length > 3 && (
               <div className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center shadow-xl z-0 transition-transform duration-300 hover:-translate-y-0.5">
-                <span className="text-[10px] font-black text-white/90 font-manrope">+{uniqueMembers.length - 3}</span>
+                <span className="text-[10px] font-black text-white/90 font-manrope">
+                  +{uniqueMembers.length - 3}
+                </span>
               </div>
             )}
           </div>
           <div className="w-8 h-8 rounded-full bg-surface-container-high/50 flex items-center justify-center group-hover:bg-primary group-hover:text-on-primary transition-all duration-300">
-            <LucideIcons.ChevronRight size={16} className="text-on-surface-variant group-hover:text-on-primary" />
+            <LucideIcons.ChevronRight
+              size={16}
+              className="text-on-surface-variant group-hover:text-on-primary"
+            />
           </div>
         </div>
 

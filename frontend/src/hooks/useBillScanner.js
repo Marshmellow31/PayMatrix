@@ -10,7 +10,8 @@
  * - Clients cannot forge ai_request logs or bypass per-user quotas.
  */
 import { useState, useCallback } from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { db, auth } from '../config/firebase.js';
+import { collection, addDoc } from 'firebase/firestore';
 
 // ─── Image helpers ────────────────────────────────────────────────────────────
 
@@ -43,14 +44,14 @@ const fileToCompressedBase64 = async (file) => {
     return { base64: btoa(binary), mimeType: file.type || 'image/jpeg' };
   }
 
-  const maxDim  = 1600;
+  const maxDim = 1600;
   const longest = Math.max(source.width, source.height);
-  const factor  = longest > maxDim ? maxDim / longest : 1;
-  const w = Math.round(source.width  * factor);
+  const factor = longest > maxDim ? maxDim / longest : 1;
+  const w = Math.round(source.width * factor);
   const h = Math.round(source.height * factor);
 
   const canvas = document.createElement('canvas');
-  canvas.width  = w;
+  canvas.width = w;
   canvas.height = h;
   canvas.getContext('2d').drawImage(source, 0, 0, w, h);
 
@@ -65,29 +66,58 @@ export const useBillScanner = () => {
 
   const scanBill = useCallback(async (file) => {
     setScanning(true);
+    const started = Date.now();
+    let errorMsg = null;
+    let parsed = null;
+
     try {
       const { base64, mimeType } = await fileToCompressedBase64(file);
 
-      const functions   = getFunctions();
-      const cloudScan   = httpsCallable(functions, 'scanBillWithGemini', { timeout: 30_000 });
-      const response    = await cloudScan({ imageBase64: base64, mimeType });
+      const response = await fetch('/api/scan-bill', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imageBase64: base64, mimeType }),
+      });
 
-      // response.data is the parsed receipt object returned by the Cloud Function
-      const parsed = response.data;
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(errText || `Server responded with status ${response.status}`);
+      }
+
+      parsed = await response.json();
       if (!parsed) return null;
 
       return {
-        amount:     parsed.amount,
+        amount: parsed.amount,
         candidates: parsed.amount != null ? [parsed.amount] : [],
-        title:      parsed.title  || '',
-        date:       parsed.date   || null,
-        category:   parsed.category || 'Other',
-        items:      parsed.items  || [],
+        title: parsed.title || '',
+        date: parsed.date || null,
+        category: parsed.category || 'Other',
+        items: parsed.items || [],
       };
     } catch (err) {
-      console.error('[useBillScanner] scanBill failed:', err?.message ?? err);
+      errorMsg = err?.message ?? String(err);
+      console.error('[useBillScanner] scanBill failed:', errorMsg);
       return null;
     } finally {
+      // Log requests directly to Firestore (Spark free plan allows direct writes)
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const duration = Date.now() - started;
+        addDoc(collection(db, 'ai_requests'), {
+          uid: currentUser.uid,
+          status: errorMsg ? 'failed' : 'passed',
+          duration,
+          timestamp: new Date().toISOString(),
+          parsedAmount: parsed?.amount ?? null,
+          itemsCount: parsed?.items?.length ?? 0,
+          error: errorMsg ?? null,
+          model: 'gemini-2.0-flash-lite',
+        }).catch((e) => console.error('[useBillScanner] Failed to write ai_requests log:', e));
+      }
+
       setScanning(false);
     }
   }, []);

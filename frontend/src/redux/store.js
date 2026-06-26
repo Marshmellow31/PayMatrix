@@ -1,6 +1,6 @@
 import { configureStore, combineReducers } from '@reduxjs/toolkit';
-import { 
-  persistStore, 
+import {
+  persistStore,
   persistReducer,
   FLUSH,
   REHYDRATE,

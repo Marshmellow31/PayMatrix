@@ -10,14 +10,17 @@ const initialState = {
   activeGroupId: null,
 };
 
-export const fetchExpenses = createAsyncThunk('expenses/fetchAll', async ({ groupId, page = 1 }, thunkAPI) => {
-  try {
-    const response = await expenseService.getExpenses(groupId, page);
-    return response.data;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.message || 'Failed to fetch expenses');
+export const fetchExpenses = createAsyncThunk(
+  'expenses/fetchAll',
+  async ({ groupId, page = 1 }, thunkAPI) => {
+    try {
+      const response = await expenseService.getExpenses(groupId, page);
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || 'Failed to fetch expenses');
+    }
   }
-});
+);
 
 export const addExpense = createAsyncThunk('expenses/add', async ({ groupId, data }, thunkAPI) => {
   try {
@@ -29,25 +32,31 @@ export const addExpense = createAsyncThunk('expenses/add', async ({ groupId, dat
   }
 });
 
-export const deleteExpense = createAsyncThunk('expenses/delete', async ({ id, groupId }, thunkAPI) => {
-  try {
-    const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
-    await expenseService.deleteExpense(id, groupId, userId);
-    return id;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.message || 'Failed to delete expense');
+export const deleteExpense = createAsyncThunk(
+  'expenses/delete',
+  async ({ id, groupId }, thunkAPI) => {
+    try {
+      const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
+      await expenseService.deleteExpense(id, groupId, userId);
+      return id;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || 'Failed to delete expense');
+    }
   }
-});
+);
 
-export const undoDeleteExpense = createAsyncThunk('expenses/restore', async ({ id, groupId }, thunkAPI) => {
-  try {
-    const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
-    await expenseService.restoreExpense(id, groupId, userId);
-    return id;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.message || 'Failed to restore expense');
+export const undoDeleteExpense = createAsyncThunk(
+  'expenses/restore',
+  async ({ id, groupId }, thunkAPI) => {
+    try {
+      const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
+      await expenseService.restoreExpense(id, groupId, userId);
+      return id;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || 'Failed to restore expense');
+    }
   }
-});
+);
 
 export const updateExpense = createAsyncThunk('expenses/update', async ({ id, data }, thunkAPI) => {
   try {
@@ -59,25 +68,31 @@ export const updateExpense = createAsyncThunk('expenses/update', async ({ id, da
   }
 });
 
-export const deleteSettlement = createAsyncThunk('settlements/delete', async ({ id, groupId }, thunkAPI) => {
-  try {
-    const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
-    await expenseService.deleteSettlement(id, groupId, userId);
-    return id;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.message || 'Failed to delete settlement');
+export const deleteSettlement = createAsyncThunk(
+  'settlements/delete',
+  async ({ id, groupId }, thunkAPI) => {
+    try {
+      const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
+      await expenseService.deleteSettlement(id, groupId, userId);
+      return id;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || 'Failed to delete settlement');
+    }
   }
-});
+);
 
-export const undoDeleteSettlement = createAsyncThunk('settlements/restore', async ({ id, groupId }, thunkAPI) => {
-  try {
-    const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
-    await expenseService.restoreSettlement(id, groupId, userId);
-    return id;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.message || 'Failed to restore settlement');
+export const undoDeleteSettlement = createAsyncThunk(
+  'settlements/restore',
+  async ({ id, groupId }, thunkAPI) => {
+    try {
+      const userId = thunkAPI.getState().auth.user?.uid || thunkAPI.getState().auth.user?._id;
+      await expenseService.restoreSettlement(id, groupId, userId);
+      return id;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || 'Failed to restore settlement');
+    }
   }
-});
+);
 
 const expenseSlice = createSlice({
   name: 'expenses',
@@ -100,7 +115,7 @@ const expenseSlice = createSlice({
         state.expenses = action.payload.expenses || [];
         state.activeGroupId = action.payload.groupId;
       }
-    }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -115,9 +130,9 @@ const expenseSlice = createSlice({
         // Correct path for Payload: action.payload.data
         state.expenses = action.payload.data.expenses || [];
       })
-      .addCase(fetchExpenses.rejected, (state, action) => { 
-        state.loading = false; 
-        state.error = action.payload; 
+      .addCase(fetchExpenses.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       })
 
       // NOTE: addExpense and updateExpense are handled exclusively by the
@@ -125,7 +140,7 @@ const expenseSlice = createSlice({
       // Only deleteExpense needs a manual reducer since deletion doesn't
       // fire the snapshot in a way that removes the item immediately.
       .addCase(deleteExpense.fulfilled, (state, action) => {
-        state.expenses = state.expenses.filter(e => e._id !== action.payload);
+        state.expenses = state.expenses.filter((e) => e._id !== action.payload);
       })
       .addCase(undoDeleteExpense.rejected, (state, action) => {
         state.error = action.payload;

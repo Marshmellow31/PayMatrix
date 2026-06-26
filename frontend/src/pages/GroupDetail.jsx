@@ -84,56 +84,68 @@ const GroupDetail = () => {
     dispatch(clearExpenses());
 
     // 2. Real-time listener for Group Metadata (Title, Members, Admin)
-    const unsubscribeGroup = onSnapshot(doc(db, 'groups', id), async (docSnap) => {
-      if (docSnap.exists()) {
-        try {
-          const groupData = await groupService.expandGroupData(docSnap);
-          dispatch({ type: 'groups/fetchOne/fulfilled', payload: { data: { group: groupData } } });
-        } catch (err) {
-          console.error("Error expanding group snapshot:", err);
-          // Fallback to raw data if expansion fails (minimizes broken UI)
-          const rawData = { _id: docSnap.id, ...docSnap.data() };
-          dispatch({ type: 'groups/fetchOne/fulfilled', payload: { data: { group: rawData } } });
+    const unsubscribeGroup = onSnapshot(
+      doc(db, 'groups', id),
+      async (docSnap) => {
+        if (docSnap.exists()) {
+          try {
+            const groupData = await groupService.expandGroupData(docSnap);
+            dispatch({
+              type: 'groups/fetchOne/fulfilled',
+              payload: { data: { group: groupData } },
+            });
+          } catch (err) {
+            console.error('Error expanding group snapshot:', err);
+            // Fallback to raw data if expansion fails (minimizes broken UI)
+            const rawData = { _id: docSnap.id, ...docSnap.data() };
+            dispatch({ type: 'groups/fetchOne/fulfilled', payload: { data: { group: rawData } } });
+          }
         }
+      },
+      (err) => {
+        if (deletingGroupRef.current && err.code === 'permission-denied') return;
+        console.error('Group metadata snapshot error:', err);
       }
-    }, (err) => {
-      if (deletingGroupRef.current && err.code === 'permission-denied') return;
-      console.error("Group metadata snapshot error:", err);
-    });
+    );
 
     // 3. Real-time listener for Expenses
-    const qExpenses = query(
-      collection(db, 'groups', id, 'expenses'),
-      orderBy('createdAt', 'desc')
+    const qExpenses = query(collection(db, 'groups', id, 'expenses'), orderBy('createdAt', 'desc'));
+    const unsubscribeExpenses = onSnapshot(
+      qExpenses,
+      (snapshot) => {
+        const liveExpenses = snapshot.docs.map((docSnap) => ({
+          _id: docSnap.id,
+          ...docSnap.data(),
+        }));
+        dispatch(setExpenses({ expenses: liveExpenses, groupId: id }));
+      },
+      (err) => {
+        if (deletingGroupRef.current && err.code === 'permission-denied') return;
+        console.error('Expenses snapshot error:', err);
+      }
     );
-    const unsubscribeExpenses = onSnapshot(qExpenses, (snapshot) => {
-      const liveExpenses = snapshot.docs.map(docSnap => ({
-        _id: docSnap.id,
-        ...docSnap.data()
-      }));
-      dispatch(setExpenses({ expenses: liveExpenses, groupId: id }));
-    }, (err) => {
-      if (deletingGroupRef.current && err.code === 'permission-denied') return;
-      console.error("Expenses snapshot error:", err);
-    });
 
     // 4. Real-time listener for Settlements
     const qSettlements = query(
       collection(db, 'groups', id, 'settlements'),
       orderBy('createdAt', 'desc')
     );
-    const unsubscribeSettlements = onSnapshot(qSettlements, (snapshot) => {
-      const liveSettlements = snapshot.docs.map(doc => ({
-        _id: doc.id,
-        // Ensure groupId is explicitly attached for filtering
-        groupId: id,
-        ...doc.data()
-      }));
-      setSettlements(liveSettlements);
-    }, (err) => {
-      if (deletingGroupRef.current && err.code === 'permission-denied') return;
-      console.error("Settlements snapshot error:", err);
-    });
+    const unsubscribeSettlements = onSnapshot(
+      qSettlements,
+      (snapshot) => {
+        const liveSettlements = snapshot.docs.map((doc) => ({
+          _id: doc.id,
+          // Ensure groupId is explicitly attached for filtering
+          groupId: id,
+          ...doc.data(),
+        }));
+        setSettlements(liveSettlements);
+      },
+      (err) => {
+        if (deletingGroupRef.current && err.code === 'permission-denied') return;
+        console.error('Settlements snapshot error:', err);
+      }
+    );
 
     // 5. Real-time listener for Group Logs is now lazy-loaded in a separate useEffect
 
@@ -154,16 +166,20 @@ const GroupDetail = () => {
       orderBy('createdAt', 'desc'),
       limit(100)
     );
-    const unsubscribeLogs = onSnapshot(qLogs, (snapshot) => {
-      const liveLogs = snapshot.docs.map(docSnap => ({
-        _id: docSnap.id,
-        ...docSnap.data()
-      }));
-      setGroupLogs(liveLogs);
-    }, (err) => {
-      if (deletingGroupRef.current && err.code === 'permission-denied') return;
-      console.error("Logs snapshot error:", err);
-    });
+    const unsubscribeLogs = onSnapshot(
+      qLogs,
+      (snapshot) => {
+        const liveLogs = snapshot.docs.map((docSnap) => ({
+          _id: docSnap.id,
+          ...docSnap.data(),
+        }));
+        setGroupLogs(liveLogs);
+      },
+      (err) => {
+        if (deletingGroupRef.current && err.code === 'permission-denied') return;
+        console.error('Logs snapshot error:', err);
+      }
+    );
 
     return () => {
       setGroupLogs([]);
@@ -172,44 +188,51 @@ const GroupDetail = () => {
   }, [id, tab]);
 
   const { netBalances, balanceList, debts, scopedExpenses } = useMemo(() => {
-    const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
-    if (!activeGrp || !id) return { netBalances: {}, balanceList: [], debts: [], scopedExpenses: [] };
+    const activeGrp = currentGroup?._id === id ? currentGroup : groups.find((g) => g._id === id);
+    if (!activeGrp || !id)
+      return { netBalances: {}, balanceList: [], debts: [], scopedExpenses: [] };
 
     // Defense in Depth: Filter expenses and settlements with STRICT equality.
     // This prevents "Zombie Data" (records from other groups or global state
     // with missing groupId fields) from leaking into the current view.
     const currentUserId = user?._id || user?.uid;
-    const scopedExpenses = expenses.filter(e => {
-      const eGroupId = e.groupId || (e.group?._id || e.group);
+    const scopedExpenses = expenses.filter((e) => {
+      const eGroupId = e.groupId || e.group?._id || e.group;
       if (eGroupId !== id || e.status === 'deleted') return false;
 
       // Personal filter logic
       if (showOnlyMe) {
         const isPayer = (e.paidBy?._id || e.paidBy) === currentUserId;
-        const isParticipant = e.participants?.includes(currentUserId) || e.splits?.some(s => (s.user?._id || s.user) === currentUserId);
+        const isParticipant =
+          e.participants?.includes(currentUserId) ||
+          e.splits?.some((s) => (s.user?._id || s.user) === currentUserId);
         return isPayer || isParticipant;
       }
       return true;
     });
 
-    const scopedSettlements = settlements.filter(s => s.groupId === id && s.status !== 'deleted');
+    const scopedSettlements = settlements.filter((s) => s.groupId === id && s.status !== 'deleted');
 
-    const calculatedBalances = computeGroupBalances(scopedExpenses, scopedSettlements, activeGrp.members);
+    const calculatedBalances = computeGroupBalances(
+      scopedExpenses,
+      scopedSettlements,
+      activeGrp.members
+    );
 
-    const list = Object.keys(calculatedBalances).map(uid => {
-      const member = activeGrp.members.find(m => {
+    const list = Object.keys(calculatedBalances).map((uid) => {
+      const member = activeGrp.members.find((m) => {
         const mid = m.user?._id || m.user?.uid || m.user;
         return (mid || '').toString() === uid;
       });
       return {
         user: member?.user || { _id: uid, name: 'Member' },
-        balance: calculatedBalances[uid]
+        balance: calculatedBalances[uid],
       };
     });
 
     const calculatedDebts = simplifyDebts(calculatedBalances);
 
-    const hasPending = Object.values(calculatedBalances).some(val => Math.abs(val) > 0.01);
+    const hasPending = Object.values(calculatedBalances).some((val) => Math.abs(val) > 0.01);
     const myBalance = calculatedBalances[user?._id || user?.uid] || 0;
 
     return {
@@ -218,40 +241,50 @@ const GroupDetail = () => {
       debts: calculatedDebts,
       hasPending,
       myBalance,
-      scopedExpenses
+      scopedExpenses,
     };
   }, [expenses, settlements, currentGroup, groups, id, user, showOnlyMe]);
 
   // Ensure legacy groups get an invite code
   useEffect(() => {
-    const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
+    const activeGrp = currentGroup?._id === id ? currentGroup : groups.find((g) => g._id === id);
     if (!activeGrp || activeGrp.inviteCode || !user) return;
 
     // Only admins can generate the initial invite code for legacy groups
     const isAdmin = activeGrp.admin === (user?._id || user?.uid);
     if (isAdmin && isOnline) {
       const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-      groupService.updateGroup(id, { inviteCode: newCode })
+      groupService
+        .updateGroup(id, { inviteCode: newCode })
         .then(() => dispatch(fetchGroup(id)))
-        .catch(err => console.error("Failed to generate legacy invite code:", err));
+        .catch((err) => console.error('Failed to generate legacy invite code:', err));
     }
   }, [currentGroup, groups, id, user, isOnline, dispatch]);
 
   const balances = balanceList;
   const simplifiedDebts = debts;
-  const { hasPending, myBalance } = { hasPending: debts.length > 0 || Object.values(netBalances).some(v => Math.abs(v) > 0.01), myBalance: netBalances[user?._id || user?.uid] || 0 };
+  const { hasPending, myBalance } = {
+    hasPending: debts.length > 0 || Object.values(netBalances).some((v) => Math.abs(v) > 0.01),
+    myBalance: netBalances[user?._id || user?.uid] || 0,
+  };
 
   useEffect(() => {
     if (showAddMember) {
       setLoadingFriends(true);
       setSelectedFriend(null);
-      friendService.getFriends()
-        .then(res => {
+      friendService
+        .getFriends()
+        .then((res) => {
           // Filter out friends already in the group
-          const activeGrp = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
+          const activeGrp =
+            currentGroup?._id === id ? currentGroup : groups.find((g) => g._id === id);
           if (!activeGrp) return;
-          const currentMemberIds = new Set(activeGrp.members.map(m => (m.user?._id || m.user).toString()).filter(m => m && typeof m === 'string' && m !== 'undefined'));
-          setFriends(res.data.data.friends.filter(f => !currentMemberIds.has(f._id)));
+          const currentMemberIds = new Set(
+            activeGrp.members
+              .map((m) => (m.user?._id || m.user).toString())
+              .filter((m) => m && typeof m === 'string' && m !== 'undefined')
+          );
+          setFriends(res.data.data.friends.filter((f) => !currentMemberIds.has(f._id)));
         })
         .finally(() => setLoadingFriends(false));
     }
@@ -296,13 +329,13 @@ const GroupDetail = () => {
       setShowLeaveConfirm(false);
       navigate('/dashboard');
     } catch (err) {
-      console.error("Leave Group Error:", err);
+      console.error('Leave Group Error:', err);
       // Determine error type for better feedback
       const errMsg = err.message?.toLowerCase() || '';
       if (errMsg.includes('balance')) {
-        toast.error("Clear your pending balance (settle up) to exit.");
+        toast.error('Clear your pending balance (settle up) to exit.');
       } else if (err.code === 'permission-denied' || errMsg.includes('permission')) {
-        toast.error("Exit failed. Ensure you are not the last admin or have zero balance.");
+        toast.error('Exit failed. Ensure you are not the last admin or have zero balance.');
       } else {
         toast.error('Exit failed. Please verify your connection and try again.');
       }
@@ -342,46 +375,47 @@ const GroupDetail = () => {
     try {
       await groupService.updateGroup(id, {
         name: editName.trim(),
-        category: editCategory
+        category: editCategory,
       });
       toast.success('Cohort updated');
       setShowEditGroup(false);
       // Real-time snapshot will update the UI automatically
     } catch (err) {
-      console.error("Update cohort error:", err);
+      console.error('Update cohort error:', err);
       toast.error(err?.message || 'Failed to update cohort');
     } finally {
       setUpdatingGroup(false);
     }
   };
 
-  const activeGroup = currentGroup?._id === id ? currentGroup : groups.find(g => g._id === id);
+  const activeGroup = currentGroup?._id === id ? currentGroup : groups.find((g) => g._id === id);
 
   // Only show the full-page loader if we have NO group data for this ID at all.
   // If we have it in the cache (groups array), we show the content and let snapshots update it.
   if (!activeGroup && groupLoading) return <Loader className="py-20" />;
-  if (!activeGroup) return <div className="text-center py-20 opacity-50 font-inter">Identifying Cohort...</div>;
+  if (!activeGroup)
+    return <div className="text-center py-20 opacity-50 font-inter">Identifying Cohort...</div>;
 
   const category = GROUP_CATEGORIES.find((c) => c.value === activeGroup.category);
   const isAdmin = activeGroup.admin === (user?._id || user?.uid);
   const tabs = ['expenses', 'members', 'logs', 'insights'];
 
   // De-duplicate members for accurate count
-  const uniqueMembers = Array.from(new Map(
-    (activeGroup.members || []).map(m => {
-      const u = m.user || m;
-      const idStr = (u?._id || u?.uid || u || '').toString();
-      return [idStr, m];
-    })
-  ).values());
+  const uniqueMembers = Array.from(
+    new Map(
+      (activeGroup.members || []).map((m) => {
+        const u = m.user || m;
+        const idStr = (u?._id || u?.uid || u || '').toString();
+        return [idStr, m];
+      })
+    ).values()
+  );
 
   return (
     <div className="lg:max-w-6xl max-w-4xl mx-auto animate-fade-in pb-24">
       <div className="lg:grid lg:grid-cols-[1fr_300px] lg:gap-8 lg:items-start">
-
         {/* ── LEFT: Tabs + Content ─────────────────────────── */}
         <div className="min-w-0">
-
           {/* Mobile-only header — hidden on desktop */}
           <div className="lg:hidden bg-surface-container-low mt-4 mb-6 p-4 sm:p-6 rounded-[2rem] border border-white/5">
             <div className="relative z-10 flex flex-col gap-6">
@@ -391,7 +425,11 @@ const GroupDetail = () => {
                     {category?.icon ? (
                       (() => {
                         const IconComponent = LucideIcons[category.icon];
-                        return IconComponent ? <IconComponent size={24} style={{ color: category.color }} /> : <LucideIcons.Hash size={24} />;
+                        return IconComponent ? (
+                          <IconComponent size={24} style={{ color: category.color }} />
+                        ) : (
+                          <LucideIcons.Hash size={24} />
+                        );
                       })()
                     ) : (
                       <LucideIcons.Hash size={24} />
@@ -402,7 +440,8 @@ const GroupDetail = () => {
                       {activeGroup.name || activeGroup.title}
                     </h1>
                     <p className="text-[9px] text-white/30 uppercase tracking-[0.22em] font-black font-manrope truncate">
-                      {activeGroup.category} <span className="mx-1.5 opacity-50">•</span> {uniqueMembers.length} Members
+                      {activeGroup.category} <span className="mx-1.5 opacity-50">•</span>{' '}
+                      {uniqueMembers.length} Members
                     </p>
                   </div>
                 </div>
@@ -422,7 +461,8 @@ const GroupDetail = () => {
                   onClick={() => openAddExpense(id)}
                   className="flex-1 h-11 px-2 rounded-xl font-manrope font-black text-[10px] tracking-[0.12em] flex items-center justify-center gap-2 bg-white text-black hover:bg-white/90 transition-all active:scale-[0.97] uppercase shadow-lg shadow-white/5"
                 >
-                  <Plus size={16} strokeWidth={4} className="shrink-0" /> <span className="truncate">Record</span>
+                  <Plus size={16} strokeWidth={4} className="shrink-0" />{' '}
+                  <span className="truncate">Record</span>
                 </button>
                 <button
                   onClick={() => isOnline && setShowSettleUp(true)}
@@ -436,170 +476,193 @@ const GroupDetail = () => {
             </div>
           </div>
 
-      {/* Tabs */}
-      <div
-        className="flex gap-5 sm:gap-8 mb-6 pb-0 overflow-x-auto hide-scrollbar"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
-        {tabs.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`pb-3 text-sm font-bold font-inter capitalize transition-all whitespace-nowrap relative tracking-tight ${tab === t ? 'text-primary' : 'text-on-surface-variant/50 hover:text-on-surface'}`}
+          {/* Tabs */}
+          <div
+            className="flex gap-5 sm:gap-8 mb-6 pb-0 overflow-x-auto hide-scrollbar"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
-            {t}
-            {tab === t && (
-              <motion.div
-                layoutId="activeTab"
-                className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-full"
-              />
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      {tab === 'expenses' && (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.3em]">Chronicle</h3>
-            <button
-              onClick={() => setShowOnlyMe(!showOnlyMe)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-[10px] font-bold uppercase tracking-widest ${showOnlyMe
-                  ? 'bg-primary border-primary text-black'
-                  : 'bg-white/5 border-white/5 text-on-surface-variant hover:bg-white/10'
-                }`}
-            >
-              <LucideIcons.User size={12} />
-              {showOnlyMe ? 'Viewing Yours' : 'View Yours'}
-            </button>
-          </div>
-
-          {(() => {
-            if (expenseLoading && scopedExpenses.length === 0) return <Loader className="py-12" />;
-            if (scopedExpenses.length === 0) return (
-              <div className="submerged text-center py-16 border-none">
-                <p className="text-lg font-inter text-on-surface-variant">No expenses yet. Time to split a bill!</p>
-              </div>
-            );
-
-            return scopedExpenses.map((expense) => (
-              <ExpenseCard
-                key={expense._id}
-                expense={expense}
-                currentUserId={user?._id || user?.uid}
-                onDelete={handleDeleteExpense}
-                onEdit={(exp) => openAddExpense(id, exp)}
-              />
-            ));
-          })()}
-        </div>
-      )}
-
-
-      {tab === 'members' && (
-        <div className="flex flex-col gap-6">
-          <div className="glass-card p-6 lg:p-10">
-            <MemberList
-              members={activeGroup.members}
-              adminId={activeGroup.admin}
-              balances={balances}
-              groupId={id}
-              onMemberRemoved={() => dispatch(fetchGroup(id))}
-              currentUserId={user?._id || user?.uid}
-            />
-          </div>
-
-          {/* Non-admin: Leave group */}
-          {!isAdmin && (
-            <div className="px-1">
+            {tabs.map((t) => (
               <button
-                onClick={() => isOnline && setShowLeaveConfirm(true)}
-                disabled={!isOnline || Math.abs(myBalance) > 0.01}
-                className={`w-full py-4 rounded-2xl border text-xs font-black tracking-[0.2em] uppercase transition-all active:scale-[0.98] ${(!isOnline || Math.abs(myBalance) > 0.01) ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500'}`}
+                key={t}
+                onClick={() => setTab(t)}
+                className={`pb-3 text-sm font-bold font-inter capitalize transition-all whitespace-nowrap relative tracking-tight ${tab === t ? 'text-primary' : 'text-on-surface-variant/50 hover:text-on-surface'}`}
               >
-                {!isOnline ? 'Exit Blocked (Offline)' : Math.abs(myBalance) > 0.01 ? `Clear ${formatCurrency(myBalance)} to Exit` : 'Exit Cohort'}
+                {t}
+                {tab === t && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-full"
+                  />
+                )}
               </button>
-            </div>
-          )}
-
-          {/* Admin: Edit group details */}
-          {isAdmin && (
-            <div className="px-1 mt-2">
-              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
-                <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Group Settings</p>
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-bold text-white/80">Edit Details</p>
-                    <p className="text-[11px] text-white/30 mt-0.5 font-inter">Update name and category.</p>
-                  </div>
-                  <button
-                    onClick={() => isOnline && handleUpdateGroupLabel()}
-                    disabled={!isOnline}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0 ${!isOnline ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'}`}
-                  >
-                    <LucideIcons.Settings size={14} />
-                    Edit
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Admin: Delete group (danger zone) */}
-          {isAdmin && (
-            <div className="px-1">
-              <div className="rounded-2xl border border-red-500/10 bg-red-500/[0.03] p-5">
-                <p className="text-[10px] font-black text-red-500/60 uppercase tracking-[0.2em] mb-3">Danger Zone</p>
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-bold text-white/80">Delete This Group</p>
-                    <p className="text-[11px] text-white/30 mt-0.5 font-inter">Permanently removes the group and all its data.</p>
-                  </div>
-                  <button
-                    onClick={() => isOnline && setShowDeleteGroupConfirm(true)}
-                    disabled={!isOnline || hasPending}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0 ${(!isOnline || hasPending) ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500'}`}
-                  >
-                    {hasPending ? <LucideIcons.Lock size={12} className="opacity-40" /> : <Trash2 size={14} />}
-                    {!isOnline ? 'Offline' : hasPending ? 'Locked' : 'Delete'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {tab === 'logs' && (
-        <div className="glass-card p-6 lg:p-10">
-          <div className="flex items-center justify-between mb-10">
-            <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-widest font-inter">Recent Activity</h3>
-            <ExportActions
-              group={activeGroup}
-              expenses={scopedExpenses}
-              balances={balanceList}
-              logs={groupLogs}
-            />
+            ))}
           </div>
-          <ActivityFeed groupId={id} externalLogs={groupLogs} />
+
+          {/* Tab Content */}
+          {tab === 'expenses' && (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.3em]">
+                  Chronicle
+                </h3>
+                <button
+                  onClick={() => setShowOnlyMe(!showOnlyMe)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-[10px] font-bold uppercase tracking-widest ${
+                    showOnlyMe
+                      ? 'bg-primary border-primary text-black'
+                      : 'bg-white/5 border-white/5 text-on-surface-variant hover:bg-white/10'
+                  }`}
+                >
+                  <LucideIcons.User size={12} />
+                  {showOnlyMe ? 'Viewing Yours' : 'View Yours'}
+                </button>
+              </div>
+
+              {(() => {
+                if (expenseLoading && scopedExpenses.length === 0)
+                  return <Loader className="py-12" />;
+                if (scopedExpenses.length === 0)
+                  return (
+                    <div className="submerged text-center py-16 border-none">
+                      <p className="text-lg font-inter text-on-surface-variant">
+                        No expenses yet. Time to split a bill!
+                      </p>
+                    </div>
+                  );
+
+                return scopedExpenses.map((expense) => (
+                  <ExpenseCard
+                    key={expense._id}
+                    expense={expense}
+                    currentUserId={user?._id || user?.uid}
+                    onDelete={handleDeleteExpense}
+                    onEdit={(exp) => openAddExpense(id, exp)}
+                  />
+                ));
+              })()}
+            </div>
+          )}
+
+          {tab === 'members' && (
+            <div className="flex flex-col gap-6">
+              <div className="glass-card p-6 lg:p-10">
+                <MemberList
+                  members={activeGroup.members}
+                  adminId={activeGroup.admin}
+                  balances={balances}
+                  groupId={id}
+                  onMemberRemoved={() => dispatch(fetchGroup(id))}
+                  currentUserId={user?._id || user?.uid}
+                />
+              </div>
+
+              {/* Non-admin: Leave group */}
+              {!isAdmin && (
+                <div className="px-1">
+                  <button
+                    onClick={() => isOnline && setShowLeaveConfirm(true)}
+                    disabled={!isOnline || Math.abs(myBalance) > 0.01}
+                    className={`w-full py-4 rounded-2xl border text-xs font-black tracking-[0.2em] uppercase transition-all active:scale-[0.98] ${!isOnline || Math.abs(myBalance) > 0.01 ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500'}`}
+                  >
+                    {!isOnline
+                      ? 'Exit Blocked (Offline)'
+                      : Math.abs(myBalance) > 0.01
+                        ? `Clear ${formatCurrency(myBalance)} to Exit`
+                        : 'Exit Cohort'}
+                  </button>
+                </div>
+              )}
+
+              {/* Admin: Edit group details */}
+              {isAdmin && (
+                <div className="px-1 mt-2">
+                  <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+                    <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">
+                      Group Settings
+                    </p>
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-bold text-white/80">Edit Details</p>
+                        <p className="text-[11px] text-white/30 mt-0.5 font-inter">
+                          Update name and category.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => isOnline && handleUpdateGroupLabel()}
+                        disabled={!isOnline}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0 ${!isOnline ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'}`}
+                      >
+                        <LucideIcons.Settings size={14} />
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Admin: Delete group (danger zone) */}
+              {isAdmin && (
+                <div className="px-1">
+                  <div className="rounded-2xl border border-red-500/10 bg-red-500/[0.03] p-5">
+                    <p className="text-[10px] font-black text-red-500/60 uppercase tracking-[0.2em] mb-3">
+                      Danger Zone
+                    </p>
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-bold text-white/80">Delete This Group</p>
+                        <p className="text-[11px] text-white/30 mt-0.5 font-inter">
+                          Permanently removes the group and all its data.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => isOnline && setShowDeleteGroupConfirm(true)}
+                        disabled={!isOnline || hasPending}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0 ${!isOnline || hasPending ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500'}`}
+                      >
+                        {hasPending ? (
+                          <LucideIcons.Lock size={12} className="opacity-40" />
+                        ) : (
+                          <Trash2 size={14} />
+                        )}
+                        {!isOnline ? 'Offline' : hasPending ? 'Locked' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'logs' && (
+            <div className="glass-card p-6 lg:p-10">
+              <div className="flex items-center justify-between mb-10">
+                <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-widest font-inter">
+                  Recent Activity
+                </h3>
+                <ExportActions
+                  group={activeGroup}
+                  expenses={scopedExpenses}
+                  balances={balanceList}
+                  logs={groupLogs}
+                />
+              </div>
+              <ActivityFeed groupId={id} externalLogs={groupLogs} />
+            </div>
+          )}
+
+          {tab === 'insights' && (
+            <GroupInsightsTab
+              members={activeGroup.members}
+              expenses={scopedExpenses}
+              settlements={settlements}
+              netBalances={netBalances}
+            />
+          )}
         </div>
-      )}
-
-      {tab === 'insights' && (
-        <GroupInsightsTab
-          members={activeGroup.members}
-          expenses={scopedExpenses}
-          settlements={settlements}
-          netBalances={netBalances}
-        />
-      )}
-
-        </div>{/* end left column */}
+        {/* end left column */}
 
         {/* ── RIGHT: Sticky Sidebar (desktop only) ─────────────── */}
         <aside className="hidden lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-6 mt-4">
-
           {/* Group Identity Card */}
           <div className="bg-surface-container-low p-6 rounded-[2rem] border border-white/5 flex flex-col gap-5">
             <div className="flex items-start justify-between gap-3">
@@ -608,7 +671,11 @@ const GroupDetail = () => {
                   {category?.icon ? (
                     (() => {
                       const IconComponent = LucideIcons[category.icon];
-                      return IconComponent ? <IconComponent size={20} style={{ color: category.color }} /> : <LucideIcons.Hash size={20} />;
+                      return IconComponent ? (
+                        <IconComponent size={20} style={{ color: category.color }} />
+                      ) : (
+                        <LucideIcons.Hash size={20} />
+                      );
                     })()
                   ) : (
                     <LucideIcons.Hash size={20} />
@@ -619,7 +686,8 @@ const GroupDetail = () => {
                     {activeGroup.name || activeGroup.title}
                   </h2>
                   <p className="text-[9px] text-white/30 uppercase tracking-[0.2em] font-black font-manrope mt-0.5">
-                    {activeGroup.category} <span className="mx-1 opacity-40">•</span> {uniqueMembers.length} Members
+                    {activeGroup.category} <span className="mx-1 opacity-40">•</span>{' '}
+                    {uniqueMembers.length} Members
                   </p>
                 </div>
               </div>
@@ -656,24 +724,40 @@ const GroupDetail = () => {
           {/* Live Balance Summary */}
           {balanceList.length > 0 && (
             <div className="bg-surface-container-low p-5 rounded-[1.75rem] border border-white/5 flex flex-col gap-3">
-              <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.3em] font-manrope">Net Positions</p>
+              <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.3em] font-manrope">
+                Net Positions
+              </p>
               <div className="flex flex-col">
-                {balanceList.map(item => {
+                {balanceList.map((item) => {
                   const u = item.user || {};
                   const uid = (u._id || u.uid || '').toString();
                   const bal = item.balance;
                   return (
-                    <div key={uid} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-none">
+                    <div
+                      key={uid}
+                      className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-none"
+                    >
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-6 h-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                          <span className="text-[9px] font-black text-white/50">{(u.name || '?')[0].toUpperCase()}</span>
+                          <span className="text-[9px] font-black text-white/50">
+                            {(u.name || '?')[0].toUpperCase()}
+                          </span>
                         </div>
-                        <p className="text-[11px] font-bold text-white/60 font-inter truncate">{u.name || 'Member'}</p>
+                        <p className="text-[11px] font-bold text-white/60 font-inter truncate">
+                          {u.name || 'Member'}
+                        </p>
                       </div>
-                      <p className={`text-[11px] font-black font-manrope whitespace-nowrap ml-2 ${
-                        bal > 0.01 ? 'text-green-400' : bal < -0.01 ? 'text-red-400' : 'text-white/20'
-                      }`}>
-                        {bal > 0.01 ? '+' : ''}{Math.abs(bal) > 0.01 ? formatCurrency(bal) : 'Settled'}
+                      <p
+                        className={`text-[11px] font-black font-manrope whitespace-nowrap ml-2 ${
+                          bal > 0.01
+                            ? 'text-green-400'
+                            : bal < -0.01
+                              ? 'text-red-400'
+                              : 'text-white/20'
+                        }`}
+                      >
+                        {bal > 0.01 ? '+' : ''}
+                        {Math.abs(bal) > 0.01 ? formatCurrency(bal) : 'Settled'}
                       </p>
                     </div>
                   );
@@ -681,15 +765,18 @@ const GroupDetail = () => {
               </div>
             </div>
           )}
-
         </aside>
-
-      </div>{/* end desktop grid */}
+      </div>
+      {/* end desktop grid */}
 
       {/* Add Member Modal */}
-      <Modal isOpen={showAddMember} onClose={() => setShowAddMember(false)} title="Add Member" size="md">
+      <Modal
+        isOpen={showAddMember}
+        onClose={() => setShowAddMember(false)}
+        title="Add Member"
+        size="md"
+      >
         <div className="flex flex-col gap-8 py-4">
-
           {/* Quick Selection for Friends */}
           <div className="flex flex-col gap-3">
             <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">
@@ -730,13 +817,16 @@ const GroupDetail = () => {
               </motion.div>
             ) : loadingFriends ? (
               <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="w-12 h-12 rounded-full bg-white/5 animate-pulse shrink-0" />
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="w-12 h-12 rounded-full bg-white/5 animate-pulse shrink-0"
+                  />
                 ))}
               </div>
             ) : friends.length > 0 ? (
               <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                {friends.map(friend => (
+                {friends.map((friend) => (
                   <button
                     key={friend._id}
                     onClick={() => setSelectedFriend(friend)}
@@ -763,7 +853,9 @@ const GroupDetail = () => {
           <div className="h-[1px] bg-white/5 w-full -my-2" />
 
           <form onSubmit={handleAddMember} className="flex flex-col gap-4">
-            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">Invite by Email</h4>
+            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">
+              Invite by Email
+            </h4>
             <div className="flex gap-3 items-end">
               <div className="flex-1">
                 <Input
@@ -776,7 +868,10 @@ const GroupDetail = () => {
                   className="h-14 bg-white/[0.03]"
                 />
               </div>
-              <Button type="submit" className="h-14 px-8 rounded-2xl bg-white text-black font-black uppercase text-[10px] tracking-widest">
+              <Button
+                type="submit"
+                className="h-14 px-8 rounded-2xl bg-white text-black font-black uppercase text-[10px] tracking-widest"
+              >
                 Add
               </Button>
             </div>
@@ -785,14 +880,15 @@ const GroupDetail = () => {
           <div className="h-[1px] bg-white/5 w-full -my-2" />
 
           <div className="flex flex-col gap-4">
-            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">Share Invite Link</h4>
+            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">
+              Share Invite Link
+            </h4>
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
               <div className="flex-1 overflow-hidden">
                 <p className="text-sm font-mono text-white/40 truncate">
                   {activeGroup?.inviteCode
                     ? `${window.location.origin}/join/${activeGroup.inviteCode}`
-                    : 'Generating invite link...'
-                  }
+                    : 'Generating invite link...'}
                 </p>
               </div>
               {navigator.share && (
@@ -850,17 +946,24 @@ const GroupDetail = () => {
         forcedPayeeId={selectedSettleFriendId}
         onSettled={() => {
           // No manual fetch needed anymore, snapshot listeners handle reactivity
-          toast.success("Accounts reconciled");
+          toast.success('Accounts reconciled');
         }}
       />
 
       {/* Leave Group Confirmation Modal */}
-      <Modal isOpen={showLeaveConfirm} onClose={() => setShowLeaveConfirm(false)} title="Exit Cohort" size="sm">
+      <Modal
+        isOpen={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        title="Exit Cohort"
+        size="sm"
+      >
         <div className="flex flex-col gap-6 py-4">
           <p className="text-sm font-medium text-on-surface-variant font-inter leading-relaxed">
             Are you sure you want to leave this cohort? This action is permanent.
-            <br /><br />
-            You can only exit if your net balance is <span className="text-white font-bold">₹0.00</span>.
+            <br />
+            <br />
+            You can only exit if your net balance is{' '}
+            <span className="text-white font-bold">₹0.00</span>.
           </p>
           <div className="flex gap-4 w-full">
             <button
@@ -881,13 +984,22 @@ const GroupDetail = () => {
       </Modal>
 
       {/* Delete Group Confirmation Modal */}
-      <Modal isOpen={showDeleteGroupConfirm} onClose={() => setShowDeleteGroupConfirm(false)} title="Delete Group" size="sm">
+      <Modal
+        isOpen={showDeleteGroupConfirm}
+        onClose={() => setShowDeleteGroupConfirm(false)}
+        title="Delete Group"
+        size="sm"
+      >
         <div className="flex flex-col gap-6 py-4">
           <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/10">
             <p className="text-sm font-medium text-on-surface-variant font-inter leading-relaxed">
               Are you sure you want to permanently delete{' '}
-              <span className="text-white font-bold">"{activeGroup?.name || activeGroup?.title}"</span>?
-              <br /><br />
+              <span className="text-white font-bold">
+                &quot;{activeGroup?.name || activeGroup?.title}&quot;
+              </span>
+              ?
+              <br />
+              <br />
               This will remove the group and all associated data.
               <span className="text-red-400 font-semibold"> This action cannot be undone.</span>
             </p>
@@ -931,10 +1043,17 @@ const GroupDetail = () => {
       />
 
       {/* Edit Group Modal */}
-      <Modal isOpen={showEditGroup} onClose={() => setShowEditGroup(false)} title="Edit Group" size="md">
+      <Modal
+        isOpen={showEditGroup}
+        onClose={() => setShowEditGroup(false)}
+        title="Edit Group"
+        size="md"
+      >
         <form onSubmit={handleUpdateGroup} className="flex flex-col gap-8 py-4">
           <div className="flex flex-col gap-3">
-            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">Cohort Name</h4>
+            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">
+              Cohort Name
+            </h4>
             <Input
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
@@ -945,17 +1064,20 @@ const GroupDetail = () => {
           </div>
 
           <div className="flex flex-col gap-4">
-            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">Category</h4>
+            <h4 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] font-manrope">
+              Category
+            </h4>
             <div className="flex gap-3 overflow-x-auto pb-4 hide-scrollbar">
               {GROUP_CATEGORIES.map((cat) => (
                 <button
                   key={cat.value}
                   type="button"
                   onClick={() => setEditCategory(cat.value)}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl border transition-all text-[11px] font-bold flex items-center gap-2 ${editCategory === cat.value
-                    ? 'bg-white text-black border-white'
-                    : 'bg-white/[0.03] border-white/5 text-white/40 hover:text-white'
-                    }`}
+                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl border transition-all text-[11px] font-bold flex items-center gap-2 ${
+                    editCategory === cat.value
+                      ? 'bg-white text-black border-white'
+                      : 'bg-white/[0.03] border-white/5 text-white/40 hover:text-white'
+                  }`}
                 >
                   {(() => {
                     const IconComp = LucideIcons[cat.icon] || LucideIcons.Hash;
@@ -993,10 +1115,11 @@ const GroupDetail = () => {
           className="fixed bottom-24 right-4 lg:bottom-8 lg:right-8 z-50 flex items-center gap-2.5 pl-4 pr-5 h-12 rounded-full bg-[#1a1a1a] border border-white/10 text-white shadow-[0_8px_32px_rgba(0,0,0,0.6)] hover:bg-[#242424] hover:border-white/20 active:scale-95 transition-all"
         >
           <ScanLine size={17} className="text-primary shrink-0" />
-          <span className="text-[11px] font-black uppercase tracking-[0.15em] font-manrope">Scan Bill</span>
+          <span className="text-[11px] font-black uppercase tracking-[0.15em] font-manrope">
+            Scan Bill
+          </span>
         </button>
       )}
-
     </div>
   );
 };

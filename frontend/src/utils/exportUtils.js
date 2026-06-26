@@ -13,7 +13,7 @@ export const exportToPDF = (group, expenses, balances, logs = []) => {
   doc.setFontSize(22);
   doc.setTextColor(0, 0, 0);
   doc.text('PAYMATRIX', 14, 22);
-  
+
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
   doc.text(`Financial Report for ${group.name || group.title}`, 14, 30);
@@ -26,7 +26,9 @@ export const exportToPDF = (group, expenses, balances, logs = []) => {
 
   const balanceData = balances.map((b) => [
     `${b.user?.name || 'Unknown'} (${b.user?.email || 'N/A'})`,
-    (b.balance || 0) >= 0 ? `+ INR ${(b.balance || 0).toLocaleString()}` : `- INR ${Math.abs(b.balance || 0).toLocaleString()}`
+    (b.balance || 0) >= 0
+      ? `+ INR ${(b.balance || 0).toLocaleString()}`
+      : `- INR ${Math.abs(b.balance || 0).toLocaleString()}`,
   ]);
 
   autoTable(doc, {
@@ -49,7 +51,9 @@ export const exportToPDF = (group, expenses, balances, logs = []) => {
     e.category,
     e.paidByName || e.paidBy?.name || 'Member',
     `INR ${parseFloat(e.amount || 0).toLocaleString()}`,
-    (e.splits || []).map(s => `${s.user?.name || 'Member'}: ${(s.amount || 0).toFixed(0)}`).join('\n')
+    (e.splits || [])
+      .map((s) => `${s.user?.name || 'Member'}: ${(s.amount || 0).toFixed(0)}`)
+      .join('\n'),
   ]);
 
   autoTable(doc, {
@@ -59,27 +63,27 @@ export const exportToPDF = (group, expenses, balances, logs = []) => {
     theme: 'striped',
     headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] },
     columnStyles: {
-      5: { fontSize: 8, fontStyle: 'italic' } // Make splits smaller to fit more
-    }
+      5: { fontSize: 8, fontStyle: 'italic' }, // Make splits smaller to fit more
+    },
   });
 
   // Logs Section (Activity Timeline)
   if (logs && logs.length > 0) {
     nextY = (doc.lastAutoTable?.finalY || nextY) + 15;
-    
+
     // Check if we need a new page for logs
     if (nextY > 250) {
       doc.addPage();
       nextY = 20;
     }
-    
+
     doc.setFontSize(14);
     doc.text('Activity Timeline', 14, nextY);
 
     const logData = logs.map((l) => [
       new Date(l.createdAt).toLocaleDateString(),
       new Date(l.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      l.message || 'Legacy action recorded'
+      l.message || 'Legacy action recorded',
     ]);
 
     autoTable(doc, {
@@ -89,8 +93,8 @@ export const exportToPDF = (group, expenses, balances, logs = []) => {
       theme: 'plain',
       headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
       columnStyles: {
-        2: { columnWidth: 'auto' }
-      }
+        2: { columnWidth: 'auto' },
+      },
     });
   }
 
@@ -99,7 +103,12 @@ export const exportToPDF = (group, expenses, balances, logs = []) => {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
-    doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, { align: 'center' });
+    doc.text(
+      `Page ${i} of ${pageCount}`,
+      doc.internal.pageSize.width / 2,
+      doc.internal.pageSize.height - 10,
+      { align: 'center' }
+    );
   }
 
   // Detect if we're on iOS Safari
@@ -135,7 +144,7 @@ export const exportToCSV = (group, expenses) => {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    
+
     link.setAttribute('href', url);
     const filename = (group.name || group.title || 'expenses').toLowerCase().replace(/\s+/g, '_');
     link.setAttribute('download', `${filename}_expenses.csv`);
@@ -161,22 +170,22 @@ export const exportToJSON = (group, expenses, settlements) => {
       createdAt: group.createdAt,
       status: group.status,
     },
-    expenses: expenses.map(e => ({
+    expenses: expenses.map((e) => ({
       title: e.title,
       amount: e.amount,
       paidBy: e.paidByName || e.paidBy,
       date: e.createdAt,
       category: e.category,
-      participants: e.participants
+      participants: e.participants,
     })),
-    settlements: settlements.map(s => ({
+    settlements: settlements.map((s) => ({
       from: s.payer,
       to: s.payee || s.recipient || s.to,
       amount: s.amount,
       date: s.createdAt,
-      notes: s.notes
+      notes: s.notes,
     })),
-    exportedAt: new Date().toISOString()
+    exportedAt: new Date().toISOString(),
   };
 
   try {
@@ -184,7 +193,9 @@ export const exportToJSON = (group, expenses, settlements) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    const filename = (group.name || group.title || 'full_export').toLowerCase().replace(/\s+/g, '_');
+    const filename = (group.name || group.title || 'full_export')
+      .toLowerCase()
+      .replace(/\s+/g, '_');
     link.setAttribute('download', `${filename}_full_export.json`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);

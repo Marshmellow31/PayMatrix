@@ -51,11 +51,18 @@ const BalanceCard = ({ label, value, icon: Icon, accent, delay = 0, prefix = '' 
       <Icon size={15} style={{ color: accent }} strokeWidth={2.5} />
     </div>
     <div>
-      <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.22em] font-manrope mb-1.5" style={{ color: `${accent}80` }}>
+      <p
+        className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.22em] font-manrope mb-1.5"
+        style={{ color: `${accent}80` }}
+      >
         {label}
       </p>
-      <p className="text-xl sm:text-2xl font-black font-manrope leading-none tracking-tight" style={{ color: accent }}>
-        {prefix}{fmt(value)}
+      <p
+        className="text-xl sm:text-2xl font-black font-manrope leading-none tracking-tight"
+        style={{ color: accent }}
+      >
+        {prefix}
+        {fmt(value)}
       </p>
     </div>
   </motion.div>
@@ -85,7 +92,7 @@ const Analytics = () => {
         const [summaryRes, networkRes, trendsRes] = await Promise.all([
           expenseService.getSummary(),
           friendService.getNetworkAnalytics(),
-          expenseService.getSpendingTrends(days)
+          expenseService.getSpendingTrends(days),
         ]);
         setSummary(summaryRes.data.data || {});
         setNetworkStats(networkRes.data.data.networkAnalytics || []);
@@ -101,11 +108,12 @@ const Analytics = () => {
     fetchAnalytics();
   }, [days]);
 
-  if (isInitialLoading && !summary) return (
-    <div className="min-h-[80vh] flex items-center justify-center">
-      <Loader className="scale-150" />
-    </div>
-  );
+  if (isInitialLoading && !summary)
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <Loader className="scale-150" />
+      </div>
+    );
 
   const { totalOwed = 0, totalOwe = 0, netBalance = 0, categories = [] } = summary || {};
 
@@ -114,7 +122,8 @@ const Analytics = () => {
   const halfLen = Math.floor(trends.length / 2);
   const firstHalf = trends.slice(0, halfLen).reduce((s, t) => s + (t.amount || 0), 0);
   const secondHalf = trends.slice(halfLen).reduce((s, t) => s + (t.amount || 0), 0);
-  const trendPct = firstHalf > 0 ? Math.round(Math.abs((secondHalf - firstHalf) / firstHalf * 100)) : 0;
+  const trendPct =
+    firstHalf > 0 ? Math.round(Math.abs(((secondHalf - firstHalf) / firstHalf) * 100)) : 0;
   const isTrendUp = secondHalf > firstHalf;
   const categoryTotal = categories.reduce((s, c) => s + (c.value || 0), 0);
 
@@ -122,7 +131,6 @@ const Analytics = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 sm:py-10 pb-28 space-y-8">
-
       {/* Header */}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end justify-between">
         <div className="flex flex-col gap-1">
@@ -144,9 +152,7 @@ const Analytics = () => {
                 days === d ? 'text-black' : 'text-white/40 hover:text-white'
               }`}
             >
-              <span className="relative z-10">
-                {d === 7 ? '1W' : d === 30 ? '1M' : '3M'}
-              </span>
+              <span className="relative z-10">{d === 7 ? '1W' : d === 30 ? '1M' : '3M'}</span>
               {days === d && (
                 <motion.div
                   layoutId="activeTab"
@@ -199,7 +205,9 @@ const Analytics = () => {
               <TrendingUp size={16} />
             </div>
             <div>
-              <h3 className="font-black font-manrope text-xs uppercase tracking-widest text-white/90">Spending Velocity</h3>
+              <h3 className="font-black font-manrope text-xs uppercase tracking-widest text-white/90">
+                Spending Velocity
+              </h3>
               <p className="text-[10px] text-white/20 font-black uppercase tracking-widest mt-0.5">
                 {days === 7 ? 'Last 7 days' : days === 30 ? 'Last 30 days' : 'Last 90 days'}
               </p>
@@ -213,34 +221,41 @@ const Analytics = () => {
                 {fmt(periodTotal)}
               </span>
               {trends.length > 3 && (
-                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-widest ${
-                  isTrendUp
-                    ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                    : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                }`}>
+                <div
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-widest ${
+                    isTrendUp
+                      ? 'bg-red-500/10 border-red-500/20 text-red-400'
+                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                  }`}
+                >
                   {isTrendUp ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
                   {trendPct}% vs prior half
                 </div>
               )}
-              <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest">period total</p>
+              <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest">
+                period total
+              </p>
             </div>
           )}
         </div>
 
-        <div className={`transition-opacity duration-500 h-[220px] sm:h-[280px] ${isUpdating ? 'opacity-40' : 'opacity-100'}`}>
+        <div
+          className={`transition-opacity duration-500 h-[220px] sm:h-[280px] ${isUpdating ? 'opacity-40' : 'opacity-100'}`}
+        >
           {trends?.length > 0 ? (
             <TrendAreaChart data={trends} />
           ) : (
             <div className="h-full flex flex-col items-center justify-center gap-4 border border-dashed border-white/5 rounded-3xl bg-white/[0.01]">
               <BarChart3 size={28} className="text-white/10" />
-              <p className="text-[10px] text-white/10 font-black uppercase tracking-[0.3em]">No trend data for this period</p>
+              <p className="text-[10px] text-white/10 font-black uppercase tracking-[0.3em]">
+                No trend data for this period
+              </p>
             </div>
           )}
         </div>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-
         {/* Spend Distribution */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -254,26 +269,38 @@ const Analytics = () => {
                 <PieIcon size={16} className="text-white/50" />
               </div>
               <div>
-                <h3 className="font-black font-manrope text-xs uppercase tracking-widest text-white/80">Spend Distribution</h3>
+                <h3 className="font-black font-manrope text-xs uppercase tracking-widest text-white/80">
+                  Spend Distribution
+                </h3>
                 {categories.length > 0 && (
-                  <p className="text-[9px] text-white/20 font-black uppercase tracking-widest mt-0.5">{categories.length} categories</p>
+                  <p className="text-[9px] text-white/20 font-black uppercase tracking-widest mt-0.5">
+                    {categories.length} categories
+                  </p>
                 )}
               </div>
             </div>
             {categoryTotal > 0 && (
               <div className="text-right">
-                <p className="text-sm font-black text-white/60 font-manrope tracking-tight">{fmt(categoryTotal)}</p>
-                <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest mt-0.5">your share</p>
+                <p className="text-sm font-black text-white/60 font-manrope tracking-tight">
+                  {fmt(categoryTotal)}
+                </p>
+                <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest mt-0.5">
+                  your share
+                </p>
               </div>
             )}
           </div>
-          <div className={`w-full min-h-[300px] transition-opacity duration-300 ${isUpdating ? 'opacity-40' : 'opacity-100'}`}>
+          <div
+            className={`w-full min-h-[300px] transition-opacity duration-300 ${isUpdating ? 'opacity-40' : 'opacity-100'}`}
+          >
             {categories?.length > 0 ? (
               <CategoryPieChart data={categories} />
             ) : (
               <div className="h-[300px] flex flex-col items-center justify-center gap-4">
                 <PieIcon size={28} className="text-white/10" />
-                <p className="text-white/10 text-[10px] font-bold uppercase tracking-[0.2em]">No categorical data</p>
+                <p className="text-white/10 text-[10px] font-bold uppercase tracking-[0.2em]">
+                  No categorical data
+                </p>
               </div>
             )}
           </div>
@@ -292,7 +319,9 @@ const Analytics = () => {
                 <Users size={16} className="text-white/50" />
               </div>
               <div>
-                <h3 className="font-black font-manrope text-xs uppercase tracking-widest text-white/80">Friend Ledger</h3>
+                <h3 className="font-black font-manrope text-xs uppercase tracking-widest text-white/80">
+                  Friend Ledger
+                </h3>
                 <p className="text-[9px] text-white/20 font-black uppercase tracking-widest mt-0.5">
                   Top {Math.min(4, networkStats.length)} by balance
                 </p>
@@ -300,26 +329,31 @@ const Analytics = () => {
             </div>
             <div className="flex flex-col items-end gap-1.5 text-[8px] font-black uppercase tracking-widest shrink-0">
               <span className="flex items-center gap-1.5 text-emerald-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Owes You
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                Owes You
               </span>
               <span className="flex items-center gap-1.5 text-orange-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />You Owe
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                You Owe
               </span>
             </div>
           </div>
-          <div className={`w-full transition-opacity duration-300 ${isUpdating ? 'opacity-40' : 'opacity-100'}`}>
+          <div
+            className={`w-full transition-opacity duration-300 ${isUpdating ? 'opacity-40' : 'opacity-100'}`}
+          >
             {networkStats?.length > 0 ? (
               <FriendLedger networkData={networkStats} />
             ) : (
               <div className="py-16 flex flex-col items-center justify-center gap-4">
                 <Users size={28} className="text-white/10" />
-                <p className="text-white/10 text-[10px] font-bold uppercase tracking-[0.2em]">No friend data available</p>
+                <p className="text-white/10 text-[10px] font-bold uppercase tracking-[0.2em]">
+                  No friend data available
+                </p>
               </div>
             )}
           </div>
         </motion.div>
       </div>
-
     </div>
   );
 };

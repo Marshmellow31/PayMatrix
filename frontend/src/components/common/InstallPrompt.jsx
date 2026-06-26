@@ -36,22 +36,22 @@ function detectPlatform() {
   const ua = navigator.userAgent;
 
   const isStandalone =
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true;
+    window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
   const isIOS = /iphone|ipad|ipod/i.test(ua) && !window.MSStream;
   const isAndroid = /android/i.test(ua);
 
   const isLinuxDesktop = /linux/i.test(ua) && !isAndroid;
-  const isMacDesktop   = /macintosh|mac os x/i.test(ua) && !isIOS;
-  const isWinDesktop   = /windows nt/i.test(ua) && !/windows phone/i.test(ua);
-  const isDesktop      = isLinuxDesktop || isMacDesktop || isWinDesktop;
+  const isMacDesktop = /macintosh|mac os x/i.test(ua) && !isIOS;
+  const isWinDesktop = /windows nt/i.test(ua) && !/windows phone/i.test(ua);
+  const isDesktop = isLinuxDesktop || isMacDesktop || isWinDesktop;
 
   const isFirefox = /firefox|fxios/i.test(ua);
   // Chrome/Chromium family (includes Edge, Brave, Opera, Samsung Internet)
-  const isChromium = /chrome|chromium|crios/i.test(ua) && !/edg\//i.test(ua)
-    ? true
-    : /edg\//i.test(ua) || /brave/i.test(ua) || /opr\//i.test(ua);
+  const isChromium =
+    /chrome|chromium|crios/i.test(ua) && !/edg\//i.test(ua)
+      ? true
+      : /edg\//i.test(ua) || /brave/i.test(ua) || /opr\//i.test(ua);
 
   return { isStandalone, isIOS, isAndroid, isDesktop, isFirefox, isChromium };
 }
@@ -109,27 +109,48 @@ function BannerRow({ icon, title, subtitle, actionLabel, onAction, onDismiss }) 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
       {/* App icon */}
-      <div style={{
-        width: '40px', height: '40px', borderRadius: '10px',
-        background: 'linear-gradient(135deg, #ffffff18, #ffffff08)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-      }}>
+      <div
+        style={{
+          width: '40px',
+          height: '40px',
+          borderRadius: '10px',
+          background: 'linear-gradient(135deg, #ffffff18, #ffffff08)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
         {icon}
       </div>
 
       {/* Text */}
       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-        <p style={{
-          color: '#f0f0f0', fontWeight: 600, fontSize: '0.88rem', lineHeight: 1.3, marginBottom: '1px',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>
+        <p
+          style={{
+            color: '#f0f0f0',
+            fontWeight: 600,
+            fontSize: '0.88rem',
+            lineHeight: 1.3,
+            marginBottom: '1px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
           {title}
         </p>
-        <p style={{
-          color: '#919191', fontSize: '0.73rem', lineHeight: 1.4,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>
+        <p
+          style={{
+            color: '#919191',
+            fontSize: '0.73rem',
+            lineHeight: 1.4,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
           {subtitle}
         </p>
       </div>
@@ -138,8 +159,8 @@ function BannerRow({ icon, title, subtitle, actionLabel, onAction, onDismiss }) 
       <button
         onClick={onAction}
         style={{ ...primaryBtn, flexShrink: 0, whiteSpace: 'nowrap' }}
-        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.04)'}
-        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+        onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.04)')}
+        onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
       >
         {actionLabel}
       </button>
@@ -176,12 +197,29 @@ function IOSGuide({ onDismiss }) {
       <p style={{ color: '#f0f0f0', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.6rem' }}>
         Add to Home Screen
       </p>
-      <ol style={{ color: '#b0b0b0', fontSize: '0.8rem', lineHeight: 1.7, paddingLeft: '1.1rem', marginBottom: '0.75rem' }}>
-        <li>Tap the <strong style={{ color: '#e5e2e1' }}>Share</strong> button <span>⎋</span> in Safari's toolbar</li>
-        <li>Scroll down and tap <strong style={{ color: '#e5e2e1' }}>"Add to Home Screen"</strong></li>
-        <li>Tap <strong style={{ color: '#e5e2e1' }}>"Add"</strong> in the top-right corner</li>
+      <ol
+        style={{
+          color: '#b0b0b0',
+          fontSize: '0.8rem',
+          lineHeight: 1.7,
+          paddingLeft: '1.1rem',
+          marginBottom: '0.75rem',
+        }}
+      >
+        <li>
+          Tap the <strong style={{ color: '#e5e2e1' }}>Share</strong> button <span>⎋</span> in
+          Safari&apos;s toolbar
+        </li>
+        <li>
+          Scroll down and tap <strong style={{ color: '#e5e2e1' }}>&quot;Add to Home Screen&quot;</strong>
+        </li>
+        <li>
+          Tap <strong style={{ color: '#e5e2e1' }}>&quot;Add&quot;</strong> in the top-right corner
+        </li>
       </ol>
-      <button onClick={onDismiss} style={ghostBtn}>Got it</button>
+      <button onClick={onDismiss} style={ghostBtn}>
+        Got it
+      </button>
     </div>
   );
 }
@@ -194,75 +232,100 @@ function IOSGuide({ onDismiss }) {
 function ChromeDesktopGuide({ onDismiss }) {
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.55rem' }}>
-        <div style={{
-          width: '36px', height: '36px', borderRadius: '10px',
-          background: 'linear-gradient(135deg, #ffffff18, #ffffff08)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.55rem' }}
+      >
+        <div
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '10px',
+            background: 'linear-gradient(135deg, #ffffff18, #ffffff08)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
           <Monitor size={18} color="#e5e2e1" />
         </div>
-        <p style={{ color: '#f0f0f0', fontWeight: 600, fontSize: '0.9rem' }}>
-          Install PayMatrix
-        </p>
+        <p style={{ color: '#f0f0f0', fontWeight: 600, fontSize: '0.9rem' }}>Install PayMatrix</p>
       </div>
 
-      <p style={{ color: '#919191', fontSize: '0.78rem', lineHeight: 1.55, marginBottom: '0.65rem' }}>
+      <p
+        style={{ color: '#919191', fontSize: '0.78rem', lineHeight: 1.55, marginBottom: '0.65rem' }}
+      >
         Look for the{' '}
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: '3px',
-          background: 'rgba(255,255,255,0.1)', borderRadius: '5px',
-          padding: '1px 6px', color: '#e5e2e1', fontWeight: 600, fontSize: '0.8rem',
-        }}>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px',
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '5px',
+            padding: '1px 6px',
+            color: '#e5e2e1',
+            fontWeight: 600,
+            fontSize: '0.8rem',
+          }}
+        >
           ⊕
-        </span>
-        {' '}install icon at the right end of Chrome's address bar, then click{' '}
+        </span>{' '}
+        install icon at the right end of Chrome&apos;s address bar, then click{' '}
         <strong style={{ color: '#e5e2e1' }}>Install</strong>.
       </p>
 
       {/* Visual hint strip */}
-      <div style={{
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.07)',
-        borderRadius: '10px',
-        padding: '0.5rem 0.75rem',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        marginBottom: '0.75rem',
-        fontSize: '0.75rem',
-        color: '#7a7a7a',
-      }}>
-        <span style={{
-          background: 'rgba(255,255,255,0.08)',
-          borderRadius: '6px',
-          padding: '2px 8px',
-          color: '#555',
-          fontFamily: 'monospace',
-          fontSize: '0.72rem',
-          flex: 1,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
+      <div
+        style={{
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: '10px',
+          padding: '0.5rem 0.75rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          marginBottom: '0.75rem',
+          fontSize: '0.75rem',
+          color: '#7a7a7a',
+        }}
+      >
+        <span
+          style={{
+            background: 'rgba(255,255,255,0.08)',
+            borderRadius: '6px',
+            padding: '2px 8px',
+            color: '#555',
+            fontFamily: 'monospace',
+            fontSize: '0.72rem',
+            flex: 1,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
           {window.location.hostname}
         </span>
-        <span style={{
-          background: 'rgba(255,255,255,0.12)',
-          borderRadius: '6px',
-          padding: '3px 9px',
-          color: '#e5e2e1',
-          fontWeight: 700,
-          fontSize: '0.85rem',
-          letterSpacing: '-0.01em',
-        }}>
+        <span
+          style={{
+            background: 'rgba(255,255,255,0.12)',
+            borderRadius: '6px',
+            padding: '3px 9px',
+            color: '#e5e2e1',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            letterSpacing: '-0.01em',
+          }}
+        >
           ⊕
         </span>
       </div>
 
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <button onClick={onDismiss} style={ghostBtn}>Got it</button>
+        <button onClick={onDismiss} style={ghostBtn}>
+          Got it
+        </button>
       </div>
     </div>
   );
@@ -275,8 +338,10 @@ function FirefoxGuide({ onDismiss }) {
       <p style={{ color: '#f0f0f0', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.4rem' }}>
         Install PayMatrix
       </p>
-      <p style={{ color: '#919191', fontSize: '0.78rem', lineHeight: 1.5, marginBottom: '0.65rem' }}>
-        Firefox doesn't support app installation yet. Open PayMatrix in{' '}
+      <p
+        style={{ color: '#919191', fontSize: '0.78rem', lineHeight: 1.5, marginBottom: '0.65rem' }}
+      >
+        Firefox doesn&apos;t support app installation yet. Open PayMatrix in{' '}
         <strong style={{ color: '#e5e2e1' }}>Chrome</strong> or{' '}
         <strong style={{ color: '#e5e2e1' }}>Edge</strong> to install it as a desktop app.
       </p>
@@ -286,12 +351,14 @@ function FirefoxGuide({ onDismiss }) {
           target="_blank"
           rel="noopener noreferrer"
           style={primaryBtn}
-          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.04)'}
-          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.04)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
         >
           Get Chrome
         </a>
-        <button onClick={onDismiss} style={ghostBtn}>Dismiss</button>
+        <button onClick={onDismiss} style={ghostBtn}>
+          Dismiss
+        </button>
       </div>
     </div>
   );
@@ -300,9 +367,9 @@ function FirefoxGuide({ onDismiss }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [visible, setVisible]   = useState(false);
+  const [visible, setVisible] = useState(false);
   // view: 'banner' | 'banner-ios' | 'ios-guide' | 'chrome-desktop' | 'firefox-guide'
-  const [view, setView]         = useState('banner');
+  const [view, setView] = useState('banner');
 
   useEffect(() => {
     const { isStandalone, isIOS, isDesktop, isFirefox, isChromium } = detectPlatform();
@@ -314,7 +381,11 @@ export default function InstallPrompt() {
     if (dismissedAt) {
       const ageMs = Date.now() - Number(dismissedAt);
       if (ageMs < 30 * 24 * 60 * 60 * 1000) {
-        console.log('[InstallPrompt] suppressed — dismissed', Math.floor(ageMs / 86400000), 'days ago');
+        console.log(
+          '[InstallPrompt] suppressed — dismissed',
+          Math.floor(ageMs / 86400000),
+          'days ago'
+        );
         return;
       }
     }
@@ -324,14 +395,20 @@ export default function InstallPrompt() {
     // ── iOS Safari ──────────────────────────────────────────────────────────
     if (isIOS) {
       console.log('[InstallPrompt] iOS detected → showing share-sheet guide in 2.5s');
-      const t = setTimeout(() => { setView('banner-ios'); setVisible(true); }, 2500);
+      const t = setTimeout(() => {
+        setView('banner-ios');
+        setVisible(true);
+      }, 2500);
       return () => clearTimeout(t);
     }
 
     // ── Desktop Firefox ─────────────────────────────────────────────────────
     if (isDesktop && isFirefox) {
       console.log('[InstallPrompt] Firefox desktop → showing Chrome/Edge guide in 2.5s');
-      const t = setTimeout(() => { setView('firefox-guide'); setVisible(true); }, 2500);
+      const t = setTimeout(() => {
+        setView('firefox-guide');
+        setVisible(true);
+      }, 2500);
       return () => clearTimeout(t);
     }
 
@@ -354,10 +431,14 @@ export default function InstallPrompt() {
     window.addEventListener('beforeinstallprompt', handler);
 
     if (isDesktop && isChromium) {
-      console.log('[InstallPrompt] Chromium desktop — waiting for beforeinstallprompt (fallback in 2s)');
+      console.log(
+        '[InstallPrompt] Chromium desktop — waiting for beforeinstallprompt (fallback in 2s)'
+      );
       fallbackTimer = setTimeout(() => {
         if (!nativePromptReceived) {
-          console.log('[InstallPrompt] beforeinstallprompt did not fire → showing address-bar guide');
+          console.log(
+            '[InstallPrompt] beforeinstallprompt did not fire → showing address-bar guide'
+          );
           setView('chrome-desktop');
           setVisible(true);
         }
@@ -386,79 +467,83 @@ export default function InstallPrompt() {
     <>
       <PromptStyles />
       <AnimatePresence>
-      {visible && (
-        <motion.div
-          key="install-prompt"
-          initial={{ y: 120, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 120, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-          className="install-prompt-card"
-          style={{
-            position: 'fixed',
-            bottom: '6.25rem', // overridden per breakpoint by .install-prompt-card CSS
-            left: '0.75rem',
-            right: '0.75rem',
-            margin: '0 auto',
-            maxWidth: '440px',
-            zIndex: 9999,
-            background: 'rgba(22, 22, 22, 0.92)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            border: '1px solid rgba(255,255,255,0.09)',
-            borderRadius: '1.25rem',
-            padding: '0.85rem 1rem',
-            boxShadow: '0 24px 60px rgba(0,0,0,0.65)',
-          }}
-        >
-          {/* Absolute close button only for expanded guide views */}
-          {(view === 'ios-guide' || view === 'chrome-desktop' || view === 'firefox-guide') && (
-            <button
-              onClick={dismiss}
-              aria-label="Dismiss install prompt"
-              style={closeBtn}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
-            >
-              <X size={14} />
-            </button>
-          )}
+        {visible && (
+          <motion.div
+            key="install-prompt"
+            initial={{ y: 120, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 120, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+            className="install-prompt-card"
+            style={{
+              position: 'fixed',
+              bottom: '6.25rem', // overridden per breakpoint by .install-prompt-card CSS
+              left: '0.75rem',
+              right: '0.75rem',
+              margin: '0 auto',
+              maxWidth: '440px',
+              zIndex: 9999,
+              background: 'rgba(22, 22, 22, 0.92)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              border: '1px solid rgba(255,255,255,0.09)',
+              borderRadius: '1.25rem',
+              padding: '0.85rem 1rem',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.65)',
+            }}
+          >
+            {/* Absolute close button only for expanded guide views */}
+            {(view === 'ios-guide' || view === 'chrome-desktop' || view === 'firefox-guide') && (
+              <button
+                onClick={dismiss}
+                aria-label="Dismiss install prompt"
+                style={closeBtn}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.14)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
+              >
+                <X size={14} />
+              </button>
+            )}
 
-          {/* ── Chrome/Edge native install banner ── */}
-          {view === 'banner' && (
-            <BannerRow
-              icon={<Smartphone size={22} color="#e5e2e1" />}
-              title="Install PayMatrix"
-              subtitle="Add to your home screen for the best experience"
-              actionLabel={<><Download size={13} /> Install</>}
-              onAction={handleInstall}
-              onDismiss={dismiss}
-            />
-          )}
+            {/* ── Chrome/Edge native install banner ── */}
+            {view === 'banner' && (
+              <BannerRow
+                icon={<Smartphone size={22} color="#e5e2e1" />}
+                title="Install PayMatrix"
+                subtitle="Add to your home screen for the best experience"
+                actionLabel={
+                  <>
+                    <Download size={13} /> Install
+                  </>
+                }
+                onAction={handleInstall}
+                onDismiss={dismiss}
+              />
+            )}
 
-          {/* ── iOS: compact banner first, then expands to guide ── */}
-          {view === 'banner-ios' && (
-            <BannerRow
-              icon={<Smartphone size={24} color="#e5e2e1" />}
-              title="Install PayMatrix"
-              subtitle="Add to your home screen for the best experience"
-              actionLabel="How?"
-              onAction={() => setView('ios-guide')}
-              onDismiss={dismiss}
-            />
-          )}
+            {/* ── iOS: compact banner first, then expands to guide ── */}
+            {view === 'banner-ios' && (
+              <BannerRow
+                icon={<Smartphone size={24} color="#e5e2e1" />}
+                title="Install PayMatrix"
+                subtitle="Add to your home screen for the best experience"
+                actionLabel="How?"
+                onAction={() => setView('ios-guide')}
+                onDismiss={dismiss}
+              />
+            )}
 
-          {/* ── iOS full share-sheet guide ── */}
-          {view === 'ios-guide' && <IOSGuide onDismiss={dismiss} />}
+            {/* ── iOS full share-sheet guide ── */}
+            {view === 'ios-guide' && <IOSGuide onDismiss={dismiss} />}
 
-          {/* ── Chrome desktop address-bar fallback ── */}
-          {view === 'chrome-desktop' && <ChromeDesktopGuide onDismiss={dismiss} />}
+            {/* ── Chrome desktop address-bar fallback ── */}
+            {view === 'chrome-desktop' && <ChromeDesktopGuide onDismiss={dismiss} />}
 
-          {/* ── Firefox: redirect to Chrome/Edge ── */}
-          {view === 'firefox-guide' && <FirefoxGuide onDismiss={dismiss} />}
-        </motion.div>
-      )}
-    </AnimatePresence>
+            {/* ── Firefox: redirect to Chrome/Edge ── */}
+            {view === 'firefox-guide' && <FirefoxGuide onDismiss={dismiss} />}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

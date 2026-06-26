@@ -36,9 +36,10 @@ const Groups = () => {
   const [summary, setSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
 
-  const groupsUpdatedHash = useMemo(() =>
-    JSON.stringify(groups.map(g => g.updatedAt || g._id)),
-    [groups]);
+  const groupsUpdatedHash = useMemo(
+    () => JSON.stringify(groups.map((g) => g.updatedAt || g._id)),
+    [groups]
+  );
 
   useEffect(() => {
     if (!user?._id && !user?.uid) return;
@@ -47,16 +48,13 @@ const Groups = () => {
     fetchFriends();
 
     // Real-time listener for groups
-    const q = query(
-      collection(db, 'groups'),
-      where('members', 'array-contains', userId)
-    );
+    const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       try {
         // Step 1: Instant load of basic group data (names, IDs)
-        const basicGroups = snapshot.docs.map(doc => groupService.getBasicGroup(doc));
-        const activeBasicGroups = basicGroups.filter(g => g?.status !== 'deleted');
+        const basicGroups = snapshot.docs.map((doc) => groupService.getBasicGroup(doc));
+        const activeBasicGroups = basicGroups.filter((g) => g?.status !== 'deleted');
         dispatch(setGroups(activeBasicGroups));
 
         // Step 2: Background resolution of member profiles (names, avatars)
@@ -74,7 +72,7 @@ const Groups = () => {
           dispatch(setGroups(finalGroups));
         });
       } catch (err) {
-        console.error("Error expanding group snapshot in Groups page:", err);
+        console.error('Error expanding group snapshot in Groups page:', err);
       }
     });
 
@@ -132,13 +130,13 @@ const Groups = () => {
   };
 
   const toggleFriend = (friendId) => {
-    setForm(prev => {
+    setForm((prev) => {
       const isSelected = prev.members.includes(friendId);
       return {
         ...prev,
         members: isSelected
-          ? prev.members.filter(id => id !== friendId)
-          : [...prev.members, friendId]
+          ? prev.members.filter((id) => id !== friendId)
+          : [...prev.members, friendId],
       };
     });
   };
@@ -147,9 +145,7 @@ const Groups = () => {
     <div className="max-w-6xl mx-auto animate-fade-in pb-32 px-4 sm:px-6 lg:px-8">
       <div className="mb-10 pt-8">
         <div className="flex items-center justify-between mb-2">
-          <h1 className="font-headline text-3xl font-bold text-white tracking-tight">
-            Groups
-          </h1>
+          <h1 className="font-headline text-3xl font-bold text-white tracking-tight">Groups</h1>
           {flags.groupCreation && (
             <button
               onClick={() => isOnline && setShowModal(true)}
@@ -157,7 +153,9 @@ const Groups = () => {
               className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${!isOnline ? 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed opacity-50 grayscale' : 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/20'}`}
             >
               <LucideIcons.Plus size={16} />
-              <span className="text-[10px] uppercase tracking-widest font-bold">{isOnline ? 'New Cohort' : 'Offline'}</span>
+              <span className="text-[10px] uppercase tracking-widest font-bold">
+                {isOnline ? 'New Cohort' : 'Offline'}
+              </span>
             </button>
           )}
         </div>
@@ -173,9 +171,12 @@ const Groups = () => {
           <div className="w-16 h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-6">
             <Plus size={32} className="text-on-surface-variant opacity-50" />
           </div>
-          <h3 className="text-2xl font-bold font-manrope text-white mb-3 tracking-tight">Your Network is Empty</h3>
+          <h3 className="text-2xl font-bold font-manrope text-white mb-3 tracking-tight">
+            Your Network is Empty
+          </h3>
           <p className="text-base text-on-surface-variant mb-10 max-w-xs mx-auto font-inter leading-relaxed opacity-70">
-            Create your first group to establish a shared expense ledger and start managing finances with clarity.
+            Create your first group to establish a shared expense ledger and start managing finances
+            with clarity.
           </p>
           {flags.groupCreation ? (
             <Button
@@ -186,7 +187,9 @@ const Groups = () => {
               {isOnline ? 'Establish Group' : 'Network Required'}
             </Button>
           ) : (
-            <p className="text-[10px] uppercase tracking-widest text-white/20 font-black">Cohort creation is disabled by admin</p>
+            <p className="text-[10px] uppercase tracking-widest text-white/20 font-black">
+              Cohort creation is disabled by admin
+            </p>
           )}
         </div>
       ) : (
@@ -211,7 +214,6 @@ const Groups = () => {
         </button>
       </div>
 
-
       {/* Create Group Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Establish Group">
         <form onSubmit={handleCreate} className="flex flex-col gap-8">
@@ -227,17 +229,20 @@ const Groups = () => {
           </div>
 
           <div className="space-y-4">
-            <label className="block text-[10px] uppercase tracking-[0.2em] font-black text-white/30 font-label">Select Category</label>
+            <label className="block text-[10px] uppercase tracking-[0.2em] font-black text-white/30 font-label">
+              Select Category
+            </label>
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
               {GROUP_CATEGORIES.map((cat) => (
                 <button
                   key={cat.value}
                   type="button"
                   onClick={() => setForm({ ...form, category: cat.value })}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl border transition-all text-[11px] font-bold flex items-center gap-2 ${form.category === cat.value
-                    ? 'bg-white text-black border-white'
-                    : 'bg-white/[0.03] border-white/5 text-white/40 hover:text-white'
-                    }`}
+                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl border transition-all text-[11px] font-bold flex items-center gap-2 ${
+                    form.category === cat.value
+                      ? 'bg-white text-black border-white'
+                      : 'bg-white/[0.03] border-white/5 text-white/40 hover:text-white'
+                  }`}
                 >
                   {(() => {
                     const IconComp = LucideIcons[cat.icon] || LucideIcons.Hash;
@@ -250,7 +255,9 @@ const Groups = () => {
           </div>
 
           <div className="space-y-4">
-            <label className="block text-[10px] uppercase tracking-[0.2em] font-black text-white/30 font-label">Add from Friends</label>
+            <label className="block text-[10px] uppercase tracking-[0.2em] font-black text-white/30 font-label">
+              Add from Friends
+            </label>
             <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto no-scrollbar pr-1">
               {friends.length === 0 ? (
                 <p className="col-span-2 text-[10px] text-white/10 font-bold uppercase tracking-widest py-4 bg-white/[0.01] rounded-xl text-center border border-dashed border-white/5">
@@ -262,28 +269,41 @@ const Groups = () => {
                     key={friend._id}
                     type="button"
                     onClick={() => toggleFriend(friend._id)}
-                    className={`flex items-center gap-3 p-3 rounded-2xl border transition-all text-left ${form.members.includes(friend._id)
-                      ? 'bg-white text-black border-white shadow-xl'
-                      : 'bg-white/[0.02] border-white/5 text-white/40 hover:bg-white/[0.05]'
-                      }`}
+                    className={`flex items-center gap-3 p-3 rounded-2xl border transition-all text-left ${
+                      form.members.includes(friend._id)
+                        ? 'bg-white text-black border-white shadow-xl'
+                        : 'bg-white/[0.02] border-white/5 text-white/40 hover:bg-white/[0.05]'
+                    }`}
                   >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${form.members.includes(friend._id) ? 'bg-black text-white' : 'bg-white/5'
-                      }`}>
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${
+                        form.members.includes(friend._id) ? 'bg-black text-white' : 'bg-white/5'
+                      }`}
+                    >
                       {getInitials(friend.name)}
                     </div>
                     <span className="text-[11px] font-bold truncate">{friend.name}</span>
                   </button>
-                )
-                ))}
+                ))
+              )}
             </div>
           </div>
           <Button
             disabled={!user || loading || !isOnline}
             type="submit"
-            className={`w-full h-14 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl ${(!user || loading || !isOnline) ? 'bg-white/10 text-white/20 cursor-not-allowed grayscale' : 'bg-white text-black hover:bg-neutral-200 active:scale-[0.98]'
-              }`}
+            className={`w-full h-14 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl ${
+              !user || loading || !isOnline
+                ? 'bg-white/10 text-white/20 cursor-not-allowed grayscale'
+                : 'bg-white text-black hover:bg-neutral-200 active:scale-[0.98]'
+            }`}
           >
-            {loading ? <LucideIcons.Loader2 className="animate-spin" /> : (isOnline ? 'Launch Cohort' : 'Connect to Launch')}
+            {loading ? (
+              <LucideIcons.Loader2 className="animate-spin" />
+            ) : isOnline ? (
+              'Launch Cohort'
+            ) : (
+              'Connect to Launch'
+            )}
           </Button>
         </form>
       </Modal>

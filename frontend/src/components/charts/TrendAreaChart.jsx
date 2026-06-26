@@ -69,8 +69,8 @@ const TrendAreaChart = ({ data }) => {
         bottom: 20, // Give space for X-axis labels to breathe
         left: 10,
         right: 20,
-        top: 10
-      }
+        top: 10,
+      },
     },
     plugins: {
       legend: { display: false },
@@ -108,7 +108,7 @@ const TrendAreaChart = ({ data }) => {
         ticks: {
           color: 'rgba(255, 255, 255, 0.2)',
           font: { family: 'Inter', size: 10 },
-          callback: (value) => `₹${value >= 1000 ? (value/1000).toFixed(1) + 'k' : value}`,
+          callback: (value) => `₹${value >= 1000 ? (value / 1000).toFixed(1) + 'k' : value}`,
           padding: 8,
         },
       },

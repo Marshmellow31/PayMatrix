@@ -136,7 +136,7 @@ service cloud.firestore {
       // FIX SEC-08: any signed-in user could previously create notifications targeting any other user.
       // Now clients may only create notifications targeting themselves (system alerts).
       // Cross-user notifications are created by trusted Cloud Functions.
-      allow create: if isSignedIn() && request.resource.data.to == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.get('createdBy', '') == request.auth.uid;
     }
 
     // ─── Security Logs ────────────────────────────────────────────────────────

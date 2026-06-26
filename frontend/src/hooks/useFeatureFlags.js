@@ -4,12 +4,12 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../config/firebase.js';
 
 const DEFAULTS = {
-  billScanning:   true,
+  billScanning: true,
   friendRequests: true,
-  groupCreation:  true,
-  upiDeepLinks:   true,
+  groupCreation: true,
+  upiDeepLinks: true,
   maintenanceMode: false,
-  analyticsPage:  true,
+  analyticsPage: true,
 };
 
 let cachedFlags = null;
@@ -28,14 +28,18 @@ export const useFeatureFlags = () => {
 
       if (user) {
         const ref = doc(db, 'config', 'featureFlags');
-        unsubSnapshot = onSnapshot(ref, (snap) => {
-          const data = snap.exists() ? { ...DEFAULTS, ...snap.data() } : DEFAULTS;
-          cachedFlags = data;
-          setFlags(data);
-        }, (error) => {
-          console.error("Error reading feature flags snapshot:", error);
-          setFlags(DEFAULTS);
-        });
+        unsubSnapshot = onSnapshot(
+          ref,
+          (snap) => {
+            const data = snap.exists() ? { ...DEFAULTS, ...snap.data() } : DEFAULTS;
+            cachedFlags = data;
+            setFlags(data);
+          },
+          (error) => {
+            console.error('Error reading feature flags snapshot:', error);
+            setFlags(DEFAULTS);
+          }
+        );
       } else {
         setFlags(DEFAULTS);
       }

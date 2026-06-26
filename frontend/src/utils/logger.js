@@ -16,8 +16,8 @@ const IS_PROD = import.meta.env.PROD === true;
 
 const LEVELS = {
   debug: 0,
-  info:  1,
-  warn:  2,
+  info: 1,
+  warn: 2,
   error: 3,
 };
 
@@ -35,9 +35,9 @@ const emit = (consoleFn, level, module, fn, ...args) => {
  * @param {string} module - e.g. 'groupService', 'AdminRoute'
  */
 const logger = (module) => ({
-  debug: (fn, ...args) => emit(console.info,  'debug', module, fn, ...args),
-  info:  (fn, ...args) => emit(console.info,  'info',  module, fn, ...args),
-  warn:  (fn, ...args) => emit(console.warn,  'warn',  module, fn, ...args),
+  debug: (fn, ...args) => emit(console.info, 'debug', module, fn, ...args),
+  info: (fn, ...args) => emit(console.info, 'info', module, fn, ...args),
+  warn: (fn, ...args) => emit(console.warn, 'warn', module, fn, ...args),
   error: (fn, ...args) => emit(console.error, 'error', module, fn, ...args),
 });
 

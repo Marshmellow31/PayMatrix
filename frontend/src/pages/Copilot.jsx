@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Sparkles, Send, Brain, ArrowLeft, Loader2, MessageSquare, 
-  RefreshCw, TrendingUp, Wallet, Users, HelpCircle 
+import {
+  Sparkles,
+  Send,
+  Brain,
+  ArrowLeft,
+  Loader2,
+  MessageSquare,
+  RefreshCw,
+  TrendingUp,
+  Wallet,
+  Users,
+  HelpCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -14,30 +23,30 @@ import toast from 'react-hot-toast';
 import DOMPurify from 'dompurify';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = 'gemini-3.5-flash';
 
 const SUGGESTIONS = [
-  { text: "Summarize my net balances", icon: Wallet },
-  { text: "Do I have any pending friend requests?", icon: Users },
-  { text: "Show recent group activity logs", icon: TrendingUp },
-  { text: "Check my recent notifications", icon: Sparkles },
+  { text: 'Summarize my net balances', icon: Wallet },
+  { text: 'Do I have any pending friend requests?', icon: Users },
+  { text: 'Show recent group activity logs', icon: TrendingUp },
+  { text: 'Check my recent notifications', icon: Sparkles },
 ];
 
 const parseMarkdown = (text) => {
-  if (!text) return "";
-  
-  let lines = text.split('\n');
+  if (!text) return '';
+
+  const lines = text.split('\n');
   let inTable = false;
   let inList = false;
   let listType = null; // 'ul' or 'ol'
   let tableHtml = '';
   let listHtml = '';
-  let finalHtml = [];
+  const finalHtml = [];
   let tableRowIdx = 0;
 
   for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
-    
+    const line = lines[i].trim();
+
     // Handle Table
     if (line.startsWith('|') && line.endsWith('|')) {
       if (inList) {
@@ -47,31 +56,36 @@ const parseMarkdown = (text) => {
       if (!inTable) {
         inTable = true;
         tableRowIdx = 0;
-        tableHtml = '<div class="overflow-x-auto my-3 rounded-xl border border-white/10 shadow-lg"><table class="w-full border-collapse text-xs text-left">';
+        tableHtml =
+          '<div class="overflow-x-auto my-3 rounded-xl border border-white/10 shadow-lg"><table class="w-full border-collapse text-xs text-left">';
       }
-      
-      let cells = line.split('|').map(c => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
-      if (cells.every(c => c.startsWith('-') || c.startsWith(':'))) {
+
+      const cells = line
+        .split('|')
+        .map((c) => c.trim())
+        .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+      if (cells.every((c) => c.startsWith('-') || c.startsWith(':'))) {
         continue;
       }
 
       if (tableRowIdx === 0) {
-        tableHtml += '<thead class="bg-white/[0.05] border-b border-white/10 font-bold text-white/90"><tr>';
-        cells.forEach(cell => {
-          let cellText = cell.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        tableHtml +=
+          '<thead class="bg-white/[0.05] border-b border-white/10 font-bold text-white/90"><tr>';
+        cells.forEach((cell) => {
+          const cellText = cell.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
           tableHtml += `<th class="p-3 font-semibold uppercase tracking-wider text-[9px] border-r border-white/5 last:border-r-0">${cellText}</th>`;
         });
         tableHtml += '</tr></thead><tbody>';
       } else {
         tableHtml += `<tr class="border-b border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-colors">`;
-        cells.forEach(cell => {
-          let cellText = cell.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        cells.forEach((cell) => {
+          const cellText = cell.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
           tableHtml += `<td class="p-3 border-r border-white/5 last:border-r-0 text-white/80">${cellText}</td>`;
         });
         tableHtml += '</tr>';
       }
       tableRowIdx++;
-    } 
+    }
     // Handle Bullet List
     else if (line.startsWith('- ') || line.startsWith('* ')) {
       if (inTable) {
@@ -96,7 +110,7 @@ const parseMarkdown = (text) => {
         return `<code class="px-1.5 py-0.5 rounded bg-white/10 text-xs font-mono">${escaped}</code>`;
       });
       finalHtml.push(`${listHtml}<li class="leading-relaxed py-0.5">${processedLine}</li>`);
-    } 
+    }
     // Handle Numbered List
     else if (/^\d+\.\s/.test(line)) {
       if (inTable) {
@@ -121,7 +135,7 @@ const parseMarkdown = (text) => {
         return `<code class="px-1.5 py-0.5 rounded bg-white/10 text-xs font-mono">${escaped}</code>`;
       });
       finalHtml.push(`${listHtml}<li class="leading-relaxed py-0.5">${processedLine}</li>`);
-    } 
+    }
     // Handle Regular Paragraph / Headers
     else {
       if (inTable) {
@@ -147,15 +161,15 @@ const parseMarkdown = (text) => {
       } else {
         processedLine = processedLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         processedLine = processedLine.replace(/`(.*?)`/g, (match, p1) => {
-        const escaped = p1.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<code class="px-1.5 py-0.5 rounded bg-white/10 text-xs font-mono">${escaped}</code>`;
-      });
+          const escaped = p1.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return `<code class="px-1.5 py-0.5 rounded bg-white/10 text-xs font-mono">${escaped}</code>`;
+        });
         processedLine = `<p class="mb-2 leading-relaxed text-white/80">${processedLine}</p>`;
       }
       finalHtml.push(processedLine);
     }
   }
-  
+
   if (inTable) {
     tableHtml += '</tbody></table></div>';
     finalHtml.push(tableHtml);
@@ -178,9 +192,9 @@ const Copilot = () => {
     {
       id: 'welcome',
       sender: 'copilot',
-      text: "Hello! I am your PayMatrix AI Copilot. I have analyzed your cohorts, transaction ledger, and net balances. How can I help you optimize your shared finances today?",
-      timestamp: new Date()
-    }
+      text: 'Hello! I am your PayMatrix AI Copilot. I have analyzed your cohorts, transaction ledger, and net balances. How can I help you optimize your shared finances today?',
+      timestamp: new Date(),
+    },
   ]);
   const messagesEndRef = useRef(null);
 
@@ -189,38 +203,48 @@ const Copilot = () => {
     try {
       const user = auth.currentUser;
       if (!user) {
-        toast.error("Authentication required");
+        toast.error('Authentication required');
         return;
       }
       const userId = user.uid;
 
       // 1. Fetch friends & shared balances
-      const friendsRes = await friendService.getNetworkAnalytics().catch(() => ({ data: { data: {} } }));
+      const friendsRes = await friendService
+        .getNetworkAnalytics()
+        .catch(() => ({ data: { data: {} } }));
       const friendData = friendsRes.data.data?.networkAnalytics || [];
 
       // 2. Fetch friend requests (both directions to combine)
       const [reqsToSnap, reqsFromSnap] = await Promise.all([
         getDocs(query(collection(db, 'friendRequests'), where('to', '==', userId))),
-        getDocs(query(collection(db, 'friendRequests'), where('from', '==', userId)))
+        getDocs(query(collection(db, 'friendRequests'), where('from', '==', userId))),
       ]);
       const rawRequests = [...reqsToSnap.docs, ...reqsFromSnap.docs];
       const reqMap = new Map();
-      rawRequests.forEach(d => reqMap.set(d.id, { id: d.id, ...d.data() }));
+      rawRequests.forEach((d) => reqMap.set(d.id, { id: d.id, ...d.data() }));
       const friendRequests = Array.from(reqMap.values());
 
       // 3. Fetch notifications (recent 30, sorted efficiently by database)
       const notificationsSnap = await getDocs(
-        query(collection(db, 'notifications'), where('to', '==', userId), orderBy('createdAt', 'desc'), limit(30))
+        query(
+          collection(db, 'notifications'),
+          where('to', '==', userId),
+          orderBy('createdAt', 'desc'),
+          limit(30)
+        )
       );
-      const notifications = notificationsSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }));
+      const notifications = notificationsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       // 4. Fetch AI receipt scanning history (recent 20, sorted efficiently by database)
       const aiRequestsSnap = await getDocs(
-        query(collection(db, 'ai_requests'), where('uid', '==', userId), orderBy('timestamp', 'desc'), limit(20))
+        query(
+          collection(db, 'ai_requests'),
+          where('uid', '==', userId),
+          orderBy('timestamp', 'desc'),
+          limit(20)
+        )
       );
-      const aiRequests = aiRequestsSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }));
+      const aiRequests = aiRequestsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       // 5. Fetch system configurations/feature flags
       const configSnap = await getDoc(doc(db, 'config', 'featureFlags')).catch(() => null);
@@ -231,16 +255,18 @@ const Copilot = () => {
         query(collection(db, 'groups'), where('members', 'array-contains', userId))
       );
       const rawGroups = groupsSnap.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(g => g.status !== 'deleted');
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((g) => g.status !== 'deleted');
 
       const groups = await Promise.all(
         rawGroups.map(async (g) => {
           const [expensesSnap, settlementsSnap, logsSnap, resolvedProfiles] = await Promise.all([
             getDocs(query(collection(db, `groups/${g.id}/expenses`), limit(50))),
             getDocs(query(collection(db, `groups/${g.id}/settlements`), limit(50))),
-            getDocs(query(collection(db, `groups/${g.id}/logs`), orderBy('createdAt', 'desc'), limit(15))),
-            groupService.resolveMemberProfiles(g.id, g.members || []).catch(() => [])
+            getDocs(
+              query(collection(db, `groups/${g.id}/logs`), orderBy('createdAt', 'desc'), limit(15))
+            ),
+            groupService.resolveMemberProfiles(g.id, g.members || []).catch(() => []),
           ]);
           return {
             id: g.id,
@@ -248,24 +274,32 @@ const Copilot = () => {
             category: g.category || 'Other',
             status: g.status || 'active',
             membersCount: g.members?.length || 0,
-            members: resolvedProfiles.map(p => ({
+            members: resolvedProfiles.map((p) => ({
               uid: p.user?.uid || p.user?._id || '',
               name: p.user?.name || 'Member',
-              email: p.user?.email || ''
+              email: p.user?.email || '',
             })),
             expenses: expensesSnap.docs
-              .map(d => ({ id: d.id, ...d.data() }))
-              .filter(e => e.status !== 'deleted')
-              .map(data => {
-                const paidByProfile = resolvedProfiles.find(p => (p.user?.uid || p.user?._id) === data.paidBy);
-                const paidByName = paidByProfile?.user?.name || (data.paidBy === userId ? (currentUser?.name || 'Me') : 'Unknown');
-                const splitWithNames = (data.splits || []).map(s => {
+              .map((d) => ({ id: d.id, ...d.data() }))
+              .filter((e) => e.status !== 'deleted')
+              .map((data) => {
+                const paidByProfile = resolvedProfiles.find(
+                  (p) => (p.user?.uid || p.user?._id) === data.paidBy
+                );
+                const paidByName =
+                  paidByProfile?.user?.name ||
+                  (data.paidBy === userId ? currentUser?.name || 'Me' : 'Unknown');
+                const splitWithNames = (data.splits || []).map((s) => {
                   const uid = s.user?._id || s.user?.uid || s.user || '';
-                  const profile = resolvedProfiles.find(p => (p.user?.uid || p.user?._id) === uid);
+                  const profile = resolvedProfiles.find(
+                    (p) => (p.user?.uid || p.user?._id) === uid
+                  );
                   return {
                     userId: uid,
-                    userName: profile?.user?.name || (uid === userId ? (currentUser?.name || 'Me') : 'Unknown'),
-                    amount: s.amount || 0
+                    userName:
+                      profile?.user?.name ||
+                      (uid === userId ? currentUser?.name || 'Me' : 'Unknown'),
+                    amount: s.amount || 0,
                   };
                 });
                 return {
@@ -276,17 +310,25 @@ const Copilot = () => {
                   paidByName: paidByName,
                   date: data.date || '',
                   category: data.category || 'Other',
-                  splits: splitWithNames
+                  splits: splitWithNames,
                 };
               }),
             settlements: settlementsSnap.docs
-              .map(d => ({ id: d.id, ...d.data() }))
-              .filter(s => s.status !== 'deleted')
-              .map(data => {
-                const payerProfile = resolvedProfiles.find(p => (p.user?.uid || p.user?._id) === data.payer);
-                const payerName = payerProfile?.user?.name || (data.payer === userId ? (currentUser?.name || 'Me') : 'Unknown');
-                const payeeProfile = resolvedProfiles.find(p => (p.user?.uid || p.user?._id) === data.payee);
-                const payeeName = payeeProfile?.user?.name || (data.payee === userId ? (currentUser?.name || 'Me') : 'Unknown');
+              .map((d) => ({ id: d.id, ...d.data() }))
+              .filter((s) => s.status !== 'deleted')
+              .map((data) => {
+                const payerProfile = resolvedProfiles.find(
+                  (p) => (p.user?.uid || p.user?._id) === data.payer
+                );
+                const payerName =
+                  payerProfile?.user?.name ||
+                  (data.payer === userId ? currentUser?.name || 'Me' : 'Unknown');
+                const payeeProfile = resolvedProfiles.find(
+                  (p) => (p.user?.uid || p.user?._id) === data.payee
+                );
+                const payeeName =
+                  payeeProfile?.user?.name ||
+                  (data.payee === userId ? currentUser?.name || 'Me' : 'Unknown');
                 return {
                   amount: data.amount || 0,
                   payer: data.payer || '',
@@ -298,13 +340,13 @@ const Copilot = () => {
                 };
               }),
             activityLogs: logsSnap.docs
-              .map(d => ({ id: d.id, ...d.data() }))
+              .map((d) => ({ id: d.id, ...d.data() }))
               .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-              .map(data => ({
+              .map((data) => ({
                 type: data.type || '',
                 message: data.message || '',
-                date: data.createdAt || ''
-              }))
+                date: data.createdAt || '',
+              })),
           };
         })
       );
@@ -313,24 +355,24 @@ const Copilot = () => {
         currentUser: {
           name: currentUser?.name || user.displayName || 'Me',
           email: user.email || '',
-          uid: userId
+          uid: userId,
         },
-        friends: friendData.map(f => ({
+        friends: friendData.map((f) => ({
           uid: f.friend?._id || f.friend?.uid || '',
           name: f.friend?.name || 'Friend',
           email: f.friend?.email || '',
           netBalance: f.netBalance || 0,
-          mutualCohorts: f.mutualGroupsCount || 0
+          mutualCohorts: f.mutualGroupsCount || 0,
         })),
         cohorts: groups,
         friendRequests,
         notifications,
         aiRequests,
-        featureFlags
+        featureFlags,
       });
     } catch (err) {
-      console.error("Failed to hydrate Copilot context:", err);
-      toast.error("Failed to gather financial database context");
+      console.error('Failed to hydrate Copilot context:', err);
+      toast.error('Failed to gather financial database context');
     } finally {
       setLoading(false);
     }
@@ -349,7 +391,7 @@ const Copilot = () => {
     if (!queryText.trim() || sending) return;
 
     if (!context) {
-      toast.error("Ledger context is not initialized yet.");
+      toast.error('Ledger context is not initialized yet.');
       return;
     }
 
@@ -357,16 +399,16 @@ const Copilot = () => {
       id: Math.random().toString(),
       sender: 'user',
       text: queryText,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setSending(true);
 
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-      
+
       const systemPrompt = `
 You are PayMatrix AI (Copilot), a precise financial intelligence and system assistant.
 Your goal is to answer queries about the user's shared expenses, groups (cohorts), settlements, friend balances, pending friend requests, notifications, group activity logs, receipt scanning histories, and application configuration.
@@ -385,36 +427,46 @@ Instructions:
 
       const contents = [
         {
-          role: "user",
-          parts: [{ text: `${systemPrompt}\n\nKeep in mind the instructions above. Let's start the chat.` }]
+          role: 'user',
+          parts: [
+            {
+              text: `${systemPrompt}\n\nKeep in mind the instructions above. Let's start the chat.`,
+            },
+          ],
         },
         {
-          role: "model",
-          parts: [{ text: "Understood. I have loaded your financial database. How can I help you today?" }]
+          role: 'model',
+          parts: [
+            {
+              text: 'Understood. I have loaded your financial database. How can I help you today?',
+            },
+          ],
         },
-        ...messages.filter(msg => msg.id !== 'welcome' && !msg.isError).map(msg => ({
-          role: msg.sender === 'user' ? 'user' : 'model',
-          parts: [{ text: msg.text }]
-        })),
+        ...messages
+          .filter((msg) => msg.id !== 'welcome' && !msg.isError)
+          .map((msg) => ({
+            role: msg.sender === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.text }],
+          })),
         {
-          role: "user",
-          parts: [{ text: queryText }]
-        }
+          role: 'user',
+          parts: [{ text: queryText }],
+        },
       ];
 
       const runRequestWithRetry = async () => {
-        let attempts = 3;
+        const attempts = 3;
         let delay = 1000;
         for (let i = 0; i < attempts; i++) {
           try {
             const resp = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 contents,
                 generationConfig: {
                   temperature: 0.2,
-                }
+                },
               }),
             });
 
@@ -422,7 +474,7 @@ Instructions:
               return resp;
             }
 
-            const errDetails = await resp.text().catch(() => "Unknown error");
+            const errDetails = await resp.text().catch(() => 'Unknown error');
             console.warn(`[Gemini REST Attempt ${i + 1} Failed]`, resp.status, errDetails);
 
             const shouldRetry = resp.status === 503 || resp.status === 429;
@@ -433,7 +485,7 @@ Instructions:
             if (i === attempts - 1) throw err;
           }
 
-          await new Promise(res => setTimeout(res, delay));
+          await new Promise((res) => setTimeout(res, delay));
           delay *= 2;
         }
       };
@@ -444,37 +496,52 @@ Instructions:
       const botText = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!botText) {
-        throw new Error("Empty response from AI engine");
+        throw new Error('Empty response from AI engine');
       }
 
-      setMessages(prev => [...prev, {
-        id: Math.random().toString(),
-        sender: 'copilot',
-        text: botText,
-        timestamp: new Date()
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Math.random().toString(),
+          sender: 'copilot',
+          text: botText,
+          timestamp: new Date(),
+        },
+      ]);
     } catch (err) {
-      console.error("[Copilot Error]", err);
-      let friendlyText = "I encountered a brief connection issue. Please check your network and try asking again.";
-      const errMsg = err.message || "";
-      if (errMsg.includes("503") || errMsg.toLowerCase().includes("unavailable")) {
-        friendlyText = "The AI intelligence engine is currently experiencing heavy load. Please try again in a few moments.";
-      } else if (errMsg.includes("429") || errMsg.toLowerCase().includes("quota") || errMsg.toLowerCase().includes("rate limit")) {
-        friendlyText = "The intelligence engine is temporarily rate limited. Please hold on and try again shortly.";
-      } else if (errMsg.includes("400") || errMsg.toLowerCase().includes("bad request")) {
-        friendlyText = "I had difficulty formatting the shared ledger context. Let's try starting a fresh session.";
-      } else if (errMsg.includes("404") || errMsg.toLowerCase().includes("not found")) {
-        friendlyText = "The requested AI intelligence service endpoint was not found. Please verify the model configuration.";
+      console.error('[Copilot Error]', err);
+      let friendlyText =
+        'I encountered a brief connection issue. Please check your network and try asking again.';
+      const errMsg = err.message || '';
+      if (errMsg.includes('503') || errMsg.toLowerCase().includes('unavailable')) {
+        friendlyText =
+          'The AI intelligence engine is currently experiencing heavy load. Please try again in a few moments.';
+      } else if (
+        errMsg.includes('429') ||
+        errMsg.toLowerCase().includes('quota') ||
+        errMsg.toLowerCase().includes('rate limit')
+      ) {
+        friendlyText =
+          'The intelligence engine is temporarily rate limited. Please hold on and try again shortly.';
+      } else if (errMsg.includes('400') || errMsg.toLowerCase().includes('bad request')) {
+        friendlyText =
+          "I had difficulty formatting the shared ledger context. Let's try starting a fresh session.";
+      } else if (errMsg.includes('404') || errMsg.toLowerCase().includes('not found')) {
+        friendlyText =
+          'The requested AI intelligence service endpoint was not found. Please verify the model configuration.';
       }
       toast.error(friendlyText);
       setInput(queryText);
-      setMessages(prev => [...prev, {
-        id: Math.random().toString(),
-        sender: 'copilot',
-        text: friendlyText,
-        isError: true,
-        timestamp: new Date()
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Math.random().toString(),
+          sender: 'copilot',
+          text: friendlyText,
+          isError: true,
+          timestamp: new Date(),
+        },
+      ]);
     } finally {
       setSending(false);
     }
@@ -487,113 +554,127 @@ Instructions:
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-2 sm:px-4 py-2 sm:py-6 h-[calc(100vh-212px)] lg:h-[calc(100vh-128px)] flex flex-col gap-3">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-4 shrink-0">
+    <div className="w-full max-w-4xl mx-auto px-2 sm:px-4 py-2 sm:py-4 h-[calc(100vh-212px)] lg:h-[calc(100vh-128px)] flex flex-col gap-3 min-w-0">
+      {/* Sleek Instagram DM Contact Header */}
+      <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 shrink-0 px-2 sm:px-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/dashboard')}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+            className="p-2.5 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white transition-all active:scale-95"
           >
             <ArrowLeft size={16} />
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-black font-manrope text-white tracking-tight uppercase leading-none">AI Copilot</h1>
-              <span className="text-[9px] bg-primary/20 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Beta</span>
+
+          <div className="flex items-center gap-3">
+            {/* Circular Avatar with Active Status Pulse */}
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/10">
+                <Sparkles size={16} className="animate-pulse" />
+              </div>
+              <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#131313] shadow-sm animate-pulse" />
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1">
-              <p className="text-[9px] font-black font-manrope tracking-[0.3em] text-white/20 uppercase">Financial Intelligence Engine</p>
-              {context && (
-                <span className="text-[8px] font-bold font-manrope text-primary/60 uppercase tracking-widest hidden sm:inline-block">
-                  • Sync: {context.cohorts?.length || 0} Cohorts, {context.friends?.length || 0} Friends, {context.notifications?.length || 0} Signals
+
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-sm sm:text-base font-bold font-manrope text-white tracking-tight leading-tight">
+                  AI Copilot
+                </h1>
+                <span className="text-[8px] bg-indigo-500/20 text-indigo-400 border border-indigo-500/25 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider scale-90">
+                  Beta
                 </span>
-              )}
+              </div>
+              <p className="text-[10px] text-emerald-400/90 font-medium font-inter flex items-center gap-1.5 mt-0.5">
+                Active now
+              </p>
             </div>
           </div>
         </div>
-        <button
-          onClick={hydrateContext}
-          disabled={loading}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 transition-all disabled:opacity-30"
-          title="Refresh database sync"
-        >
-          <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-        </button>
+
+        <div className="flex items-center gap-2">
+          {context && (
+            <span className="text-[8px] font-bold font-manrope text-white/30 uppercase tracking-widest hidden md:inline-block pr-2">
+              Sync: {context.cohorts?.length || 0} Cohorts • {context.friends?.length || 0} Friends
+            </span>
+          )}
+          <button
+            onClick={hydrateContext}
+            disabled={loading}
+            className="p-2.5 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-white/55 hover:text-white transition-all disabled:opacity-30 active:scale-95"
+            title="Refresh database sync"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-white/30">
           <Loader2 className="w-10 h-10 animate-spin text-primary" strokeWidth={1.5} />
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-center animate-pulse">Hydrating Ledger context</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-center animate-pulse">
+            Hydrating Ledger context
+          </p>
         </div>
       ) : (
         <>
           {/* Chat Messages Area */}
-          <div className="flex-1 rounded-2xl gemini-animated-border overflow-hidden relative">
-            <div className="absolute inset-0 overflow-y-auto no-scrollbar p-4">
+          <div className="flex-1 overflow-hidden relative min-h-0">
+            {/* Subtle background ambient glows inside the chat */}
+            <div className="absolute top-[-10%] right-[-10%] w-[350px] h-[350px] rounded-full bg-indigo-500/[0.02] blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-[-10%] left-[-10%] w-[350px] h-[350px] rounded-full bg-purple-500/[0.02] blur-[120px] pointer-events-none" />
+
+            <div className="absolute inset-0 overflow-y-auto no-scrollbar p-4 sm:p-5">
               <div className="space-y-4">
                 {messages.map((msg) => {
                   const isUser = msg.sender === 'user';
                   return (
                     <div
                       key={msg.id}
-                      className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start w-full`}
+                      className={`flex ${isUser ? 'justify-end' : 'justify-start'} w-full`}
                     >
-                      {/* Avatar */}
-                      {isUser ? (
-                        <div className="w-8 h-8 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white/90 shrink-0 font-manrope font-black text-[9px] uppercase tracking-wider shadow-sm">
-                          {currentUser?.name ? currentUser.name.substring(0, 2) : 'ME'}
-                        </div>
-                      ) : (
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0 shadow-md ${
-                          msg.isError 
-                            ? 'bg-gradient-to-tr from-red-600 to-orange-500 shadow-red-500/20' 
-                            : 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 shadow-indigo-500/20'
-                        }`}>
-                          {msg.isError ? <HelpCircle size={13} /> : <Sparkles size={13} className="animate-pulse" />}
-                        </div>
-                      )}
-
                       {/* Bubble */}
                       <div
-                        className={`max-w-[75%] rounded-2xl p-4 pb-5 text-sm font-inter leading-relaxed relative ${
+                        className={`max-w-[75%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-[13.5px] sm:text-[14px] font-inter leading-relaxed shadow-sm relative ${
                           isUser
-                            ? 'bg-white text-[#121212] font-semibold rounded-tr-none shadow-md shadow-white/5 border border-white/10'
+                            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-tr-none'
                             : msg.isError
-                            ? 'bg-red-950/20 border border-red-500/30 text-red-200 rounded-tl-none shadow-lg shadow-red-950/40'
-                            : 'bg-surface-container-high/60 backdrop-blur-xl border border-white/5 text-white/90 rounded-tl-none shadow-lg'
+                              ? 'bg-red-950/20 border border-red-500/30 text-red-200 rounded-tl-none'
+                              : 'bg-white/[0.06] border border-white/[0.04] text-zinc-100 rounded-tl-none'
                         }`}
                       >
-                        {!isUser && (
-                          <div className={`flex items-center gap-1.5 mb-2 font-black text-[8px] uppercase tracking-widest font-manrope ${msg.isError ? 'text-red-400' : 'text-primary'}`}>
-                            <span>{msg.isError ? 'System Notice' : 'Copilot'}</span>
-                          </div>
-                        )}
                         <div
                           className="markdown-body select-text"
-                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(isUser ? msg.text : parseMarkdown(msg.text)) }}
+                          dangerouslySetInnerHTML={{
+                            __html: DOMPurify.sanitize(isUser ? msg.text : parseMarkdown(msg.text)),
+                          }}
                         />
-                        <span className="absolute bottom-1 right-2.5 text-[8px] text-white/25 select-none font-manrope font-medium">
-                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <span
+                          className={`block mt-1 text-[8px] select-none font-manrope font-medium ${isUser ? 'text-white/50 text-right' : 'text-white/30 text-left'}`}
+                        >
+                          {new Date(msg.timestamp).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </span>
                       </div>
                     </div>
                   );
                 })}
                 {sending && (
-                  <div className="flex gap-3 justify-start items-start w-full">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white shrink-0 shadow-md shadow-indigo-500/20 animate-spin" style={{ animationDuration: '3s' }}>
-                      <Sparkles size={13} />
-                    </div>
-                    <div className="max-w-[75%] rounded-2xl p-4 bg-surface-container-high/60 border border-white/5 text-white/90 rounded-tl-none shadow-lg">
-                      <div className="flex items-center gap-2 text-primary font-bold text-[8px] uppercase tracking-widest font-manrope">
-                        <span>Copilot is formulating insight...</span>
-                      </div>
-                      <div className="flex gap-1 items-center mt-3 h-3 pl-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-white/20 animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div className="flex justify-start w-full">
+                    <div className="max-w-[75%] sm:max-w-[70%] rounded-2xl rounded-tl-none px-4 py-3 bg-white/[0.06] border border-white/[0.04] text-zinc-100 shadow-sm">
+                      <div className="flex gap-1.5 items-center h-4 py-0.5">
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-white/35 animate-bounce"
+                          style={{ animationDelay: '0ms' }}
+                        />
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-white/50 animate-bounce"
+                          style={{ animationDelay: '150ms' }}
+                        />
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-white/70 animate-bounce"
+                          style={{ animationDelay: '300ms' }}
+                        />
                       </div>
                     </div>
                   </div>
@@ -603,42 +684,42 @@ Instructions:
             </div>
           </div>
 
-          {/* Quick suggestions */}
+          {/* Horizontal scrollable quick suggestions */}
           {messages.length === 1 && (
-            <div className="grid grid-cols-2 gap-2 shrink-0">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 shrink-0 px-2 sm:px-4 w-full max-w-full">
               {SUGGESTIONS.map((item, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleSend(item.text)}
-                  className="flex items-center gap-3 p-3.5 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.08] hover:border-white/15 text-left text-xs text-white/70 hover:text-white transition-all group shadow-sm backdrop-blur-sm"
+                  className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/[0.15] text-xs text-white/80 hover:text-white transition-all shrink-0 whitespace-nowrap shadow-sm active:scale-95"
                 >
-                  <item.icon size={14} className="text-primary/70 group-hover:text-primary transition-colors shrink-0" />
-                  <span className="truncate font-semibold">{item.text}</span>
+                  <item.icon size={12} className="text-indigo-400" />
+                  <span className="font-semibold tracking-tight">{item.text}</span>
                 </button>
               ))}
             </div>
           )}
 
-          {/* Input Box */}
-          <div className="flex gap-2 shrink-0 w-full items-center">
-            <div className={`flex-1 rounded-xl gemini-animated-border-input ${sending ? 'is-loading' : ''}`}>
+          {/* Floating Pill Input Box */}
+          <div className="px-2 sm:px-4 pb-2 shrink-0">
+            <div className="flex gap-2 w-full items-center bg-[#18181b]/90 border border-white/[0.08] rounded-full p-1.5 pl-4 pr-1.5 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/20 transition-all shadow-lg backdrop-blur-md">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask Copilot about shared expenses, balances, or budgets..."
-                className="w-full bg-transparent outline-none px-4 py-3 text-sm text-white placeholder:text-white/25 transition-all font-inter border-none"
+                placeholder="Message Copilot..."
+                className="flex-1 bg-transparent outline-none py-2 text-xs sm:text-sm text-white placeholder:text-white/30 transition-all font-inter border-none"
                 disabled={sending}
               />
+              <button
+                onClick={() => handleSend()}
+                disabled={sending || !input.trim()}
+                className="w-9 h-9 rounded-full bg-indigo-600 text-white hover:bg-indigo-500 active:scale-95 shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed shrink-0"
+              >
+                <Send size={13} strokeWidth={2.5} />
+              </button>
             </div>
-            <button
-              onClick={() => handleSend()}
-              disabled={sending || !input.trim()}
-              className="w-12 h-12 rounded-xl bg-gradient-to-tr from-white to-neutral-200 text-black hover:brightness-110 shadow-lg active:scale-95 transition-all flex items-center justify-center disabled:opacity-35 disabled:cursor-not-allowed shrink-0"
-            >
-              <Send size={16} strokeWidth={2.5} />
-            </button>
           </div>
         </>
       )}

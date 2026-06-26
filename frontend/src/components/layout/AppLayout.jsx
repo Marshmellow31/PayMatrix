@@ -36,18 +36,21 @@ const AppLayout = () => {
     // so subsequent API calls don't wait for the backend to wake up.
     const apiBase = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || '';
     if (apiBase) {
-      fetch(`${apiBase}/api/health`, { method: 'GET' }).catch(() => { /* silent */ });
+      fetch(`${apiBase}/api/health`, { method: 'GET' }).catch(() => {
+        /* silent */
+      });
     }
   }, [dispatch]);
 
   // Route paths that should hide global navigation for a focused experience
-  const isFocusJourney = location.pathname.includes('/add-expense') ||
+  const isFocusJourney =
+    location.pathname.includes('/add-expense') ||
     location.pathname.includes('/login') ||
     location.pathname.includes('/register') ||
     location.pathname.includes('/forgot-password');
 
   const openAddExpense = (groupId = '', expense = null, prefill = null) => {
-    setPreSelectedGroupId(groupId || (expense ? (expense.group?._id || expense.group) : ''));
+    setPreSelectedGroupId(groupId || (expense ? expense.group?._id || expense.group : ''));
     setEditingExpense(expense);
     setPrefillData(prefill);
     setExpenseStep(1);
@@ -58,7 +61,7 @@ const AppLayout = () => {
     const groupId = data.groupId;
     const isEdit = !!editingExpense;
     const expenseId = editingExpense?._id;
-    
+
     // Close modal optimistically for instant offline UI response
     setIsAddExpenseOpen(false);
     setEditingExpense(null);
@@ -92,7 +95,8 @@ const AppLayout = () => {
       {!isFocusJourney && flags.maintenanceMode && (
         <div className="fixed top-20 left-0 right-0 z-40 bg-orange-500/10 border-b border-orange-500/25 text-orange-500 py-2.5 px-4 text-center text-xs font-bold font-inter tracking-wide flex items-center justify-center gap-2 backdrop-blur-md">
           <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-          PayMatrix is currently undergoing scheduled maintenance. Some services may be temporarily unavailable.
+          PayMatrix is currently undergoing scheduled maintenance. Some services may be temporarily
+          unavailable.
         </div>
       )}
 
@@ -105,7 +109,9 @@ const AppLayout = () => {
           />
         )}
 
-        <main className={`flex-1 ${!isFocusJourney ? `px-4 sm:px-6 pt-1 lg:px-8 lg:pt-4 pb-32 lg:pb-8 lg:ml-64 transition-all ${flags.maintenanceMode ? 'min-h-[calc(100vh-128px)]' : 'min-h-[calc(100vh-80px)]'}` : 'min-h-screen flex flex-col'}`}>
+        <main
+          className={`flex-1 min-w-0 max-w-full overflow-x-hidden ${!isFocusJourney ? `px-4 sm:px-6 pt-1 lg:px-8 lg:pt-4 pb-32 lg:pb-8 lg:ml-64 transition-all ${flags.maintenanceMode ? 'min-h-[calc(100vh-128px)]' : 'min-h-[calc(100vh-80px)]'}` : 'min-h-screen flex flex-col'}`}
+        >
           <ErrorBoundary>
             <Outlet context={{ openAddExpense }} />
           </ErrorBoundary>
@@ -122,7 +128,7 @@ const AppLayout = () => {
           setEditingExpense(null);
           setPrefillData(null);
         }}
-        title={editingExpense ? "Edit Transaction" : "Record Transaction"}
+        title={editingExpense ? 'Edit Transaction' : 'Record Transaction'}
         size="3xl"
       >
         <div className="py-2">
@@ -140,6 +146,5 @@ const AppLayout = () => {
     </div>
   );
 };
-
 
 export default AppLayout;

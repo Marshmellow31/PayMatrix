@@ -7,39 +7,39 @@ import toast from 'react-hot-toast';
 
 const FLAGS = [
   {
-    key:     'billScanning',
-    label:   'Bill Scanning (AI)',
-    desc:    'Gemini-powered receipt scanner on the Add Expense screen. Disabling this hides the scan button for all users.',
+    key: 'billScanning',
+    label: 'Bill Scanning (AI)',
+    desc: 'Gemini-powered receipt scanner on the Add Expense screen. Disabling this hides the scan button for all users.',
     default: true,
   },
   {
-    key:     'friendRequests',
-    label:   'Friend Requests',
-    desc:    'Allow users to send and accept friend requests. Disabling hides the Add Friend option.',
+    key: 'friendRequests',
+    label: 'Friend Requests',
+    desc: 'Allow users to send and accept friend requests. Disabling hides the Add Friend option.',
     default: true,
   },
   {
-    key:     'groupCreation',
-    label:   'Group Creation',
-    desc:    'Allow users to create new groups. Existing groups are unaffected.',
+    key: 'groupCreation',
+    label: 'Group Creation',
+    desc: 'Allow users to create new groups. Existing groups are unaffected.',
     default: true,
   },
   {
-    key:     'upiDeepLinks',
-    label:   'UPI Deep Links',
-    desc:    'Show UPI payment deep-link buttons (GPay, PhonePe, etc.) in settlement flows.',
+    key: 'upiDeepLinks',
+    label: 'UPI Deep Links',
+    desc: 'Show UPI payment deep-link buttons (GPay, PhonePe, etc.) in settlement flows.',
     default: true,
   },
   {
-    key:     'maintenanceMode',
-    label:   'Maintenance Mode',
-    desc:    'Show a maintenance banner across the top of the app for all users.',
+    key: 'maintenanceMode',
+    label: 'Maintenance Mode',
+    desc: 'Show a maintenance banner across the top of the app for all users.',
     default: false,
   },
   {
-    key:     'analyticsPage',
-    label:   'Analytics Page',
-    desc:    'Show the personal analytics page in the sidebar and navigation.',
+    key: 'analyticsPage',
+    label: 'Analytics Page',
+    desc: 'Show the personal analytics page in the sidebar and navigation.',
     default: true,
   },
 ];
@@ -69,25 +69,31 @@ const FlagCard = ({ flag, value, onToggle, saving }) => {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1.5">
           <p className="text-sm font-bold text-white font-manrope">{flag.label}</p>
-          <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border transition-colors ${
-            enabled
-              ? 'bg-white/10 text-white border-white/20'
-              : 'bg-white/[0.02] text-white/30 border-white/[0.04]'
-          }`}>
+          <span
+            className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border transition-colors ${
+              enabled
+                ? 'bg-white/10 text-white border-white/20'
+                : 'bg-white/[0.02] text-white/30 border-white/[0.04]'
+            }`}
+          >
             {enabled ? 'ON' : 'OFF'}
           </span>
         </div>
         <p className="text-xs text-white/40 leading-relaxed">{flag.desc}</p>
       </div>
-      <div
-        className="shrink-0 transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 mt-0.5 text-white"
-      >
+      <div className="shrink-0 transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 mt-0.5 text-white">
         {saving ? (
           <Loader2 size={24} className="animate-spin text-white/30" />
         ) : enabled ? (
-          <ToggleRight size={30} className="text-white opacity-90 group-hover:opacity-100 transition-opacity" />
+          <ToggleRight
+            size={30}
+            className="text-white opacity-90 group-hover:opacity-100 transition-opacity"
+          />
         ) : (
-          <ToggleLeft size={30} className="text-white/20 group-hover:text-white/30 transition-opacity" />
+          <ToggleLeft
+            size={30}
+            className="text-white/20 group-hover:text-white/30 transition-opacity"
+          />
         )}
       </div>
     </motion.div>
@@ -95,9 +101,9 @@ const FlagCard = ({ flag, value, onToggle, saving }) => {
 };
 
 const AdminFeatureFlags = () => {
-  const [flags, setFlags]     = useState({});
+  const [flags, setFlags] = useState({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState({});
+  const [saving, setSaving] = useState({});
 
   const loadFlags = async () => {
     setLoading(true);
@@ -111,7 +117,9 @@ const AdminFeatureFlags = () => {
     }
   };
 
-  useEffect(() => { loadFlags(); }, []);
+  useEffect(() => {
+    loadFlags();
+  }, []);
 
   const handleToggle = async (key, newValue) => {
     setSaving((prev) => ({ ...prev, [key]: true }));
@@ -132,10 +140,18 @@ const AdminFeatureFlags = () => {
     <div className="max-w-3xl mx-auto px-4 sm:px-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black font-manrope text-white tracking-tight">Feature Flags</h1>
-          <p className="text-sm text-white/40 mt-0.5">Toggle platform features in real-time — changes apply instantly for all users</p>
+          <h1 className="text-2xl font-black font-manrope text-white tracking-tight">
+            Feature Flags
+          </h1>
+          <p className="text-sm text-white/40 mt-0.5">
+            Toggle platform features in real-time — changes apply instantly for all users
+          </p>
         </div>
-        <button onClick={loadFlags} className="p-2 rounded-xl hover:bg-white/5 text-white/40 hover:text-white/70 transition-colors" title="Refresh">
+        <button
+          onClick={loadFlags}
+          className="p-2 rounded-xl hover:bg-white/5 text-white/40 hover:text-white/70 transition-colors"
+          title="Refresh"
+        >
           <RefreshCw size={15} />
         </button>
       </div>
@@ -144,7 +160,8 @@ const AdminFeatureFlags = () => {
       <div className="flex items-start gap-3 rounded-2xl px-4 py-3.5 mb-6 bg-white/[0.02] border border-white/5 shadow-sm">
         <Info size={15} className="text-white/40 shrink-0 mt-0.5" />
         <p className="text-xs text-white/50 leading-relaxed font-inter">
-          Flags are stored in Firestore and read by the app on load. Changes take effect within seconds for all connected users — no deployment needed.
+          Flags are stored in Firestore and read by the app on load. Changes take effect within
+          seconds for all connected users — no deployment needed.
         </p>
       </div>
 
@@ -155,7 +172,12 @@ const AdminFeatureFlags = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {FLAGS.map((flag, i) => (
-            <motion.div key={flag.key} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}>
+            <motion.div
+              key={flag.key}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: i * 0.04 }}
+            >
               <FlagCard
                 flag={flag}
                 value={flags[flag.key]}

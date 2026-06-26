@@ -59,32 +59,38 @@ const groupSlice = createSlice({
     },
     setGroups: (state, action) => {
       state.groups = action.payload;
-    }
+    },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchGroups.pending, (state) => { 
-        if (state.groups.length === 0) state.loading = true; 
-        state.error = null; 
+      .addCase(fetchGroups.pending, (state) => {
+        if (state.groups.length === 0) state.loading = true;
+        state.error = null;
       })
-      .addCase(fetchGroups.fulfilled, (state, action) => { 
-        state.loading = false; 
+      .addCase(fetchGroups.fulfilled, (state, action) => {
+        state.loading = false;
         // Correct path for Payload: action.payload.data
-        state.groups = action.payload.data.groups || []; 
+        state.groups = action.payload.data.groups || [];
       })
-      .addCase(fetchGroups.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
-      .addCase(fetchGroup.pending, (state) => { 
-        if (!state.currentGroup) state.loading = true; 
+      .addCase(fetchGroups.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       })
-      .addCase(fetchGroup.fulfilled, (state, action) => { 
-        state.loading = false; 
-        state.currentGroup = action.payload.data.group; 
+      .addCase(fetchGroup.pending, (state) => {
+        if (!state.currentGroup) state.loading = true;
       })
-      .addCase(fetchGroup.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
-      .addCase(createGroup.fulfilled, (state, action) => { 
+      .addCase(fetchGroup.fulfilled, (state, action) => {
+        state.loading = false;
+        state.currentGroup = action.payload.data.group;
+      })
+      .addCase(fetchGroup.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(createGroup.fulfilled, (state, action) => {
         // No manual unshift here. The onSnapshot listener in Groups.jsx will handle the UI update.
       })
-      .addCase(deleteGroup.fulfilled, (state, action) => { 
+      .addCase(deleteGroup.fulfilled, (state, action) => {
         // No manual filter here. The onSnapshot listener in Groups.jsx will handle the UI update.
       });
   },

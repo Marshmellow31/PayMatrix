@@ -1,7 +1,20 @@
 import { db, auth } from '../config/firebase.js';
-import { 
-  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, 
-  query, where, arrayUnion, arrayRemove, limit, getDocFromCache, getDocsFromCache
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  arrayUnion,
+  arrayRemove,
+  limit,
+  getDocFromCache,
+  getDocsFromCache,
 } from 'firebase/firestore';
 import { createNotification } from '../utils/notificationHelper.js';
 import validationService, { FriendRequestSchema } from './validationService.js';
@@ -14,43 +27,43 @@ const _normalize = (userData) => {
   return {
     ...userData,
     name: userData.name || userData.displayName || 'Member',
-    avatar: userData.avatar || userData.photoURL
+    avatar: userData.avatar || userData.photoURL,
   };
 };
 
 const friendService = {
   searchUsers: async (searchTerm) => {
-    // Feature disabled for enhanced privacy. 
+    // Feature disabled for enhanced privacy.
     // Users can only be added via common groups or shared links.
     return wrap({ users: [] });
   },
 
   getUser: async (userId) => {
-    if (!userId) throw new Error("User ID required");
+    if (!userId) throw new Error('User ID required');
     const uSnap = await getDoc(doc(db, 'users', userId));
-    if (!uSnap.exists()) throw new Error("User not found");
+    if (!uSnap.exists()) throw new Error('User not found');
     return wrap({ _id: uSnap.id, ...uSnap.data() });
   },
-  
+
   sendRequest: async (receiverId) => {
     const senderId = auth.currentUser?.uid;
-    if (!senderId) throw new Error("Auth required");
-    
+    if (!senderId) throw new Error('Auth required');
+
     // Check if request already exists
     const q = query(
-      collection(db, 'friendRequests'), 
+      collection(db, 'friendRequests'),
       where('from', '==', senderId),
       where('to', '==', receiverId),
       where('status', '==', 'pending')
     );
     const existing = await getDocs(q);
-    if (!existing.empty) throw new Error("Request already pending");
+    if (!existing.empty) throw new Error('Request already pending');
 
     const requestPayload = {
       from: senderId,
       to: receiverId,
       status: 'pending',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
 
     // Validate
@@ -72,24 +85,39 @@ const friendService = {
     const userId = auth.currentUser?.uid;
     if (!userId) return wrap({ incoming: [], outgoing: [] });
 
-    const incomingQ = query(collection(db, 'friendRequests'), where('to', '==', userId), where('status', '==', 'pending'));
-    const outgoingQ = query(collection(db, 'friendRequests'), where('from', '==', userId), where('status', '==', 'pending'));
+    const incomingQ = query(
+      collection(db, 'friendRequests'),
+      where('to', '==', userId),
+      where('status', '==', 'pending')
+    );
+    const outgoingQ = query(
+      collection(db, 'friendRequests'),
+      where('from', '==', userId),
+      where('status', '==', 'pending')
+    );
 
-    const [incomingSnap, outgoingSnap] = await Promise.all([getDocs(incomingQ), getDocs(outgoingQ)]);
+    const [incomingSnap, outgoingSnap] = await Promise.all([
+      getDocs(incomingQ),
+      getDocs(outgoingQ),
+    ]);
 
-    const incoming = await Promise.all(incomingSnap.docs.map(async d => {
-      const data = d.data();
-      let uSnap = await getDocFromCache(doc(db, 'users', data.from)).catch(() => null);
-      if (!uSnap) uSnap = await getDoc(doc(db, 'users', data.from)).catch(() => null);
-      return { _id: d.id, ...data, from: { _id: data.from, ..._normalize(uSnap?.data()) } };
-    }));
+    const incoming = await Promise.all(
+      incomingSnap.docs.map(async (d) => {
+        const data = d.data();
+        let uSnap = await getDocFromCache(doc(db, 'users', data.from)).catch(() => null);
+        if (!uSnap) uSnap = await getDoc(doc(db, 'users', data.from)).catch(() => null);
+        return { _id: d.id, ...data, from: { _id: data.from, ..._normalize(uSnap?.data()) } };
+      })
+    );
 
-    const outgoing = await Promise.all(outgoingSnap.docs.map(async d => {
-      const data = d.data();
-      let uSnap = await getDocFromCache(doc(db, 'users', data.to)).catch(() => null);
-      if (!uSnap) uSnap = await getDoc(doc(db, 'users', data.to)).catch(() => null);
-      return { _id: d.id, ...data, to: { _id: data.to, ..._normalize(uSnap?.data()) } };
-    }));
+    const outgoing = await Promise.all(
+      outgoingSnap.docs.map(async (d) => {
+        const data = d.data();
+        let uSnap = await getDocFromCache(doc(db, 'users', data.to)).catch(() => null);
+        if (!uSnap) uSnap = await getDoc(doc(db, 'users', data.to)).catch(() => null);
+        return { _id: d.id, ...data, to: { _id: data.to, ..._normalize(uSnap?.data()) } };
+      })
+    );
 
     return wrap({ incoming, outgoing });
   },
@@ -97,7 +125,7 @@ const friendService = {
   respondToRequest: async (requestId, status) => {
     const reqRef = doc(db, 'friendRequests', requestId);
     const reqSnap = await getDoc(reqRef);
-    if (!reqSnap.exists()) throw new Error("Request not found");
+    if (!reqSnap.exists()) throw new Error('Request not found');
     const reqData = reqSnap.data();
 
     if (status === 'accepted') {
@@ -108,7 +136,7 @@ const friendService = {
       await Promise.all([
         updateDoc(fromRef, { friends: arrayUnion(reqData.to) }),
         updateDoc(toRef, { friends: arrayUnion(reqData.from) }),
-        updateDoc(reqRef, { status: 'accepted' })
+        updateDoc(reqRef, { status: 'accepted' }),
       ]);
 
       // Notify the requester
@@ -131,15 +159,17 @@ const friendService = {
     const uDoc = await getDoc(doc(db, 'users', userId));
     const friendIds = uDoc.data()?.friends || [];
 
-    const friends = await Promise.all(friendIds.map(async id => {
-      let d = await getDocFromCache(doc(db, 'users', id)).catch(() => null);
-      if (!d) d = await getDoc(doc(db, 'users', id)).catch(() => null);
-      return { _id: id, ..._normalize(d?.data()) };
-    }));
+    const friends = await Promise.all(
+      friendIds.map(async (id) => {
+        let d = await getDocFromCache(doc(db, 'users', id)).catch(() => null);
+        if (!d) d = await getDoc(doc(db, 'users', id)).catch(() => null);
+        return { _id: id, ..._normalize(d?.data()) };
+      })
+    );
 
     return wrap({ friends });
   },
-  
+
   getNetworkAnalytics: async () => {
     const userId = auth.currentUser?.uid;
     if (!userId) return wrap({ networkAnalytics: [] });
@@ -155,87 +185,104 @@ const friendService = {
       const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
       const groupSnap = await getDocs(q);
       const myGroups = groupSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(g => g.status !== 'deleted');
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((g) => g.status !== 'deleted');
 
       // 3. Pre-fetch all group data to avoid redundant calls in the friend loop
       const groupDataCache = {};
-      await Promise.all(myGroups.map(async (group) => {
-        const [expSnap, stlSnap] = await Promise.all([
-          getDocs(collection(db, 'groups', group.id, 'expenses')),
-          getDocs(collection(db, 'groups', group.id, 'settlements'))
-        ]);
-        groupDataCache[group.id] = {
-          expenses: expSnap.docs.map(d => ({ _id: d.id, ...d.data() })).filter(e => e.status !== 'deleted'),
-          settlements: stlSnap.docs.map(d => ({ _id: d.id, ...d.data() })).filter(s => s.status !== 'deleted'),
-          members: group.members || []
-        };
-      }));
+      await Promise.all(
+        myGroups.map(async (group) => {
+          const [expSnap, stlSnap] = await Promise.all([
+            getDocs(collection(db, 'groups', group.id, 'expenses')),
+            getDocs(collection(db, 'groups', group.id, 'settlements')),
+          ]);
+          groupDataCache[group.id] = {
+            expenses: expSnap.docs
+              .map((d) => ({ _id: d.id, ...d.data() }))
+              .filter((e) => e.status !== 'deleted'),
+            settlements: stlSnap.docs
+              .map((d) => ({ _id: d.id, ...d.data() }))
+              .filter((s) => s.status !== 'deleted'),
+            members: group.members || [],
+          };
+        })
+      );
 
-      const networkAnalytics = await Promise.all(friendIds.map(async fId => {
-        // Cache-first: avoids redundant network reads for recently-fetched profiles
-        let fDoc = await getDocFromCache(doc(db, 'users', fId)).catch(() => null);
-        if (!fDoc || !fDoc.exists()) fDoc = await getDoc(doc(db, 'users', fId)).catch(() => null);
-        const fData = { _id: fId, ..._normalize(fDoc?.exists() ? fDoc.data() : null) };
+      const networkAnalytics = await Promise.all(
+        friendIds.map(async (fId) => {
+          // Cache-first: avoids redundant network reads for recently-fetched profiles
+          let fDoc = await getDocFromCache(doc(db, 'users', fId)).catch(() => null);
+          if (!fDoc || !fDoc.exists()) fDoc = await getDoc(doc(db, 'users', fId)).catch(() => null);
+          const fData = { _id: fId, ..._normalize(fDoc?.exists() ? fDoc.data() : null) };
 
-        const mutualGroups = myGroups.filter(g => g.members?.includes(fId));
-        
-        let netBalance = 0;
-        let totalTurnover = 0;
-        const mutualGroupsEx = [];
+          const mutualGroups = myGroups.filter((g) => g.members?.includes(fId));
 
-        for (const group of mutualGroups) {
-          const { expenses, settlements, members } = groupDataCache[group.id];
-          
-          let groupSpecificBalance = 0;
+          let netBalance = 0;
+          let totalTurnover = 0;
+          const mutualGroupsEx = [];
 
-          // 1. Calculate totalTurnover raw from expenses
-          expenses.forEach(exp => {
-            const paidByUid = exp.paidBy?._id || exp.paidBy?.uid || exp.paidBy || '';
-            const isParticipant = paidByUid === userId || paidByUid === fId || 
-                                (Array.isArray(exp.participants) && (exp.participants.includes(userId) || exp.participants.includes(fId)));
-            if (isParticipant) {
-              totalTurnover += parseFloat(exp.amount || 0);
-            }
-          });
+          for (const group of mutualGroups) {
+            const { expenses, settlements, members } = groupDataCache[group.id];
 
-          // 2. Compute group balances and simplify debts to get actual pairwise balance
-          const groupBalances = computeGroupBalances(expenses, settlements, members.map(uid => ({ uid })));
-          const simplifiedTx = simplifyDebts(groupBalances);
+            let groupSpecificBalance = 0;
 
-          simplifiedTx.forEach(tx => {
-            if (tx.from === userId && tx.to === fId) {
-              groupSpecificBalance -= tx.amount;
-            }
-            if (tx.from === fId && tx.to === userId) {
-              groupSpecificBalance += tx.amount;
-            }
-          });
+            // 1. Calculate totalTurnover raw from expenses
+            expenses.forEach((exp) => {
+              const paidByUid = exp.paidBy?._id || exp.paidBy?.uid || exp.paidBy || '';
+              const isParticipant =
+                paidByUid === userId ||
+                paidByUid === fId ||
+                (Array.isArray(exp.participants) &&
+                  (exp.participants.includes(userId) || exp.participants.includes(fId)));
+              if (isParticipant) {
+                totalTurnover += parseFloat(exp.amount || 0);
+              }
+            });
 
-          netBalance += groupSpecificBalance;
+            // 2. Compute group balances and simplify debts to get actual pairwise balance
+            const groupBalances = computeGroupBalances(
+              expenses,
+              settlements,
+              members.map((uid) => ({ uid }))
+            );
+            const simplifiedTx = simplifyDebts(groupBalances);
 
-          mutualGroupsEx.push({
-            id: group.id,
-            title: group.name || group.title,
-            balance: Math.round(groupSpecificBalance * 100) / 100
-          });
-        }
+            simplifiedTx.forEach((tx) => {
+              if (tx.from === userId && tx.to === fId) {
+                groupSpecificBalance -= tx.amount;
+              }
+              if (tx.from === fId && tx.to === userId) {
+                groupSpecificBalance += tx.amount;
+              }
+            });
 
-        return {
-          friend: fData,
-          netBalance: Math.round(netBalance * 100) / 100,
-          totalTurnover: Math.round(totalTurnover * 100) / 100,
-          mutualGroups: mutualGroupsEx,
-          mutualGroupsCount: mutualGroups.length
-        };
-      }));
+            netBalance += groupSpecificBalance;
 
-      return wrap({ 
-        networkAnalytics: networkAnalytics.sort((a, b) => Math.abs(b.netBalance) - Math.abs(a.netBalance)),
-        totalSharedBalance: networkAnalytics.reduce((acc, curr) => acc + curr.netBalance, 0)
+            mutualGroupsEx.push({
+              id: group.id,
+              title: group.name || group.title,
+              balance: Math.round(groupSpecificBalance * 100) / 100,
+            });
+          }
+
+          return {
+            friend: fData,
+            netBalance: Math.round(netBalance * 100) / 100,
+            totalTurnover: Math.round(totalTurnover * 100) / 100,
+            mutualGroups: mutualGroupsEx,
+            mutualGroupsCount: mutualGroups.length,
+          };
+        })
+      );
+
+      return wrap({
+        networkAnalytics: networkAnalytics.sort(
+          (a, b) => Math.abs(b.netBalance) - Math.abs(a.netBalance)
+        ),
+        totalSharedBalance: networkAnalytics.reduce((acc, curr) => acc + curr.netBalance, 0),
       });
     } catch (error) {
-      console.error("Network analytics error:", error);
+      console.error('Network analytics error:', error);
       return wrap({ networkAnalytics: [] });
     }
   },
@@ -261,20 +308,20 @@ const friendService = {
 
       // Check for pending requests (both directions)
       const qIncoming = query(
-        collection(db, 'friendRequests'), 
-        where('from', '==', targetUserId), 
+        collection(db, 'friendRequests'),
+        where('from', '==', targetUserId),
         where('to', '==', userId),
         where('status', '==', 'pending')
       );
       const qOutgoing = query(
-        collection(db, 'friendRequests'), 
-        where('from', '==', userId), 
+        collection(db, 'friendRequests'),
+        where('from', '==', userId),
         where('to', '==', targetUserId),
         where('status', '==', 'pending')
       );
 
       const [inSnap, outSnap] = await Promise.all([getDocs(qIncoming), getDocs(qOutgoing)]);
-      
+
       if (!inSnap.empty) return wrap({ status: 'pending_incoming' });
       if (!outSnap.empty) return wrap({ status: 'pending_outgoing' });
 
@@ -290,7 +337,7 @@ const friendService = {
 
   removeFriend: async (friendId) => {
     const userId = auth.currentUser?.uid;
-    if (!userId || !friendId) throw new Error("IDs required");
+    if (!userId || !friendId) throw new Error('IDs required');
 
     try {
       const userRef = doc(db, 'users', userId);
@@ -299,24 +346,34 @@ const friendService = {
       // 1. Remove from both friends arrays
       await Promise.all([
         updateDoc(userRef, { friends: arrayRemove(friendId) }),
-        updateDoc(friendRef, { friends: arrayRemove(userId) })
+        updateDoc(friendRef, { friends: arrayRemove(userId) }),
       ]);
 
       // 2. Clean up any pending requests between these two
-      const qIn = query(collection(db, 'friendRequests'), where('from', '==', friendId), where('to', '==', userId), where('status', '==', 'pending'));
-      const qOut = query(collection(db, 'friendRequests'), where('from', '==', userId), where('to', '==', friendId), where('status', '==', 'pending'));
-      
+      const qIn = query(
+        collection(db, 'friendRequests'),
+        where('from', '==', friendId),
+        where('to', '==', userId),
+        where('status', '==', 'pending')
+      );
+      const qOut = query(
+        collection(db, 'friendRequests'),
+        where('from', '==', userId),
+        where('to', '==', friendId),
+        where('status', '==', 'pending')
+      );
+
       const [inSnap, outSnap] = await Promise.all([getDocs(qIn), getDocs(qOut)]);
-      
+
       const deletePromises = [];
-      inSnap.docs.forEach(d => deletePromises.push(deleteDoc(d.ref)));
-      outSnap.docs.forEach(d => deletePromises.push(deleteDoc(d.ref)));
-      
+      inSnap.docs.forEach((d) => deletePromises.push(deleteDoc(d.ref)));
+      outSnap.docs.forEach((d) => deletePromises.push(deleteDoc(d.ref)));
+
       await Promise.all(deletePromises);
 
       return wrap({ message: 'Friend removed' });
     } catch (error) {
-      console.error("Remove friend error:", error);
+      console.error('Remove friend error:', error);
       throw error;
     }
   },

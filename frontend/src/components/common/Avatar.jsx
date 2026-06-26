@@ -43,7 +43,9 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
   if (!src || hasError) {
     if (!name) {
       return (
-        <div className={`${sizes[size]} rounded-full bg-white/5 shrink-0 ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')}`} />
+        <div
+          className={`${sizes[size]} rounded-full bg-white/5 shrink-0 ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')}`}
+        />
       );
     }
     return (
@@ -61,7 +63,9 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
 
   // Attempt to load the image
   return (
-    <div className={`${sizes[size]} rounded-full shrink-0 relative ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')} overflow-hidden shadow-lg bg-white/5`}>
+    <div
+      className={`${sizes[size]} rounded-full shrink-0 relative ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')} overflow-hidden shadow-lg bg-white/5`}
+    >
       <img
         src={src}
         alt={name || ''}

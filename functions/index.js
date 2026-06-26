@@ -481,3 +481,105 @@ exports.createCrossUserNotification = onCall(
     return { success: true };
   }
 );
+
+// ─── Admin: List Groups with Pagination ──────────────────────────────────────
+
+exports.adminListGroups = onCall(
+  { memory: "256MiB" },
+  async (request) => {
+    if (!request.auth?.token?.admin) {
+      throw new HttpsError("permission-denied", "Admin access required.");
+    }
+
+    const { pageSize = 20, startAfterId } = request.data || {};
+    const db = admin.firestore();
+
+    let q = db.collection("groups").orderBy("createdAt", "desc").limit(pageSize);
+
+    if (startAfterId) {
+      const startAfterSnap = await db.collection("groups").doc(startAfterId).get();
+      if (startAfterSnap.exists) {
+        q = q.startAfter(startAfterSnap);
+      }
+    }
+
+    const snap = await q.get();
+    const groups = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
+    const lastDocId = groups[groups.length - 1]?._id || null;
+    const hasMore = groups.length === pageSize;
+
+    return { groups, lastDocId, hasMore };
+  }
+);
+
+// ─── Admin: Get Group Details (Group, Expenses, Settlements) ────────────────
+
+exports.adminGetGroupDetails = onCall(
+  { memory: "256MiB" },
+  async (request) => {
+    if (!request.auth?.token?.admin) {
+      throw new HttpsError("permission-denied", "Admin access required.");
+    }
+
+    const { groupId } = request.data || {};
+    if (!groupId) throw new HttpsError("invalid-argument", "groupId is required.");
+
+    const db = admin.firestore();
+
+    const [groupSnap, expensesSnap, settlementsSnap] = await Promise.all([
+      db.collection("groups").doc(groupId).get(),
+      db.collection(`groups/${groupId}/expenses`).orderBy("createdAt", "desc").limit(20).get(),
+      db.collection(`groups/${groupId}/settlements`).orderBy("createdAt", "desc").limit(20).get(),
+    ]);
+
+    return {
+      group: groupSnap.exists ? { _id: groupSnap.id, ...groupSnap.data() } : null,
+      expenses: expensesSnap.docs.map((d) => ({ _id: d.id, ...d.data() })),
+      settlements: settlementsSnap.docs.map((d) => ({ _id: d.id, ...d.data() })),
+    };
+  }
+);
+
+// ─── Admin: Archive Group ───────────────────────────────────────────────────
+
+exports.adminArchiveGroup = onCall(
+  { memory: "128MiB" },
+  async (request) => {
+    if (!request.auth?.token?.admin) {
+      throw new HttpsError("permission-denied", "Admin access required.");
+    }
+
+    const { groupId } = request.data || {};
+    if (!groupId) throw new HttpsError("invalid-argument", "groupId is required.");
+
+    const db = admin.firestore();
+    await db.collection("groups").doc(groupId).update({
+      status: "archived",
+      archivedAt: new Date().toISOString()
+    });
+
+    return { success: true };
+  }
+);
+
+// ─── Admin: Delete Group ─────────────────────────────────────────────────────
+
+exports.adminDeleteGroup = onCall(
+  { memory: "128MiB" },
+  async (request) => {
+    if (!request.auth?.token?.admin) {
+      throw new HttpsError("permission-denied", "Admin access required.");
+    }
+
+    const { groupId } = request.data || {};
+    if (!groupId) throw new HttpsError("invalid-argument", "groupId is required.");
+
+    const db = admin.firestore();
+    await db.collection("groups").doc(groupId).update({
+      status: "deleted",
+      deletedAt: new Date().toISOString()
+    });
+
+    return { success: true };
+  }
+);

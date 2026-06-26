@@ -24,7 +24,9 @@ ChartJS.register(
 
 const SpendingTrendChart = ({ data = [] }) => {
   const chartData = {
-    labels: (data || []).map((item) => new Date(item._id).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+    labels: (data || []).map((item) =>
+      new Date(item._id).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    ),
     datasets: [
       {
         fill: true,

@@ -1,24 +1,37 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, Send, Users, User, CheckCircle, XCircle, History } from 'lucide-react';
+import { Bell, Send, Users, User, CheckCircle, XCircle, History, Trash2 } from 'lucide-react';
 import adminService from '../../services/adminService.js';
 import Loader from '../../components/common/Loader.jsx';
 import toast from 'react-hot-toast';
 
-const HistoryItem = ({ item }) => (
+const HistoryItem = ({ item, onDelete }) => (
   <motion.div
     whileHover={{ scale: 0.99 }}
-    className="rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 bg-surface-container-low border border-white/5 shadow-sm transition-all"
+    className="rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 bg-surface-container-low border border-white/5 shadow-sm transition-all relative group"
   >
     <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-white/5 border border-white/10">
-      {item.targetUid ? <User size={14} className="text-on-surface-variant" /> : <Users size={14} className="text-on-surface-variant" />}
+      {item.targetUid ? (
+        <User size={14} className="text-on-surface-variant" />
+      ) : (
+        <Users size={14} className="text-on-surface-variant" />
+      )}
     </div>
     <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2 flex-wrap mb-1">
-        <p className="text-sm font-bold text-white truncate">{item.title}</p>
-        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 text-white/60 border border-white/10">
-          {item.targetUid ? 'Targeted' : 'Broadcast'}
-        </span>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-sm font-bold text-white truncate">{item.title}</p>
+          <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 text-white/60 border border-white/10">
+            {item.targetUid ? 'Targeted' : 'Broadcast'}
+          </span>
+        </div>
+        <button
+          onClick={() => onDelete(item._id)}
+          className="p-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all active:scale-90 shrink-0"
+          title="Delete log from history"
+        >
+          <Trash2 size={13} />
+        </button>
       </div>
       <p className="text-xs text-white/50 leading-relaxed mb-2 break-words">{item.body}</p>
       <div className="flex items-center gap-3 border-t border-white/[0.03] pt-2.5 flex-wrap">
@@ -31,7 +44,14 @@ const HistoryItem = ({ item }) => (
           </span>
         )}
         <span className="text-[10px] font-bold uppercase tracking-widest text-white/20 ml-auto">
-          {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+          {item.createdAt
+            ? new Date(item.createdAt).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : ''}
         </span>
       </div>
     </div>
@@ -39,11 +59,11 @@ const HistoryItem = ({ item }) => (
 );
 
 const AdminNotifications = () => {
-  const [history, setHistory]       = useState([]);
+  const [history, setHistory] = useState([]);
   const [histLoading, setHistLoading] = useState(true);
-  const [sending, setSending]       = useState(false);
-  const [mode, setMode]             = useState('broadcast'); // 'broadcast' | 'targeted'
-  const [form, setForm]             = useState({ title: '', body: '', url: '', targetUid: '' });
+  const [sending, setSending] = useState(false);
+  const [mode, setMode] = useState('broadcast'); // 'broadcast' | 'targeted'
+  const [form, setForm] = useState({ title: '', body: '', url: '', targetUid: '' });
 
   const loadHistory = async () => {
     try {
@@ -56,7 +76,26 @@ const AdminNotifications = () => {
     }
   };
 
-  useEffect(() => { loadHistory(); }, []);
+  const handleDelete = async (id) => {
+    if (
+      !window.confirm(
+        'Delete this notification log from history? This will only remove the log representation and not undo any delivered push notifications.'
+      )
+    ) {
+      return;
+    }
+    try {
+      await adminService.deleteNotificationHistoryItem(id);
+      toast.success('Notification log deleted');
+      loadHistory();
+    } catch (e) {
+      toast.error(e.message || 'Failed to delete notification log');
+    }
+  };
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -73,13 +112,15 @@ const AdminNotifications = () => {
     try {
       const payload = {
         title: form.title.trim(),
-        body:  form.body.trim(),
-        url:   form.url.trim() || undefined,
+        body: form.body.trim(),
+        url: form.url.trim() || undefined,
         targetUid: mode === 'targeted' ? form.targetUid.trim() : undefined,
       };
       const res = await adminService.broadcastNotification(payload);
       const { sent, failed, recipientCount } = res.data;
-      toast.success(`Sent to ${sent}/${recipientCount} recipients${failed > 0 ? `, ${failed} failed` : ''}`);
+      toast.success(
+        `Sent to ${sent}/${recipientCount} recipients${failed > 0 ? `, ${failed} failed` : ''}`
+      );
       setForm({ title: '', body: '', url: '', targetUid: '' });
       loadHistory();
     } catch (e) {
@@ -90,16 +131,19 @@ const AdminNotifications = () => {
   };
 
   const inp = (field) => ({
-    value:    form[field],
+    value: form[field],
     onChange: (e) => setForm((prev) => ({ ...prev, [field]: e.target.value })),
     disabled: sending,
-    className: 'w-full px-4 py-3 rounded-2xl text-sm bg-white/[0.03] border border-white/[0.08] text-white placeholder-white/20 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/10 transition-colors disabled:opacity-50 font-inter',
+    className:
+      'w-full px-4 py-3 rounded-2xl text-sm bg-white/[0.03] border border-white/[0.08] text-white placeholder-white/20 focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/10 transition-colors disabled:opacity-50 font-inter',
   });
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-black font-manrope text-white tracking-tight">Notifications</h1>
+        <h1 className="text-2xl font-black font-manrope text-white tracking-tight">
+          Notifications
+        </h1>
         <p className="text-sm text-white/40 mt-0.5">Send push notifications to users</p>
       </div>
 
@@ -119,7 +163,7 @@ const AdminNotifications = () => {
           <div className="flex rounded-2xl p-1 mb-5 bg-white/[0.03] border border-white/[0.05]">
             {[
               { id: 'broadcast', label: 'Broadcast', icon: Users },
-              { id: 'targeted',  label: 'Targeted',  icon: User },
+              { id: 'targeted', label: 'Targeted', icon: User },
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -145,7 +189,11 @@ const AdminNotifications = () => {
             />
             <input {...inp('url')} placeholder="Action URL (optional, e.g. /dashboard)" />
             {mode === 'targeted' && (
-              <input {...inp('targetUid')} placeholder="Target user UID *" className={`${inp('targetUid').className} font-mono`} />
+              <input
+                {...inp('targetUid')}
+                placeholder="Target user UID *"
+                className={`${inp('targetUid').className} font-mono`}
+              />
             )}
             <button
               type="submit"
@@ -153,7 +201,7 @@ const AdminNotifications = () => {
               className="w-full h-12 rounded-2xl bg-white text-black font-manrope font-bold text-sm tracking-widest flex items-center justify-center gap-2 hover:bg-white/90 transition-all active:scale-95 shadow-md disabled:opacity-50 mt-2"
             >
               {sending ? <Loader size="sm" className="w-5 h-5 text-black" /> : <Send size={14} />}
-              {sending ? 'SENDING…' : (mode === 'broadcast' ? 'BROADCAST TO ALL' : 'SEND TO USER')}
+              {sending ? 'SENDING…' : mode === 'broadcast' ? 'BROADCAST TO ALL' : 'SEND TO USER'}
             </button>
           </form>
         </motion.div>
@@ -178,7 +226,9 @@ const AdminNotifications = () => {
             <div className="text-center py-12 text-white/25 text-sm">No notifications sent yet</div>
           ) : (
             <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
-              {history.map((item) => <HistoryItem key={item._id} item={item} />)}
+              {history.map((item) => (
+                <HistoryItem key={item._id} item={item} onDelete={handleDelete} />
+              ))}
             </div>
           )}
         </motion.div>

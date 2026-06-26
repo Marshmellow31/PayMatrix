@@ -27,13 +27,18 @@ class ErrorBoundary extends Component {
             <RefreshCw size={24} className="text-white/40" />
           </div>
           <div className="text-center">
-            <h2 className="text-xl font-black font-manrope tracking-tight mb-2">Something went wrong</h2>
+            <h2 className="text-xl font-black font-manrope tracking-tight mb-2">
+              Something went wrong
+            </h2>
             <p className="text-sm text-white/40 font-inter">
               {this.state.error?.message || 'An unexpected error occurred.'}
             </p>
           </div>
           <button
-            onClick={() => { this.setState({ hasError: false, error: null }); window.history.back(); }}
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              window.history.back();
+            }}
             className="px-6 py-3 rounded-2xl bg-white text-black text-xs font-black uppercase tracking-widest transition-all hover:bg-white/90 active:scale-95"
           >
             Go Back

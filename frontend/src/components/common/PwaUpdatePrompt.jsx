@@ -12,9 +12,12 @@ const PwaUpdatePrompt = () => {
     onRegistered(r) {
       // Check for updates periodically (every hour)
       if (r) {
-        setInterval(() => {
-          r.update();
-        }, 60 * 60 * 1000);
+        setInterval(
+          () => {
+            r.update();
+          },
+          60 * 60 * 1000
+        );
       }
     },
     onRegisterError(error) {
@@ -26,7 +29,7 @@ const PwaUpdatePrompt = () => {
     if (offlineReady) {
       toast.success('App ready to work offline', {
         icon: '📱',
-        style: { background: '#1c1c1e', color: '#fff' }
+        style: { background: '#1c1c1e', color: '#fff' },
       });
       setOfflineReady(false);
     }
@@ -40,11 +43,16 @@ const PwaUpdatePrompt = () => {
             <div className="flex items-start justify-between w-full">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                  <RefreshCw size={16} className="text-emerald-400 animate-[spin_3s_linear_infinite]" />
+                  <RefreshCw
+                    size={16}
+                    className="text-emerald-400 animate-[spin_3s_linear_infinite]"
+                  />
                 </div>
                 <div>
                   <span className="font-bold text-white text-sm block">Update Available</span>
-                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">New Version</span>
+                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">
+                    New Version
+                  </span>
                 </div>
               </div>
               <button
@@ -58,14 +66,14 @@ const PwaUpdatePrompt = () => {
                 <X size={14} />
               </button>
             </div>
-            
+
             <div className="text-xs text-white/70 leading-relaxed font-inter flex flex-col gap-1.5 bg-white/[0.02] border border-white/5 p-3 rounded-2xl">
-              <span className="font-bold text-white/90 mb-0.5">What's New:</span>
+              <span className="font-bold text-white/90 mb-0.5">What&apos;s New:</span>
               <ul className="list-disc pl-4 space-y-1 text-white/60">
-                <li>Optimized modal padding & rounded corners on mobile</li>
-                <li>Responsive category grids to prevent text overflow</li>
-                <li>Horizontal scroll Paid By list with Swipe indicators</li>
-                <li>Auto-expanding distribution preview for large cohorts</li>
+                <li>Upgraded AI Engine: Faster chat (Gemini 3.5) & scanner (Gemini 3.1)</li>
+                <li>Serverless OCR Vault: Secure receipt scanning via Vercel Functions</li>
+                <li>Node-to-Node Alerts: Direct, instant notifications via Firestore</li>
+                <li>Group Details Drawer: Interactive click-to-open group cards in admin</li>
               </ul>
             </div>
 
@@ -101,8 +109,8 @@ const PwaUpdatePrompt = () => {
             boxShadow: '0 20px 40px -10px rgba(0,0,0,0.8)',
             minWidth: '320px',
             padding: '20px',
-            borderRadius: '24px'
-          }
+            borderRadius: '24px',
+          },
         }
       );
     }

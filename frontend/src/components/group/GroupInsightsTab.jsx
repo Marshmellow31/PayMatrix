@@ -16,9 +16,9 @@ const StatCard = ({ icon: Icon, label, value, subValue, accent, delay = 0, class
   <motion.div
     {...fadeUp(delay)}
     className={`relative overflow-hidden flex flex-col gap-3 p-4 sm:p-5 rounded-[1.5rem] border backdrop-blur-md transition-all hover:scale-[1.01] hover:border-white/10 ${className}`}
-    style={{ 
-      background: `linear-gradient(135deg, ${accent}0e 0%, ${accent}03 100%)`, 
-      borderColor: `${accent}20` 
+    style={{
+      background: `linear-gradient(135deg, ${accent}0e 0%, ${accent}03 100%)`,
+      borderColor: `${accent}20`,
     }}
   >
     <div
@@ -27,9 +27,9 @@ const StatCard = ({ icon: Icon, label, value, subValue, accent, delay = 0, class
     />
     <div
       className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg"
-      style={{ 
-        background: `linear-gradient(135deg, ${accent}25 0%, ${accent}0e 100%)`, 
-        border: `1px solid ${accent}35` 
+      style={{
+        background: `linear-gradient(135deg, ${accent}25 0%, ${accent}0e 100%)`,
+        border: `1px solid ${accent}35`,
       }}
     >
       <Icon size={18} style={{ color: accent }} strokeWidth={2.5} />
@@ -87,7 +87,9 @@ const CategoryBar = ({ category, amount, total, delay }) => {
           >
             <IconCmp size={13} style={{ color }} strokeWidth={2.5} />
           </div>
-          <span className="text-[11px] font-bold text-white/70 truncate font-inter">{category}</span>
+          <span className="text-[11px] font-bold text-white/70 truncate font-inter">
+            {category}
+          </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[10px] font-bold text-white/30 font-mono">{pct}%</span>
@@ -159,8 +161,8 @@ const MemberCard = ({ member, paid, netBalance, actualShare, sharePct, maxPaid, 
             {isOwed
               ? `Owed ${formatCompactCurrency(Math.abs(netBalance))}`
               : isOwes
-              ? `Owes ${formatCompactCurrency(Math.abs(netBalance))}`
-              : 'Settled ✓'}
+                ? `Owes ${formatCompactCurrency(Math.abs(netBalance))}`
+                : 'Settled ✓'}
           </p>
           <p className="text-[10px] font-bold text-white/10 uppercase tracking-tight">
             Share: {formatCompactCurrency(actualShare)}
@@ -173,16 +175,9 @@ const MemberCard = ({ member, paid, netBalance, actualShare, sharePct, maxPaid, 
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-const GroupInsightsTab = ({
-  members = [],
-  expenses = [],
-  settlements = [],
-  netBalances = {},
-}) => {
+const GroupInsightsTab = ({ members = [], expenses = [], settlements = [], netBalances = {} }) => {
   const stats = useMemo(() => {
-    const activeExp = expenses.filter(
-      (e) => e.status !== 'deleted' && e.status !== 'archived'
-    );
+    const activeExp = expenses.filter((e) => e.status !== 'deleted' && e.status !== 'archived');
     const activeSett = settlements.filter((s) => s.status !== 'deleted');
 
     const totalGroupSpend = activeExp.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
@@ -216,7 +211,10 @@ const GroupInsightsTab = ({
     let topPayerUid = null;
     let topPayerAmt = 0;
     Object.entries(paidByMember).forEach(([uid, amt]) => {
-      if (amt > topPayerAmt) { topPayerAmt = amt; topPayerUid = uid; }
+      if (amt > topPayerAmt) {
+        topPayerAmt = amt;
+        topPayerUid = uid;
+      }
     });
     const topPayerMember = members.find((m) => {
       const mid = m.user?._id || m.user?.uid || m.user || m._id || m.uid;
@@ -244,7 +242,10 @@ const GroupInsightsTab = ({
     let mostActiveUid = '';
     let mostActiveCount = 0;
     Object.entries(expCountByMember).forEach(([uid, cnt]) => {
-      if (cnt > mostActiveCount) { mostActiveCount = cnt; mostActiveUid = uid; }
+      if (cnt > mostActiveCount) {
+        mostActiveCount = cnt;
+        mostActiveUid = uid;
+      }
     });
     const mostActiveMember = members.find((m) => {
       const mid = (m.user?._id || m.user?.uid || m.user || m._id || m.uid || '').toString();
@@ -268,10 +269,20 @@ const GroupInsightsTab = ({
     const maxPaid = memberStats[0]?.paid || 0;
 
     return {
-      totalGroupSpend, totalSettled, unsettled, settlementProgress,
-      expenseCount: activeExp.length, avgExpense, categoryBreakdown,
-      topPayerName, topPayerAmt, largestExp, mostActiveName, mostActiveCount,
-      memberStats, maxPaid,
+      totalGroupSpend,
+      totalSettled,
+      unsettled,
+      settlementProgress,
+      expenseCount: activeExp.length,
+      avgExpense,
+      categoryBreakdown,
+      topPayerName,
+      topPayerAmt,
+      largestExp,
+      mostActiveName,
+      mostActiveCount,
+      memberStats,
+      maxPaid,
     };
   }, [expenses, settlements, members, netBalances]);
 
@@ -294,14 +305,24 @@ const GroupInsightsTab = ({
   }
 
   const {
-    totalGroupSpend, totalSettled, unsettled, settlementProgress,
-    expenseCount, avgExpense, categoryBreakdown, topPayerName, topPayerAmt,
-    largestExp, mostActiveName, mostActiveCount, memberStats, maxPaid,
+    totalGroupSpend,
+    totalSettled,
+    unsettled,
+    settlementProgress,
+    expenseCount,
+    avgExpense,
+    categoryBreakdown,
+    topPayerName,
+    topPayerAmt,
+    largestExp,
+    mostActiveName,
+    mostActiveCount,
+    memberStats,
+    maxPaid,
   } = stats;
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-
       {/* ── Hero Stats Strip ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <StatCard
@@ -396,7 +417,7 @@ const GroupInsightsTab = ({
           primary={topPayerName}
           secondary={`${formatCompactCurrency(topPayerAmt)} paid`}
           accent="#eab308"
-          delay={0.20}
+          delay={0.2}
         />
         <ScoreTile
           icon={LucideIcons.Activity}
@@ -457,7 +478,6 @@ const GroupInsightsTab = ({
           </div>
         </motion.div>
       )}
-
     </div>
   );
 };

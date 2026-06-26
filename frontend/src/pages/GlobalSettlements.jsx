@@ -27,20 +27,24 @@ const GlobalSettlements = () => {
         return;
       }
       try {
-        const promises = groups.map(g => expenseService.getBalances(g._id).then(res => ({
-          ...g,
-          balancesData: res.data.data.balances
-        })));
-        
+        const promises = groups.map((g) =>
+          expenseService.getBalances(g._id).then((res) => ({
+            ...g,
+            balancesData: res.data.data.balances,
+          }))
+        );
+
         const results = await Promise.all(promises);
-        
-        const withMyBalances = results.map(g => {
-          const balances = g.balancesData || {};
-          const myUserIdInGroup = user?._id || user?.uid;
-          const myBal = balances[myUserIdInGroup] || 0;
-          return { ...g, myBalance: myBal };
-        }).filter(g => g.myBalance !== 0);
-        
+
+        const withMyBalances = results
+          .map((g) => {
+            const balances = g.balancesData || {};
+            const myUserIdInGroup = user?._id || user?.uid;
+            const myBal = balances[myUserIdInGroup] || 0;
+            return { ...g, myBalance: myBal };
+          })
+          .filter((g) => g.myBalance !== 0);
+
         setGroupBalances(withMyBalances);
       } catch (err) {
         console.error('Failed to load group balances:', err);
@@ -60,11 +64,17 @@ const GlobalSettlements = () => {
 
   const groupsWithBalances = groupBalances;
 
-  const totalOwedUrl = groupsWithBalances.reduce((acc, g) => g.myBalance > 0 ? acc + g.myBalance : acc, 0);
-  const totalOweUrl = groupsWithBalances.reduce((acc, g) => g.myBalance < 0 ? acc + Math.abs(g.myBalance) : acc, 0);
+  const totalOwedUrl = groupsWithBalances.reduce(
+    (acc, g) => (g.myBalance > 0 ? acc + g.myBalance : acc),
+    0
+  );
+  const totalOweUrl = groupsWithBalances.reduce(
+    (acc, g) => (g.myBalance < 0 ? acc + Math.abs(g.myBalance) : acc),
+    0
+  );
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="max-w-4xl mx-auto px-4 py-6 pb-28 space-y-6"
@@ -79,17 +89,21 @@ const GlobalSettlements = () => {
             Global Portfolio Position
           </p>
         </div>
-        
+
         {/* Large Visible Metrics Row - Responsive Grid for Large Numbers */}
         <div className="flex flex-wrap sm:flex-nowrap gap-x-8 gap-y-4 sm:gap-6 border-t sm:border-t-0 sm:border-l border-white/5 pt-5 sm:pt-0 sm:pl-6">
           <div className="flex flex-col items-start sm:items-end group min-w-[120px]">
-            <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] group-hover:text-white/40 transition-colors">Net Positive</span>
+            <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] group-hover:text-white/40 transition-colors">
+              Net Positive
+            </span>
             <span className="text-xl sm:text-2xl font-black font-manrope text-white tracking-tight break-all">
               {formatCurrency(totalOwedUrl)}
             </span>
           </div>
           <div className="flex flex-col items-start sm:items-end border-l sm:border-l-0 border-white/5 pl-8 sm:pl-0 min-w-[120px]">
-            <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Net Payable</span>
+            <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">
+              Net Payable
+            </span>
             <span className="text-xl sm:text-2xl font-black font-manrope text-white/40 tracking-tight break-all">
               {formatCurrency(totalOweUrl)}
             </span>
@@ -121,16 +135,18 @@ const GlobalSettlements = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.03 }}
                 >
-                  <Link 
+                  <Link
                     to={`/groups/${group._id}`}
                     className="group px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.07] hover:border-white/20 flex items-center justify-between transition-all duration-300 shadow-xl"
                   >
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       {/* Logo container - higher contrast icon */}
-                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black font-manrope text-sm border shrink-0
-                        ${isPositive 
-                          ? 'bg-white text-black border-white' 
-                          : 'bg-white/10 text-white/60 border-white/10'
+                      <div
+                        className={`w-11 h-11 rounded-xl flex items-center justify-center font-black font-manrope text-sm border shrink-0
+                        ${
+                          isPositive
+                            ? 'bg-white text-black border-white'
+                            : 'bg-white/10 text-white/60 border-white/10'
                         }`}
                       >
                         {(group.name || group.title || '?')[0].toUpperCase()}
@@ -139,17 +155,25 @@ const GlobalSettlements = () => {
                         <p className="text-base font-black text-white font-manrope truncate group-hover:text-white">
                           {group.name || group.title}
                         </p>
-                        <p className={`text-[9px] font-black tracking-[0.2em] truncate ${isPositive ? 'text-white/40' : 'text-white/20'}`}>
+                        <p
+                          className={`text-[9px] font-black tracking-[0.2em] truncate ${isPositive ? 'text-white/40' : 'text-white/20'}`}
+                        >
                           {isPositive ? 'RECEIVABLE' : 'PAYABLE'}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0 ml-4">
-                      <p className={`text-lg sm:text-xl font-black font-manrope whitespace-nowrap ${isPositive ? 'text-white' : 'text-white/60'}`}>
-                        {isPositive ? '+' : '-'}{formatCurrency(Math.abs(group.myBalance))}
+                      <p
+                        className={`text-lg sm:text-xl font-black font-manrope whitespace-nowrap ${isPositive ? 'text-white' : 'text-white/60'}`}
+                      >
+                        {isPositive ? '+' : '-'}
+                        {formatCurrency(Math.abs(group.myBalance))}
                       </p>
-                      <ChevronRight size={16} className="text-white/10 group-hover:text-white/50 transition-colors shrink-0" />
+                      <ChevronRight
+                        size={16}
+                        className="text-white/10 group-hover:text-white/50 transition-colors shrink-0"
+                      />
                     </div>
                   </Link>
                 </motion.div>

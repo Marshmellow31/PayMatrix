@@ -30,9 +30,7 @@ const Input = forwardRef(
             {...props}
           />
         </div>
-        {error && (
-          <p className="mt-1.5 text-xs text-error font-inter">{error}</p>
-        )}
+        {error && <p className="mt-1.5 text-xs text-error font-inter">{error}</p>}
       </div>
     );
   }

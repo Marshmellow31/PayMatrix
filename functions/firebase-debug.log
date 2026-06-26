@@ -1,0 +1,87 @@
+[debug] [2026-06-26T12:29:25.513Z] ----------------------------------------------------------------------
+[debug] [2026-06-26T12:29:25.515Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\1080p\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js emulators:start --only functions
+[debug] [2026-06-26T12:29:25.516Z] CLI Version:   15.22.3
+[debug] [2026-06-26T12:29:25.516Z] Platform:      win32
+[debug] [2026-06-26T12:29:25.516Z] Node Version:  v22.18.0
+[debug] [2026-06-26T12:29:25.516Z] Detected Agent: antigravity
+[debug] [2026-06-26T12:29:25.516Z] Time:          Fri Jun 26 2026 17:59:25 GMT+0530 (India Standard Time)
+[debug] [2026-06-26T12:29:25.516Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-06-26T12:29:27.018Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-06-26T12:29:27.018Z] > authorizing via signed-in user (4060patelharshil@gmail.com)
+[info] i  emulators: Starting emulators: functions {"metadata":{"emulator":{"name":"hub"},"message":"Starting emulators: functions"}}
+[debug] [2026-06-26T12:29:27.026Z] [logging] Logging Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2026-06-26T12:29:27.026Z] assigned listening specs for emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":4000},{"address":"::1","family":"IPv6","port":4000}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}]},"metadata":{"message":"assigned listening specs for emulators"}}
+[debug] [2026-06-26T12:29:27.031Z] Found emulator hub locator: {"version":"15.22.3","origins":["http://127.0.0.1:4400","http://[::1]:4400"],"pid":41000}
+[debug] [2026-06-26T12:29:27.031Z] Write emulator hub locator at C:\Users\1080p\AppData\Local\Temp\hub-paymatrix-174b5.json
+[debug] [2026-06-26T12:29:27.043Z] [functions] Functions Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2026-06-26T12:29:27.043Z] [eventarc] Eventarc Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2026-06-26T12:29:27.043Z] [tasks] Cloud Tasks Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2026-06-26T12:29:27.044Z] late-assigned ports for functions and eventarc emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":4000},{"address":"::1","family":"IPv6","port":4000}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}],"functions":[{"address":"127.0.0.1","family":"IPv4","port":5001}],"eventarc":[{"address":"127.0.0.1","family":"IPv4","port":9299}],"tasks":[{"address":"127.0.0.1","family":"IPv4","port":9499}]},"metadata":{"message":"late-assigned ports for functions and eventarc emulators"}}
+[warn] !  functions: The following emulators are not running, calls to these services from the Functions emulator will affect production: apphosting, auth, firestore, database, hosting, pubsub, storage, dataconnect {"metadata":{"emulator":{"name":"functions"},"message":"The following emulators are not running, calls to these services from the Functions emulator will affect production: \u001b[1mapphosting, auth, firestore, database, hosting, pubsub, storage, dataconnect\u001b[22m"}}
+[debug] [2026-06-26T12:29:27.078Z] defaultcredentials: writing to file C:\Users\1080p\AppData\Roaming\firebase\4060patelharshil_gmail_com_application_default_credentials.json
+[debug] [2026-06-26T12:29:27.082Z] Setting GAC to C:\Users\1080p\AppData\Roaming\firebase\4060patelharshil_gmail_com_application_default_credentials.json {"metadata":{"emulator":{"name":"functions"},"message":"Setting GAC to C:\\Users\\1080p\\AppData\\Roaming\\firebase\\4060patelharshil_gmail_com_application_default_credentials.json"}}
+[debug] [2026-06-26T12:29:27.083Z] Checked if tokens are valid: true, expires at: 1782480540745
+[debug] [2026-06-26T12:29:27.083Z] Checked if tokens are valid: true, expires at: 1782480540745
+[debug] [2026-06-26T12:29:27.084Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/paymatrix-174b5/adminSdkConfig [none]
+[debug] [2026-06-26T12:29:27.712Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/paymatrix-174b5/adminSdkConfig 200
+[debug] [2026-06-26T12:29:27.712Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/paymatrix-174b5/adminSdkConfig {"projectId":"paymatrix-174b5","storageBucket":"paymatrix-174b5.firebasestorage.app"}
+[info] i  functions: Watching "C:\Users\1080p\Desktop\personal projects\PayMatrix\functions" for Cloud Functions... {"metadata":{"emulator":{"name":"functions"},"message":"Watching \"C:\\Users\\1080p\\Desktop\\personal projects\\PayMatrix\\functions\" for Cloud Functions..."}}
+[debug] [2026-06-26T12:29:27.737Z] Validating nodejs source
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-06-26T12:29:28.821Z] > [functions] package.json contents: {
+  "name": "paymatrix-functions",
+  "description": "Cloud Functions for PayMatrix — FCM push notifications",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^6.0.0"
+  },
+  "private": true
+}
+[debug] [2026-06-26T12:29:28.822Z] Building nodejs source
+[debug] [2026-06-26T12:29:28.822Z] Failed to find version of module node: reached end of search path C:\Users\1080p\Desktop\personal projects\PayMatrix\functions\node_modules
+[warn] !  functions: Your requested "node" version "20" doesn't match your global version "22". Using node@22 from host. 
+[info] i  functions: Loaded environment variables from .env. 
+[debug] [2026-06-26T12:29:28.825Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-06-26T12:29:28.831Z] Found firebase-functions binary at 'C:\Users\1080p\Desktop\personal projects\PayMatrix\functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8114
+
+[debug] [2026-06-26T12:29:29.996Z] Got response from /__/functions.yaml {"endpoints":{"sendPushOnNotification":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.created","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"notifications/{notificationId}"},"retry":false},"entryPoint":"sendPushOnNotification"},"adminManageUser":{"availableMemoryMb":128,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"adminManageUser"},"getAdminStats":{"availableMemoryMb":512,"timeoutSeconds":60,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"getAdminStats"},"broadcastNotification":{"availableMemoryMb":512,"timeoutSeconds":120,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"broadcastNotification"},"scanBillWithGemini":{"availableMemoryMb":256,"timeoutSeconds":30,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"scanBillWithGemini"},"createCrossUserNotification":{"availableMemoryMb":128,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"createCrossUserNotification"},"adminListGroups":{"availableMemoryMb":256,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"adminListGroups"},"adminGetGroupDetails":{"availableMemoryMb":256,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"adminGetGroupDetails"},"adminArchiveGroup":{"availableMemoryMb":128,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"adminArchiveGroup"},"adminDeleteGroup":{"availableMemoryMb":128,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"adminDeleteGroup"}},"specVersion":"v1alpha1","requiredAPIs":[],"extensions":{}}
+[info] +  functions: Loaded functions definitions from source: sendPushOnNotification, adminManageUser, getAdminStats, broadcastNotification, scanBillWithGemini, createCrossUserNotification, adminListGroups, adminGetGroupDetails, adminArchiveGroup, adminDeleteGroup. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: sendPushOnNotification, adminManageUser, getAdminStats, broadcastNotification, scanBillWithGemini, createCrossUserNotification, adminListGroups, adminGetGroupDetails, adminArchiveGroup, adminDeleteGroup."}}
+[info] i  functions[us-central1-sendPushOnNotification]: function ignored because the firestore emulator does not exist or is not running. {"metadata":{"emulator":{"name":"functions"},"message":"function ignored because the firestore emulator does not exist or is not running."}}
+[info] +  functions[us-central1-adminManageUser]: http function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/adminManageUser). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/adminManageUser)."}}
+[info] +  functions[us-central1-getAdminStats]: http function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/getAdminStats). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/getAdminStats)."}}
+[info] +  functions[us-central1-broadcastNotification]: http function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/broadcastNotification). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/broadcastNotification)."}}
+[info] +  functions[us-central1-scanBillWithGemini]: http function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/scanBillWithGemini). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/scanBillWithGemini)."}}
+[info] +  functions[us-central1-createCrossUserNotification]: http function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/createCrossUserNotification). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/createCrossUserNotification)."}}
+[info] +  functions[us-central1-adminListGroups]: http function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/adminListGroups). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/adminListGroups)."}}
+[info] +  functions[us-central1-adminGetGroupDetails]: http function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/adminGetGroupDetails). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/adminGetGroupDetails)."}}
+[info] +  functions[us-central1-adminArchiveGroup]: http function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/adminArchiveGroup). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/adminArchiveGroup)."}}
+[info] +  functions[us-central1-adminDeleteGroup]: http function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/adminDeleteGroup). {"metadata":{"emulator":{"name":"functions"},"message":"\u001b[1mhttp\u001b[22m function initialized (http://127.0.0.1:5001/paymatrix-174b5/us-central1/adminDeleteGroup)."}}
+[debug] [2026-06-26T12:29:34.038Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase SQL Connect VSCode extension, this is expected and not an issue.
+[info] 
+┌─────────────────────────────────────────────────────────────┐
+│ ✔  All emulators ready! It is now safe to connect your app. │
+│ i  View Emulator UI at http://127.0.0.1:4000/               │
+└─────────────────────────────────────────────────────────────┘
+
+┌───────────┬────────────────┬─────────────────────────────────┐
+│ Emulator  │ Host:Port      │ View in Emulator UI             │
+├───────────┼────────────────┼─────────────────────────────────┤
+│ Functions │ 127.0.0.1:5001 │ http://127.0.0.1:4000/functions │
+└───────────┴────────────────┴─────────────────────────────────┘
+  Emulator Hub host: 127.0.0.1 port: 4400
+  Other reserved ports: 4500
+
+Issues? Report them at https://github.com/firebase/firebase-tools/issues and attach the *-debug.log files.
+ 

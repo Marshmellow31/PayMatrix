@@ -10,28 +10,21 @@ import {
 } from 'chart.js';
 import { Radar } from 'react-chartjs-2';
 
-ChartJS.register(
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend
-);
+ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
 const SocialRadarChart = ({ networkData }) => {
   // Take top 3-4 most active friends for the radar
   const topFriends = networkData.slice(0, 3);
-  
+
   // Need to normalize data for the radar to look good
-  const maxTurnover = Math.max(...networkData.map(d => d.totalTurnover), 1000);
-  const maxBalance = Math.max(...networkData.map(d => Math.abs(d.netBalance)), 500);
-  const maxGroups = Math.max(...networkData.map(d => d.mutualGroupsCount), 5);
+  const maxTurnover = Math.max(...networkData.map((d) => d.totalTurnover), 1000);
+  const maxBalance = Math.max(...networkData.map((d) => Math.abs(d.netBalance)), 500);
+  const maxGroups = Math.max(...networkData.map((d) => d.mutualGroupsCount), 5);
 
   const colors = [
     { border: '#f97316', bg: 'rgba(249, 115, 22, 0.2)' }, // Orange
-    { border: '#00B341', bg: 'rgba(0, 179, 65, 0.2)' },   // Emerald
-    { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.2)' },  // Blue
+    { border: '#00B341', bg: 'rgba(0, 179, 65, 0.2)' }, // Emerald
+    { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.2)' }, // Blue
   ];
 
   const chartData = {
@@ -42,8 +35,8 @@ const SocialRadarChart = ({ networkData }) => {
         (f.totalTurnover / maxTurnover) * 100,
         (Math.abs(f.netBalance) / maxBalance) * 100,
         (f.mutualGroupsCount / maxGroups) * 100,
-        75 + (i * 5), // Mocking some frequency for visual balance
-        60 + (i * 10), // Mocking social weight
+        75 + i * 5, // Mocking some frequency for visual balance
+        60 + i * 10, // Mocking social weight
       ],
       backgroundColor: colors[i % colors.length].bg,
       borderColor: colors[i % colors.length].border,
@@ -74,7 +67,7 @@ const SocialRadarChart = ({ networkData }) => {
         bodyFont: { family: 'Inter', size: 11 },
         padding: 10,
         boxPadding: 4,
-      }
+      },
     },
     scales: {
       r: {

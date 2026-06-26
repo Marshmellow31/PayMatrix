@@ -15,13 +15,13 @@ describe('calculateSplits', () => {
   it('equal: divides total evenly across all participants', () => {
     const splits = calculateSplits(90, 'equal', {}, members);
     expect(splits).toHaveLength(3);
-    splits.forEach(s => expect(s.amount).toBe(30));
+    splits.forEach((s) => expect(s.amount).toBe(30));
   });
 
   it('equal: handles non-divisible amounts via rounding', () => {
     // 100 / 3 = 33.33… — should not accumulate float drift
     const splits = calculateSplits(100, 'equal', {}, members);
-    expect(splits.every(s => typeof s.amount === 'number')).toBe(true);
+    expect(splits.every((s) => typeof s.amount === 'number')).toBe(true);
     const total = splits.reduce((s, x) => s + x.amount, 0);
     // Allow 1 cent rounding tolerance across three splits
     expect(Math.abs(total - 100)).toBeLessThanOrEqual(0.02);
@@ -34,7 +34,7 @@ describe('calculateSplits', () => {
   it('percentage: allocates correct shares', () => {
     const splitData = { percentages: { alice: '50', bob: '30', carol: '20' } };
     const splits = calculateSplits(200, 'percentage', splitData, members);
-    const map = Object.fromEntries(splits.map(s => [s.user, s.amount]));
+    const map = Object.fromEntries(splits.map((s) => [s.user, s.amount]));
     expect(map.alice).toBe(100);
     expect(map.bob).toBe(60);
     expect(map.carol).toBe(40);
@@ -43,7 +43,7 @@ describe('calculateSplits', () => {
   it('exact: respects manually entered amounts', () => {
     const splitData = { exactAmounts: { alice: '50', bob: '25', carol: '25' } };
     const splits = calculateSplits(100, 'exact', splitData, members);
-    const map = Object.fromEntries(splits.map(s => [s.user, s.amount]));
+    const map = Object.fromEntries(splits.map((s) => [s.user, s.amount]));
     expect(map.alice).toBe(50);
     expect(map.bob).toBe(25);
     expect(map.carol).toBe(25);
@@ -53,7 +53,7 @@ describe('calculateSplits', () => {
     // alice=2, bob=1, carol=1 → alice pays half, others quarter each
     const splitData = { shares: { alice: '2', bob: '1', carol: '1' } };
     const splits = calculateSplits(100, 'shares', splitData, members);
-    const map = Object.fromEntries(splits.map(s => [s.user, s.amount]));
+    const map = Object.fromEntries(splits.map((s) => [s.user, s.amount]));
     expect(map.alice).toBe(50);
     expect(map.bob).toBe(25);
     expect(map.carol).toBe(25);
@@ -63,7 +63,7 @@ describe('calculateSplits', () => {
     // alice ordered ₹100, bob ₹100. Total bill is ₹240 (includes ₹40 GST).
     const splitData = { dishAmounts: { alice: '100', bob: '100' } };
     const splits = calculateSplits(240, 'itemized', splitData, ['alice', 'bob']);
-    const map = Object.fromEntries(splits.map(s => [s.user, s.amount]));
+    const map = Object.fromEntries(splits.map((s) => [s.user, s.amount]));
     // Each dish is 50% of subtotal → each pays half of total
     expect(map.alice).toBe(120);
     expect(map.bob).toBe(120);
@@ -71,7 +71,7 @@ describe('calculateSplits', () => {
 
   it('itemized: degrades to equal split when no dish amounts provided', () => {
     const splits = calculateSplits(100, 'itemized', {}, ['alice', 'bob']);
-    splits.forEach(s => expect(s.amount).toBe(50));
+    splits.forEach((s) => expect(s.amount).toBe(50));
   });
 
   it('unknown split type: returns empty array', () => {
@@ -124,16 +124,18 @@ describe('computeGroupBalances', () => {
   });
 
   it('payer is owed money; participants owe money', () => {
-    const expenses = [{
-      paidBy: 'alice',
-      amount: 90,
-      status: 'active',
-      splits: [
-        { user: 'alice', amount: 30 },
-        { user: 'bob',   amount: 30 },
-        { user: 'carol', amount: 30 },
-      ],
-    }];
+    const expenses = [
+      {
+        paidBy: 'alice',
+        amount: 90,
+        status: 'active',
+        splits: [
+          { user: 'alice', amount: 30 },
+          { user: 'bob', amount: 30 },
+          { user: 'carol', amount: 30 },
+        ],
+      },
+    ];
     const balances = computeGroupBalances(expenses, [], members);
     // alice paid for bob and carol → alice is owed 60
     expect(balances.alice).toBe(60);
@@ -142,39 +144,46 @@ describe('computeGroupBalances', () => {
   });
 
   it('settlement reduces debt correctly', () => {
-    const expenses = [{
-      paidBy: 'alice',
-      amount: 60,
-      status: 'active',
-      splits: [
-        { user: 'alice', amount: 30 },
-        { user: 'bob',   amount: 30 },
-      ],
-    }];
-    const settlements = [{
-      payer: 'bob',
-      payee: 'alice',
-      amount: 30,
-      status: 'active',
-    }];
+    const expenses = [
+      {
+        paidBy: 'alice',
+        amount: 60,
+        status: 'active',
+        splits: [
+          { user: 'alice', amount: 30 },
+          { user: 'bob', amount: 30 },
+        ],
+      },
+    ];
+    const settlements = [
+      {
+        payer: 'bob',
+        payee: 'alice',
+        amount: 30,
+        status: 'active',
+      },
+    ];
     const balances = computeGroupBalances(expenses, settlements, [
-      { uid: 'alice' }, { uid: 'bob' }
+      { uid: 'alice' },
+      { uid: 'bob' },
     ]);
     expect(Math.abs(balances.alice)).toBeLessThanOrEqual(0.01);
     expect(Math.abs(balances.bob)).toBeLessThanOrEqual(0.01);
   });
 
   it('ignores deleted expenses', () => {
-    const expenses = [{
-      paidBy: 'alice',
-      amount: 90,
-      status: 'deleted',
-      splits: [
-        { user: 'alice', amount: 30 },
-        { user: 'bob',   amount: 30 },
-        { user: 'carol', amount: 30 },
-      ],
-    }];
+    const expenses = [
+      {
+        paidBy: 'alice',
+        amount: 90,
+        status: 'deleted',
+        splits: [
+          { user: 'alice', amount: 30 },
+          { user: 'bob', amount: 30 },
+          { user: 'carol', amount: 30 },
+        ],
+      },
+    ];
     const balances = computeGroupBalances(expenses, [], members);
     expect(balances.alice).toBe(0);
   });
@@ -187,12 +196,24 @@ describe('computeGroupBalances', () => {
   it('net balances sum to zero (conservation of money)', () => {
     const expenses = [
       {
-        paidBy: 'alice', amount: 90, status: 'active',
-        splits: [{ user: 'alice', amount: 30 }, { user: 'bob', amount: 30 }, { user: 'carol', amount: 30 }],
+        paidBy: 'alice',
+        amount: 90,
+        status: 'active',
+        splits: [
+          { user: 'alice', amount: 30 },
+          { user: 'bob', amount: 30 },
+          { user: 'carol', amount: 30 },
+        ],
       },
       {
-        paidBy: 'bob', amount: 60, status: 'active',
-        splits: [{ user: 'alice', amount: 20 }, { user: 'bob', amount: 20 }, { user: 'carol', amount: 20 }],
+        paidBy: 'bob',
+        amount: 60,
+        status: 'active',
+        splits: [
+          { user: 'alice', amount: 20 },
+          { user: 'bob', amount: 20 },
+          { user: 'carol', amount: 20 },
+        ],
       },
     ];
     const balances = computeGroupBalances(expenses, [], members);

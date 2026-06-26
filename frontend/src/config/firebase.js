@@ -1,15 +1,15 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { 
-  getFirestore, 
-  initializeFirestore, 
-  persistentLocalCache, 
-  persistentMultipleTabManager 
-} from "firebase/firestore";
-import { getStorage } from "firebase/storage";
-import { getMessaging } from "firebase/messaging";
-import { getFunctions } from "firebase/functions";
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
+import { getMessaging } from 'firebase/messaging';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -18,7 +18,7 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);
@@ -32,5 +32,9 @@ const storage = getStorage(app);
 const messaging = getMessaging(app);
 // Callable Cloud Functions (e.g. scanBill — Gemini receipt parsing)
 const functions = getFunctions(app);
+
+if (import.meta.env.DEV) {
+  connectFunctionsEmulator(functions, 'localhost', 5001);
+}
 
 export { auth, db, storage, messaging, functions };
