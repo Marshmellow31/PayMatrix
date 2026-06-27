@@ -94,7 +94,7 @@ const Dashboard = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, user?._id, user?.uid]);
 
   // 3. Reactive summary - updates whenever any group's metadata is "touched"
@@ -115,7 +115,7 @@ const Dashboard = () => {
     };
 
     updateSummary();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupsUpdatedHash, user?._id, user?.uid]);
 
   const recentActivity = notifications.slice(0, 5);
@@ -263,7 +263,9 @@ const Dashboard = () => {
             <span className="text-[9px] lg:text-xs font-extrabold uppercase tracking-wider text-indigo-200">
               AI Copilot
             </span>
-            <span className="text-[7px] lg:text-[10px] text-indigo-400/60 mt-0.5">Ask anything</span>
+            <span className="text-[7px] lg:text-[10px] text-indigo-400/60 mt-0.5">
+              Ask anything
+            </span>
           </Link>
 
           {/* Scan Bill */}

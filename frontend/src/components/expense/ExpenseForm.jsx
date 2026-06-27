@@ -158,7 +158,7 @@ const ExpenseForm = ({
         }
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.groupId, groups, initialData]); // Note: participants is omitted from deps to prevent re-runs when toggling members
   useEffect(() => {
     if (onStepChange) {
@@ -598,10 +598,14 @@ const ExpenseForm = ({
       (sum, id) => sum + (parseFloat(splitData.dishAmounts[id]) || 0),
       0
     );
+    // Gap between bill total and dish subtotal. Positive = GST/charges added on
+    // top; negative = a net discount (dishes cost more than the final payable).
     const itemizedGst = totalAmountValue - itemizedSubtotal;
     const itemizedGstPct = itemizedSubtotal > 0 ? (itemizedGst / itemizedSubtotal) * 100 : 0;
-    // Valid when dishes are entered and don't exceed the bill total (tiny tolerance).
-    const isItemizedValid = itemizedSubtotal > 0 && itemizedGst >= -0.01;
+    // Discounts are legitimate: the split engine scales each dish by total/subtotal,
+    // so a net discount is shared in the same ratio as dishes (and as GST). Only an
+    // empty subtotal or a discount that wipes out the whole bill is invalid.
+    const isItemizedValid = itemizedSubtotal > 0 && totalAmountValue > 0;
 
     const isSplitValid =
       splitType === 'exact'
@@ -744,16 +748,16 @@ const ExpenseForm = ({
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
-                          {itemizedGst < -0.01 ? 'Dishes Exceed Bill' : 'GST / Charges'}
+                          {itemizedGst < -0.01 ? 'Discount' : 'GST / Charges'}
                         </span>
-                        {itemizedSubtotal > 0 && itemizedGst >= -0.01 && (
+                        {itemizedSubtotal > 0 && (
                           <span className="text-[9px] font-bold text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-md">
-                            {itemizedGstPct.toFixed(1)}%
+                            {Math.abs(itemizedGstPct).toFixed(1)}%
                           </span>
                         )}
                       </div>
                       <span
-                        className={`font-manrope font-black text-sm ${itemizedGst < -0.01 ? 'text-red-400' : 'text-primary'}`}
+                        className={`font-manrope font-black text-sm ${itemizedGst < -0.01 ? 'text-emerald-400' : 'text-primary'}`}
                       >
                         {itemizedGst < -0.01 ? '−' : '+'}₹{Math.abs(itemizedGst).toFixed(2)}
                       </span>
@@ -762,7 +766,7 @@ const ExpenseForm = ({
                       {itemizedSubtotal <= 0
                         ? "Enter what each person's dish cost \u2014 the leftover up to the bill total becomes shared GST."
                         : itemizedGst < -0.01
-                          ? 'Dish amounts add up to more than the bill total. Lower a dish or raise the total.'
+                          ? 'A bill discount is shared by dish price — pricier dishes get a bigger discount.'
                           : 'GST is shared by dish price \u2014 pricier dishes pay proportionally more.'}
                     </p>
                   </motion.div>

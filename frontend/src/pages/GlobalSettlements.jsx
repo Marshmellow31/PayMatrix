@@ -58,7 +58,7 @@ const GlobalSettlements = () => {
     } else if (!groupsLoading) {
       setLoadingBalances(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groups, user]);
 
   if (groupsLoading || loadingBalances) return <Loader className="py-20" />;

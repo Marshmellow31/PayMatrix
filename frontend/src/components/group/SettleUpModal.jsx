@@ -113,7 +113,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
       setCustomAmount('');
       loadSettlementPlan();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, groupId, userId, forcedPayeeId]);
 
   useEffect(() => {
@@ -728,7 +728,8 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                         Scan to Pay
                       </h3>
                       <p className="text-sm text-white/50 font-inter leading-relaxed mt-1">
-                        Pay <span className="text-white font-semibold">{qrModal.receiver.name}</span>{' '}
+                        Pay{' '}
+                        <span className="text-white font-semibold">{qrModal.receiver.name}</span>{' '}
                         <span className="text-emerald-400 font-bold">
                           {formatCurrency(qrModal.amount)}
                         </span>
@@ -761,8 +762,8 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                     </div>
 
                     <p className="text-[11px] text-white/40 font-inter text-center leading-relaxed mb-5">
-                      Open any UPI app and scan this code. Paying remotely? Save it to your
-                      gallery and use{' '}
+                      Open any UPI app and scan this code. Paying remotely? Save it to your gallery
+                      and use{' '}
                       <span className="text-white/60 font-semibold">“scan from gallery”</span> in
                       your UPI app.
                     </p>

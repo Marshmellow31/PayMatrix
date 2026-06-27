@@ -546,15 +546,11 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                               Items ₹{itemsTotal.toFixed(2)}
                             </span>
                             <span
-                              className={`font-bold flex items-center gap-1 ${taxGap < -0.5 ? 'text-red-400' : 'text-white/40'}`}
+                              className={`font-bold flex items-center gap-1 ${taxGap < -0.5 ? 'text-emerald-400' : 'text-white/40'}`}
                             >
-                              {taxGap < -0.5 ? (
-                                <X size={11} />
-                              ) : (
-                                <Check size={11} className="text-primary" />
-                              )}
+                              <Check size={11} className="text-primary" />
                               {taxGap < -0.5
-                                ? 'Items exceed total'
+                                ? `Discount ₹${Math.abs(taxGap).toFixed(2)}`
                                 : `Tax / charges ₹${Math.max(0, taxGap).toFixed(2)}`}
                             </span>
                           </div>

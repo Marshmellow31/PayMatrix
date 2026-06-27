@@ -69,6 +69,34 @@ describe('calculateSplits', () => {
     expect(map.bob).toBe(120);
   });
 
+  it('itemized: shares a net discount in the same ratio as dishes', () => {
+    // Dishes sum to ₹200 but the bill total is only ₹160 (a ₹40 discount).
+    // alice ordered ₹150, bob ₹50 → the discount must split 3:1, not evenly.
+    const splitData = { dishAmounts: { alice: '150', bob: '50' } };
+    const splits = calculateSplits(160, 'itemized', splitData, ['alice', 'bob']);
+    const map = Object.fromEntries(splits.map((s) => [s.user, s.amount]));
+    // 160/200 = 0.8 → alice pays 150*0.8, bob pays 50*0.8
+    expect(map.alice).toBe(120);
+    expect(map.bob).toBe(40);
+    // The pricier eater absorbs the larger discount (30 vs 10) and it reconciles.
+    expect(map.alice + map.bob).toBe(160);
+  });
+
+  it('itemized: five diners with an overall discount, split by dish ratio', () => {
+    const dishAmounts = { a: '100', b: '200', c: '300', d: '150', e: '250' };
+    const subtotal = 1000;
+    const total = 900; // ₹100 overall discount on the bill
+    const ids = ['a', 'b', 'c', 'd', 'e'];
+    const splits = calculateSplits(total, 'itemized', { dishAmounts }, ids);
+    const map = Object.fromEntries(splits.map((s) => [s.user, s.amount]));
+    // Each person pays dish * (total/subtotal); discount share scales with dish.
+    ids.forEach((id) => {
+      const dish = parseFloat(dishAmounts[id]);
+      expect(map[id]).toBeCloseTo(dish * (total / subtotal), 2);
+    });
+    // Splits always reconcile back to the exact bill total.
+    expect(splits.reduce((s, x) => s + x.amount, 0)).toBeCloseTo(total, 2);
+  });
   it('itemized: degrades to equal split when no dish amounts provided', () => {
     const splits = calculateSplits(100, 'itemized', {}, ['alice', 'bob']);
     splits.forEach((s) => expect(s.amount).toBe(50));

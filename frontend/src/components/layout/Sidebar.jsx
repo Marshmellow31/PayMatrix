@@ -1,14 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  LayoutDashboard,
-  Users,
-  LayoutGrid,
-  User,
-  X,
-  Wallet,
-  Sparkles,
-} from 'lucide-react';
+import { LayoutDashboard, Users, LayoutGrid, User, X, Wallet, Sparkles } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },

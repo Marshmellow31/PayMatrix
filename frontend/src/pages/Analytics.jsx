@@ -105,7 +105,7 @@ const Analytics = () => {
     };
 
     fetchAnalytics();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days]);
 
   if (isInitialLoading && !summary)

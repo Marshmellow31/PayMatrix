@@ -376,7 +376,7 @@ const Copilot = () => {
 
   useEffect(() => {
     hydrateContext();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   useEffect(() => {

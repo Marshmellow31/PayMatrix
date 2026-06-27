@@ -53,6 +53,16 @@ const MemberList = ({
     });
   }
 
+  const getMemberBalance = (userId) => {
+    const userIdStr =
+      userId && (userId._id || userId) ? (userId._id || userId).toString() : userId?.toString();
+    const balEntry = balances.find((b) => {
+      const balUserId = (b.user?._id || b.user)?.toString();
+      return balUserId === userIdStr;
+    });
+    return balEntry?.balance || 0;
+  };
+
   // Derive the full selected member object from current props (always fresh / real-time)
   const selectedMember = selectedMemberId
     ? (() => {
@@ -136,16 +146,6 @@ const MemberList = ({
     } finally {
       setIsRemoving(false);
     }
-  };
-
-  const getMemberBalance = (userId) => {
-    const userIdStr =
-      userId && (userId._id || userId) ? (userId._id || userId).toString() : userId?.toString();
-    const balEntry = balances.find((b) => {
-      const balUserId = (b.user?._id || b.user)?.toString();
-      return balUserId === userIdStr;
-    });
-    return balEntry?.balance || 0;
   };
 
   return (
