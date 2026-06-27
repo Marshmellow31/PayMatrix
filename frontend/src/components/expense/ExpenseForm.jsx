@@ -1033,9 +1033,55 @@ const ExpenseForm = ({
               })}
             </div>
 
+            {(() => {
+              // Dishes are shown at their printed price; the bill total may differ
+              // because of GST/charges (added on) or a bill discount (taken off).
+              // Either way the gap is shared by dish ratio, so a bigger eater gets
+              // a bigger slice of the discount (or pays more tax).
+              const dishesSubtotal = scannedItems.reduce(
+                (sum, it) => sum + (parseFloat(it.price) || 0),
+                0
+              );
+              const scanGap = totalAmountValue - dishesSubtotal; // negative ⇒ discount
+              const hasDiscount = scanGap < -0.01;
+              const hasCharge = scanGap > 0.01;
+              return (
+                <div className="flex flex-col gap-1.5 px-1 pt-3 mt-1 border-t border-white/[0.06] text-[11px] font-manrope">
+                  <div className="flex items-center justify-between">
+                    <span className="text-on-surface-variant font-bold opacity-60">Dishes</span>
+                    <span className="font-bold text-white tabular-nums">
+                      ₹{dishesSubtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  {(hasDiscount || hasCharge) && (
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`font-bold ${hasDiscount ? 'text-emerald-400' : 'text-on-surface-variant opacity-60'}`}
+                      >
+                        {hasDiscount ? 'Discount' : 'Tax / charges'}
+                      </span>
+                      <span
+                        className={`font-bold tabular-nums ${hasDiscount ? 'text-emerald-400' : 'text-white'}`}
+                      >
+                        {hasDiscount ? '−' : '+'}₹{Math.abs(scanGap).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-1.5 border-t border-white/[0.06]">
+                    <span className="text-[9px] uppercase tracking-[0.15em] font-bold text-on-surface-variant opacity-40">
+                      Bill total
+                    </span>
+                    <span className="font-manrope font-black text-sm text-white tabular-nums">
+                      ₹{totalAmountValue.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
             <p className="text-[9px] text-on-surface-variant font-inter opacity-40 px-1 leading-snug">
-              Tap who shared each dish — split equally between them. Tax &amp; charges are added on
-              top, shared by what each person ate.
+              Tap who shared each dish — split equally between them. Tax &amp; charges (or a bill
+              discount) are shared by what each person ate.
             </p>
           </motion.div>
         )}
