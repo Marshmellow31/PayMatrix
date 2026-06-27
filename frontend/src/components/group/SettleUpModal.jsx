@@ -193,24 +193,57 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
     });
   };
 
-  const handleDownloadQR = () => {
+  // Save the QR to the device. A web app/PWA cannot silently write to the photo
+  // gallery, so on mobile we hand the OS a real PNG file via the Web Share API:
+  // the native sheet's "Save to Photos" / "Save image" stores it in the gallery
+  // and handles the permission prompt. Desktop (and browsers without file share)
+  // fall back to a normal download.
+  const handleDownloadQR = async () => {
     const canvas = qrCanvasRef.current?.querySelector('canvas');
     if (!canvas) {
       toast.error('QR not ready yet');
       return;
     }
+
+    const safeName = (qrModal?.receiver?.name || 'payment').replace(/[^a-z0-9]/gi, '_');
+    const fileName = `PayMatrix_UPI_${safeName}.png`;
+
+    // canvas -> PNG blob
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) {
+      toast.error('Could not generate QR image');
+      return;
+    }
+
+    // Preferred (mobile): native share sheet -> Save to Photos / Gallery
     try {
-      const dataUrl = canvas.toDataURL('image/png');
-      const safeName = (qrModal?.receiver?.name || 'payment').replace(/[^a-z0-9]/gi, '_');
+      const file = new File([blob], fileName, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'PayMatrix UPI QR',
+          text: `Scan to pay ${qrModal?.receiver?.name || ''}`.trim(),
+        });
+        return; // saved (or handled) via the OS sheet
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') return; // user dismissed the sheet
+      // otherwise fall through to the download fallback
+    }
+
+    // Fallback (desktop / no file-share support): download as a file
+    try {
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `PayMatrix_UPI_${safeName}.png`;
+      link.href = url;
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success('QR saved — scan it from your UPI app gallery', { icon: '⬇️' });
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success('QR saved to your device', { icon: '⬇️' });
     } catch {
-      toast.error('Could not download QR');
+      toast.error('Could not save QR');
     }
   };
 
@@ -728,7 +761,8 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                     </div>
 
                     <p className="text-[11px] text-white/40 font-inter text-center leading-relaxed mb-5">
-                      Open any UPI app and scan this code. Paying remotely? Download it and use{' '}
+                      Open any UPI app and scan this code. Paying remotely? Save it to your
+                      gallery and use{' '}
                       <span className="text-white/60 font-semibold">“scan from gallery”</span> in
                       your UPI app.
                     </p>
@@ -760,7 +794,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                         disabled={!qrModal.receiver.upiId}
                         className="flex-1 py-3.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 text-xs font-black tracking-widest uppercase transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        <LucideIcons.Download size={14} /> Download
+                        <LucideIcons.Download size={14} /> Save QR
                       </button>
                     </div>
                   </div>

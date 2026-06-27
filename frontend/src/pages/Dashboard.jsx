@@ -123,7 +123,7 @@ const Dashboard = () => {
   if (groupsLoading && groups.length === 0 && loadingSummary && !isOffline) return <Loader />;
 
   return (
-    <div className="max-w-md mx-auto px-4 pt-2 pb-32 space-y-6">
+    <div className="w-full max-w-md lg:max-w-6xl mx-auto px-4 lg:px-8 pt-2 pb-32 space-y-6">
       {isOffline && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -140,7 +140,7 @@ const Dashboard = () => {
       {/* Welcoming Header */}
       <div className="flex items-center justify-between mt-3">
         <div>
-          <h1 className="text-lg sm:text-xl font-black font-manrope text-white tracking-tight leading-none">
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-black font-manrope text-white tracking-tight leading-none">
             Hello, {user?.name?.split(' ')[0] || 'User'} 👋
           </h1>
           <p className="text-[10px] text-white/30 font-inter mt-1.5 font-bold uppercase tracking-wider">
@@ -167,244 +167,248 @@ const Dashboard = () => {
         </Link>
       </div>
 
-      {/* Monolithic Glass Balance Card */}
-      <motion.section
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#18181b] via-[#111113] to-[#0a0a0c] border border-white/[0.08] p-6 shadow-2xl flex flex-col justify-between h-44 select-none"
-      >
-        {/* Decorative glows inside card */}
-        <div className="absolute top-[-20%] right-[-10%] w-40 h-40 rounded-full bg-indigo-500/[0.03] blur-[50px] pointer-events-none" />
-        <div className="absolute bottom-[-20%] left-[-10%] w-40 h-40 rounded-full bg-purple-500/[0.03] blur-[50px] pointer-events-none" />
-
-        <div className="flex justify-between items-start z-10">
-          <div>
-            <p className="font-inter text-white/40 text-[9px] font-black tracking-[0.25em] uppercase">
-              Total Liquidity
-            </p>
-            <h2 className="font-manrope font-extrabold text-3xl sm:text-4xl mt-2.5 tracking-tight text-white flex items-baseline leading-none">
-              <span className="text-indigo-400 font-medium mr-1 text-xl sm:text-2xl">₹</span>
-              {Math.abs(summary?.netBalance || 0).toLocaleString()}
-              <span className="text-white/30 text-base font-normal">.00</span>
-            </h2>
-          </div>
-          <span className="text-[8px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-full font-bold uppercase text-white/50 tracking-wider">
-            Active Sync
-          </span>
-        </div>
-
-        <div className="flex justify-between items-center mt-auto z-10 pt-3 border-t border-white/[0.04]">
-          <span className="text-[9px] font-mono text-white/20 uppercase tracking-widest truncate max-w-[65%]">
-            {user?.email || 'paymatrix.net'}
-          </span>
-          <span className="text-[9px] font-bold font-inter text-emerald-400/90 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Online
-          </span>
-        </div>
-      </motion.section>
-
-      {/* Unified Quick Actions Hub */}
-      <div className="grid grid-cols-3 gap-3">
-        {/* AI Copilot */}
-        <Link
-          to="/copilot"
-          className="flex flex-col items-center justify-center p-3 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 transition-all text-center group shadow-md shadow-indigo-950/10"
+      {/* Desktop-optimised responsive grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 lg:items-start">
+        {/* Monolithic Glass Balance Card */}
+        <motion.section
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="lg:col-span-8 relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#18181b] via-[#111113] to-[#0a0a0c] border border-white/[0.08] p-6 lg:p-8 shadow-2xl flex flex-col justify-between h-44 lg:h-auto lg:min-h-[15rem] select-none"
         >
-          <div className="w-9 h-9 rounded-full bg-indigo-600/20 flex items-center justify-center text-indigo-400 group-hover:scale-105 transition-transform mb-1.5">
-            <Sparkles size={16} className="animate-pulse" />
-          </div>
-          <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-200">
-            AI Copilot
-          </span>
-          <span className="text-[7px] text-indigo-400/60 mt-0.5">Ask anything</span>
-        </Link>
+          {/* Decorative glows inside card */}
+          <div className="absolute top-[-20%] right-[-10%] w-40 h-40 rounded-full bg-indigo-500/[0.03] blur-[50px] pointer-events-none" />
+          <div className="absolute bottom-[-20%] left-[-10%] w-40 h-40 rounded-full bg-purple-500/[0.03] blur-[50px] pointer-events-none" />
 
-        {/* Scan Bill */}
-        <button
-          onClick={() => setShowBillScanner(true)}
-          className="flex flex-col items-center justify-center p-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 transition-all text-center group shadow-md shadow-emerald-950/10"
-        >
-          <div className="w-9 h-9 rounded-full bg-emerald-600/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform mb-1.5">
-            <Camera size={16} />
-          </div>
-          <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-200">
-            Scan Bill
-          </span>
-          <span className="text-[7px] text-emerald-400/60 mt-0.5">Gemini OCR</span>
-        </button>
-
-        {/* Record (Manual) */}
-        <button
-          onClick={() => openAddExpense()}
-          className="flex flex-col items-center justify-center p-3 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-all text-center group shadow-sm"
-        >
-          <div className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center text-white/70 group-hover:scale-105 transition-transform mb-1.5">
-            <Plus size={16} strokeWidth={2.5} />
-          </div>
-          <span className="text-[9px] font-extrabold uppercase tracking-wider text-white/80">
-            Record
-          </span>
-          <span className="text-[7px] text-white/40 mt-0.5">Add manually</span>
-        </button>
-      </div>
-
-      {/* Bento Grid Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* You Owe Card */}
-        <div className="bg-[#141416]/40 p-4 rounded-2xl border border-white/[0.04] relative overflow-hidden shadow-md flex flex-col justify-between h-24 select-none">
-          <div className="flex justify-between items-center mb-1">
-            <span className="font-inter text-[8px] font-black tracking-widest uppercase text-red-400/60">
-              Debt Status
-            </span>
-            <div className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center text-red-400">
-              <ArrowUpRight size={10} />
+          <div className="flex justify-between items-start z-10">
+            <div>
+              <p className="font-inter text-white/40 text-[9px] font-black tracking-[0.25em] uppercase">
+                Total Liquidity
+              </p>
+              <h2 className="font-manrope font-extrabold text-3xl sm:text-4xl lg:text-5xl mt-2.5 tracking-tight text-white flex items-baseline leading-none">
+                <span className="text-indigo-400 font-medium mr-1 text-xl sm:text-2xl">₹</span>
+                {Math.abs(summary?.netBalance || 0).toLocaleString()}
+                <span className="text-white/30 text-base font-normal">.00</span>
+              </h2>
             </div>
-          </div>
-          <div>
-            <h3 className="font-manrope font-semibold text-[10px] text-white/35 uppercase tracking-wide leading-none mb-1">
-              You Owe
-            </h3>
-            <p className="font-manrope text-base sm:text-lg font-extrabold text-red-400/90">
-              ₹{summary?.totalOwe?.toLocaleString('en-IN') || '0'}
-            </p>
-          </div>
-        </div>
-
-        {/* You Are Owed Card */}
-        <div className="bg-[#141416]/40 p-4 rounded-2xl border border-white/[0.04] relative overflow-hidden shadow-md flex flex-col justify-between h-24 select-none">
-          <div className="flex justify-between items-center mb-1">
-            <span className="font-inter text-[8px] font-black tracking-widest uppercase text-emerald-400/60">
-              Pending Returns
+            <span className="text-[8px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-full font-bold uppercase text-white/50 tracking-wider">
+              Active Sync
             </span>
-            <div className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-              <ArrowDownLeft size={10} />
-            </div>
           </div>
-          <div>
-            <h3 className="font-manrope font-semibold text-[10px] text-white/35 uppercase tracking-wide leading-none mb-1">
-              You Are Owed
-            </h3>
-            <p className="font-manrope text-base sm:text-lg font-extrabold text-emerald-400/90">
-              ₹{summary?.totalOwed?.toLocaleString('en-IN') || '0'}
-            </p>
-          </div>
-        </div>
-      </div>
 
-      {/* Active Cohorts (Horizontal scroll) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-manrope font-black text-xs uppercase tracking-wider text-white">
-              Active Cohorts
-            </h2>
-            <p className="text-[9px] text-white/30 font-inter">{groups.length} active groups</p>
+          <div className="flex justify-between items-center mt-auto z-10 pt-3 border-t border-white/[0.04]">
+            <span className="text-[9px] font-mono text-white/20 uppercase tracking-widest truncate max-w-[65%]">
+              {user?.email || 'paymatrix.net'}
+            </span>
+            <span className="text-[9px] font-bold font-inter text-emerald-400/90 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Online
+            </span>
           </div>
-          <div className="flex items-center gap-3">
-            <Link
-              to="/groups?add=true"
-              className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white/70 hover:text-white transition-all active:scale-95"
-            >
-              <Plus size={12} />
-            </Link>
-            <Link
-              to="/groups"
-              className="text-[10px] font-bold tracking-wider text-indigo-400 hover:text-indigo-300 transition-colors"
-            >
-              See All
-            </Link>
-          </div>
-        </div>
+        </motion.section>
 
-        <div className="flex gap-4 overflow-x-auto no-scrollbar py-1 px-1 w-full max-w-full">
-          {groups.map((group) => (
-            <Link
-              to={`/groups/${group._id}`}
-              key={group._id}
-              className="flex flex-col items-center shrink-0 w-16 group"
-            >
-              {/* Rounded-square icon matching GroupDetail header style */}
-              {(() => {
-                const cat = GROUP_CATEGORIES.find((c) => c.value === group.category);
-                const IconComp = cat?.icon ? LucideIcons[cat.icon] || Hash : Hash;
-                const iconColor = cat?.color || '#919191';
-                return (
-                  <div
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shadow-inner group-hover:scale-105 transition-all"
-                  >
-                    <IconComp size={20} style={{ color: iconColor }} />
-                  </div>
-                );
-              })()}
-              <span className="text-[9px] text-white/70 mt-2 truncate w-full text-center font-semibold font-inter group-hover:text-white transition-colors">
-                {group.name || group.title}
+        {/* Bento Grid Stats (sits beside balance on desktop, stacked) */}
+        <div className="lg:col-span-4 grid grid-cols-2 gap-4 lg:flex lg:flex-col lg:h-full lg:min-h-[15rem]">
+          {/* You Owe Card */}
+          <div className="bg-[#141416]/40 p-4 lg:p-5 rounded-2xl border border-white/[0.04] relative overflow-hidden shadow-md flex flex-col justify-between h-24 lg:h-auto lg:flex-1 select-none">
+            <div className="flex justify-between items-center mb-1">
+              <span className="font-inter text-[8px] font-black tracking-widest uppercase text-red-400/60">
+                Debt Status
               </span>
-            </Link>
-          ))}
-
-          {groups.length === 0 && (
-            <div className="w-full py-6 text-center rounded-2xl border border-dashed border-white/10 bg-white/[0.01]">
-              <p className="text-white/30 text-xs font-inter">No active cohorts yet.</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Recent Timeline */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-manrope font-black text-xs uppercase tracking-wider text-white">
-              Recent Timeline
-            </h2>
-            <p className="text-[9px] text-white/30 font-inter">Recent activities & logs</p>
-          </div>
-          <Filter
-            size={14}
-            className="text-white/40 hover:text-white cursor-pointer transition-colors"
-          />
-        </div>
-
-        <div className="glass-card rounded-2xl overflow-hidden border border-white/[0.05]">
-          <div className="divide-y divide-white/[0.04]">
-            {recentActivity.map((notif) => (
-              <div
-                key={notif._id}
-                className="p-3.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer group"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-7 h-7 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-white/50 group-hover:text-white transition-colors shrink-0">
-                    <Plus size={12} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-manrope font-bold text-white text-xs leading-snug truncate">
-                      {typeof notif.message === 'string'
-                        ? notif.message
-                        : notif.message?.message || 'Notification action performed'}
-                    </p>
-                    <p className="text-[8px] font-bold text-white/30 uppercase tracking-widest font-mono mt-0.5">
-                      {new Date(notif.createdAt).toLocaleDateString('en-IN', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-                </div>
-                <ChevronRight
-                  size={14}
-                  className="text-white/30 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0"
-                />
+              <div className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center text-red-400">
+                <ArrowUpRight size={10} />
               </div>
+            </div>
+            <div>
+              <h3 className="font-manrope font-semibold text-[10px] text-white/35 uppercase tracking-wide leading-none mb-1">
+                You Owe
+              </h3>
+              <p className="font-manrope text-base sm:text-lg lg:text-2xl font-extrabold text-red-400/90">
+                ₹{summary?.totalOwe?.toLocaleString('en-IN') || '0'}
+              </p>
+            </div>
+          </div>
+
+          {/* You Are Owed Card */}
+          <div className="bg-[#141416]/40 p-4 lg:p-5 rounded-2xl border border-white/[0.04] relative overflow-hidden shadow-md flex flex-col justify-between h-24 lg:h-auto lg:flex-1 select-none">
+            <div className="flex justify-between items-center mb-1">
+              <span className="font-inter text-[8px] font-black tracking-widest uppercase text-emerald-400/60">
+                Pending Returns
+              </span>
+              <div className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                <ArrowDownLeft size={10} />
+              </div>
+            </div>
+            <div>
+              <h3 className="font-manrope font-semibold text-[10px] text-white/35 uppercase tracking-wide leading-none mb-1">
+                You Are Owed
+              </h3>
+              <p className="font-manrope text-base sm:text-lg lg:text-2xl font-extrabold text-emerald-400/90">
+                ₹{summary?.totalOwed?.toLocaleString('en-IN') || '0'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Unified Quick Actions Hub (full-width action bar) */}
+        <div className="lg:col-span-12 grid grid-cols-3 gap-3 lg:gap-6">
+          {/* AI Copilot */}
+          <Link
+            to="/copilot"
+            className="flex flex-col items-center justify-center p-3 lg:p-6 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 transition-all text-center group shadow-md shadow-indigo-950/10"
+          >
+            <div className="w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-indigo-600/20 flex items-center justify-center text-indigo-400 group-hover:scale-105 transition-transform mb-1.5 lg:mb-2.5">
+              <Sparkles size={16} className="animate-pulse lg:hidden" />
+              <Sparkles size={22} className="animate-pulse hidden lg:block" />
+            </div>
+            <span className="text-[9px] lg:text-xs font-extrabold uppercase tracking-wider text-indigo-200">
+              AI Copilot
+            </span>
+            <span className="text-[7px] lg:text-[10px] text-indigo-400/60 mt-0.5">Ask anything</span>
+          </Link>
+
+          {/* Scan Bill */}
+          <button
+            onClick={() => setShowBillScanner(true)}
+            className="flex flex-col items-center justify-center p-3 lg:p-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 transition-all text-center group shadow-md shadow-emerald-950/10"
+          >
+            <div className="w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-emerald-600/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform mb-1.5 lg:mb-2.5">
+              <Camera size={16} className="lg:hidden" />
+              <Camera size={22} className="hidden lg:block" />
+            </div>
+            <span className="text-[9px] lg:text-xs font-extrabold uppercase tracking-wider text-emerald-200">
+              Scan Bill
+            </span>
+            <span className="text-[7px] lg:text-[10px] text-emerald-400/60 mt-0.5">Gemini OCR</span>
+          </button>
+
+          {/* Record (Manual) */}
+          <button
+            onClick={() => openAddExpense()}
+            className="flex flex-col items-center justify-center p-3 lg:p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-all text-center group shadow-sm"
+          >
+            <div className="w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-white/5 flex items-center justify-center text-white/70 group-hover:scale-105 transition-transform mb-1.5 lg:mb-2.5">
+              <Plus size={16} strokeWidth={2.5} className="lg:hidden" />
+              <Plus size={22} strokeWidth={2.5} className="hidden lg:block" />
+            </div>
+            <span className="text-[9px] lg:text-xs font-extrabold uppercase tracking-wider text-white/80">
+              Record
+            </span>
+            <span className="text-[7px] lg:text-[10px] text-white/40 mt-0.5">Add manually</span>
+          </button>
+        </div>
+
+        {/* Active Cohorts (wraps to fill width on desktop) */}
+        <div className="lg:col-span-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-manrope font-black text-xs uppercase tracking-wider text-white">
+                Active Cohorts
+              </h2>
+              <p className="text-[9px] text-white/30 font-inter">{groups.length} active groups</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link
+                to="/groups?add=true"
+                className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white/70 hover:text-white transition-all active:scale-95"
+              >
+                <Plus size={12} />
+              </Link>
+              <Link
+                to="/groups"
+                className="text-[10px] font-bold tracking-wider text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                See All
+              </Link>
+            </div>
+          </div>
+
+          <div className="flex gap-4 overflow-x-auto no-scrollbar lg:flex-wrap lg:overflow-visible lg:gap-5 py-1 px-1 w-full max-w-full">
+            {groups.map((group) => (
+              <Link
+                to={`/groups/${group._id}`}
+                key={group._id}
+                className="flex flex-col items-center shrink-0 w-16 group"
+              >
+                {/* Rounded-square icon matching GroupDetail header style */}
+                {(() => {
+                  const cat = GROUP_CATEGORIES.find((c) => c.value === group.category);
+                  const IconComp = cat?.icon ? LucideIcons[cat.icon] || Hash : Hash;
+                  const iconColor = cat?.color || '#919191';
+                  return (
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shadow-inner group-hover:scale-105 transition-all">
+                      <IconComp size={20} style={{ color: iconColor }} />
+                    </div>
+                  );
+                })()}
+                <span className="text-[9px] text-white/70 mt-2 truncate w-full text-center font-semibold font-inter group-hover:text-white transition-colors">
+                  {group.name || group.title}
+                </span>
+              </Link>
             ))}
 
-            {recentActivity.length === 0 && (
-              <div className="py-10 text-center">
-                <p className="text-white/30 text-xs font-inter">Timeline is quiet.</p>
+            {groups.length === 0 && (
+              <div className="w-full py-6 text-center rounded-2xl border border-dashed border-white/10 bg-white/[0.01]">
+                <p className="text-white/30 text-xs font-inter">No active cohorts yet.</p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Recent Timeline */}
+        <div className="lg:col-span-7 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-manrope font-black text-xs uppercase tracking-wider text-white">
+                Recent Timeline
+              </h2>
+              <p className="text-[9px] text-white/30 font-inter">Recent activities & logs</p>
+            </div>
+            <Filter
+              size={14}
+              className="text-white/40 hover:text-white cursor-pointer transition-colors"
+            />
+          </div>
+
+          <div className="glass-card rounded-2xl overflow-hidden border border-white/[0.05]">
+            <div className="divide-y divide-white/[0.04]">
+              {recentActivity.map((notif) => (
+                <div
+                  key={notif._id}
+                  className="p-3.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-7 h-7 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-white/50 group-hover:text-white transition-colors shrink-0">
+                      <Plus size={12} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-manrope font-bold text-white text-xs leading-snug truncate">
+                        {typeof notif.message === 'string'
+                          ? notif.message
+                          : notif.message?.message || 'Notification action performed'}
+                      </p>
+                      <p className="text-[8px] font-bold text-white/30 uppercase tracking-widest font-mono mt-0.5">
+                        {new Date(notif.createdAt).toLocaleDateString('en-IN', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight
+                    size={14}
+                    className="text-white/30 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0"
+                  />
+                </div>
+              ))}
+
+              {recentActivity.length === 0 && (
+                <div className="py-10 text-center">
+                  <p className="text-white/30 text-xs font-inter">Timeline is quiet.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

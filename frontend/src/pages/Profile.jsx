@@ -26,7 +26,7 @@ import groupService from '../services/groupService.js';
 import expenseService from '../services/expenseService.js';
 import { computeGroupBalances } from '../utils/balanceEngine.js';
 import { exportToPDF } from '../utils/exportUtils.js';
-import { validateUPIId, hasPaymentMethod, UPI_APPS } from '../utils/upiUtils.js';
+import { validateUPIId, hasPaymentMethod } from '../utils/upiUtils.js';
 import friendService from '../services/friendService.js';
 
 const Profile = () => {
@@ -45,10 +45,6 @@ const Profile = () => {
   const [savingPayment, setSavingPayment] = useState(false);
   const [showPaymentWarningBanner, setShowPaymentWarningBanner] = useState(true);
 
-  // Preferred app state
-  const [preferredApp, setPreferredApp] = useState('default');
-  const [savingPreferredApp, setSavingPreferredApp] = useState(false);
-
   // Remove friend state
   const [isRemoving, setIsRemoving] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
@@ -64,7 +60,6 @@ const Profile = () => {
         setTargetUser(currentUser);
         setName(currentUser?.name || '');
         setUpiId(currentUser?.upiId || '');
-        setPreferredApp(currentUser?.preferredApp || 'default');
         setLoading(false);
         return;
       }
@@ -139,22 +134,6 @@ const Profile = () => {
       toast.error('An unexpected error occurred');
     } finally {
       setSavingPayment(false);
-    }
-  };
-
-  const handleSavePreferredApp = async () => {
-    setSavingPreferredApp(true);
-    try {
-      const result = await updateProfile({ preferredApp });
-      if (result.meta.requestStatus === 'fulfilled') {
-        toast.success('Payment app preference saved!');
-      } else {
-        toast.error(result.payload || 'Failed to save preference');
-      }
-    } catch (err) {
-      toast.error('An unexpected error occurred');
-    } finally {
-      setSavingPreferredApp(false);
     }
   };
 
@@ -535,136 +514,6 @@ const Profile = () => {
                   )}
                 </div>
               </div>
-            </div>
-          )}
-
-          {isOwnProfile && (
-            <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01] relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
-
-              <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center shrink-0 border border-violet-500/20 shadow-[0_0_20px_-5px_rgba(139,92,246,0.1)]">
-                  <Smartphone size={20} className="text-violet-400" />
-                </div>
-                <div className="flex-1 space-y-1 mt-1">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="text-sm font-black text-white/60 uppercase tracking-[0.2em] font-manrope">
-                      Preferred App
-                    </h3>
-                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm">
-                      {(() => {
-                        const currentApp = UPI_APPS.find((a) => a.id === preferredApp);
-                        if (currentApp?.id === 'default') return <Smartphone size={10} />;
-                        return (
-                          <img
-                            src={currentApp?.icon}
-                            alt={currentApp?.label}
-                            className="w-3 h-3 object-contain"
-                          />
-                        );
-                      })()}
-                      &nbsp;
-                      {UPI_APPS.find((a) => a.id === preferredApp)?.shortLabel || 'Default'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-white/30 font-inter leading-relaxed">
-                    Choose which UPI application should trigger for instant settlements.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 mb-6">
-                {UPI_APPS.map((app) => {
-                  const isSelected = preferredApp === app.id;
-                  return (
-                    <button
-                      key={app.id}
-                      onClick={() => setPreferredApp(app.id)}
-                      disabled={!isOnline || savingPreferredApp}
-                      style={
-                        isSelected
-                          ? {
-                              borderColor: `${app.color}40`,
-                              boxShadow: `0 0 0 1px ${app.color}30, 0 4px 20px ${app.color}15`,
-                            }
-                          : {}
-                      }
-                      className={`
-                      relative text-left p-3 rounded-2xl border transition-all duration-200
-                      flex items-center gap-3 group
-                      ${
-                        isSelected
-                          ? 'bg-white/[0.05] border-white/20'
-                          : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/10'
-                      }
-                      ${!isOnline || savingPreferredApp ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'}
-                    `}
-                    >
-                      <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 overflow-hidden ${isSelected ? 'bg-white/10' : 'bg-white/5'}`}
-                        style={isSelected ? { backgroundColor: `${app.color}18` } : {}}
-                      >
-                        {app.id === 'default' ? (
-                          <Smartphone
-                            size={20}
-                            className={isSelected ? 'text-violet-400' : 'text-white/40'}
-                          />
-                        ) : (
-                          <img
-                            src={app.icon}
-                            alt={app.label}
-                            className="w-6 h-6 object-contain transition-all duration-300"
-                          />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-xs font-bold truncate transition-colors duration-200 ${isSelected ? 'text-white' : 'text-white/60 group-hover:text-white/80'}`}
-                        >
-                          {app.label}
-                        </p>
-                      </div>
-                      {isSelected && (
-                        <div
-                          className="w-4 h-4 rounded-full flex items-center justify-center shrink-0"
-                          style={{
-                            backgroundColor: `${app.color}30`,
-                            border: `1.5px solid ${app.color}60`,
-                          }}
-                        >
-                          <CheckCircle2 size={9} style={{ color: app.color }} />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mb-5 p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-3">
-                <AlertTriangle size={13} className="text-amber-400/60 mt-0.5 shrink-0" />
-                <p className="text-[10px] text-amber-400/50 font-inter leading-relaxed">
-                  <span className="font-bold text-amber-400/70">iOS note:</span> If set to
-                  &quot;Default&quot;, you&apos;ll see a chooser prompt when paying.
-                </p>
-              </div>
-
-              <Button
-                onClick={handleSavePreferredApp}
-                disabled={!isOnline || savingPreferredApp}
-                className={`h-14 w-full rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-xl
-                ${!isOnline ? 'opacity-20 cursor-not-allowed bg-white/5 border-white/5 text-white/40' : savingPreferredApp ? 'opacity-60 cursor-wait bg-white text-black/50' : 'bg-white text-black hover:bg-white/90'}`}
-              >
-                {savingPreferredApp ? (
-                  <span className="flex items-center gap-3">
-                    <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                    SAVING…
-                  </span>
-                ) : isOnline ? (
-                  'SAVE PREFERENCE'
-                ) : (
-                  'OFFLINE'
-                )}
-              </Button>
             </div>
           )}
 
