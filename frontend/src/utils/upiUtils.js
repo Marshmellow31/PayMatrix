@@ -1,8 +1,17 @@
 /**
  * UPI Payment Utilities
- * Handles platform detection, app-specific deep links, and smart payment routing.
  *
- * preferredApp values: "default" | "gpay" | "phonepe" | "paytm" | "bhim"
+ * Settle-up payments in PayMatrix are person-to-person transfers to a friend's
+ * *personal* UPI ID (VPA). GPay / PhonePe / Paytm risk engines block any payment
+ * that is "pushed" to a personal VPA from a third-party app via a deep link /
+ * app intent ("payment failed as per UPI risk policy", scam warnings, etc.).
+ * This is enforced by NPCI and cannot be bypassed for a personal VPA without
+ * becoming a registered PSP/merchant — which does not apply to P2P settle-up.
+ *
+ * The reliable, un-flagged path is a QR code that the payer scans inside their
+ * OWN UPI app. A scan is a user-initiated "pull" payment — the standard way to
+ * pay any personal UPI ID — so it is not flagged. We therefore generate a QR
+ * (and offer a copy-UPI-ID fallback) instead of opening the app directly.
  */
 
 // ─── App Metadata ─────────────────────────────────────────────────────────────
@@ -50,9 +59,6 @@ export const UPI_APPS = [
   },
 ];
 
-// Apps shown in the iOS chooser modal (exclude Default and BHIM since BHIM = upi://)
-export const IOS_CHOOSER_APPS = UPI_APPS.filter((a) => a.id !== 'default' && a.id !== 'bhim');
-
 // ─── Platform Detection ───────────────────────────────────────────────────────
 
 /**
@@ -87,89 +93,35 @@ export const hasPaymentMethod = (user) => {
   return !!(user.upiId && validateUPIId(user.upiId));
 };
 
-// ─── Deep Link Builder ────────────────────────────────────────────────────────
+// ─── UPI QR Builder ───────────────────────────────────────────────────────────
 
 /**
  * Strips non-ASCII characters from a string.
- * UPI apps (especially GPay) have strict ASCII-only parsers for parameters
- * like `tn` (transaction note). Non-ASCII chars (e.g. en dash U+2013) get
- * multi-byte encoded (%E2%80%93) which can cause the app to reject the
- * payment with spurious errors like "payment limit reached".
+ * UPI apps have strict ASCII-only parsers for text params like the payee name
+ * (`pn`). Non-ASCII chars get multi-byte percent-encoded, which some apps reject,
+ * so we remove them defensively.
  */
 const sanitizeForUPI = (str) => str.replace(/[^\x20-\x7E]/g, '').trim();
 
 /**
- * Builds a URL-encoded UPI query string.
+ * Builds the `upi://pay` string to encode inside a QR code.
+ *
+ * IMPORTANT: this string is meant to be rendered as a QR and scanned by the
+ * payer inside their own UPI app — it is NOT opened as a deep link / app intent.
+ * The amount IS pre-filled: a scanned QR carrying an amount is normal and is not
+ * flagged, unlike a deep link that pushes an amount to a personal VPA.
+ *
+ * @param {string} upiId        Receiver VPA, e.g. "name@okhdfcbank"
+ * @param {string|object} name  Receiver display name (or user object)
+ * @param {number} amount       Amount in INR
+ * @returns {string} e.g. "upi://pay?pa=name@okhdfcbank&pn=Name&am=100.00&cu=INR"
  */
-const buildUPIQuery = (upiId, name, amount, note, platform) => {
+export const getUPIQRValue = (upiId, name, amount) => {
   const pa = encodeURIComponent((upiId || '').toString().trim());
-
-  // Defensive: Handle case where name might be a user object
   const rawName = typeof name === 'string' ? name : name?.name || 'User';
   const pn = encodeURIComponent(sanitizeForUPI(rawName).substring(0, 50));
-
   const am = parseFloat(amount || 0).toFixed(2);
-
-  // Removing tn (Transaction Note), tr (Transaction Reference), and mc (Merchant Code).
-  // GPay's risk engine aggressively flags automated P2P links that contain
-  // auto-generated notes or reference IDs, leading to false "Bank Limit Exceeded"
-  // or "Security Risk" errors.
-
-  // For iOS specifically, omitting the amount forces the user to type it manually.
-  // This heavily mitigates "Bank Limit Exceeded" anti-fraud blocks.
-  if (platform === 'ios') {
-    return `pa=${pa}&pn=${pn}&cu=INR`;
-  }
-
-  // Sending only the bare minimum required parameters (pa, pn, am, cu) is the
-  // safest way to ensure the intent is treated as a normal, manual user transfer.
-  return `pa=${pa}&pn=${pn}&am=${am}&cu=INR`;
-};
-
-/**
- * Returns the deep link URL for the given app and UPI parameters.
- * @param {"default"|"gpay"|"phonepe"|"paytm"|"bhim"} appId
- */
-export const getAppDeepLink = (appId, upiId, name, amount, note) => {
-  const platform = detectPlatform();
-  const q = buildUPIQuery(upiId, name, amount, note, platform);
-
-  // On Android, use intent:// URLs to route through the standard UPI intent system.
-  // Custom schemes (gpay://, phonepe://) bypass intent resolution and cause apps
-  // to reject payments with spurious errors ("payment limit reached", etc.)
-  // because the browser origin is not a whitelisted/verified merchant.
-  if (platform === 'android') {
-    const packages = {
-      gpay: 'com.google.android.apps.nbu.paisa.user',
-      phonepe: 'com.phonepe.app',
-      paytm: 'net.one97.paytm',
-      bhim: 'in.org.npci.upiapp',
-    };
-    const pkg = packages[appId];
-    if (pkg) {
-      // intent://pay?pa=...#Intent;scheme=upi;package=...;end
-      // This opens the specific app via Android's intent system using the standard
-      // upi:// scheme, so the app treats it as a legitimate P2P payment.
-      return `intent://pay?${q}#Intent;scheme=upi;package=${pkg};end`;
-    }
-    // Default: standard upi:// lets Android show the app chooser
-    return `upi://pay?${q}`;
-  }
-
-  // On iOS, we use the specific `gpay://` scheme to force Google Pay
-  // instead of relying on the generic `upi://` chooser.
-  switch (appId) {
-    case 'gpay':
-      return `gpay://upi/pay?${q}`;
-    case 'phonepe':
-      return `phonepe://pay?${q}`;
-    case 'paytm':
-      return `paytmmp://pay?${q}`;
-    case 'bhim':
-    case 'default':
-    default:
-      return `upi://pay?${q}`;
-  }
+  return `upi://pay?pa=${pa}&pn=${pn}&am=${am}&cu=INR`;
 };
 
 /**
@@ -178,114 +130,4 @@ export const getAppDeepLink = (appId, upiId, name, amount, note) => {
 export const getAppLabel = (appId) => {
   const app = UPI_APPS.find((a) => a.id === appId);
   return app?.label || 'Payment App';
-};
-
-// ─── Legacy helper (kept for backward compat) ─────────────────────────────────
-
-/**
- * @deprecated Use handleSmartPayment instead.
- */
-export const generateUPILink = (upiId, name, amount, note = 'PayMatrix Settlement') => {
-  if (!validateUPIId(upiId)) return null;
-  if (!amount || typeof amount !== 'number' || amount <= 0) return null;
-  return getAppDeepLink('default', upiId, name, amount, note);
-};
-
-// ─── Smart Payment Handler ────────────────────────────────────────────────────
-
-/**
- * Main payment entry point. Detects platform and routes to the correct deep link.
- *
- * @param {object} receiver         - { name, upiId }
- * @param {number} amount           - Payment amount
- * @param {string} note             - Optional payment note
- * @param {string} payerPreferredApp - The payer's preferredApp setting
- *
- * @returns {{
- *   success: boolean,
- *   url: string | null,
- *   needsChooser: boolean,   // true → show iOS app chooser modal
- *   platform: string,
- *   error: string | null,
- * }}
- */
-export const handleSmartPayment = (
-  receiver,
-  amount,
-  note = 'PayMatrix Settlement',
-  payerPreferredApp = 'default'
-) => {
-  // ── Guard: no receiver ───────────────────────────────────────────────────────
-  if (!receiver) {
-    return {
-      success: false,
-      url: null,
-      needsChooser: false,
-      platform: 'unknown',
-      error: 'Receiver information is missing.',
-    };
-  }
-
-  // ── Guard: no amount ──────────────────────────────────────────────────────────
-  if (!amount || amount <= 0) {
-    return {
-      success: false,
-      url: null,
-      needsChooser: false,
-      platform: 'unknown',
-      error: 'Payment amount must be greater than zero.',
-    };
-  }
-
-  // ── Guard: no UPI ID ──────────────────────────────────────────────────────────
-  if (!receiver.upiId || !validateUPIId(receiver.upiId)) {
-    return {
-      success: false,
-      url: null,
-      needsChooser: false,
-      platform: 'unknown',
-      error: 'This user has not added a UPI ID.',
-    };
-  }
-
-  const platform = detectPlatform();
-  const app = payerPreferredApp || 'default';
-
-  // ── iOS + Default → show chooser modal ──────────────────────────────────────
-  if (platform === 'ios' && app === 'default') {
-    return { success: true, url: null, needsChooser: true, platform, error: null };
-  }
-
-  // ── All other cases → build deep link ────────────────────────────────────────
-  const url = getAppDeepLink(app, receiver.upiId, receiver.name, amount, note);
-
-  // Use a hidden anchor tag to trigger the intent, which is more reliable than window.location.href
-  // on some Android WebViews and browsers.
-  const link = document.createElement('a');
-  link.href = url;
-  // Fallback for intent resolution failure (if app not installed)
-  if (platform === 'android' && url.startsWith('intent://')) {
-    const fallbackUrl = `upi://pay?${buildUPIQuery(receiver.upiId, receiver.name, amount, note)}`;
-    link.setAttribute('data-fallback', fallbackUrl);
-
-    // Attempt to catch if intent fails to resolve
-    setTimeout(() => {
-      if (document.visibilityState === 'visible') {
-        window.location.href = fallbackUrl;
-      }
-    }, 1500);
-  }
-
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-
-  return { success: true, url, needsChooser: false, platform, error: null };
-};
-
-/**
- * @deprecated Use handleSmartPayment instead.
- */
-export const handlePayment = (receiver, amount, note = 'PayMatrix Settlement') => {
-  return handleSmartPayment(receiver, amount, note, 'default');
 };

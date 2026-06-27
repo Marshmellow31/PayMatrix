@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { QRCodeCanvas } from 'qrcode.react';
 import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as LucideIcons from 'lucide-react';
@@ -12,13 +13,7 @@ import Loader from '../common/Loader.jsx';
 import Input from '../common/Input.jsx';
 import expenseService from '../../services/expenseService.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
-import {
-  handleSmartPayment,
-  hasPaymentMethod,
-  IOS_CHOOSER_APPS,
-  getAppDeepLink,
-  UPI_APPS,
-} from '../../utils/upiUtils.js';
+import { getUPIQRValue, hasPaymentMethod } from '../../utils/upiUtils.js';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags.js';
 import Avatar from '../common/Avatar.jsx';
 import { getShortName } from '../../utils/nameUtils.js';
@@ -37,7 +32,6 @@ const customVariants = {
 
 const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPayeeId = null }) => {
   const { currentGroup } = useSelector((state) => state.groups);
-  const { user: currentUser } = useSelector((state) => state.auth);
   const flags = useFeatureFlags();
 
   const [loading, setLoading] = useState(true);
@@ -49,8 +43,8 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
   // UPI state
   const [memberPaymentDetails, setMemberPaymentDetails] = useState({});
   const [fetchingPayments, setFetchingPayments] = useState(false);
-  const [upiConfirm, setUpiConfirm] = useState(null);
-  const [chooserState, setChooserState] = useState(null);
+  const [qrModal, setQrModal] = useState(null);
+  const qrCanvasRef = useRef(null);
 
   // Navigation: 'main' | 'custom'
   const [view, setView] = useState('main');
@@ -112,8 +106,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
   useEffect(() => {
     if (isOpen && groupId && userId) {
       setPartialPayment(null);
-      setUpiConfirm(null);
-      setChooserState(null);
+      setQrModal(null);
       setMemberPaymentDetails({});
       setView('main');
       setCustomPayee(null);
@@ -184,10 +177,15 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
 
   // ── UPI actions ──────────────────────────────────────────────────────────────
 
+  // Open the QR sheet. We render a QR (with amount pre-filled) that the payer
+  // scans inside their own UPI app — a user-initiated scan is the standard,
+  // un-flagged way to pay a personal UPI ID. We deliberately do NOT open the
+  // UPI app via a deep link, because pushing a payment to a personal VPA from a
+  // third-party app is blocked by GPay/PhonePe/Paytm risk policies.
   const handleUPIPay = (debt, receiverDetails) => {
     const member = getMemberObj(debt.to);
-    setUpiConfirm({
-      debt,
+    setQrModal({
+      amount: debt.amount,
       receiver: {
         name: receiverDetails?.name || member?.name || 'Group Member',
         upiId: receiverDetails?.upiId || '',
@@ -195,37 +193,25 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
     });
   };
 
-  const confirmUPIPay = (overrideAppId = null) => {
-    if (!upiConfirm) return;
-    const { debt, receiver } = upiConfirm;
-    const result = handleSmartPayment(
-      receiver,
-      debt.amount,
-      `PayMatrix – pay ${receiver.name}`,
-      overrideAppId || currentUser?.preferredApp || 'default'
-    );
-    if (result.needsChooser) {
-      setChooserState({ debt, receiver });
-      setUpiConfirm(null);
+  const handleDownloadQR = () => {
+    const canvas = qrCanvasRef.current?.querySelector('canvas');
+    if (!canvas) {
+      toast.error('QR not ready yet');
       return;
     }
-    if (!result.success) toast.error(result.error || 'Failed to open payment app');
-    else toast.success('Opening payment app…', { icon: '📲', duration: 3000 });
-    setUpiConfirm(null);
-  };
-
-  const handleChooserPay = (appId) => {
-    if (!chooserState) return;
-    const { debt, receiver } = chooserState;
-    window.location.href = getAppDeepLink(
-      appId,
-      receiver.upiId,
-      receiver.name,
-      debt.amount,
-      `PayMatrix – pay ${receiver.name}`
-    );
-    toast.success('Opening payment app…', { icon: '📲', duration: 3000 });
-    setChooserState(null);
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      const safeName = (qrModal?.receiver?.name || 'payment').replace(/[^a-z0-9]/gi, '_');
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `PayMatrix_UPI_${safeName}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('QR saved — scan it from your UPI app gallery', { icon: '⬇️' });
+    } catch {
+      toast.error('Could not download QR');
+    }
   };
 
   const handleCopyUPI = (upiId) => {
@@ -678,24 +664,24 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
           </AnimatePresence>
         </div>
 
-        {/* ── UPI confirm portal ───────────────────────────────────────────────── */}
+        {/* ── UPI QR portal ────────────────────────────────────────────────────── */}
         {createPortal(
           <AnimatePresence>
-            {upiConfirm && (
+            {qrModal && (
               <div
-                key="upi-confirm-overlay"
+                key="upi-qr-overlay"
                 className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-4"
               >
                 <motion.div
-                  key="upi-backdrop"
+                  key="qr-backdrop"
                   className="absolute inset-0 bg-black/80 backdrop-blur-md"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  onClick={() => setUpiConfirm(null)}
+                  onClick={() => setQrModal(null)}
                 />
                 <motion.div
-                  key="upi-card"
+                  key="qr-card"
                   className="relative w-full max-w-sm bg-[#1a1a1a] rounded-[2rem] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.9)] border border-white/10 z-[151] overflow-hidden"
                   initial={{ opacity: 0, scale: 0.9, y: 40 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -704,182 +690,79 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                 >
                   <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent" />
                   <div className="p-7">
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5 overflow-hidden">
-                      {(() => {
-                        const payerApp = currentUser?.preferredApp || 'default';
-                        const appMeta = UPI_APPS.find((a) => a.id === payerApp);
-                        if (payerApp === 'default')
-                          return <LucideIcons.Smartphone size={28} className="text-emerald-400" />;
-                        return (
-                          <img
-                            src={appMeta?.icon}
-                            alt={appMeta?.label}
-                            className="w-8 h-8 object-contain"
-                          />
-                        );
-                      })()}
+                    <div className="text-center mb-1">
+                      <h3 className="text-xl font-black font-manrope text-white tracking-tight">
+                        Scan to Pay
+                      </h3>
+                      <p className="text-sm text-white/50 font-inter leading-relaxed mt-1">
+                        Pay <span className="text-white font-semibold">{qrModal.receiver.name}</span>{' '}
+                        <span className="text-emerald-400 font-bold">
+                          {formatCurrency(qrModal.amount)}
+                        </span>
+                      </p>
                     </div>
-                    <h3 className="text-xl font-black font-manrope text-white tracking-tight mb-1">
-                      Open Payment App
-                    </h3>
-                    {(() => {
-                      const payerApp = currentUser?.preferredApp || 'default';
-                      const appMeta = UPI_APPS.find((a) => a.id === payerApp);
-                      return (
-                        <p className="text-sm text-white/50 font-inter leading-relaxed mb-5">
-                          Pay{' '}
-                          <span className="text-white font-semibold">
-                            {upiConfirm.receiver.name}
-                          </span>{' '}
-                          <span className="text-emerald-400 font-bold">
-                            {formatCurrency(upiConfirm.debt.amount)}
-                          </span>
-                          {payerApp !== 'default' && appMeta ? (
-                            <span className="text-white/40">
-                              {' '}
-                              via{' '}
-                              <span className="text-white/70 font-semibold">{appMeta.label}</span>
-                            </span>
-                          ) : (
-                            <span className="text-white/40"> via your preferred UPI app</span>
-                          )}
-                        </p>
-                      );
-                    })()}
-                    <p className="text-[10px] text-white/25 font-inter mb-5">
-                      Opens in your selected payment app
+
+                    {/* QR code (white background + quiet zone so it stays scannable
+                        on the dark UI and when downloaded as PNG) */}
+                    <div className="flex justify-center my-6">
+                      <div ref={qrCanvasRef} className="p-4 bg-white rounded-2xl shadow-lg">
+                        {qrModal.receiver.upiId ? (
+                          <QRCodeCanvas
+                            value={getUPIQRValue(
+                              qrModal.receiver.upiId,
+                              qrModal.receiver.name,
+                              qrModal.amount
+                            )}
+                            size={208}
+                            level="M"
+                            marginSize={2}
+                            bgColor="#ffffff"
+                            fgColor="#000000"
+                          />
+                        ) : (
+                          <div className="w-52 h-52 flex items-center justify-center text-black/50 text-xs font-semibold text-center px-4">
+                            No UPI ID available for this member
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-white/40 font-inter text-center leading-relaxed mb-5">
+                      Open any UPI app and scan this code. Paying remotely? Download it and use{' '}
+                      <span className="text-white/60 font-semibold">“scan from gallery”</span> in
+                      your UPI app.
                     </p>
-                    {upiConfirm.receiver.upiId && (
+
+                    {qrModal.receiver.upiId && (
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/5 mb-5">
                         <LucideIcons.AtSign size={13} className="text-white/40 shrink-0" />
                         <span className="text-xs font-mono text-white/60 truncate flex-1">
-                          {upiConfirm.receiver.upiId}
+                          {qrModal.receiver.upiId}
                         </span>
                         <button
-                          onClick={() => handleCopyUPI(upiConfirm.receiver.upiId)}
+                          onClick={() => handleCopyUPI(qrModal.receiver.upiId)}
                           className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 text-[9px] font-black uppercase tracking-wider transition-all"
                         >
                           <LucideIcons.Copy size={10} /> Copy
                         </button>
                       </div>
                     )}
-                    <div className="flex gap-3 mb-3">
+
+                    <div className="flex gap-3">
                       <button
-                        onClick={() => setUpiConfirm(null)}
+                        onClick={() => setQrModal(null)}
                         className="flex-1 py-3.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-black tracking-widest uppercase transition-all"
                       >
-                        Cancel
+                        Close
                       </button>
                       <button
-                        onClick={() => confirmUPIPay()}
-                        className="flex-1 py-3.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 text-xs font-black tracking-widest uppercase transition-all active:scale-95 flex items-center justify-center gap-2"
+                        onClick={handleDownloadQR}
+                        disabled={!qrModal.receiver.upiId}
+                        className="flex-1 py-3.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 text-xs font-black tracking-widest uppercase transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        <LucideIcons.ExternalLink size={14} /> Pay Now
+                        <LucideIcons.Download size={14} /> Download
                       </button>
                     </div>
-                    <button
-                      onClick={() => {
-                        setChooserState({ debt: upiConfirm.debt, receiver: upiConfirm.receiver });
-                        setUpiConfirm(null);
-                      }}
-                      className="w-full py-2.5 rounded-xl text-white/25 hover:text-white/50 text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
-                    >
-                      <LucideIcons.LayoutGrid size={11} /> Choose app manually
-                    </button>
-                  </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>,
-          document.body
-        )}
-
-        {/* ── App chooser portal ───────────────────────────────────────────────── */}
-        {createPortal(
-          <AnimatePresence>
-            {chooserState && (
-              <div
-                key="chooser-overlay"
-                className="fixed inset-0 z-[160] flex items-end justify-center"
-              >
-                <motion.div
-                  key="chooser-backdrop"
-                  className="absolute inset-0 bg-black/80 backdrop-blur-md"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setChooserState(null)}
-                />
-                <motion.div
-                  key="chooser-card"
-                  className="relative w-full max-w-lg bg-[#1c1c1e] rounded-t-[2rem] shadow-[0_-20px_60px_rgba(0,0,0,0.8)] border-t border-white/10 z-[161] overflow-hidden pb-safe"
-                  initial={{ y: '100%' }}
-                  animate={{ y: 0 }}
-                  exit={{ y: '100%' }}
-                  transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                >
-                  <div className="w-10 h-1 bg-white/15 rounded-full mx-auto mt-3 mb-5" />
-                  <div className="px-6 pb-8">
-                    <div className="text-center mb-6">
-                      <p className="text-xs text-white/30 font-bold uppercase tracking-widest mb-1">
-                        Pay via
-                      </p>
-                      <h3 className="text-lg font-black font-manrope text-white tracking-tight">
-                        Choose payment app
-                      </h3>
-                      <p className="text-sm text-white/40 font-inter mt-1">
-                        <span className="text-emerald-400 font-bold">
-                          {formatCurrency(chooserState.debt.amount)}
-                        </span>
-                        {' → '}
-                        <span className="text-white/70">{chooserState.receiver.name}</span>
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 mb-5">
-                      {IOS_CHOOSER_APPS.map((app) => (
-                        <button
-                          key={app.id}
-                          onClick={() => handleChooserPay(app.id)}
-                          className="flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 transition-all active:scale-95 group overflow-hidden"
-                        >
-                          {app.id === 'default' ? (
-                            <LucideIcons.Smartphone
-                              size={28}
-                              className="text-white/40 group-hover:text-white/70"
-                            />
-                          ) : (
-                            <img
-                              src={app.icon}
-                              alt={app.label}
-                              className="w-10 h-10 object-contain"
-                            />
-                          )}
-                          <span className="text-[11px] font-bold text-white/60 group-hover:text-white/90 transition-colors text-center leading-tight">
-                            {app.shortLabel}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                    {chooserState.receiver.upiId && (
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 mb-4">
-                        <LucideIcons.AtSign size={13} className="text-white/30 shrink-0" />
-                        <span className="text-xs font-mono text-white/40 truncate flex-1">
-                          {chooserState.receiver.upiId}
-                        </span>
-                        <button
-                          onClick={() => handleCopyUPI(chooserState.receiver.upiId)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 text-[9px] font-black uppercase tracking-wider transition-all"
-                        >
-                          <LucideIcons.Copy size={10} /> Copy UPI ID
-                        </button>
-                      </div>
-                    )}
-                    <button
-                      onClick={() => setChooserState(null)}
-                      className="w-full py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-sm font-bold transition-all"
-                    >
-                      Cancel
-                    </button>
                   </div>
                 </motion.div>
               </div>
