@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom';
 import {
   ScanLine,
   Camera,
-  ImageIcon,
   IndianRupee,
   Store,
   Calendar,
@@ -15,12 +14,50 @@ import {
   Trash2,
   Check,
   Plus,
+  FilePlus,
+  Images,
 } from 'lucide-react';
 import { HiX } from 'react-icons/hi';
 import { useBillScanner } from '../../hooks/useBillScanner.js';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 
 const STAGE = { CAPTURE: 'capture', SCANNING: 'scanning', REVIEW: 'review' };
+
+// Normalize item name for deduplication (lowercase, collapse whitespace)
+const normalizeName = (name) => (name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+// Merge multiple scan results into one, deduplicating items by (name, price)
+const mergeResults = (results) => {
+  if (!results.length) return null;
+
+  // Collect all amount candidates across all scans
+  const allAmounts = results.flatMap((r) => r.candidates || (r.amount != null ? [r.amount] : []));
+  const uniqueAmounts = [...new Set(allAmounts.map((a) => parseFloat(a.toFixed(2))))].sort(
+    (a, b) => b - a
+  );
+  // Use max amount as default (most likely the bill total)
+  const amount = uniqueAmounts[0] ?? null;
+
+  // Merge items — deduplicate by normalized name + price within ±0.01
+  const seen = new Map(); // key: `name:price` → item
+  for (const r of results) {
+    for (const item of r.items || []) {
+      const key = `${normalizeName(item.name)}:${parseFloat(item.price || 0).toFixed(2)}`;
+      if (!seen.has(key)) seen.set(key, { ...item });
+    }
+  }
+
+  const first = results[0];
+  return {
+    amount,
+    candidates: uniqueAmounts,
+    title: results.find((r) => r.title)?.title || '',
+    date: first.date || null,
+    category: first.category || 'Other',
+    items: [...seen.values()],
+    photoCount: results.length,
+  };
+};
 
 // Progress label text keyed on progress %
 const progressLabel = (p) => {
@@ -53,6 +90,8 @@ const FieldRow = ({ icon, label, value, onChange, type = 'text', placeholder }) 
 const BillScannerModal = ({ isOpen, onClose, onFill }) => {
   const [stage, setStage] = useState(STAGE.CAPTURE);
   const [scanResult, setScanResult] = useState(null);
+  // Accumulates one result object per photo scanned for this bill
+  const [allResults, setAllResults] = useState([]);
   const [editableData, setEditableData] = useState({
     amount: '',
     title: '',
@@ -72,6 +111,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
     if (isOpen) {
       setStage(STAGE.CAPTURE);
       setScanResult(null);
+      setAllResults([]);
       setReviewItems([]);
       setFakeProgress(0);
       setScanFailed(false);
@@ -95,33 +135,41 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
   }, [stage]);
 
   const handleFileSelect = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
 
     setScanFailed(false);
     setStage(STAGE.SCANNING);
 
-    const result = await scanBill(file);
+    // Scan each file sequentially and collect results
+    const newResults = [];
+    for (const file of files) {
+      const result = await scanBill(file);
+      if (result) newResults.push(result);
+    }
 
     setFakeProgress(100);
     setTimeout(() => {
-      if (result) {
-        setScanResult(result);
-        setReviewItems((result.items || []).map((it) => ({ ...it })));
+      if (newResults.length > 0) {
+        const combined = [...allResults, ...newResults];
+        const merged = mergeResults(combined);
+        setAllResults(combined);
+        setScanResult(merged);
+        setReviewItems((merged.items || []).map((it) => ({ ...it })));
         setEditableData({
-          amount: result.amount != null ? result.amount.toFixed(2) : '',
-          title: result.title || '',
-          date: result.date || new Date().toISOString().split('T')[0],
-          category: result.category || 'Other',
+          amount: merged.amount != null ? merged.amount.toFixed(2) : '',
+          title: merged.title || '',
+          date: merged.date || new Date().toISOString().split('T')[0],
+          category: merged.category || 'Other',
         });
         setStage(STAGE.REVIEW);
       } else {
         setScanFailed(true);
-        setStage(STAGE.CAPTURE);
+        setStage(allResults.length > 0 ? STAGE.REVIEW : STAGE.CAPTURE);
       }
     }, 350);
 
-    // Clear the input value so the same file can be scanned again if needed
+    // Clear so the same file can be re-selected
     e.target.value = '';
   };
 
@@ -154,7 +202,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
   const taxGap = billTotal - itemsTotal;
 
   const stageTitle = {
-    [STAGE.CAPTURE]: 'Scan Receipt',
+    [STAGE.CAPTURE]: allResults.length > 0 ? 'Add More Photos' : 'Scan Receipt',
     [STAGE.SCANNING]: 'Analysing...',
     [STAGE.REVIEW]: 'Review & Fill',
   };
@@ -237,10 +285,12 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
 
                       <div className="text-center space-y-2">
                         <h3 className="font-manrope font-black text-xl text-white">
-                          Point at a Bill
+                          {allResults.length > 0 ? 'Add Another Photo' : 'Point at a Bill'}
                         </h3>
                         <p className="text-sm text-white/40 font-inter leading-relaxed max-w-xs mx-auto">
-                          Amount, merchant, date and items are detected automatically.
+                          {allResults.length > 0
+                            ? `${allResults.length} photo${allResults.length > 1 ? 's' : ''} scanned. Add the next section of the bill — duplicate items are removed automatically.`
+                            : 'Amount, merchant, date and items are detected automatically. Long bill? Scan multiple photos — duplicates are merged.'}
                         </p>
                         <p className="text-[11px] text-primary/70 font-bold font-inter tracking-wide">
                           Powered by Gemini AI · your bill isn&apos;t saved
@@ -268,9 +318,18 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                           onClick={() => galleryRef.current?.click()}
                           className="w-full h-14 rounded-2xl bg-white/[0.04] border border-white/[0.08] text-white font-manrope font-bold text-sm flex items-center justify-center gap-3 hover:bg-white/[0.08] active:scale-[0.97] transition-all"
                         >
-                          <ImageIcon size={18} strokeWidth={2} />
-                          Choose from Gallery
+                          <Images size={18} strokeWidth={2} />
+                          Choose Photos (1 or more)
                         </button>
+                        {allResults.length > 0 && (
+                          <button
+                            onClick={() => setStage(STAGE.REVIEW)}
+                            className="w-full h-11 rounded-2xl text-primary/70 hover:text-primary font-manrope font-bold text-sm flex items-center justify-center gap-2 transition-all border border-primary/20 hover:border-primary/40"
+                          >
+                            <ChevronRight size={15} />
+                            Back to Review ({allResults.length} photo{allResults.length > 1 ? 's' : ''} scanned)
+                          </button>
+                        )}
                       </div>
 
                       <input
@@ -285,6 +344,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                         ref={galleryRef}
                         type="file"
                         accept="image/*"
+                        multiple
                         className="hidden"
                         onChange={handleFileSelect}
                       />
@@ -559,6 +619,18 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
 
                       {/* CTAs */}
                       <div className="flex flex-col gap-2.5 pt-2">
+                        {/* Photo count badge */}
+                        {allResults.length > 0 && (
+                          <div className="flex items-center justify-center gap-2 py-1">
+                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+                              <Images size={12} className="text-primary/70" />
+                              <span className="text-[10px] font-black text-primary/70 uppercase tracking-widest">
+                                {allResults.length} photo{allResults.length > 1 ? 's' : ''} merged
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
                         <button
                           onClick={handleFillForm}
                           disabled={!editableData.amount}
@@ -569,14 +641,28 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                         </button>
                         <button
                           onClick={() => {
+                            setFakeProgress(0);
+                            setScanFailed(false);
+                            setStage(STAGE.CAPTURE);
+                          }}
+                          className="w-full h-11 rounded-2xl text-white/50 hover:text-white/80 font-manrope font-bold text-sm flex items-center justify-center gap-2 transition-all border border-white/[0.06] hover:border-white/[0.12]"
+                        >
+                          <FilePlus size={14} />
+                          Add Another Photo of This Bill
+                        </button>
+                        <button
+                          onClick={() => {
                             setStage(STAGE.CAPTURE);
                             setScanResult(null);
+                            setAllResults([]);
                             setReviewItems([]);
+                            setFakeProgress(0);
+                            setScanFailed(false);
                           }}
-                          className="w-full h-11 rounded-2xl text-white/30 hover:text-white/60 font-manrope font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                          className="w-full h-10 rounded-2xl text-white/25 hover:text-white/50 font-manrope font-bold text-sm flex items-center justify-center gap-2 transition-all"
                         >
-                          <RefreshCw size={13} />
-                          Scan Again
+                          <RefreshCw size={12} />
+                          Start Over
                         </button>
                       </div>
                     </motion.div>
