@@ -24,6 +24,7 @@ A state-of-the-art UI focused on information density and premium ergonomics.
 ### 🤖 AI Bill Scanning
 Eliminate manual data entry with state-of-the-art receipt analysis.
 - **Powered by Gemini**: Uses Gemini 3.5 Flash Vision to instantly extract amounts, merchants, dates, and line items from images.
+- **Multi-Photo Stitching**: Seamlessly scan long receipts across multiple photos. Gemini natively stitches the overlaps together and deduplicates items intelligently.
 - **Smart Itemization**: Automatically splits multi-item bills into individual, assignable line items.
 - **Category Prediction**: Intelligently categorizes expenses based on merchant and item data.
 
