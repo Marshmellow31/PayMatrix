@@ -22,12 +22,17 @@ const RECEIPT_SCHEMA = {
 
 const RECEIPT_PROMPT = [
   "You are a precise receipt/bill parser for an Indian expense-splitting app.",
-  "Read the attached bill image and extract:",
+  "Read the attached bill image(s) and extract:",
   "- amount: the FINAL grand total payable (including GST/taxes/service charges). Not the subtotal.",
   "- title: a short merchant or store name (e.g. 'Pizza Hut', 'More Supermarket').",
   "- date: the bill date in YYYY-MM-DD. If absent, return an empty string.",
   "- category: the single best fit from the allowed list.",
   "- items: each ordered line item with its printed price. Combine quantity into the name. Do NOT include tax, subtotal, total, or discount rows.",
+  "",
+  "CRITICAL INSTRUCTION:",
+  "The attached images may be parts of a single long receipt (they may overlap). Stitch them together logically.",
+  "Output a SINGLE unified list of items. DO NOT output duplicate items that appear in the overlapping sections.",
+  "",
   "All amounts are in Indian Rupees as plain numbers (no symbols). If the image is unreadable, return amount 0 and an empty items array.",
 ].join("\n");
 
@@ -36,9 +41,9 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { imageBase64, mimeType = "image/jpeg" } = request.body || {};
-  if (!imageBase64) {
-    return response.status(400).json({ error: "imageBase64 is required." });
+  const { images } = request.body || {};
+  if (!images || !Array.isArray(images) || images.length === 0) {
+    return response.status(400).json({ error: "images array is required." });
   }
 
   const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
@@ -47,13 +52,17 @@ export default async function handler(request, response) {
     return response.status(500).json({ error: "AI service is not configured." });
   }
 
+  const imageParts = images.map(img => ({
+    inlineData: { mimeType: img.mimeType || "image/jpeg", data: img.base64 }
+  }));
+
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
   const body = {
     contents: [{
       role: "user",
       parts: [
         { text: RECEIPT_PROMPT },
-        { inlineData: { mimeType, data: imageBase64 } },
+        ...imageParts,
       ],
     }],
     generationConfig: {

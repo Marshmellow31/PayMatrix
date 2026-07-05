@@ -23,41 +23,7 @@ import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 
 const STAGE = { CAPTURE: 'capture', SCANNING: 'scanning', REVIEW: 'review' };
 
-// Normalize item name for deduplication (lowercase, collapse whitespace)
-const normalizeName = (name) => (name || '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-// Merge multiple scan results into one, deduplicating items by (name, price)
-const mergeResults = (results) => {
-  if (!results.length) return null;
-
-  // Collect all amount candidates across all scans
-  const allAmounts = results.flatMap((r) => r.candidates || (r.amount != null ? [r.amount] : []));
-  const uniqueAmounts = [...new Set(allAmounts.map((a) => parseFloat(a.toFixed(2))))].sort(
-    (a, b) => b - a
-  );
-  // Use max amount as default (most likely the bill total)
-  const amount = uniqueAmounts[0] ?? null;
-
-  // Merge items — deduplicate by normalized name + price within ±0.01
-  const seen = new Map(); // key: `name:price` → item
-  for (const r of results) {
-    for (const item of r.items || []) {
-      const key = `${normalizeName(item.name)}:${parseFloat(item.price || 0).toFixed(2)}`;
-      if (!seen.has(key)) seen.set(key, { ...item });
-    }
-  }
-
-  const first = results[0];
-  return {
-    amount,
-    candidates: uniqueAmounts,
-    title: results.find((r) => r.title)?.title || '',
-    date: first.date || null,
-    category: first.category || 'Other',
-    items: [...seen.values()],
-    photoCount: results.length,
-  };
-};
 
 // Progress label text keyed on progress %
 const progressLabel = (p) => {
@@ -90,8 +56,8 @@ const FieldRow = ({ icon, label, value, onChange, type = 'text', placeholder }) 
 const BillScannerModal = ({ isOpen, onClose, onFill }) => {
   const [stage, setStage] = useState(STAGE.CAPTURE);
   const [scanResult, setScanResult] = useState(null);
-  // Accumulates one result object per photo scanned for this bill
-  const [allResults, setAllResults] = useState([]);
+  // Accumulates all selected files to send in a single batch
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [editableData, setEditableData] = useState({
     amount: '',
     title: '',
@@ -111,7 +77,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
     if (isOpen) {
       setStage(STAGE.CAPTURE);
       setScanResult(null);
-      setAllResults([]);
+      setSelectedFiles([]);
       setReviewItems([]);
       setFakeProgress(0);
       setScanFailed(false);
@@ -141,31 +107,27 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
     setScanFailed(false);
     setStage(STAGE.SCANNING);
 
-    // Scan each file sequentially and collect results
-    const newResults = [];
-    for (const file of files) {
-      const result = await scanBill(file);
-      if (result) newResults.push(result);
-    }
+    const newSelectedFiles = [...selectedFiles, ...files];
+    setSelectedFiles(newSelectedFiles);
+
+    // Scan all files in a single request to Gemini
+    const result = await scanBill(newSelectedFiles);
 
     setFakeProgress(100);
     setTimeout(() => {
-      if (newResults.length > 0) {
-        const combined = [...allResults, ...newResults];
-        const merged = mergeResults(combined);
-        setAllResults(combined);
-        setScanResult(merged);
-        setReviewItems((merged.items || []).map((it) => ({ ...it })));
+      if (result) {
+        setScanResult(result);
+        setReviewItems((result.items || []).map((it) => ({ ...it })));
         setEditableData({
-          amount: merged.amount != null ? merged.amount.toFixed(2) : '',
-          title: merged.title || '',
-          date: merged.date || new Date().toISOString().split('T')[0],
-          category: merged.category || 'Other',
+          amount: result.amount != null ? result.amount.toFixed(2) : '',
+          title: result.title || '',
+          date: result.date || new Date().toISOString().split('T')[0],
+          category: result.category || 'Other',
         });
         setStage(STAGE.REVIEW);
       } else {
         setScanFailed(true);
-        setStage(allResults.length > 0 ? STAGE.REVIEW : STAGE.CAPTURE);
+        setStage(newSelectedFiles.length > 0 ? STAGE.REVIEW : STAGE.CAPTURE);
       }
     }, 350);
 
@@ -202,7 +164,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
   const taxGap = billTotal - itemsTotal;
 
   const stageTitle = {
-    [STAGE.CAPTURE]: allResults.length > 0 ? 'Add More Photos' : 'Scan Receipt',
+    [STAGE.CAPTURE]: selectedFiles.length > 0 ? 'Add More Photos' : 'Scan Receipt',
     [STAGE.SCANNING]: 'Analysing...',
     [STAGE.REVIEW]: 'Review & Fill',
   };
@@ -285,11 +247,11 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
 
                       <div className="text-center space-y-2">
                         <h3 className="font-manrope font-black text-xl text-white">
-                          {allResults.length > 0 ? 'Add Another Photo' : 'Point at a Bill'}
+                          {selectedFiles.length > 0 ? 'Add Another Photo' : 'Point at a Bill'}
                         </h3>
                         <p className="text-sm text-white/40 font-inter leading-relaxed max-w-xs mx-auto">
-                          {allResults.length > 0
-                            ? `${allResults.length} photo${allResults.length > 1 ? 's' : ''} scanned. Add the next section of the bill — duplicate items are removed automatically.`
+                          {selectedFiles.length > 0
+                            ? `${selectedFiles.length} photo${selectedFiles.length > 1 ? 's' : ''} scanned. Add the next section of the bill — duplicate items are removed automatically.`
                             : 'Amount, merchant, date and items are detected automatically. Long bill? Scan multiple photos — duplicates are merged.'}
                         </p>
                         <p className="text-[11px] text-primary/70 font-bold font-inter tracking-wide">
@@ -321,13 +283,13 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                           <Images size={18} strokeWidth={2} />
                           Choose Photos (1 or more)
                         </button>
-                        {allResults.length > 0 && (
+                        {selectedFiles.length > 0 && (
                           <button
                             onClick={() => setStage(STAGE.REVIEW)}
                             className="w-full h-11 rounded-2xl text-primary/70 hover:text-primary font-manrope font-bold text-sm flex items-center justify-center gap-2 transition-all border border-primary/20 hover:border-primary/40"
                           >
                             <ChevronRight size={15} />
-                            Back to Review ({allResults.length} photo{allResults.length > 1 ? 's' : ''} scanned)
+                            Back to Review ({selectedFiles.length} photo{selectedFiles.length > 1 ? 's' : ''} scanned)
                           </button>
                         )}
                       </div>
@@ -620,12 +582,12 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                       {/* CTAs */}
                       <div className="flex flex-col gap-2.5 pt-2">
                         {/* Photo count badge */}
-                        {allResults.length > 0 && (
+                        {selectedFiles.length > 0 && (
                           <div className="flex items-center justify-center gap-2 py-1">
                             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
                               <Images size={12} className="text-primary/70" />
                               <span className="text-[10px] font-black text-primary/70 uppercase tracking-widest">
-                                {allResults.length} photo{allResults.length > 1 ? 's' : ''} merged
+                                {selectedFiles.length} photo{selectedFiles.length > 1 ? 's' : ''} merged
                               </span>
                             </div>
                           </div>
@@ -654,7 +616,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                           onClick={() => {
                             setStage(STAGE.CAPTURE);
                             setScanResult(null);
-                            setAllResults([]);
+                            setSelectedFiles([]);
                             setReviewItems([]);
                             setFakeProgress(0);
                             setScanFailed(false);

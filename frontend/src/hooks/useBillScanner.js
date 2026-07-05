@@ -64,21 +64,24 @@ const fileToCompressedBase64 = async (file) => {
 export const useBillScanner = () => {
   const [scanning, setScanning] = useState(false);
 
-  const scanBill = useCallback(async (file) => {
+  const scanBill = useCallback(async (files) => {
     setScanning(true);
     const started = Date.now();
     let errorMsg = null;
     let parsed = null;
 
     try {
-      const { base64, mimeType } = await fileToCompressedBase64(file);
+      const fileArray = Array.isArray(files) ? files : [files];
+      const processedImages = await Promise.all(
+        fileArray.map((f) => fileToCompressedBase64(f))
+      );
 
       const response = await fetch('/api/scan-bill', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ imageBase64: base64, mimeType }),
+        body: JSON.stringify({ images: processedImages }),
       });
 
       if (!response.ok) {
