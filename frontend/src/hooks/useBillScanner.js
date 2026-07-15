@@ -72,9 +72,7 @@ export const useBillScanner = () => {
 
     try {
       const fileArray = Array.isArray(files) ? files : [files];
-      const processedImages = await Promise.all(
-        fileArray.map((f) => fileToCompressedBase64(f))
-      );
+      const processedImages = await Promise.all(fileArray.map((f) => fileToCompressedBase64(f)));
 
       const response = await fetch('/api/scan-bill', {
         method: 'POST',

@@ -23,8 +23,6 @@ import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 
 const STAGE = { CAPTURE: 'capture', SCANNING: 'scanning', REVIEW: 'review' };
 
-
-
 // Progress label text keyed on progress %
 const progressLabel = (p) => {
   if (p < 25) return 'Uploading bill...';
@@ -289,7 +287,8 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                             className="w-full h-11 rounded-2xl text-primary/70 hover:text-primary font-manrope font-bold text-sm flex items-center justify-center gap-2 transition-all border border-primary/20 hover:border-primary/40"
                           >
                             <ChevronRight size={15} />
-                            Back to Review ({selectedFiles.length} photo{selectedFiles.length > 1 ? 's' : ''} scanned)
+                            Back to Review ({selectedFiles.length} photo
+                            {selectedFiles.length > 1 ? 's' : ''} scanned)
                           </button>
                         )}
                       </div>
@@ -587,7 +586,8 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
                               <Images size={12} className="text-primary/70" />
                               <span className="text-[10px] font-black text-primary/70 uppercase tracking-widest">
-                                {selectedFiles.length} photo{selectedFiles.length > 1 ? 's' : ''} merged
+                                {selectedFiles.length} photo{selectedFiles.length > 1 ? 's' : ''}{' '}
+                                merged
                               </span>
                             </div>
                           </div>

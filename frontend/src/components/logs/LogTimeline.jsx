@@ -34,7 +34,14 @@ const groupByDay = (entries) => {
   return groups;
 };
 
-const LogTimeline = ({ entries, currentUid, isOwner = false, showAuthor = false, onEdit, onDelete }) => {
+const LogTimeline = ({
+  entries,
+  currentUid,
+  isOwner = false,
+  showAuthor = false,
+  onEdit,
+  onDelete,
+}) => {
   if (!entries || entries.length === 0) {
     return (
       <div className="py-20 flex items-center justify-center border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
@@ -86,8 +93,10 @@ const LogTimeline = ({ entries, currentUid, isOwner = false, showAuthor = false,
                       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                         {isExpense ? (
                           <span className="text-[9px] font-black tracking-[0.2em] break-words text-indigo-400/70 flex items-center gap-1">
-                            <Users size={9} className="shrink-0" /> 
-                            <span className="break-words">{entry.sourceGroupName?.toUpperCase() || 'GROUP SPLIT'}</span>
+                            <Users size={9} className="shrink-0" />
+                            <span className="break-words">
+                              {entry.sourceGroupName?.toUpperCase() || 'GROUP SPLIT'}
+                            </span>
                           </span>
                         ) : (
                           <span className="text-[9px] font-black tracking-[0.2em] break-words text-white/30">
@@ -108,7 +117,7 @@ const LogTimeline = ({ entries, currentUid, isOwner = false, showAuthor = false,
                       {formatCurrency(entry.amount)}
                     </p>
                   </div>
-                  
+
                   {(canEdit || canDelete) && (
                     <div className="absolute right-5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[#121212]/80 backdrop-blur-md p-1 rounded-xl">
                       {canEdit && (

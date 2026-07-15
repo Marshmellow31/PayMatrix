@@ -27,10 +27,7 @@ export const formatFriendCode = (code) => (code ? `${code.slice(0, 4)}-${code.sl
 
 export const normalizeCode = (input) => {
   if (!input) return '';
-  return input
-    .toUpperCase()
-    .replace(/^PM-?/, '')
-    .replace(/[\s-]/g, '');
+  return input.toUpperCase().replace(/^PM-?/, '').replace(/[\s-]/g, '');
 };
 
 const friendCodeService = {
