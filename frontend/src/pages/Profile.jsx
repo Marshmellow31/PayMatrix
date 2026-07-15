@@ -19,6 +19,8 @@ import {
   CheckCircle2,
   X,
   Smartphone,
+  KeyRound,
+  Copy,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
@@ -28,6 +30,7 @@ import { computeGroupBalances } from '../utils/balanceEngine.js';
 import { exportToPDF } from '../utils/exportUtils.js';
 import { validateUPIId, hasPaymentMethod } from '../utils/upiUtils.js';
 import friendService from '../services/friendService.js';
+import { formatFriendCode } from '../services/friendCodeService.js';
 
 const Profile = () => {
   const { id } = useParams();
@@ -425,6 +428,47 @@ const Profile = () => {
 
         {/* ── RIGHT COLUMN: Payments + App + History ── */}
         <div className="flex flex-col gap-6">
+          {/* Friend Code */}
+          {isOwnProfile && (
+            <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01]">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0 border border-primary/20">
+                  <KeyRound size={20} className="text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-black text-white/60 uppercase tracking-[0.2em] font-manrope">
+                    Friend Code
+                  </h3>
+                  <p className="text-xs text-white/30 font-inter mt-0.5">
+                    Share so others can add you
+                  </p>
+                </div>
+              </div>
+              {currentUser?.friendCode ? (
+                <button
+                  onClick={() => {
+                    navigator.clipboard
+                      .writeText(formatFriendCode(currentUser.friendCode))
+                      .then(() => toast.success('Code copied to clipboard'))
+                      .catch(() => toast.error('Failed to copy code'));
+                  }}
+                  className="w-full flex items-center justify-between gap-4 px-6 py-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all active:scale-[0.99]"
+                >
+                  <span className="text-lg font-black font-manrope text-white tracking-[0.2em]">
+                    {formatFriendCode(currentUser.friendCode)}
+                  </span>
+                  <Copy size={16} className="text-white/40 shrink-0" />
+                </button>
+              ) : (
+                <div className="w-full px-6 py-4 rounded-2xl bg-white/[0.02] border border-dashed border-white/10 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/20">
+                    Generating your code…
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* UPI Payment Details */}
           {isOwnProfile && (
             <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01] relative overflow-hidden">

@@ -33,13 +33,13 @@ import Dashboard from './pages/Dashboard.jsx';
 import Groups from './pages/Groups.jsx';
 import GroupDetail from './pages/GroupDetail.jsx';
 import AddExpense from './pages/AddExpense.jsx';
-import GlobalSettlements from './pages/GlobalSettlements.jsx';
 import Activity from './pages/Activity.jsx';
 import Profile from './pages/Profile.jsx';
 import Analytics from './pages/Analytics.jsx';
 import JoinGroup from './pages/JoinGroup.jsx';
-import JoinFriend from './pages/JoinFriend.jsx';
 import Friends from './pages/Friends.jsx';
+import LogGroups from './pages/LogGroups.jsx';
+import LogGroupDetail from './pages/LogGroupDetail.jsx';
 import NotFound from './pages/NotFound.jsx';
 
 const ProtectedRoute = ({ children }) => {
@@ -167,6 +167,11 @@ function App() {
           (docSnap) => {
             if (docSnap.exists()) {
               dispatch(setUser({ _id: docSnap.id, ...docSnap.data() }));
+              if (!docSnap.data().friendCode) {
+                import('./services/friendCodeService.js').then(({ default: friendCodeService }) =>
+                  friendCodeService.ensureFriendCode({ uid: firebaseUser.uid, ...docSnap.data() })
+                );
+              }
             } else {
               dispatch(
                 setUser({
@@ -267,7 +272,6 @@ function App() {
         />
 
         <Route path="/join/:code" element={<JoinGroup />} />
-        <Route path="/join-friend" element={<JoinFriend />} />
 
         {/* Protected Routes — inside AppLayout */}
         <Route
@@ -286,8 +290,10 @@ function App() {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/copilot" element={<Copilot />} />
 
-          <Route path="/settlements" element={<GlobalSettlements />} />
+          <Route path="/settlements" element={<Navigate to="/dashboard" replace />} />
           <Route path="/activity" element={<Activity />} />
+          <Route path="/logs" element={<LogGroups />} />
+          <Route path="/logs/:groupId" element={<LogGroupDetail />} />
           <Route path="/friends/:id" element={<Profile />} />
           <Route path="/profile" element={<Profile />} />
         </Route>

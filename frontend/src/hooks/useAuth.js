@@ -18,14 +18,6 @@ const useAuth = () => {
         return result;
       }
 
-      // Check for deferred deep-link: friend invite
-      const pendingFriend = localStorage.getItem('pendingFriendInvite');
-      if (pendingFriend) {
-        localStorage.removeItem('pendingFriendInvite');
-        navigate(`/join-friend?uid=${pendingFriend}`);
-        return result;
-      }
-
       navigate('/dashboard');
     }
     return result;

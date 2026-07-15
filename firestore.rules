@@ -51,7 +51,10 @@ service cloud.firestore {
         (request.auth.uid == userId &&
          isValidString(request.resource.data.get('displayName', ''), 50) &&
          isValidString(request.resource.data.get('upiId', ''), 100) &&
-         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email', 'createdAt'])
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email', 'createdAt']) &&
+         // Friend code is write-once — set by the client on first backfill, never changed after.
+         (!('friendCode' in resource.data) ||
+          request.resource.data.get('friendCode', '') == resource.data.get('friendCode', ''))
         ) ||
         (
          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends']) &&
@@ -66,6 +69,62 @@ service cloud.firestore {
         )
       ));
       allow delete: if false;
+    }
+
+    // ─── Log Groups (shared spending timelines — e.g. "Parents") ───────────────
+
+    match /logGroups/{groupId} {
+      allow read: if isGlobalAdmin() || (isSignedIn() && request.auth.uid in resource.data.get('members', []));
+      allow create: if isSignedIn() &&
+                    request.resource.data.get('ownerId', '') == request.auth.uid &&
+                    request.resource.data.get('members', []).hasAny([request.auth.uid]) &&
+                    isValidString(request.resource.data.get('name', ''), 100);
+      allow update: if isGlobalAdmin() || (isSignedIn() && (
+        // Owner: rename / add / remove other members — owner must stay in members, ownerId immutable
+        (request.auth.uid == resource.data.ownerId &&
+         request.resource.data.get('ownerId', '') == resource.data.ownerId &&
+         request.resource.data.get('members', []).hasAny([resource.data.ownerId]) &&
+         isValidString(request.resource.data.get('name', ''), 100)) ||
+        // Any member: self-removal only (leave)
+        (resource.data.get('members', []).removeAll(request.resource.data.get('members', [])) == [request.auth.uid] &&
+         request.resource.data.get('ownerId', '') == resource.data.ownerId)
+      ));
+      allow delete: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == resource.data.ownerId);
+
+      match /entries/{entryId} {
+        function inGroup() {
+          return request.auth.uid in get(/databases/$(database)/documents/logGroups/$(groupId)).data.get('members', []);
+        }
+        function isLogGroupOwner() {
+          return request.auth.uid == get(/databases/$(database)/documents/logGroups/$(groupId)).data.get('ownerId', '');
+        }
+        allow read: if isGlobalAdmin() || (isSignedIn() && inGroup());
+        allow create: if isSignedIn() && inGroup() &&
+                      request.resource.data.get('addedBy', '') == request.auth.uid &&
+                      request.resource.data.get('type', '') in ['manual', 'expense'] &&
+                      isValidString(request.resource.data.get('title', ''), 100) &&
+                      isValidAmount(request.resource.data.amount) &&
+                      isValidString(request.resource.data.get('place', ''), 100) &&
+                      isValidString(request.resource.data.get('note', ''), 500);
+        allow update, delete: if isGlobalAdmin() || (isSignedIn() && (resource.data.addedBy == request.auth.uid || isLogGroupOwner()));
+      }
+    }
+
+    // ─── Friend Codes (public-by-exact-code lookup, no enumeration) ────────────
+
+    match /friendCodes/{code} {
+      allow get: if isSignedIn();
+      allow list: if false; // must know the exact code
+      allow create: if isSignedIn() &&
+                    code.matches('^[A-HJ-NP-Z2-9]{8}$') &&
+                    request.resource.data.get('uid', '') == request.auth.uid &&
+                    request.resource.data.keys().hasOnly(['uid', 'name', 'avatar', 'createdAt']) &&
+                    isValidString(request.resource.data.get('name', ''), 50);
+      // Owner may refresh display fields only (name/avatar staleness fix on login)
+      allow update: if isSignedIn() &&
+                    resource.data.get('uid', '') == request.auth.uid &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatar']);
+      allow delete: if isSignedIn() && resource.data.get('uid', '') == request.auth.uid;
     }
 
     // ─── Groups ───────────────────────────────────────────────────────────────

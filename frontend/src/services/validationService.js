@@ -97,6 +97,24 @@ export const FriendRequestSchema = z
   })
   .passthrough();
 
+// Personal Log Entry Schema (manual entries; 'expense' entries are system-synced)
+export const LogEntrySchema = z
+  .object({
+    type: z.enum(['manual', 'expense']).default('manual'),
+    title: z.string().min(1, 'Title is required').max(100),
+    amount: z.number().positive('Amount must be positive').max(1000000, 'Amount exceeds limit'),
+    category: z.string().max(50).optional(),
+    place: z.string().max(100).optional(),
+    note: z.string().max(500).optional(),
+    date: z.string().min(1, 'Date is required'),
+    groupId: z.string().optional(),
+    groupName: z.string().optional(),
+    expenseId: z.string().optional(),
+    createdAt: z.string().datetime().optional(),
+    updatedAt: z.string().datetime().optional(),
+  })
+  .passthrough();
+
 const validationService = {
   /**
    * Validates data against a schema and returns the parsed result.
