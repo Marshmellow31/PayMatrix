@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus,
@@ -12,27 +13,50 @@ import {
   Layers,
   Copy,
   ShieldCheck,
+  Search,
 } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
 import { Link, useNavigate } from 'react-router-dom';
 import Avatar from '../components/common/Avatar';
 import { onSnapshot, doc, collection, query, where } from 'firebase/firestore';
 import { auth, db } from '../config/firebase.js';
 import friendService from '../services/friendService';
+import friendCodeService, { formatFriendCode } from '../services/friendCodeService.js';
 import toast from 'react-hot-toast';
 import Modal from '../components/common/Modal';
 
 import { useFeatureFlags } from '../hooks/useFeatureFlags.js';
 
+const successToastStyle = {
+  borderRadius: '1rem',
+  background: '#1a1a1a',
+  color: '#fff',
+  border: '1px solid rgba(255,255,255,0.1)',
+};
+
+const RELATIONSHIP_LABELS = {
+  self: 'This is your own code',
+  friend: 'Already connected',
+  pending_incoming: 'They already sent you a request',
+  pending_outgoing: 'Request already sent',
+};
+
 const Friends = () => {
   const navigate = useNavigate();
   const flags = useFeatureFlags();
+  const { user } = useSelector((state) => state.auth);
   const [friends, setFriends] = useState([]);
   const [_totalSharedBalance, setTotalSharedBalance] = useState(0);
   const [requests, setRequests] = useState({ incoming: [], outgoing: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [showInvite, setShowInvite] = useState(false);
+
+  // Add-by-code state
+  const [codeInput, setCodeInput] = useState('');
+  const [codeLookupLoading, setCodeLookupLoading] = useState(false);
+  const [codePreview, setCodePreview] = useState(null);
+  const [codeError, setCodeError] = useState('');
+  const [sendingRequest, setSendingRequest] = useState(false);
 
   // Quick Settle Modal State
   const [settleModalOpen, setSettleModalOpen] = useState(false);
@@ -124,64 +148,43 @@ const Friends = () => {
     };
   }, [fetchData]);
 
-  const shareInviteLink = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const link = `${window.location.origin}/join-friend?uid=${user.uid}`;
-
-    // Use native Web Share API if available (mobile PWA / Android / iOS)
-    // This opens the OS share sheet, and if recipient has the PWA installed,
-    // the link will open directly in the app instead of the browser.
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'PayMatrix — Connect With Me',
-          text: 'Add me on PayMatrix to split expenses together!',
-          url: link,
-        });
-        toast.success('Invite shared!', {
-          icon: '📡',
-          style: {
-            borderRadius: '1rem',
-            background: '#1a1a1a',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.1)',
-          },
-        });
-        return;
-      } catch (err) {
-        // User cancelled the share sheet — not an error, just fall through to copy
-        if (err.name === 'AbortError') return;
-      }
-    }
-
-    // Fallback: copy to clipboard (desktop / older browsers)
+  const copyMyCode = () => {
+    if (!user?.friendCode) return;
     navigator.clipboard
-      .writeText(link)
-      .then(() => {
-        toast.success('Invite link copied to clipboard', {
-          icon: '🔗',
-          style: {
-            borderRadius: '1rem',
-            background: '#1a1a1a',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.1)',
-          },
-        });
-      })
-      .catch(() => {
-        toast.error('Failed to copy link');
-      });
+      .writeText(formatFriendCode(user.friendCode))
+      .then(() => toast.success('Code copied to clipboard', { icon: '📋', style: successToastStyle }))
+      .catch(() => toast.error('Failed to copy code'));
   };
 
-  const _sendRequest = async (userId) => {
+  const handleLookupCode = async (e) => {
+    e.preventDefault();
+    if (!codeInput.trim()) return;
+    setCodeError('');
+    setCodePreview(null);
+    setCodeLookupLoading(true);
     try {
-      await friendService.sendRequest(userId);
+      const res = await friendCodeService.lookupFriendCode(codeInput);
+      setCodePreview(res.data.data);
+    } catch (error) {
+      setCodeError(error.message || 'Code not found');
+    } finally {
+      setCodeLookupLoading(false);
+    }
+  };
+
+  const handleSendRequestByCode = async () => {
+    if (!codePreview?.uid) return;
+    setSendingRequest(true);
+    try {
+      await friendService.sendRequest(codePreview.uid);
       toast.success('Connection request broadcasted');
+      setCodePreview(null);
+      setCodeInput('');
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Connection failed');
+    } finally {
+      setSendingRequest(false);
     }
   };
 
@@ -251,47 +254,113 @@ const Friends = () => {
               exit={{ opacity: 0, height: 0, marginTop: 0 }}
               className="bg-surface-container-low border border-white/5 rounded-2xl sm:rounded-[2.5rem] p-1 sm:p-2 shadow-2xl relative overflow-hidden w-full"
             >
-              <div className="p-4 sm:p-10 flex flex-col sm:flex-row gap-6 sm:gap-12 items-center w-full max-w-full overflow-hidden">
-                {/* QR Code */}
-                <div className="relative group/qr shrink-0">
-                  <div className="absolute -inset-6 bg-primary/10 blur-3xl rounded-full opacity-0 group-hover/qr:opacity-100 transition-opacity duration-700" />
-                  <div className="relative p-5 sm:p-6 bg-white rounded-2xl sm:rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.4)]">
-                    <QRCodeSVG
-                      value={`${window.location.origin}/join-friend?uid=${auth.currentUser?.uid}`}
-                      size={120}
-                      level="H"
-                      includeMargin={false}
-                      className="sm:w-[150px] sm:h-[150px]"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex-1 w-full min-w-0 space-y-6 sm:space-y-8 text-center sm:text-left">
-                  <div className="space-y-1.5 sm:space-y-3">
+              <div className="p-4 sm:p-10 flex flex-col gap-8 w-full max-w-full overflow-hidden">
+                {/* Your Code */}
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
                     <h3 className="text-base sm:text-xl font-black text-white font-manrope tracking-tight leading-none italic uppercase">
-                      Neural Identity Link
+                      Your Code
                     </h3>
                     <p className="text-[9px] sm:text-xs text-white/30 font-bold uppercase tracking-[0.3em] leading-relaxed">
-                      Share via physical scan or digital broadcast
+                      Share this so others can add you
                     </p>
                   </div>
-
-                  <div className="flex flex-col gap-4 w-full">
+                  {user?.friendCode ? (
                     <button
-                      onClick={shareInviteLink}
-                      className="h-14 sm:h-16 w-full rounded-2xl bg-white text-black hover:bg-neutral-200 active:scale-95 transition-all font-manrope font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shrink-0"
+                      onClick={copyMyCode}
+                      className="w-full flex items-center justify-between gap-4 px-6 py-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all active:scale-[0.99]"
                     >
-                      <Copy size={16} strokeWidth={3} />
-                      {navigator.share ? 'Share Link' : 'Copy Link'}
+                      <span className="text-xl sm:text-2xl font-black font-manrope text-white tracking-[0.2em]">
+                        {formatFriendCode(user.friendCode)}
+                      </span>
+                      <Copy size={18} className="text-white/40 shrink-0" />
                     </button>
-                  </div>
-
-                  <div className="flex items-center justify-center sm:justify-start gap-3 text-white/10 pt-2">
+                  ) : (
+                    <div className="w-full px-6 py-5 rounded-2xl bg-white/[0.02] border border-dashed border-white/10 text-center">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/20">
+                        Generating your code…
+                      </p>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 text-white/10">
                     <ShieldCheck size={14} className="text-primary shrink-0" />
                     <p className="text-[9px] font-black uppercase tracking-[0.4em] opacity-50">
                       Peer-to-peer validation active
                     </p>
                   </div>
+                </div>
+
+                <div className="h-px bg-white/5" />
+
+                {/* Add by code */}
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <h3 className="text-base sm:text-xl font-black text-white font-manrope tracking-tight leading-none italic uppercase">
+                      Add By Code
+                    </h3>
+                    <p className="text-[9px] sm:text-xs text-white/30 font-bold uppercase tracking-[0.3em] leading-relaxed">
+                      Enter a friend&apos;s code to connect
+                    </p>
+                  </div>
+                  <form onSubmit={handleLookupCode} className="flex flex-col sm:flex-row gap-3">
+                    <input
+                      value={codeInput}
+                      onChange={(e) => {
+                        setCodeInput(e.target.value.toUpperCase());
+                        setCodeError('');
+                        setCodePreview(null);
+                      }}
+                      placeholder="XXXXXXXX"
+                      className="input-field flex-1 uppercase tracking-[0.15em] font-manrope font-bold"
+                    />
+                    <button
+                      type="submit"
+                      disabled={codeLookupLoading || !codeInput.trim()}
+                      className="h-14 sm:h-auto px-6 rounded-2xl bg-white text-black hover:bg-neutral-200 active:scale-95 transition-all font-manrope font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shrink-0 disabled:opacity-40"
+                    >
+                      {codeLookupLoading ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Search size={16} strokeWidth={3} />
+                      )}
+                      Find
+                    </button>
+                  </form>
+
+                  {codeError && (
+                    <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">
+                      {codeError}
+                    </p>
+                  )}
+
+                  {codePreview && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center justify-between gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-2xl"
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        <Avatar name={codePreview.name} src={codePreview.avatar} size="sm" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-white font-manrope truncate">
+                            {codePreview.name || 'Member'}
+                          </p>
+                          <p className="text-[10px] text-white/20 font-medium uppercase tracking-widest">
+                            {RELATIONSHIP_LABELS[codePreview.status] || 'Not yet connected'}
+                          </p>
+                        </div>
+                      </div>
+                      {codePreview.status === 'none' && (
+                        <button
+                          onClick={handleSendRequestByCode}
+                          disabled={sendingRequest}
+                          className="h-10 px-5 rounded-xl bg-white text-black flex items-center justify-center hover:bg-white/90 active:scale-95 transition-all shadow-lg shadow-white/5 text-[10px] font-black uppercase tracking-widest shrink-0 disabled:opacity-50"
+                        >
+                          {sendingRequest ? 'Connecting…' : 'Connect'}
+                        </button>
+                      )}
+                    </motion.div>
+                  )}
                 </div>
               </div>
             </motion.div>
