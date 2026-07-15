@@ -1,13 +1,13 @@
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Users, LayoutGrid, User, X, Wallet, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Users, LayoutGrid, User, X, ScrollText, Sparkles } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/copilot', label: 'AI Copilot', icon: Sparkles },
   { to: '/friends', label: 'Friends', icon: Users },
   { to: '/groups', label: 'Groups', icon: LayoutGrid },
-  { to: '/settlements', label: 'Settlements', icon: Wallet },
+  { to: '/logs', label: 'Logs', icon: ScrollText },
   { to: '/profile', label: 'Profile', icon: User },
 ];
 
