@@ -12,6 +12,7 @@ import {
   Sparkles,
   Camera,
   Hash,
+  Nfc,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { setGroups } from '../redux/groupSlice.js';
@@ -20,6 +21,7 @@ import groupService from '../services/groupService.js';
 import expenseService from '../services/expenseService.js';
 import Loader from '../components/common/Loader.jsx';
 import BillScannerModal from '../components/bill/BillScannerModal.jsx';
+import SettlementsPanel from '../components/dashboard/SettlementsPanel.jsx';
 import { db } from '../config/firebase.js';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
@@ -137,133 +139,182 @@ const Dashboard = () => {
         </motion.div>
       )}
 
-      {/* Welcoming Header */}
-      <div className="flex items-center justify-between mt-3">
-        <div>
-          <h1 className="text-lg sm:text-xl lg:text-2xl font-black font-manrope text-white tracking-tight leading-none">
-            Hello, {user?.name?.split(' ')[0] || 'User'} 👋
-          </h1>
-          <p className="text-[10px] text-white/30 font-inter mt-1.5 font-bold uppercase tracking-wider">
-            {new Date().toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-            })}
-          </p>
-        </div>
-        <Link
-          to="/profile"
-          className="w-10 h-10 rounded-full border border-white/10 overflow-hidden hover:scale-105 transition-all select-none"
-        >
-          <img
-            src={
-              user?.avatar ||
-              user?.photoURL ||
-              `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.name || 'user'}`
-            }
-            alt="Profile"
-            className="w-full h-full object-cover"
-          />
-        </Link>
-      </div>
+
 
       {/* Desktop-optimised responsive grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 lg:items-start">
-        {/* Monolithic Glass Balance Card */}
+        {/* Amex Corporate Platinum Style Balance Card */}
         <motion.section
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-8 relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#18181b] via-[#111113] to-[#0a0a0c] border border-white/[0.08] p-6 lg:p-8 shadow-2xl flex flex-col justify-between h-44 lg:h-auto lg:min-h-[15rem] select-none"
+          className="lg:col-span-8 relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-200 via-gray-100 to-slate-300 p-1 shadow-2xl flex flex-col justify-between h-52 lg:h-auto lg:min-h-[14rem] select-none"
         >
-          {/* Decorative glows inside card */}
-          <div className="absolute top-[-20%] right-[-10%] w-40 h-40 rounded-full bg-indigo-500/[0.03] blur-[50px] pointer-events-none" />
-          <div className="absolute bottom-[-20%] left-[-10%] w-40 h-40 rounded-full bg-purple-500/[0.03] blur-[50px] pointer-events-none" />
+          {/* Inner Border (Intricate Frame Simulation) */}
+          <div className="absolute inset-2 border-[1.5px] border-black/40 rounded-lg pointer-events-none" />
+          <div className="absolute inset-[10px] border border-black/10 rounded-md pointer-events-none" />
+          
+          {/* Subtle noise texture */}
+          <div className="absolute inset-0 opacity-[0.03] mix-blend-multiply pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiLz48cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjMDAwIi8+PC9zdmc+')]"></div>
 
-          <div className="flex justify-between items-start z-10">
-            <div>
-              <p className="font-inter text-white/40 text-[9px] font-black tracking-[0.25em] uppercase">
-                Total Liquidity
-              </p>
-              <h2 className="font-manrope font-extrabold text-3xl sm:text-4xl lg:text-5xl mt-2.5 tracking-tight text-white flex items-baseline leading-none">
-                <span className="text-indigo-400 font-medium mr-1 text-xl sm:text-2xl">₹</span>
-                {Math.abs(summary?.netBalance || 0).toLocaleString()}
-                <span className="text-white/30 text-base font-normal">.00</span>
-              </h2>
-            </div>
-            <span className="text-[8px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-full font-bold uppercase text-white/50 tracking-wider">
-              Active Sync
-            </span>
+          {/* Centered Top Text */}
+          <div className="absolute top-4 left-0 right-0 flex flex-col items-center justify-center z-10 pointer-events-none">
+            <h1 
+              className="font-sans font-black text-black/90 text-lg lg:text-[22px] tracking-tight leading-none scale-x-[1.15] origin-center" 
+              style={{ textShadow: '0px 1px 0px rgba(255,255,255,0.6)' }}
+            >
+              PAYMATRIX EXPRESS
+            </h1>
+            <h2 
+              className="font-serif font-bold text-black/80 text-[10px] lg:text-[11px] tracking-[0.55em] mt-1 pl-[0.55em]" 
+              style={{ textShadow: '0px 1px 0px rgba(255,255,255,0.6)' }}
+            >
+              CORPORATE
+            </h2>
           </div>
 
-          <div className="flex justify-between items-center mt-auto z-10 pt-3 border-t border-white/[0.04]">
-            <span className="text-[9px] font-mono text-white/20 uppercase tracking-widest truncate max-w-[65%]">
-              {user?.email || 'paymatrix.net'}
-            </span>
-            <span className="text-[9px] font-bold font-inter text-emerald-400/90 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Online
+          {/* Left: Chip, Right: Contactless & Top spacing */}
+          <div className="flex justify-between items-start z-10 w-full mt-10 px-5">
+             <div className="w-10 h-7 rounded bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center shadow-sm relative overflow-hidden border border-gray-500/50">
+               {/* Fake chip lines */}
+               <div className="absolute inset-0 opacity-40 border border-gray-600/50 rounded-sm m-1" />
+               <div className="absolute w-full h-[1px] bg-gray-600/50 top-1/2 -translate-y-1/2" />
+               <div className="absolute w-[1px] h-full bg-gray-600/50 left-1/3" />
+               <div className="absolute w-[1px] h-full bg-gray-600/50 right-1/3" />
+             </div>
+             
+             <div className="flex items-center gap-1.5 mt-1">
+               <Nfc size={20} className="text-black/60 rotate-90" strokeWidth={1.5} />
+               <span className="text-black/80 font-mono text-[10px] font-bold tracking-wider">
+                 {user?.friendCode ? user.friendCode.slice(4, 8) : '7997'}
+               </span>
+             </div>
+          </div>
+
+          {/* Center Graphic */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 opacity-90 mt-4 lg:mt-3">
+             <div className="w-20 h-24 lg:w-24 lg:h-28 border-[1.5px] border-black/40 rounded-[50%] overflow-hidden flex items-center justify-center bg-[#eaeaea] p-1 shadow-inner">
+               <img src="/centurion.png" alt="Centurion Logo" className="w-full h-full object-contain mix-blend-multiply opacity-80" />
+             </div>
+          </div>
+
+          {/* Bottom Row: Friend Code, Balance & Member Since */}
+          <div className="flex justify-between items-end z-10 px-5 pb-3 pt-6 w-full mt-auto">
+            <div className="flex flex-col">
+              <span className="text-xs sm:text-sm font-mono text-black/80 uppercase tracking-[0.2em] font-bold mb-3 drop-shadow-sm flex gap-3">
+                {user?.friendCode ? (
+                  <>
+                    <span>{user.friendCode.slice(0, 4)}</span>
+                    <span>{user.friendCode.slice(4, 8)}</span>
+                  </>
+                ) : (
+                  <span>GENERATING...</span>
+                )}
+              </span>
+              <span className="text-[10px] sm:text-xs font-inter text-black/80 uppercase tracking-widest font-bold truncate max-w-[150px]">
+                 {user?.name || user?.email?.split('@')[0] || 'USER'}
+              </span>
+            </div>
+            
+            <div className="flex flex-col items-center justify-end text-center mb-1">
+               <div className="border border-black/40 px-2 rounded-[2px] mb-0.5 relative">
+                  <div className="absolute -left-[2px] -right-[2px] top-1/2 h-[1px] bg-black/40" />
+                  <p className="text-[6px] lg:text-[7px] text-black/80 uppercase tracking-[0.1em] font-serif font-bold relative z-10 bg-[#e3e5e8] px-1 leading-none py-[1px]">MEMBER SINCE</p>
+               </div>
+               <span className="text-sm font-sans text-black/80 font-medium tracking-widest">
+                 {(() => {
+                   const d = user?.createdAt ? new Date(user.createdAt) : new Date();
+                   return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(2)}`;
+                 })()}
+               </span>
+            </div>
+          </div>
+
+          {/* Balance Overlay */}
+          <div className="absolute bottom-[35%] left-6 z-10">
+              <p className="font-inter text-black/50 text-[7px] font-bold tracking-[0.15em] uppercase mb-0.5">
+                Total Liquidity
+              </p>
+              <h2 className="font-manrope font-extrabold text-xl sm:text-2xl mt-0 tracking-tight text-black/80 flex items-baseline leading-none shadow-sm drop-shadow-sm">
+                <span className="text-black/60 font-medium mr-0.5 text-sm sm:text-base">₹</span>
+                {Math.abs(summary?.netBalance || 0).toLocaleString()}
+                <span className="text-black/50 text-xs font-normal">.00</span>
+              </h2>
+          </div>
+          
+          {/* Status Corner */}
+          <div className="absolute bottom-2 right-4 z-10 flex items-center justify-end">
+            <span className="text-[7px] font-sans font-bold uppercase tracking-wider text-black/50 border border-black/20 rounded-full px-1.5 flex items-center gap-1 bg-white/10 backdrop-blur-sm">
+               <span className="w-1 h-1 rounded-full bg-emerald-600 animate-pulse" />
+               Online
             </span>
           </div>
         </motion.section>
 
         {/* Bento Grid Stats (sits beside balance on desktop, stacked) */}
-        <div className="lg:col-span-4 grid grid-cols-2 gap-4 lg:flex lg:flex-col lg:h-full lg:min-h-[15rem]">
+        <div className="lg:col-span-4 grid grid-cols-2 gap-4 lg:flex lg:flex-col lg:h-full lg:min-h-[14rem]">
           {/* You Owe Card */}
-          <div className="bg-[#141416]/40 p-4 lg:p-5 rounded-2xl border border-white/[0.04] relative overflow-hidden shadow-md flex flex-col justify-between h-24 lg:h-auto lg:flex-1 select-none">
-            <div className="flex justify-between items-center mb-1">
-              <span className="font-inter text-[8px] font-black tracking-widest uppercase text-red-400/60">
+          <div className="group bg-gradient-to-br from-[#1c1414] to-[#141416]/40 hover:from-[#241616] p-4 lg:p-5 rounded-[20px] border border-red-500/10 hover:border-red-500/30 transition-all duration-300 relative overflow-hidden shadow-md flex flex-col justify-between h-28 lg:h-auto lg:flex-1 cursor-default select-none">
+            {/* Subtle red glow in corner */}
+            <div className="absolute top-[-20px] right-[-20px] w-20 h-20 bg-red-500/10 rounded-full blur-[20px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="flex justify-between items-center mb-1 relative z-10">
+              <span className="font-inter text-[9px] font-black tracking-widest uppercase text-red-400/70 group-hover:text-red-400 transition-colors">
                 Debt Status
               </span>
-              <div className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center text-red-400">
-                <ArrowUpRight size={10} />
+              <div className="w-6 h-6 rounded-full bg-red-500/10 group-hover:bg-red-500/20 transition-colors flex items-center justify-center text-red-400 group-hover:scale-110 duration-300">
+                <ArrowUpRight size={12} strokeWidth={2.5} />
               </div>
             </div>
-            <div>
-              <h3 className="font-manrope font-semibold text-[10px] text-white/35 uppercase tracking-wide leading-none mb-1">
+            <div className="relative z-10 mt-2">
+              <h3 className="font-manrope font-semibold text-[10px] text-white/40 uppercase tracking-wide leading-none mb-1 group-hover:text-white/60 transition-colors">
                 You Owe
               </h3>
-              <p className="font-manrope text-base sm:text-lg lg:text-2xl font-extrabold text-red-400/90">
-                ₹{summary?.totalOwe?.toLocaleString('en-IN') || '0'}
+              <p className="font-manrope text-lg sm:text-xl lg:text-3xl font-extrabold text-red-400/90 group-hover:text-red-400 transition-colors tracking-tight">
+                <span className="text-red-400/50 mr-0.5 text-sm sm:text-base lg:text-xl font-medium">₹</span>
+                {summary?.totalOwe?.toLocaleString('en-IN') || '0'}
               </p>
             </div>
           </div>
 
           {/* You Are Owed Card */}
-          <div className="bg-[#141416]/40 p-4 lg:p-5 rounded-2xl border border-white/[0.04] relative overflow-hidden shadow-md flex flex-col justify-between h-24 lg:h-auto lg:flex-1 select-none">
-            <div className="flex justify-between items-center mb-1">
-              <span className="font-inter text-[8px] font-black tracking-widest uppercase text-emerald-400/60">
+          <div className="group bg-gradient-to-br from-[#131a16] to-[#141416]/40 hover:from-[#16241c] p-4 lg:p-5 rounded-[20px] border border-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 relative overflow-hidden shadow-md flex flex-col justify-between h-28 lg:h-auto lg:flex-1 cursor-default select-none">
+            {/* Subtle emerald glow in corner */}
+            <div className="absolute top-[-20px] right-[-20px] w-20 h-20 bg-emerald-500/10 rounded-full blur-[20px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="flex justify-between items-center mb-1 relative z-10">
+              <span className="font-inter text-[9px] font-black tracking-widest uppercase text-emerald-400/70 group-hover:text-emerald-400 transition-colors">
                 Pending Returns
               </span>
-              <div className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-                <ArrowDownLeft size={10} />
+              <div className="w-6 h-6 rounded-full bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors flex items-center justify-center text-emerald-400 group-hover:scale-110 duration-300">
+                <ArrowDownLeft size={12} strokeWidth={2.5} />
               </div>
             </div>
-            <div>
-              <h3 className="font-manrope font-semibold text-[10px] text-white/35 uppercase tracking-wide leading-none mb-1">
+            <div className="relative z-10 mt-2">
+              <h3 className="font-manrope font-semibold text-[10px] text-white/40 uppercase tracking-wide leading-none mb-1 group-hover:text-white/60 transition-colors">
                 You Are Owed
               </h3>
-              <p className="font-manrope text-base sm:text-lg lg:text-2xl font-extrabold text-emerald-400/90">
-                ₹{summary?.totalOwed?.toLocaleString('en-IN') || '0'}
+              <p className="font-manrope text-lg sm:text-xl lg:text-3xl font-extrabold text-emerald-400/90 group-hover:text-emerald-400 transition-colors tracking-tight">
+                <span className="text-emerald-400/50 mr-0.5 text-sm sm:text-base lg:text-xl font-medium">₹</span>
+                {summary?.totalOwed?.toLocaleString('en-IN') || '0'}
               </p>
             </div>
           </div>
         </div>
 
         {/* Unified Quick Actions Hub (full-width action bar) */}
-        <div className="lg:col-span-12 grid grid-cols-3 gap-3 lg:gap-6">
+        <div className="lg:col-span-12 grid grid-cols-3 gap-3 lg:gap-5">
           {/* AI Copilot */}
           <Link
             to="/copilot"
-            className="flex flex-col items-center justify-center p-3 lg:p-6 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 transition-all text-center group shadow-md shadow-indigo-950/10"
+            className="group relative flex flex-col items-center justify-center p-4 lg:p-6 rounded-[20px] bg-gradient-to-b from-[#1c1b2e]/40 to-[#141416]/40 hover:from-[#23213a]/60 border border-indigo-500/20 hover:border-indigo-400/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] transition-all duration-300 text-center overflow-hidden"
           >
-            <div className="w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-indigo-600/20 flex items-center justify-center text-indigo-400 group-hover:scale-105 transition-transform mb-1.5 lg:mb-2.5">
-              <Sparkles size={16} className="animate-pulse lg:hidden" />
-              <Sparkles size={22} className="animate-pulse hidden lg:block" />
+            <div className="absolute inset-0 bg-indigo-500/0 group-hover:bg-indigo-500/5 transition-colors duration-300" />
+            <div className="relative w-10 h-10 lg:w-14 lg:h-14 rounded-full bg-indigo-500/10 group-hover:bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:text-indigo-300 group-hover:scale-110 transition-all duration-300 mb-2 lg:mb-3 shadow-inner">
+              <Sparkles size={18} className="animate-pulse lg:hidden" />
+              <Sparkles size={24} className="animate-pulse hidden lg:block" />
             </div>
-            <span className="text-[9px] lg:text-xs font-extrabold uppercase tracking-wider text-indigo-200">
+            <span className="relative text-[10px] lg:text-xs font-black uppercase tracking-[0.15em] text-indigo-200 group-hover:text-white transition-colors">
               AI Copilot
             </span>
-            <span className="text-[7px] lg:text-[10px] text-indigo-400/60 mt-0.5">
+            <span className="relative text-[8px] lg:text-[10px] font-semibold text-indigo-400/50 group-hover:text-indigo-300/80 mt-1 transition-colors">
               Ask anything
             </span>
           </Link>
@@ -271,33 +322,42 @@ const Dashboard = () => {
           {/* Scan Bill */}
           <button
             onClick={() => setShowBillScanner(true)}
-            className="flex flex-col items-center justify-center p-3 lg:p-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 transition-all text-center group shadow-md shadow-emerald-950/10"
+            className="group relative flex flex-col items-center justify-center p-4 lg:p-6 rounded-[20px] bg-gradient-to-b from-[#16241c]/40 to-[#141416]/40 hover:from-[#1b2f23]/60 border border-emerald-500/20 hover:border-emerald-400/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all duration-300 text-center overflow-hidden"
           >
-            <div className="w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-emerald-600/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform mb-1.5 lg:mb-2.5">
-              <Camera size={16} className="lg:hidden" />
-              <Camera size={22} className="hidden lg:block" />
+            <div className="absolute inset-0 bg-emerald-500/0 group-hover:bg-emerald-500/5 transition-colors duration-300" />
+            <div className="relative w-10 h-10 lg:w-14 lg:h-14 rounded-full bg-emerald-500/10 group-hover:bg-emerald-500/20 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:text-emerald-300 group-hover:scale-110 transition-all duration-300 mb-2 lg:mb-3 shadow-inner">
+              <Camera size={18} className="lg:hidden" />
+              <Camera size={24} className="hidden lg:block" />
             </div>
-            <span className="text-[9px] lg:text-xs font-extrabold uppercase tracking-wider text-emerald-200">
+            <span className="relative text-[10px] lg:text-xs font-black uppercase tracking-[0.15em] text-emerald-200 group-hover:text-white transition-colors">
               Scan Bill
             </span>
-            <span className="text-[7px] lg:text-[10px] text-emerald-400/60 mt-0.5">Gemini OCR</span>
+            <span className="relative text-[8px] lg:text-[10px] font-semibold text-emerald-400/50 group-hover:text-emerald-300/80 mt-1 transition-colors">
+              Gemini OCR
+            </span>
           </button>
 
           {/* Record (Manual) */}
           <button
             onClick={() => openAddExpense()}
-            className="flex flex-col items-center justify-center p-3 lg:p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-all text-center group shadow-sm"
+            className="group relative flex flex-col items-center justify-center p-4 lg:p-6 rounded-[20px] bg-gradient-to-b from-[#242426]/40 to-[#141416]/40 hover:from-[#2d2d30]/60 border border-white/10 hover:border-white/30 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] transition-all duration-300 text-center overflow-hidden"
           >
-            <div className="w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-white/5 flex items-center justify-center text-white/70 group-hover:scale-105 transition-transform mb-1.5 lg:mb-2.5">
-              <Plus size={16} strokeWidth={2.5} className="lg:hidden" />
-              <Plus size={22} strokeWidth={2.5} className="hidden lg:block" />
+            <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors duration-300" />
+            <div className="relative w-10 h-10 lg:w-14 lg:h-14 rounded-full bg-white/5 group-hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/60 group-hover:text-white group-hover:scale-110 transition-all duration-300 mb-2 lg:mb-3 shadow-inner">
+              <Plus size={18} strokeWidth={2.5} className="lg:hidden" />
+              <Plus size={24} strokeWidth={2.5} className="hidden lg:block" />
             </div>
-            <span className="text-[9px] lg:text-xs font-extrabold uppercase tracking-wider text-white/80">
+            <span className="relative text-[10px] lg:text-xs font-black uppercase tracking-[0.15em] text-white/70 group-hover:text-white transition-colors">
               Record
             </span>
-            <span className="text-[7px] lg:text-[10px] text-white/40 mt-0.5">Add manually</span>
+            <span className="relative text-[8px] lg:text-[10px] font-semibold text-white/40 group-hover:text-white/60 mt-1 transition-colors">
+              Add manually
+            </span>
           </button>
         </div>
+
+        {/* Settlements (merged from the old dedicated /settlements page) */}
+        <SettlementsPanel groups={groups} groupBalances={summary?.groupBalances || {}} />
 
         {/* Active Cohorts (wraps to fill width on desktop) */}
         <div className="lg:col-span-5 space-y-3">
