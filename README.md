@@ -7,7 +7,11 @@
 [![Lucide](https://img.shields.io/badge/Lucide-1.7-FF4B4B?logo=lucide)](https://lucide.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Ready-00838F?logo=pwa)](https://web.dev/progressive-web-apps/)
 
-**PayMatrix** is a premium, high-density expense sharing and settlement platform engineered with the **Digital Obsidian** aesthetic. Designed for maximum efficiency, it simplifies group finances with real-time synchronization, deep analytical insights, and integrated UPI settlement workflows.
+<a href="https://www.producthunt.com/posts/paymatrix" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=000000&theme=dark" alt="PayMatrix - AI-powered expense sharing with direct UPI settlements | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+
+**AI-powered expense sharing with direct UPI settlements.**
+
+**PayMatrix** is a premium, high-density expense sharing and settlement platform engineered with the **Digital Obsidian** aesthetic. Designed for maximum efficiency, it uses Gemini AI to instantly scan and split receipts, and features a proprietary algorithm to minimize the total transactions a group needs to settle up via direct UPI deep-links.
 
 [**🌐 Live Platform**](https://pay-matrix.vercel.app/)
 
