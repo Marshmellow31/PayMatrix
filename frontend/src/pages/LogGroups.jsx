@@ -85,7 +85,8 @@ const LogGroups = () => {
                       {group.name}
                     </p>
                     <p className="text-[9px] font-black tracking-[0.2em] truncate text-white/20">
-                      {(group.members || []).length} MEMBER{(group.members || []).length !== 1 ? 'S' : ''}
+                      {(group.members || []).length} MEMBER
+                      {(group.members || []).length !== 1 ? 'S' : ''}
                     </p>
                   </div>
                 </div>

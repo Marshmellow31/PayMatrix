@@ -130,12 +130,7 @@ const LogEntryModal = ({ isOpen, onClose, onSaved, entry, groupId }) => {
           </div>
         </div>
 
-        <Input
-          label="Date"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+        <Input label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
 
         <div className="w-full">
           <label className="block text-sm font-medium text-on-surface-variant mb-2 font-inter">

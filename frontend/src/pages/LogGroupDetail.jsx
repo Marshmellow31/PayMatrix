@@ -105,7 +105,12 @@ const LogGroupDetail = () => {
           <div className="flex items-center gap-2">
             <div className="flex -space-x-2">
               {(group.members || []).slice(0, 5).map((uid) => (
-                <Avatar key={uid} name={uid === currentUid ? 'You' : 'M'} size="sm" className="border-2 border-[#131313]" />
+                <Avatar
+                  key={uid}
+                  name={uid === currentUid ? 'You' : 'M'}
+                  size="sm"
+                  className="border-2 border-[#131313]"
+                />
               ))}
             </div>
             <p className="text-[10px] sm:text-[12px] text-white/40 font-black uppercase tracking-[0.3em]">

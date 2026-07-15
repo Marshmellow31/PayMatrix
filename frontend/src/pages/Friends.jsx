@@ -152,7 +152,9 @@ const Friends = () => {
     if (!user?.friendCode) return;
     navigator.clipboard
       .writeText(formatFriendCode(user.friendCode))
-      .then(() => toast.success('Code copied to clipboard', { icon: '📋', style: successToastStyle }))
+      .then(() =>
+        toast.success('Code copied to clipboard', { icon: '📋', style: successToastStyle })
+      )
       .catch(() => toast.error('Failed to copy code'));
   };
 

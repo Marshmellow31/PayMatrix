@@ -130,7 +130,7 @@ const ManageLogGroupModal = ({ isOpen, onClose, group, currentUid, onChanged }) 
 
   if (!group) return null;
 
-  const memberIds = new Set((group.members || []));
+  const memberIds = new Set(group.members || []);
   const addableFriends = friends.filter((f) => !memberIds.has(f._id));
 
   return (

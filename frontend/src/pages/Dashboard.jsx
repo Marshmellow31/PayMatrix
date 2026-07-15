@@ -139,8 +139,6 @@ const Dashboard = () => {
         </motion.div>
       )}
 
-
-
       {/* Desktop-optimised responsive grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 lg:items-start">
         {/* Amex Corporate Platinum Style Balance Card */}
@@ -152,20 +150,20 @@ const Dashboard = () => {
           {/* Inner Border (Intricate Frame Simulation) */}
           <div className="absolute inset-2 border-[1.5px] border-black/40 rounded-lg pointer-events-none" />
           <div className="absolute inset-[10px] border border-black/10 rounded-md pointer-events-none" />
-          
+
           {/* Subtle noise texture */}
           <div className="absolute inset-0 opacity-[0.03] mix-blend-multiply pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiLz48cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjMDAwIi8+PC9zdmc+')]"></div>
 
           {/* Centered Top Text */}
           <div className="absolute top-4 left-0 right-0 flex flex-col items-center justify-center z-10 pointer-events-none">
-            <h1 
-              className="font-sans font-black text-black/90 text-lg lg:text-[22px] tracking-tight leading-none scale-x-[1.15] origin-center" 
+            <h1
+              className="font-sans font-black text-black/90 text-lg lg:text-[22px] tracking-tight leading-none scale-x-[1.15] origin-center"
               style={{ textShadow: '0px 1px 0px rgba(255,255,255,0.6)' }}
             >
               PAYMATRIX EXPRESS
             </h1>
-            <h2 
-              className="font-serif font-bold text-black/80 text-[10px] lg:text-[11px] tracking-[0.55em] mt-1 pl-[0.55em]" 
+            <h2
+              className="font-serif font-bold text-black/80 text-[10px] lg:text-[11px] tracking-[0.55em] mt-1 pl-[0.55em]"
               style={{ textShadow: '0px 1px 0px rgba(255,255,255,0.6)' }}
             >
               CORPORATE
@@ -174,27 +172,31 @@ const Dashboard = () => {
 
           {/* Left: Chip, Right: Contactless & Top spacing */}
           <div className="flex justify-between items-start z-10 w-full mt-10 px-5">
-             <div className="w-10 h-7 rounded bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center shadow-sm relative overflow-hidden border border-gray-500/50">
-               {/* Fake chip lines */}
-               <div className="absolute inset-0 opacity-40 border border-gray-600/50 rounded-sm m-1" />
-               <div className="absolute w-full h-[1px] bg-gray-600/50 top-1/2 -translate-y-1/2" />
-               <div className="absolute w-[1px] h-full bg-gray-600/50 left-1/3" />
-               <div className="absolute w-[1px] h-full bg-gray-600/50 right-1/3" />
-             </div>
-             
-             <div className="flex items-center gap-1.5 mt-1">
-               <Nfc size={20} className="text-black/60 rotate-90" strokeWidth={1.5} />
-               <span className="text-black/80 font-mono text-[10px] font-bold tracking-wider">
-                 {user?.friendCode ? user.friendCode.slice(4, 8) : '7997'}
-               </span>
-             </div>
+            <div className="w-10 h-7 rounded bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center shadow-sm relative overflow-hidden border border-gray-500/50">
+              {/* Fake chip lines */}
+              <div className="absolute inset-0 opacity-40 border border-gray-600/50 rounded-sm m-1" />
+              <div className="absolute w-full h-[1px] bg-gray-600/50 top-1/2 -translate-y-1/2" />
+              <div className="absolute w-[1px] h-full bg-gray-600/50 left-1/3" />
+              <div className="absolute w-[1px] h-full bg-gray-600/50 right-1/3" />
+            </div>
+
+            <div className="flex items-center gap-1.5 mt-1">
+              <Nfc size={20} className="text-black/60 rotate-90" strokeWidth={1.5} />
+              <span className="text-black/80 font-mono text-[10px] font-bold tracking-wider">
+                {user?.friendCode ? user.friendCode.slice(4, 8) : '7997'}
+              </span>
+            </div>
           </div>
 
           {/* Center Graphic */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 opacity-90 mt-4 lg:mt-3">
-             <div className="w-20 h-24 lg:w-24 lg:h-28 border-[1.5px] border-black/40 rounded-[50%] overflow-hidden flex items-center justify-center bg-[#eaeaea] p-1 shadow-inner">
-               <img src="/centurion.png" alt="Centurion Logo" className="w-full h-full object-contain mix-blend-multiply opacity-80" />
-             </div>
+            <div className="w-20 h-24 lg:w-24 lg:h-28 border-[1.5px] border-black/40 rounded-[50%] overflow-hidden flex items-center justify-center bg-[#eaeaea] p-1 shadow-inner">
+              <img
+                src="/centurion.png"
+                alt="Centurion Logo"
+                className="w-full h-full object-contain mix-blend-multiply opacity-80"
+              />
+            </div>
           </div>
 
           {/* Bottom Row: Friend Code, Balance & Member Since */}
@@ -211,41 +213,43 @@ const Dashboard = () => {
                 )}
               </span>
               <span className="text-[10px] sm:text-xs font-inter text-black/80 uppercase tracking-widest font-bold truncate max-w-[150px]">
-                 {user?.name || user?.email?.split('@')[0] || 'USER'}
+                {user?.name || user?.email?.split('@')[0] || 'USER'}
               </span>
             </div>
-            
+
             <div className="flex flex-col items-center justify-end text-center mb-1">
-               <div className="border border-black/40 px-2 rounded-[2px] mb-0.5 relative">
-                  <div className="absolute -left-[2px] -right-[2px] top-1/2 h-[1px] bg-black/40" />
-                  <p className="text-[6px] lg:text-[7px] text-black/80 uppercase tracking-[0.1em] font-serif font-bold relative z-10 bg-[#e3e5e8] px-1 leading-none py-[1px]">MEMBER SINCE</p>
-               </div>
-               <span className="text-sm font-sans text-black/80 font-medium tracking-widest">
-                 {(() => {
-                   const d = user?.createdAt ? new Date(user.createdAt) : new Date();
-                   return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(2)}`;
-                 })()}
-               </span>
+              <div className="border border-black/40 px-2 rounded-[2px] mb-0.5 relative">
+                <div className="absolute -left-[2px] -right-[2px] top-1/2 h-[1px] bg-black/40" />
+                <p className="text-[6px] lg:text-[7px] text-black/80 uppercase tracking-[0.1em] font-serif font-bold relative z-10 bg-[#e3e5e8] px-1 leading-none py-[1px]">
+                  MEMBER SINCE
+                </p>
+              </div>
+              <span className="text-sm font-sans text-black/80 font-medium tracking-widest">
+                {(() => {
+                  const d = user?.createdAt ? new Date(user.createdAt) : new Date();
+                  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(2)}`;
+                })()}
+              </span>
             </div>
           </div>
 
           {/* Balance Overlay */}
           <div className="absolute bottom-[35%] left-6 z-10">
-              <p className="font-inter text-black/50 text-[7px] font-bold tracking-[0.15em] uppercase mb-0.5">
-                Total Liquidity
-              </p>
-              <h2 className="font-manrope font-extrabold text-xl sm:text-2xl mt-0 tracking-tight text-black/80 flex items-baseline leading-none shadow-sm drop-shadow-sm">
-                <span className="text-black/60 font-medium mr-0.5 text-sm sm:text-base">₹</span>
-                {Math.abs(summary?.netBalance || 0).toLocaleString()}
-                <span className="text-black/50 text-xs font-normal">.00</span>
-              </h2>
+            <p className="font-inter text-black/50 text-[7px] font-bold tracking-[0.15em] uppercase mb-0.5">
+              Total Liquidity
+            </p>
+            <h2 className="font-manrope font-extrabold text-xl sm:text-2xl mt-0 tracking-tight text-black/80 flex items-baseline leading-none shadow-sm drop-shadow-sm">
+              <span className="text-black/60 font-medium mr-0.5 text-sm sm:text-base">₹</span>
+              {Math.abs(summary?.netBalance || 0).toLocaleString()}
+              <span className="text-black/50 text-xs font-normal">.00</span>
+            </h2>
           </div>
-          
+
           {/* Status Corner */}
           <div className="absolute bottom-2 right-4 z-10 flex items-center justify-end">
             <span className="text-[7px] font-sans font-bold uppercase tracking-wider text-black/50 border border-black/20 rounded-full px-1.5 flex items-center gap-1 bg-white/10 backdrop-blur-sm">
-               <span className="w-1 h-1 rounded-full bg-emerald-600 animate-pulse" />
-               Online
+              <span className="w-1 h-1 rounded-full bg-emerald-600 animate-pulse" />
+              Online
             </span>
           </div>
         </motion.section>
@@ -269,7 +273,9 @@ const Dashboard = () => {
                 You Owe
               </h3>
               <p className="font-manrope text-lg sm:text-xl lg:text-3xl font-extrabold text-red-400/90 group-hover:text-red-400 transition-colors tracking-tight">
-                <span className="text-red-400/50 mr-0.5 text-sm sm:text-base lg:text-xl font-medium">₹</span>
+                <span className="text-red-400/50 mr-0.5 text-sm sm:text-base lg:text-xl font-medium">
+                  ₹
+                </span>
                 {summary?.totalOwe?.toLocaleString('en-IN') || '0'}
               </p>
             </div>
@@ -292,7 +298,9 @@ const Dashboard = () => {
                 You Are Owed
               </h3>
               <p className="font-manrope text-lg sm:text-xl lg:text-3xl font-extrabold text-emerald-400/90 group-hover:text-emerald-400 transition-colors tracking-tight">
-                <span className="text-emerald-400/50 mr-0.5 text-sm sm:text-base lg:text-xl font-medium">₹</span>
+                <span className="text-emerald-400/50 mr-0.5 text-sm sm:text-base lg:text-xl font-medium">
+                  ₹
+                </span>
                 {summary?.totalOwed?.toLocaleString('en-IN') || '0'}
               </p>
             </div>
