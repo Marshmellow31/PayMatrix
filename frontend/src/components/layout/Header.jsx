@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { Bell, Menu, BarChart3, Sparkles } from 'lucide-react';
+import { Bell, Menu, BarChart3 } from 'lucide-react';
 import Avatar from '../common/Avatar.jsx';
 
 import { useFeatureFlags } from '../../hooks/useFeatureFlags.js';
@@ -40,13 +40,6 @@ const Header = ({ onToggleSidebar }) => {
               <BarChart3 size={22} />
             </Link>
           )}
-          <Link
-            to="/copilot"
-            className="p-2 rounded-md hover:bg-surface-container transition-colors text-primary"
-            aria-label="AI Copilot"
-          >
-            <Sparkles size={22} className="animate-pulse" />
-          </Link>
           <Link
             to="/activity"
             className="relative p-2 rounded-md hover:bg-surface-container transition-colors text-on-surface-variant"

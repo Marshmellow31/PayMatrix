@@ -4,116 +4,320 @@
 [![Vite](https://img.shields.io/badge/Vite-6.3-646CFF?logo=vite)](https://vitejs.dev/)
 [![Firebase](https://img.shields.io/badge/Firebase-12.11-FFCA28?logo=firebase)](https://firebase.google.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
-[![Lucide](https://img.shields.io/badge/Lucide-1.7-FF4B4B?logo=lucide)](https://lucide.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Ready-00838F?logo=pwa)](https://web.dev/progressive-web-apps/)
-
-<a href="https://www.producthunt.com/posts/paymatrix" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=000000&theme=dark" alt="PayMatrix - AI-powered expense sharing with direct UPI settlements | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
 **AI-powered expense sharing with direct UPI settlements.**
 
-**PayMatrix** is a premium, high-density expense sharing and settlement platform engineered with the **Digital Obsidian** aesthetic. Designed for maximum efficiency, it uses Gemini AI to instantly scan and split receipts, and features a proprietary algorithm to minimize the total transactions a group needs to settle up via direct UPI deep-links.
+PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, tracking who owes whom, and settling up over UPI. It uses Google's Gemini models to scan paper/PDF receipts into itemized expenses, a debt-simplification engine to minimise the number of payments a group needs to settle, and Firebase Cloud Messaging for real-time push notifications.
 
-[**🌐 Live Platform**](https://pay-matrix.vercel.app/)
+> [!NOTE]
+> This README is intentionally exhaustive: it documents every feature, how it works internally, the data model, the security model, and how to run the project. If you are evaluating the code, also read [`SECURITY_AND_CODE_REVIEW.md`](./SECURITY_AND_CODE_REVIEW.md) — it lists known security issues and a prioritised improvement plan.
+
+[**🌐 Live app**](https://pay-matrix.vercel.app/)
 
 ---
 
-## ✨ Features
+## Table of Contents
 
-### 🌑 Digital Obsidian Interface
-A state-of-the-art UI focused on information density and premium ergonomics.
-- **Glassmorphism**: Refined frosted-glass architecture for modals and navigation.
-- **Micro-Animations**: Buttery-smooth transitions powered by `Framer Motion`.
-- **Haptic Responsiveness**: Optimized for mobile as a fully capable PWA.
+1. [What PayMatrix Does](#-what-paymatrix-does)
+2. [Feature Deep-Dive](#-feature-deep-dive)
+3. [Tech Stack](#-tech-stack)
+4. [System Architecture](#-system-architecture)
+5. [Data Model (Firestore)](#-data-model-firestore)
+6. [Key Flows (Diagrams)](#-key-flows)
+7. [The Balance & Settlement Engine](#-the-balance--settlement-engine)
+8. [Security Model & Safety Precautions](#-security-model--safety-precautions)
+9. [Project Structure](#-project-structure)
+10. [Getting Started](#-getting-started)
+11. [Environment Variables](#-environment-variables)
+12. [Deployment](#-deployment)
+13. [Admin Console](#-admin-console)
+14. [Testing & Tooling](#-testing--tooling)
+15. [Known Limitations](#-known-limitations)
+
+---
+
+## 🎯 What PayMatrix Does
+
+At its core PayMatrix solves one problem: **"a group of people spent money together — who pays whom, and how little effort can that take?"**
+
+- **Groups (cohorts):** create a group, add members, log shared expenses.
+- **Splits:** split each expense equally, by exact amount, by percentage, by shares, or itemized (restaurant-style, tax distributed proportionally).
+- **Balances:** the app continuously computes the net balance for every member from all expenses and settlements.
+- **Simplification:** instead of everyone paying everyone, a greedy min-cash-flow algorithm collapses the debt web into the fewest possible transactions.
+- **Settle up:** each owed payment produces a UPI QR code the payer scans in their own bank app, plus a copy-UPI-ID fallback.
+- **AI receipt scanning:** photograph a bill (or several photos of a long bill) and Gemini extracts the total, merchant, date, category, and line items.
+- **Personal Log Groups:** lightweight shared spending timelines (e.g. "Parents", "Roommates") that are not full split-groups — just a running ledger.
+- **Friends network:** connect with other users to see cross-group net balances.
+- **Push notifications:** OS-level alerts for new expenses, settlements, and friend requests.
+- **Admin console:** platform operators can view stats, manage users/groups, broadcast notifications, and inspect security & AI-scan logs.
+
+---
+
+## ✨ Feature Deep-Dive
 
 ### 🤖 AI Bill Scanning
-Eliminate manual data entry with state-of-the-art receipt analysis.
-- **Powered by Gemini**: Uses Gemini 3.5 Flash Vision to instantly extract amounts, merchants, dates, and line items from images.
-- **Multi-Photo Stitching**: Seamlessly scan long receipts across multiple photos. Gemini natively stitches the overlaps together and deduplicates items intelligently.
-- **Smart Itemization**: Automatically splits multi-item bills into individual, assignable line items.
-- **Category Prediction**: Intelligently categorizes expenses based on merchant and item data.
+Photograph a receipt and skip manual entry.
+- The client (`useBillScanner.js`) compresses the image on-device — downscaled to ≤1600px on the longest side and re-encoded to JPEG at 0.85 quality — to keep the upload small.
+- It POSTs the base64 image(s) to a **serverless endpoint** (`frontend/api/scan-bill.js`, a Vercel function) which calls Gemini with a strict JSON `responseSchema`.
+- **Multi-photo stitching:** you can pass several overlapping photos of one long receipt; the prompt instructs Gemini to merge them into a single de-duplicated item list.
+- The response is validated field-by-field server-side (amount coerced to a positive number, date must match `YYYY-MM-DD`, category constrained to a fixed enum, items filtered to `{name, price>0}`).
+- Every scan is logged to the `ai_requests` collection with status, duration, and parsed amount for admin analytics.
+
+> **AI path:** there is a **single** server-side AI endpoint — the Vercel function `frontend/api/scan-bill.js` — which holds the Gemini key in server env only. The duplicate `scanBillWithGemini` Cloud Function was removed. Verify the model id in that file against the current Gemini model list before deploying.
 
 ### 💰 Precision Split Engine
-Sophisticated debt resolution logic that handles complex financial webs.
-- **Flexible Distribution**: Split equally, by fixed amounts, or by exact percentages.
-- **Multi-Payer Logic**: Advanced support for expenses funded by multiple members.
-- **Greedy Debt Simplification**: Proprietary algorithm that minimizes total transactions required to settle.
+Implemented in `utils/balanceEngine.js`.
+- **Equal** — total divided evenly across participants.
+- **Exact** — each participant assigned a fixed amount.
+- **Percentage** — each participant assigned a %, amounts derived from the total.
+- **Shares** — weighted split (e.g. 2:1:1).
+- **Itemized** — each person's dish/item cost is entered; the *entire* bill total (including GST/service charge) is distributed proportionally to each dish, so pricier dishes absorb more tax. Rounding drift is absorbed by the last participant so splits always re-sum to the stored total.
 
-### ⚡ Integrated Settlements
-Close the loop in seconds with direct banking integration.
-- **Native UPI Deep-Linking**: Generate direct payment triggers for GPay, PhonePe, and Paytm.
-- **Dynamic QR Generation**: Offline-ready scannable codes for instant transfers.
-- **Preferred App Selection**: Set your primary payment vector (GPay, BHIM, etc.) globally.
+### ⚡ Direct UPI Settlements
+Implemented in `utils/upiUtils.js`.
+- Generates a `upi://pay?pa=…&pn=…&am=…&cu=INR` string rendered as a **QR code** (`qrcode.react`).
+- **Why QR and not a deep link?** NPCI/UPI risk engines flag third-party apps that *push* a payment to a **personal** VPA via deep link ("payment failed as per UPI risk policy"). A QR the payer scans inside their **own** app is a user-initiated *pull* and is not flagged. PayMatrix therefore deliberately uses QR + copy-UPI-ID instead of app-intent deep links for P2P settle-up.
+- Users pick a preferred app label (GPay, PhonePe, Paytm, BHIM) for display; the QR itself is app-agnostic.
 
-### 🔔 Native Push Notifications
-Stay updated on group activities with real-time OS-level alerts.
-- **FCM Integration**: Delivered natively via Firebase Cloud Messaging.
-- **Actionable Alerts**: Tap notifications to navigate directly to the relevant expense, settlement, or friend request.
-- **Deduplication**: Intelligent notification bundling to prevent alert fatigue.
+### 📊 Analytics
+- **Dashboard/Analytics** pages visualise category spend, spending trends, and per-friend ledgers using Chart.js.
 
-### 📈 Advanced Analytics
-Transform raw expenses into actionable financial intelligence.
-- **Interactive Dashboards**: Visualize categorical spending trends using `Chart.js`.
-- **Cohort Analysis**: Track member contributions and consumption ratios in real-time.
-- **Audit Reports**: Export professional PDF security reports covering all expenses and logs.
+### 🔔 Push Notifications
+- The client registers an FCM token (`usePushNotifications.js`, `fcmService.js`) and stores it on the user document.
+- Writing a document to `notifications/{id}` triggers the `sendPushOnNotification` Cloud Function, which looks up the recipient's FCM token and delivers a web-push with a deep link to the relevant screen.
+- Stale/invalid tokens are auto-cleaned when FCM reports them unregistered.
 
-### 🔒 Enterprise-Grade Security
-Built on a foundation of trust and validation.
-- **Network Severing**: "Security Zone" features to instantly terminate connections with any node.
-- **Schema Enforcement**: 100% data validation via `Zod` before system entry.
-- **Audit Integrity**: Immutable sub-collection logging for every administrative action.
+### 📄 Exports
+- `utils/exportUtils.js` with `jsPDF` + `jspdf-autotable` and `json-2-csv` produce PDF/CSV reports of expenses, settlements, and logs.
+
+### 🔒 Admin & Moderation
+- Custom-claim-gated admin console: platform stats, paginated user & group management, force-archive/delete groups, broadcast push, security-log and AI-scan viewers, and feature-flag toggles.
 
 ---
 
-## 🛠️ Technical Stack
+## 🛠 Tech Stack
 
 | Category | Technology |
 | :--- | :--- |
-| **Foundation** | React 19.1, Vite 6.3, React Router 7.5 |
-| **State** | Redux Toolkit 2.6, Redux Persist 6.0 |
-| **Backend** | Firebase 12.11 (Firestore, Auth, Storage, Functions, FCM) |
-| **AI / OCR** | Gemini 3.5 Flash (via Firebase Functions) |
-| **Motion** | Framer Motion 12.6 |
-| **Visualization** | Chart.js 4.5, React Chartjs 2 |
+| **Frontend** | React 19.1, Vite 6.3, React Router 7.5 |
+| **State** | Redux Toolkit 2.6, React-Redux 9, Redux-Persist 6 (localStorage) |
+| **Backend** | Firebase 12.11 — Firestore, Auth (Google), Cloud Functions v2, FCM, Storage |
+| **Serverless** | Vercel Functions (`/api/scan-bill`) for the Gemini proxy |
+| **AI / OCR** | Google Gemini (`*-flash-lite`) via server-side proxy |
+| **Motion / UI** | Framer Motion 12, Tailwind CSS 3.4, Lucide React |
+| **Charts** | Chart.js 4.5 + react-chartjs-2 |
 | **Reporting** | jsPDF, jspdf-autotable, json-2-csv |
-| **Security** | Zod, DOMPurify, Rate Limiting (Distributed) |
-| **Styling** | Tailwind CSS 3.4, Lucide React 1.7 |
+| **Validation / Safety** | Zod 4, DOMPurify 3, QR via qrcode.react |
+| **PWA** | vite-plugin-pwa (Workbox service worker) |
+| **Testing** | Vitest |
 
 ---
 
-## 🏗️ Hybrid Sync Architecture
+## 🏗 System Architecture
 
-PayMatrix utilizes a **Push-First Hybrid Sync** model to ensure zero-latency interactions even in unstable network conditions.
+PayMatrix is a **client-heavy** app: most business logic (balances, splits, summaries) runs in the browser against Firestore directly, with Cloud Functions and a Vercel serverless function used only where trust or secrets are required (push, admin operations, AI key protection).
 
 ```mermaid
-graph TD
-    A[User Action] -- Dispatch --> B(Redux Store)
-    B -- Optimistic UI --> C[User Interface]
-    B -- Persistent Write --> D{Firestore}
-    D -- Real-time Sync --> E[Global Listeners]
-    E -- Sync Action --> B
+flowchart TD
+    subgraph Client["Browser / PWA (React + Redux)"]
+        UI[React UI]
+        RDX[Redux Store + redux-persist]
+        SVC[Service Layer<br/>expense / group / friend / admin]
+        ENG[balanceEngine.js<br/>splits + debt simplification]
+        UI <--> RDX
+        UI --> SVC
+        SVC --> ENG
+    end
+
+    subgraph Firebase["Firebase"]
+        FS[(Firestore)]
+        AUTH[Firebase Auth<br/>Google Sign-in + Custom Claims]
+        FCM[Cloud Messaging]
+        CF[Cloud Functions v2]
+    end
+
+    subgraph Vercel["Vercel"]
+        API[/api/scan-bill<br/>Gemini proxy/]
+    end
+
+    GEM[Google Gemini API]
+
+    SVC -- SDK reads/writes<br/>guarded by rules --> FS
+    UI --> AUTH
+    SVC -- httpsCallable --> CF
+    CF --> FS
+    CF --> FCM
+    FCM -- web push --> UI
+    FS -- onDocumentCreated trigger --> CF
+    UI -- base64 image --> API
+    API -- API key (server-side) --> GEM
 ```
 
-1. **Optimistic Updates**: The UI reflects changes immediately via Redux actions.
-2. **Transactional Writes**: Services commit data to Firestore with conflict resolution.
-3. **Snapshot Listeners**: Real-time listeners in `AppLayout` detect remote changes.
-4. **State Reconciliation**: Dispatchers update the Redux store to ensure all clients are perfectly mirrored.
+**Hybrid sync model:** the UI updates optimistically via Redux, writes to Firestore, and `onSnapshot` listeners in `AppLayout`/`App.jsx` reconcile remote changes back into the store so multiple devices stay mirrored. Firestore offline persistence (`persistentLocalCache`) means reads/writes resolve from cache when offline and sync later.
 
 ---
 
-## 📊 Database Topology (Firestore)
+## 🗂 Data Model (Firestore)
 
-### 📂 Collection Hierarchy
-- **`users/{userId}`**: 
-  - `upiId`: Primary settlement address.
-  - `preferredApp`: Default payment vector (GPay/Paytm/etc).
-  - `friends`: Verified network connections.
-- **`groups/{groupId}`**: 
-  - `members`: Active participant nodes.
-  - **`expenses/`**: Recursive financial line items.
-  - **`settlements/`**: Transactional balance resolutions.
-  - **`logs/`**: Immutable event stream for group activity.
-- **`friendRequests/`**: Transient handshakes for network growth.
-- **`rate_limits/{userId}`**: Distributed enforcement for security-sensitive actions.
+```mermaid
+erDiagram
+    USERS ||--o{ GROUPS : "member of"
+    USERS ||--o{ FRIEND_REQUESTS : "sends/receives"
+    USERS ||--o{ FRIEND_CODES : "owns"
+    USERS ||--o{ LOG_GROUPS : "owns/member"
+    GROUPS ||--o{ EXPENSES : contains
+    GROUPS ||--o{ SETTLEMENTS : contains
+    GROUPS ||--o{ LOGS : contains
+    LOG_GROUPS ||--o{ ENTRIES : contains
+    USERS ||--o{ NOTIFICATIONS : receives
+    USERS ||--o{ AI_REQUESTS : logs
+
+    USERS {
+        string uid PK
+        string email
+        string displayName
+        string upiId
+        string preferredApp
+        string friendCode
+        array  friends
+        string fcmToken
+        bool   suspended
+    }
+    GROUPS {
+        string id PK
+        string name
+        array  members
+        array  historicalMembers
+        string admin
+        string createdBy
+        string inviteCode
+        string status
+    }
+    EXPENSES {
+        string title
+        number amount
+        string paidBy
+        string splitType
+        array  splits
+        array  participants
+        string status
+    }
+    SETTLEMENTS {
+        string payer
+        string payee
+        number amount
+        string status
+    }
+```
+
+Additional top-level collections: `security_logs` (append-only client-written audit events), `rate_limits/{uid}` (server-writable counters), `config/featureFlags`, `admin_notifications`, and `friendCodes/{code}` (exact-code friend lookup, list disabled to prevent enumeration).
+
+---
+
+## 🔁 Key Flows
+
+### Bill scan → expense
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Client (useBillScanner)
+    participant V as Vercel /api/scan-bill
+    participant G as Gemini
+    participant F as Firestore
+
+    U->>C: Select receipt photo(s)
+    C->>C: Downscale + JPEG compress → base64
+    C->>V: POST { images[] }
+    V->>G: generateContent(prompt + images, responseSchema)
+    G-->>V: JSON { amount, title, date, category, items[] }
+    V->>V: Validate & coerce fields
+    V-->>C: Parsed receipt
+    C->>F: Log ai_requests entry
+    C->>U: Prefill Add-Expense form
+```
+
+### Settle up
+
+```mermaid
+sequenceDiagram
+    participant D as Debtor
+    participant A as App
+    participant Cr as Creditor
+
+    A->>A: computeGroupBalances(expenses, settlements, members)
+    A->>A: simplifyDebts(balances) → minimal transactions
+    A-->>D: "You owe Creditor ₹X"
+    D->>A: Tap Settle
+    A->>D: Render upi://pay QR (amount prefilled)
+    D->>D: Scan QR in own UPI app → pays
+    D->>A: Mark settled
+    A->>Cr: createSettlement + push notification
+```
+
+### Auth & admin gating
+
+```mermaid
+flowchart LR
+    L[Google Sign-in] --> T{ID token}
+    T -->|claims.admin == true| ADM[Admin console unlocked]
+    T -->|no admin claim| USR[Normal user]
+    ADM --> RULES{Firestore rules re-check<br/>isGlobalAdmin on every op}
+    USR --> RULES
+```
+
+Admin authority is enforced **server-side** by Firestore rules and Cloud Functions checking the `admin` custom claim — the client UI gate is only a convenience layer.
+
+---
+
+## 🧮 The Balance & Settlement Engine
+
+`utils/balanceEngine.js` is the financial core.
+
+1. **`computeGroupBalances(expenses, settlements, members)`** → a map of `uid → net balance`.
+   - For each expense split, the payer is credited and each participant debited their share.
+   - Settlements move balance from payer to payee.
+   - Deleted/archived records are skipped; all arithmetic is rounded to 2 decimals to avoid float drift.
+2. **`simplifyDebts(balances)`** → the minimal transaction list.
+   - Splits members into creditors (positive) and debtors (negative), sorts both descending, and greedily matches the largest creditor with the largest debtor until settled. Dust below ₹0.01 is ignored.
+   - This is a greedy min-cash-flow heuristic — near-optimal and O(n log n), which is the right trade-off for real-world group sizes.
+3. **`calculateSplits(...)`** → converts a chosen split type into the concrete `splits[]` array stored on the expense.
+
+There is a unit test at `utils/balanceEngine.test.js` (run with `npm test`).
+
+---
+
+## 🛡 Security Model & Safety Precautions
+
+PayMatrix has a layered defence model. The high/medium issues from the initial review have been remediated — see [`SECURITY_AND_CODE_REVIEW.md`](./SECURITY_AND_CODE_REVIEW.md) for the full findings list and their fix status.
+
+**Authentication & Authorization**
+- Google Sign-in via Firebase Auth; email verification is inherent to Google accounts.
+- Platform-admin access is granted only via Firebase **Custom Claims** (`token.admin == true`). There is no UID allow-list fallback in the rules or functions.
+- Every Cloud Function that performs privileged work re-checks `request.auth.token.admin`.
+
+**Firestore Security Rules** (`firestore.rules`)
+- Users can only read their own profile or a friend's; group data is readable only by members (or historical members).
+- Amount/length validation helpers (`isValidAmount ≤ 1,000,000`, string length caps) are enforced on writes.
+- Group `logs` are immutable (`update, delete: if false`); `security_logs` and `ai_requests` are append-only.
+- `rate_limits` are readable by the owner but writable only by admins/functions, so users cannot reset their own counters.
+- Friend codes cannot be listed (no enumeration) — you must know the exact 8-char code.
+
+**Input Hardening**
+- `sanitizationService` runs DOMPurify over all user-supplied strings (tags/attrs stripped) before persistence.
+- `validationService` enforces Zod schemas on expenses, groups, friend requests, and log entries.
+- Any AI/markdown output is rendered through DOMPurify before insertion into the DOM.
+
+**Transport & Headers** (`vercel.json`)
+- Strict `Content-Security-Policy`, `Strict-Transport-Security` (2-year preload), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`.
+
+**Payment Safety**
+- PayMatrix never moves money itself. It only generates a UPI QR/string; the actual transfer happens inside the user's own bank app. Users are responsible for verifying the recipient VPA before paying.
+
+**Rate Limiting**
+- `rateLimitService` uses a Firestore transaction to cap sensitive actions per user/time-window. It **fails closed**: if the check errors it denies the action, except when the device is genuinely offline (where the write is queued by Firestore persistence anyway).
 
 ---
 
@@ -121,74 +325,137 @@ graph TD
 
 ```text
 PayMatrix/
-├── frontend/             # React/Vite Premium Interface
+├── frontend/                     # React / Vite PWA
+│   ├── api/
+│   │   └── scan-bill.js          # Vercel serverless Gemini proxy
 │   ├── src/
-│   │   ├── components/   # Atomic UI units (Common, Group, Expense)
-│   │   ├── hooks/        # Reactive logic (Online status, Auth, Profile)
-│   │   ├── pages/        # View controllers (Analytics, Dashboard, Friends)
-│   │   ├── redux/        # Global state orchestration
-│   │   ├── services/     # API & Firebase abstraction layer
-│   │   ├── utils/        # Computational engines (Balance, Export, UPI)
-│   │   └── index.css     # Digital Obsidian design tokens
-├── scripts/              # Infrastructure & Maintenance
-│   └── clearFirestore.js # Database housekeeping utilities
-├── firestore.rules       # Security layer declarations
-└── LICENSE               # MIT License
+│   │   ├── components/           # UI units (common, group, expense, logs, charts, layout)
+│   │   ├── config/firebase.js    # Firebase SDK initialization
+│   │   ├── hooks/                # useAuth, useAdminAuth, useBillScanner, usePushNotifications …
+│   │   ├── pages/                # Dashboard, Groups, Analytics, admin/* …
+│   │   ├── redux/                # store + auth/group/expense/notification slices
+│   │   ├── services/             # Firebase abstraction (expense, group, friend, admin, auth, …)
+│   │   └── utils/                # balanceEngine, upiUtils, exportUtils, formatCurrency …
+│   ├── .env.example
+│   └── vercel.json               # SPA rewrites + security headers
+├── functions/
+│   └── index.js                  # Cloud Functions: push, admin ops, Gemini scan, notifications
+├── scripts/                      # Admin/maintenance node scripts (set-admin, broadcast, …)
+├── firestore.rules               # Firestore security rules
+├── firebase.json / .firebaserc   # Firebase project config
+└── LICENSE                       # MIT
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-### ⚙️ Local Development
+### Prerequisites
+- Node.js 18+ and npm
+- A Firebase project (Firestore, Auth, Cloud Messaging, Functions enabled)
+- A Google Gemini API key
+- (Optional) Vercel account for the `/api/scan-bill` proxy
 
-1. **Clone & Navigate**:
-   ```bash
-   git clone https://github.com/Marshmellow31/PayMatrix.git
-   cd PayMatrix/frontend
-   ```
+### Local development
 
-2. **Initialize Environment**:
-   ```bash
-   cp .env.example .env
-   # Populate with your Firebase config
-   ```
+```bash
+# 1. Clone
+git clone https://github.com/Marshmellow31/PayMatrix.git
+cd PayMatrix/frontend
 
-3. **Deploy Engine**:
-   ```bash
-   npm install
-   npm run dev
-   ```
+# 2. Configure environment
+cp .env.example .env
+#    → fill in your Firebase web config + VAPID key
 
-4. **Firebase Functions (Optional for OCR/Push)**:
-   ```bash
-   cd ../functions
-   npm install
-   firebase functions:secrets:set GEMINI_API_KEY
-   firebase deploy --only functions
-   ```
+# 3. Install & run
+npm install
+npm run dev            # http://localhost:5173
+```
 
-### 📜 Environment Variables
-| Key | Description |
-| :--- | :--- |
-| `VITE_FIREBASE_API_KEY` | Your Firebase project API key |
-| `VITE_API_URL` | Optional backend proxy for advanced rate limiting |
+### Firebase Functions (push, admin ops, server-side scan)
 
----
+```bash
+cd ../functions
+npm install
+firebase functions:secrets:set GEMINI_API_KEY     # server-side AI key
+firebase deploy --only functions
+firebase deploy --only firestore:rules            # publish security rules
+```
 
-## 🛡️ Security Posture
+### Granting yourself admin
 
-> [!IMPORTANT]
-> To maintain the integrity of financial data, PayMatrix enforces a multi-layer security protocol:
-> - **Input Hardening**: `DOMPurify` strips XSS vectors from all user-generated fields.
-> - **Schema Guard**: `Zod` prevents malformed objects from reaching the settlement engine.
-> - **Distributed Rate Limiting**: Multi-device protection against invitation and expense spam.
-> - **Node Verification**: Email verification is mandatory for all primary account identifiers.
+```bash
+cd ../scripts
+# place your Firebase Admin SDK service account JSON at scripts/serviceAccountKey.json (gitignored)
+node set-admin.js       # sets { admin: true } custom claim for the hard-coded email
+```
 
 ---
 
-## 📄 License & Legal
+## 🔑 Environment Variables
 
-Distributed under the **MIT License**. PayMatrix is a financial utility; users are responsible for verifying payment recipients within their respective banking applications.
+Client variables are prefixed `VITE_` and are **compiled into the browser bundle** (i.e. public). Never put a real secret behind a `VITE_` prefix.
 
-Designed & Engineered with ❤️ by **Harshil**.
+| Key | Where | Public? | Description |
+| :--- | :--- | :--- | :--- |
+| `VITE_FIREBASE_API_KEY` | frontend/.env | Yes (safe) | Firebase web API key (identifies project; not a secret) |
+| `VITE_FIREBASE_AUTH_DOMAIN` | frontend/.env | Yes | Firebase auth domain |
+| `VITE_FIREBASE_PROJECT_ID` | frontend/.env | Yes | Firebase project id |
+| `VITE_FIREBASE_STORAGE_BUCKET` | frontend/.env | Yes | Storage bucket |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | frontend/.env | Yes | FCM sender id |
+| `VITE_FIREBASE_APP_ID` | frontend/.env | Yes | Firebase app id |
+| `VITE_FIREBASE_VAPID_KEY` | frontend/.env | Yes | Web-push public VAPID key |
+| `GEMINI_API_KEY` | Vercel / Functions env | **No — secret** | Server-side Gemini key for `/api/scan-bill` and functions |
+
+> [!NOTE]
+> There is intentionally **no** `VITE_GEMINI_API_KEY` or `VITE_ADMIN_PASSWORD`. The Gemini key lives only in server env (`GEMINI_API_KEY`) and every AI call goes through the server, so the key is never in the browser bundle. Admin access is granted exclusively via Firebase custom claims (`scripts/set-admin.js`) — there is no admin password. See [`SECURITY_AND_CODE_REVIEW.md`](./SECURITY_AND_CODE_REVIEW.md) for the full history of these hardening changes.
+
+---
+
+## ☁️ Deployment
+
+- **Frontend + `/api`:** deployed to **Vercel** (SPA rewrites and security headers live in `frontend/vercel.json`). Set `GEMINI_API_KEY` and all `VITE_*` variables in the Vercel dashboard.
+- **Functions & rules:** deployed to **Firebase** (`firebase deploy --only functions,firestore:rules`).
+- `.firebaserc` / `firebase.json` pin the Firebase project.
+
+---
+
+## 🧑‍💼 Admin Console
+
+Reachable at `/admin` for users whose ID token carries the `admin` custom claim.
+
+- **Dashboard** — user/group/notification/security/AI counts + 7-day signup trend.
+- **Users** — paginated list, suspend/enable (disables Firebase Auth account), clear FCM token, grant/revoke admin.
+- **Groups** — paginated via `adminListGroups`, drill into expenses/settlements, force archive/delete.
+- **Notifications** — broadcast web-push to all users or a single UID (`broadcastNotification`), with history.
+- **Security Logs** — filterable audit stream.
+- **AI Scans** — per-scan status, latency, and cost estimate.
+- **Feature Flags** — toggle features stored in `config/featureFlags`.
+
+---
+
+## 🧪 Testing & Tooling
+
+```bash
+cd frontend
+npm test              # Vitest (includes balanceEngine.test.js)
+npm run lint          # ESLint
+npm run format        # Prettier
+npm run build         # production build
+```
+
+---
+
+## ⚠️ Known Limitations
+
+- Debt simplification is a greedy heuristic (near-optimal, not provably minimal for pathological inputs).
+- UPI settle-up is QR-based by design (personal-VPA deep links are blocked by UPI risk policy); there is no automated payment confirmation — a member marks a settlement manually.
+- Editing an expense/settlement's financial fields is restricted to its creator (or the group admin); any member can still collaboratively soft-delete/restore. This favours integrity over free-for-all editing.
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License** (see [`LICENSE`](./LICENSE)). PayMatrix is a financial utility; users are responsible for verifying payment recipients within their own banking apps before transferring money.
+
+Designed & engineered by **Harshil**.

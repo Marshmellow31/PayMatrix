@@ -32,7 +32,15 @@ Thumbs.db
 
 # Debug
 npm-debug.log*
+*-debug.log
+firebase-debug.log*
 
 # Firebase keys
 serviceAccountKey.json
 scripts/serviceAccountKey.json
+
+# Internal engineering docs / audit artifacts (keep out of the public repo)
+*.docx
+
+# Vitest transient config timestamps
+vitest.config.js.timestamp-*.mjs

@@ -152,19 +152,38 @@ service cloud.firestore {
                       isValidString(request.resource.data.title, 100) &&
                       isValidAmount(request.resource.data.amount) &&
                       request.resource.data.participants is list;
+        // FIX (M-2): only the expense creator (admin/paidBy) or a group admin may
+        // edit financial fields (amount, splits, participants). Any other member is
+        // limited to flipping `status` (collaborative soft-delete / restore) so they
+        // cannot silently rewrite who-owes-whom.
         allow update: if isMember(groupId) &&
                       isValidString(request.resource.data.get('title', ''), 100) &&
-                      (request.resource.data.get('amount', 0) == 0 || isValidAmount(request.resource.data.amount));
-        allow delete: if isGlobalAdmin() || isMember(groupId);
+                      (request.resource.data.get('amount', 0) == 0 || isValidAmount(request.resource.data.amount)) &&
+                      (
+                        request.auth.uid == resource.data.get('admin', '') ||
+                        request.auth.uid == resource.data.get('paidBy', '') ||
+                        isAdmin(groupId) ||
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+                      );
+        allow delete: if isGlobalAdmin() || isAdmin(groupId) ||
+                      (isMember(groupId) && (
+                        request.auth.uid == resource.data.get('admin', '') ||
+                        request.auth.uid == resource.data.get('paidBy', '')
+                      ));
       }
 
       match /settlements/{settlementId} {
         allow read:   if isGlobalAdmin() || isMember(groupId);
         allow create: if isMember(groupId) && isValidAmount(request.resource.data.amount);
-        // FIX: payer can no longer unilaterally delete a settlement (fraud vector).
-        // Any member can soft-delete (status:'deleted') via update.
-        // Hard deletes require group admin or global admin.
-        allow update: if isMember(groupId);
+        // FIX (M-2): the payer or a group admin may edit a settlement; any other
+        // member may only flip `status` (soft-delete / restore). This stops a member
+        // from silently rewriting a settlement's amount / payer / payee.
+        // Hard deletes still require group admin or global admin.
+        allow update: if isMember(groupId) && (
+                        request.auth.uid == resource.data.get('payer', '') ||
+                        isAdmin(groupId) ||
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+                      );
         allow delete: if isGlobalAdmin() || isAdmin(groupId);
       }
 
@@ -184,7 +203,9 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
       allow create: if isSignedIn() &&
                     request.auth.uid == request.resource.data.from &&
-                    request.resource.data.to is string;
+                    request.resource.data.to is string &&
+                    request.resource.data.to.size() > 0 &&
+                    request.resource.data.to != request.auth.uid; // no self-requests
       allow update: if isSignedIn() && request.auth.uid == resource.data.to;
     }
 
@@ -192,10 +213,16 @@ service cloud.firestore {
 
     match /notifications/{notificationId} {
       allow read, update, delete: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == resource.data.to);
-      // FIX SEC-08: any signed-in user could previously create notifications targeting any other user.
-      // Now clients may only create notifications targeting themselves (system alerts).
-      // Cross-user notifications are created by trusted Cloud Functions.
-      allow create: if isSignedIn() && request.resource.data.get('createdBy', '') == request.auth.uid;
+      // FIX SEC-08 (hardened): clients may ONLY create notifications targeting
+      // themselves (self/system alerts). A previous version only checked
+      // `createdBy == auth.uid` and left `to` unconstrained, so any signed-in
+      // user could push arbitrary-text notifications (and OS push) to any other
+      // user — a phishing/spam vector. Cross-user notifications must go through
+      // the trusted `createCrossUserNotification` Cloud Function, which runs with
+      // admin privileges and validates group membership before writing.
+      allow create: if isSignedIn() &&
+                    request.resource.data.get('createdBy', '') == request.auth.uid &&
+                    request.resource.data.get('to', '') == request.auth.uid;
     }
 
     // ─── Security Logs ────────────────────────────────────────────────────────

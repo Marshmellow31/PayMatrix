@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Filter,
   WifiOff,
-  Sparkles,
   Camera,
   Hash,
   Nfc,
@@ -308,25 +307,7 @@ const Dashboard = () => {
         </div>
 
         {/* Unified Quick Actions Hub (full-width action bar) */}
-        <div className="lg:col-span-12 grid grid-cols-3 gap-3 lg:gap-5">
-          {/* AI Copilot */}
-          <Link
-            to="/copilot"
-            className="group relative flex flex-col items-center justify-center p-4 lg:p-6 rounded-[20px] bg-gradient-to-b from-[#1c1b2e]/40 to-[#141416]/40 hover:from-[#23213a]/60 border border-indigo-500/20 hover:border-indigo-400/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] transition-all duration-300 text-center overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-indigo-500/0 group-hover:bg-indigo-500/5 transition-colors duration-300" />
-            <div className="relative w-10 h-10 lg:w-14 lg:h-14 rounded-full bg-indigo-500/10 group-hover:bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:text-indigo-300 group-hover:scale-110 transition-all duration-300 mb-2 lg:mb-3 shadow-inner">
-              <Sparkles size={18} className="animate-pulse lg:hidden" />
-              <Sparkles size={24} className="animate-pulse hidden lg:block" />
-            </div>
-            <span className="relative text-[10px] lg:text-xs font-black uppercase tracking-[0.15em] text-indigo-200 group-hover:text-white transition-colors">
-              AI Copilot
-            </span>
-            <span className="relative text-[8px] lg:text-[10px] font-semibold text-indigo-400/50 group-hover:text-indigo-300/80 mt-1 transition-colors">
-              Ask anything
-            </span>
-          </Link>
-
+        <div className="lg:col-span-12 grid grid-cols-2 gap-3 lg:gap-5">
           {/* Scan Bill */}
           <button
             onClick={() => setShowBillScanner(true)}

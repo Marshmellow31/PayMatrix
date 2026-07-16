@@ -24,7 +24,6 @@ import AdminAnalytics from './pages/admin/AdminAnalytics.jsx';
 import AdminSecurityLogs from './pages/admin/AdminSecurityLogs.jsx';
 import AdminFeatureFlags from './pages/admin/AdminFeatureFlags.jsx';
 import AdminAiScans from './pages/admin/AdminAiScans.jsx';
-import Copilot from './pages/Copilot.jsx';
 
 // Pages
 import Login from './pages/Login.jsx';
@@ -56,21 +55,18 @@ const PublicRoute = ({ children }) => {
 
 const AdminRoute = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
-  const [password, setPassword] = useState('');
-  // FIX SEC-03: removed sessionStorage flag (trivially bypassable via DevTools).
-  // Admin state is now in React state only — never written to sessionStorage.
-  // Primary path: Firebase Custom Claims (token.admin === true).
-  // Fallback path: VITE_ADMIN_PASSWORD for first-time bootstrap only.
-  const [authenticated, setAuthenticated] = useState(false);
+  // Admin access is gated SOLELY by the Firebase `admin` custom claim (verified
+  // again server-side by Firestore rules and every admin Cloud Function). The
+  // previous VITE_ADMIN_PASSWORD fallback was removed — a bundled password is
+  // public and offered no real protection.
+  const [isAdmin, setIsAdmin] = useState(false);
   const [claimsChecked, setClaimsChecked] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!user) {
       setClaimsChecked(true);
       return;
     }
-    // Check Firebase ID token for admin custom claim
     import('./config/firebase.js').then(({ auth }) => {
       const currentUser = auth.currentUser;
       if (!currentUser) {
@@ -80,7 +76,7 @@ const AdminRoute = ({ children }) => {
       currentUser
         .getIdTokenResult(true)
         .then((result) => {
-          if (result.claims.admin === true) setAuthenticated(true);
+          setIsAdmin(result.claims.admin === true);
           setClaimsChecked(true);
         })
         .catch(() => setClaimsChecked(true));
@@ -89,56 +85,7 @@ const AdminRoute = ({ children }) => {
 
   if (!user) return <Navigate to="/login" replace />;
   if (!claimsChecked) return null; // Wait for claims check
-
-  const handleVerify = (e) => {
-    e.preventDefault();
-    const correctPassword = import.meta.env.VITE_ADMIN_PASSWORD;
-    if (password === correctPassword) {
-      // In-memory only — never written to sessionStorage
-      setAuthenticated(true);
-      setError('');
-    } else {
-      setError('Incorrect password');
-    }
-  };
-
-  if (!authenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f] px-4">
-        <div className="max-w-md w-full bg-[#141414] border border-white/[0.08] rounded-3xl p-8 shadow-2xl">
-          <div className="text-center mb-6">
-            <span className="text-lg font-black font-manrope tracking-tight text-orange-500">
-              PayMatrix
-            </span>
-            <h2 className="text-xl font-black font-manrope text-white mt-2 uppercase tracking-tight">
-              Admin Console
-            </h2>
-            <p className="text-xs text-white/40 mt-1 font-inter">
-              Enter password to unlock administrative access
-            </p>
-          </div>
-          <form onSubmit={handleVerify} className="space-y-4">
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter Password"
-              className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-4 py-3 outline-none text-white font-manrope text-sm focus:ring-2 focus:ring-orange-500/50 placeholder:text-white/20"
-            />
-            {error && (
-              <p className="text-xs font-bold text-red-400 font-inter text-center">{error}</p>
-            )}
-            <button
-              type="submit"
-              className="w-full h-12 rounded-2xl bg-orange-500 text-white font-manrope font-black text-sm hover:bg-orange-600 active:scale-[0.98] transition-all"
-            >
-              Verify & Enter
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
   return children;
 };
@@ -288,7 +235,6 @@ function App() {
           <Route path="/groups/:id/add-expense" element={<AddExpense />} />
           <Route path="/add-expense" element={<AddExpense />} />
           <Route path="/analytics" element={<Analytics />} />
-          <Route path="/copilot" element={<Copilot />} />
 
           <Route path="/settlements" element={<Navigate to="/dashboard" replace />} />
           <Route path="/activity" element={<Activity />} />

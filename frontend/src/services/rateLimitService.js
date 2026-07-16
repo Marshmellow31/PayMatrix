@@ -67,25 +67,27 @@ const rateLimitService = {
       // Re-throw if it's the limit error
       if (error.message.includes('Rate limit exceeded')) throw error;
 
-      // Detected offline context or transaction contention: Fail-Safe to allow user continuity
-      const isContention = error.code === 'failed-precondition';
+      // FIX (M-1): fail CLOSED. Previously ANY error (contention, or any unexpected
+      // DB error) returned `true`, so an attacker could bypass the limit simply by
+      // forcing the transaction to error. We now only allow the action when the
+      // device is genuinely offline — a real connectivity case, not an abuse vector,
+      // and one where the write is queued by Firestore offline persistence anyway.
       const isOffline =
         !navigator.onLine || error.code === 'unavailable' || error.message.includes('network');
 
-      if (isOffline || isContention) {
-        console.warn(
-          `[RATE_LIMIT_BYPASS] Allowing Action: ${actionKey} Reason: ${isOffline ? 'Offline' : 'Contention'}`
-        );
-        // Log locally for sync (non-blocking)
-        loggingService.logSecurityEvent('security/rate-limit-bypass', {
-          actionKey,
-          reason: isOffline ? 'offline' : 'contention',
-        });
+      if (isOffline) {
+        console.warn(`[RATE_LIMIT_OFFLINE] Allowing queued action while offline: ${actionKey}`);
+        loggingService.logSecurityEvent('security/rate-limit-offline', { actionKey });
         return true;
       }
 
-      console.error('Rate Limit Service error:', error);
-      return true; // Fail safe for other unexpected database errors
+      // Contention or any other unexpected error → deny (fail closed).
+      console.error('Rate Limit Service error (failing closed):', error);
+      loggingService.logSecurityEvent('security/rate-limit-error', {
+        actionKey,
+        code: error.code || 'unknown',
+      });
+      throw new Error('Could not verify rate limit. Please try again in a moment.');
     }
   },
 };

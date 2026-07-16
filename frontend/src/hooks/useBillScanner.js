@@ -1,13 +1,14 @@
 /**
  * useBillScanner
  *
- * Compresses the selected image on the client, then sends it to the
- * `scanBillWithGemini` Cloud Function for parsing.
+ * Compresses the selected image on the client, then POSTs it to the
+ * `/api/scan-bill` serverless endpoint (frontend/api/scan-bill.js) for parsing.
  *
- * Why Cloud Function instead of direct Gemini fetch?
- * - VITE_GEMINI_API_KEY is no longer exposed in the browser bundle.
- * - Rate limiting and logging happen server-side with admin privileges.
- * - Clients cannot forge ai_request logs or bypass per-user quotas.
+ * Why a server endpoint instead of a direct Gemini fetch?
+ * - The Gemini API key lives only in server env (GEMINI_API_KEY) and is never
+ *   shipped in the browser bundle. (This is the single AI path — the old
+ *   duplicate `scanBillWithGemini` Cloud Function was removed.)
+ * - Field validation happens server-side, so clients can't inject bad data.
  */
 import { useState, useCallback } from 'react';
 import { db, auth } from '../config/firebase.js';

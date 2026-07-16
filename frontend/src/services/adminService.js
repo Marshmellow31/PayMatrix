@@ -1,4 +1,4 @@
-import { db, functions, auth } from '../config/firebase.js';
+import { db, functions } from '../config/firebase.js';
 import { httpsCallable } from 'firebase/functions';
 import {
   collection,
@@ -10,12 +10,9 @@ import {
   doc,
   getDoc,
   where,
-  updateDoc,
   setDoc,
   getCountFromServer,
   writeBatch,
-  addDoc,
-  deleteField,
   deleteDoc,
 } from 'firebase/firestore';
 
@@ -127,76 +124,49 @@ const adminService = {
     };
   },
 
+  // All privileged user mutations run through the admin-gated `adminManageUser`
+  // Cloud Function (verifies the `admin` custom claim server-side). Grant/revoke
+  // set the actual Firebase custom claim — the previous client-side `isAdmin`
+  // field write did nothing for authorization and has been removed.
   suspendUser: async (uid) => {
-    await updateDoc(doc(db, 'users', uid), {
-      suspended: true,
-      suspendedAt: new Date().toISOString(),
-    });
+    await httpsCallable(functions, 'adminManageUser')({ uid, action: 'disable' });
     return { data: { success: true } };
   },
   enableUser: async (uid) => {
-    await updateDoc(doc(db, 'users', uid), { suspended: false, suspendedAt: null });
+    await httpsCallable(functions, 'adminManageUser')({ uid, action: 'enable' });
     return { data: { success: true } };
   },
   clearUserFCM: async (uid) => {
-    await updateDoc(doc(db, 'users', uid), { fcmToken: deleteField() });
+    await httpsCallable(functions, 'adminManageUser')({ uid, action: 'clearFcm' });
     return { data: { success: true } };
   },
   grantAdmin: async (uid) => {
-    await updateDoc(doc(db, 'users', uid), { isAdmin: true });
+    await httpsCallable(functions, 'adminManageUser')({ uid, action: 'grantAdmin' });
     return { data: { success: true } };
   },
   revokeAdmin: async (uid) => {
-    await updateDoc(doc(db, 'users', uid), { isAdmin: false });
+    await httpsCallable(functions, 'adminManageUser')({ uid, action: 'revokeAdmin' });
     return { data: { success: true } };
   },
 
   bootstrapAdmin: () => Promise.resolve({ data: { success: true } }),
 
   // ─── Broadcast Notifications ────────────────────────────────────────────────
+  // Routed through the admin-gated `broadcastNotification` Cloud Function, which
+  // fans out FCM web-push and records the history entry with admin privileges.
+  // (Client-side batch writes to other users' notifications are now blocked by
+  // the tightened Firestore rules, and never delivered a real push anyway.)
   broadcastNotification: async ({ title, body, url, targetUid }) => {
-    let targetUsers = [];
-    if (targetUid) {
-      const userSnap = await getDoc(doc(db, 'users', targetUid));
-      if (userSnap.exists()) {
-        targetUsers.push({ id: userSnap.id, ...userSnap.data() });
-      }
-    } else {
-      const usersSnap = await getDocs(collection(db, 'users'));
-      targetUsers = usersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    }
-
-    const recipientCount = targetUsers.length;
-
-    // Log history entry in Firestore
-    const adminNotifRef = await addDoc(collection(db, 'admin_notifications'), {
+    const res = await httpsCallable(
+      functions,
+      'broadcastNotification'
+    )({
       title,
       body,
-      url: url || '',
-      targetUid: targetUid || null,
-      sentBy: auth.currentUser?.uid || 'admin',
-      recipientCount,
-      successCount: recipientCount,
-      failureCount: 0,
-      createdAt: new Date().toISOString(),
+      url,
+      targetUid,
     });
-
-    // Write alerts for active in-app listener
-    const batch = writeBatch(db);
-    targetUsers.forEach((user) => {
-      const ref = doc(collection(db, 'notifications'));
-      batch.set(ref, {
-        to: user.id,
-        message: body,
-        type: 'info',
-        read: false,
-        createdAt: new Date().toISOString(),
-        parentAdminNotificationId: adminNotifRef.id,
-      });
-    });
-    await batch.commit();
-
-    return { data: { sent: recipientCount, failed: 0, recipientCount } };
+    return { data: res.data };
   },
 
   getNotificationHistory: async (pageSize = 20, lastDoc = null) => {
