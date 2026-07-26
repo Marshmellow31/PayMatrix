@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { ShieldCheck, Users, Zap } from 'lucide-react';
 import useAuth from '../hooks/useAuth.js';
 import toast from 'react-hot-toast';
 
@@ -19,25 +20,6 @@ const GoogleIcon = () => (
     <path
       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
       fill="#EA4335"
-    />
-  </svg>
-);
-
-const ShieldIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path
-      d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M9 12l2 2 4-4"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
     />
   </svg>
 );
@@ -270,37 +252,15 @@ const Login = () => {
           {/* Feature List */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <FeatureRow
-              icon={
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              }
+              icon={<Zap size={16} strokeWidth={1.5} />}
               text="Real-time expense tracking with instant sync across all devices"
             />
             <FeatureRow
-              icon={
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path
-                    d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              }
+              icon={<Users size={16} strokeWidth={1.5} />}
               text="Split bills effortlessly with smart group expense management"
             />
             <FeatureRow
-              icon={<ShieldIcon />}
+              icon={<ShieldCheck size={16} strokeWidth={1.5} />}
               text="End-to-end encrypted with AES-256 and secure cloud backup"
             />
           </div>
