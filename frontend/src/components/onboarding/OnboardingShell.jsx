@@ -10,7 +10,7 @@ const OnboardingShell = ({ children, step, onBack, onSkip, onSignIn }) => (
           <ArrowLeft size={16} /> Back
         </button>
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-white shadow-[0_0_30px_rgba(255,255,255,0.12)]"><div className="h-4 w-4 rounded-[4px] bg-[#0e0e0e]" /></div>
+          <img src="/brand-mark.svg" alt="" className="h-8 w-8 rounded-[10px] shadow-[0_0_30px_rgba(255,255,255,0.12)]" />
           <span className="text-sm font-black uppercase tracking-[0.16em]">PayMatrix</span>
         </div>
         <div className="flex justify-end gap-1">

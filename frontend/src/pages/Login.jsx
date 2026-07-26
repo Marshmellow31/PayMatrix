@@ -15,9 +15,7 @@ const GoogleIcon = () => (
 
 const Brand = () => (
   <div className="flex items-center gap-3">
-    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-[0_0_30px_rgba(255,255,255,0.12)] sm:h-10 sm:w-10">
-      <div className="h-[18px] w-[18px] rounded-[5px] bg-[#0e0e0e]" />
-    </div>
+    <img src="/brand-mark.svg" alt="" className="h-9 w-9 rounded-xl shadow-[0_0_30px_rgba(255,255,255,0.12)] sm:h-10 sm:w-10" />
     <span className="text-sm font-black uppercase tracking-[0.16em] sm:text-base">PayMatrix</span>
   </div>
 );
