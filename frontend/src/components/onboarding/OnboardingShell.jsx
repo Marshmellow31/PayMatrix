@@ -1,6 +1,6 @@
 import { ArrowLeft, SkipForward } from 'lucide-react';
 
-const OnboardingShell = ({ children, step, onBack, onSkip, onSignIn }) => (
+const OnboardingShell = ({ children, step, onBack, onSkip }) => (
   <main className="relative h-[100dvh] min-h-0 overflow-hidden bg-[#0e0e0e] text-white sm:min-h-screen sm:overflow-x-hidden">
     <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-white/[0.06] blur-[110px]" />
     <div className="pointer-events-none absolute -bottom-40 -right-20 h-[28rem] w-[28rem] rounded-full bg-sky-400/[0.06] blur-[130px]" />
