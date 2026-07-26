@@ -14,9 +14,16 @@ const GoogleIcon = () => (
 );
 
 const Brand = () => (
-  <div className="flex items-center gap-3">
-    <img src="/brand-mark.svg" alt="" className="h-9 w-9 rounded-xl shadow-[0_0_30px_rgba(255,255,255,0.12)] sm:h-10 sm:w-10" />
+  <div className="flex items-center">
     <span className="text-sm font-black uppercase tracking-[0.16em] sm:text-base">PayMatrix</span>
+  </div>
+);
+
+const FeatureCards = ({ className }) => (
+  <div className={`grid gap-2 sm:grid-cols-3 sm:gap-3 ${className}`}>
+    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4"><Zap size={16} className="text-emerald-300" /><p className="mt-4 text-xs font-bold text-white/70">Live balances</p><p className="mt-1 text-[10px] leading-4 text-white/35">Everyone sees the same answer.</p></div>
+    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4"><Users size={16} className="text-sky-300" /><p className="mt-4 text-xs font-bold text-white/70">Real groups</p><p className="mt-1 text-[10px] leading-4 text-white/35">Trips, homes, and shared plans.</p></div>
+    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4"><Fingerprint size={16} className="text-amber-200" /><p className="mt-4 text-xs font-bold text-white/70">Private by default</p><p className="mt-1 text-[10px] leading-4 text-white/35">Your data stays yours.</p></div>
   </div>
 );
 
@@ -47,15 +54,10 @@ const Login = () => {
         <section className="flex flex-1 items-center justify-center py-10 sm:py-14">
           <div className="grid w-full max-w-6xl items-center gap-10 lg:grid-cols-[1fr_0.82fr] lg:gap-20">
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/55"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.8)]" /> Shared expenses, made clear</div>
               <h1 className="font-manrope text-5xl font-black leading-[0.94] tracking-[-0.06em] sm:text-7xl">Welcome back.<br /><span className="text-white/35">See what’s fair.</span></h1>
               <p className="mt-6 max-w-lg text-sm leading-7 text-white/50 sm:text-base">Sign in to return to your groups, balances, and shared activity — all in one clear place.</p>
 
-              <div className="mt-8 grid max-w-xl gap-2 sm:grid-cols-3 sm:gap-3">
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4"><Zap size={16} className="text-emerald-300" /><p className="mt-4 text-xs font-bold text-white/70">Live balances</p><p className="mt-1 text-[10px] leading-4 text-white/35">Everyone sees the same answer.</p></div>
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4"><Users size={16} className="text-sky-300" /><p className="mt-4 text-xs font-bold text-white/70">Real groups</p><p className="mt-1 text-[10px] leading-4 text-white/35">Trips, homes, and shared plans.</p></div>
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4"><Fingerprint size={16} className="text-amber-200" /><p className="mt-4 text-xs font-bold text-white/70">Private by default</p><p className="mt-1 text-[10px] leading-4 text-white/35">Your data stays yours.</p></div>
-              </div>
+              <FeatureCards className="hidden lg:grid mt-8 max-w-xl" />
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="w-full max-w-md justify-self-center rounded-[1.75rem] border border-white/10 bg-[#171717]/95 p-5 shadow-[0_30px_100px_rgba(0,0,0,0.45)] sm:p-7">
@@ -64,6 +66,8 @@ const Login = () => {
               <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.06] px-3 py-2.5 text-[11px] text-emerald-100/70"><ShieldCheck size={14} className="shrink-0 text-emerald-300" /> Secure sign-in. Your shared data stays private.</div>
               <div className="mt-6 border-t border-white/[0.08] pt-5 text-center"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/25">Not ready to sign in yet?</p><button onClick={() => navigate('/?preview=1')} className="mt-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-white/65 transition hover:text-white">Try the interactive preview <ArrowRight size={14} /></button></div>
             </motion.div>
+
+            <FeatureCards className="grid lg:hidden w-full max-w-md justify-self-center" />
           </div>
         </section>
 
