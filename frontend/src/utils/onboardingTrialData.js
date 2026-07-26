@@ -5,10 +5,30 @@ export const TRIAL_MEMBERS = [
 ];
 
 export const TRIAL_FEATURES = [
-  { eyebrow: '01 / Capture', title: 'Scan a receipt in seconds', body: 'AI reads the bill and prepares the split for you.', icon: 'scan' },
-  { eyebrow: '02 / Understand', title: 'See who owes whom', body: 'Balances are simplified into the fewest possible payments.', icon: 'chart' },
-  { eyebrow: '03 / Finish', title: 'Settle with confidence', body: 'Generate a ready-to-scan UPI QR with the amount filled in.', icon: 'qr' },
-  { eyebrow: '04 / Stay synced', title: 'Everyone sees the same truth', body: 'Changes sync across devices, even when your connection drops.', icon: 'sync' },
+  {
+    eyebrow: '01 / Capture',
+    title: 'Scan a receipt in seconds',
+    body: 'AI reads the bill and prepares the split for you.',
+    icon: 'scan',
+  },
+  {
+    eyebrow: '02 / Understand',
+    title: 'See who owes whom',
+    body: 'Balances are simplified into the fewest possible payments.',
+    icon: 'chart',
+  },
+  {
+    eyebrow: '03 / Finish',
+    title: 'Settle with confidence',
+    body: 'Generate a ready-to-scan UPI QR with the amount filled in.',
+    icon: 'qr',
+  },
+  {
+    eyebrow: '04 / Stay synced',
+    title: 'Everyone sees the same truth',
+    body: 'Changes sync across devices, even when your connection drops.',
+    icon: 'sync',
+  },
 ];
 
 export const TRIAL_GROUP = {
