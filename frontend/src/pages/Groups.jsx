@@ -35,6 +35,13 @@ const Groups = () => {
   const [summary, setSummary] = useState(null);
   const [_loadingSummary, setLoadingSummary] = useState(true);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('add') === 'true' && flags.groupCreation) {
+      setShowModal(true);
+    }
+  }, [location.search, flags.groupCreation]);
+
   const groupsUpdatedHash = useMemo(
     () => JSON.stringify(groups.map((g) => g.updatedAt || g._id)),
     [groups]
