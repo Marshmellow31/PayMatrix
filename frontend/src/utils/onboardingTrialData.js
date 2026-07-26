@@ -1,7 +1,7 @@
 export const TRIAL_MEMBERS = [
-  { id: 'you', name: 'You', initials: 'YO', color: 'bg-white text-black' },
-  { id: 'maya', name: 'Maya', initials: 'MA', color: 'bg-amber-300 text-amber-950' },
-  { id: 'leo', name: 'Leo', initials: 'LE', color: 'bg-sky-300 text-sky-950' },
+  { id: 'you', name: 'You', initials: 'YO', avatar: '🦊', color: 'bg-orange-200 text-orange-950' },
+  { id: 'maya', name: 'Maya', initials: 'MA', avatar: '🐨', color: 'bg-amber-300 text-amber-950' },
+  { id: 'leo', name: 'Leo', initials: 'LE', avatar: '🐳', color: 'bg-sky-300 text-sky-950' },
 ];
 
 export const TRIAL_FEATURES = [
