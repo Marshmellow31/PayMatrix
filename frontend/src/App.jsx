@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -10,6 +10,8 @@ import Loader from './components/common/Loader.jsx';
 import { usePushNotifications } from './hooks/usePushNotifications.js';
 import InstallPrompt from './components/common/InstallPrompt.jsx';
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt.jsx';
+import Onboarding from './pages/Onboarding.jsx';
+import { hasSeenOnboarding } from './hooks/useOnboardingState.js';
 
 // Layout
 import AppLayout from './components/layout/AppLayout.jsx';
@@ -51,6 +53,16 @@ const PublicRoute = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
   if (user) return <Navigate to="/dashboard" replace />;
   return children;
+};
+
+const RootRoute = () => {
+  const { user } = useSelector((state) => state.auth);
+
+  // Authenticated users and existing persisted sessions always bypass the
+  // marketing journey and land in the product they already know.
+  if (user) return <Navigate to="/dashboard" replace />;
+  if (hasSeenOnboarding()) return <Navigate to="/login" replace />;
+  return <Onboarding />;
 };
 
 const AdminRoute = ({ children }) => {
@@ -97,6 +109,7 @@ let _unsubscribeNotifs = null;
 
 function App() {
   const dispatch = useDispatch();
+  const location = useLocation();
   const [initializing, setInitializing] = useState(true);
 
   // Silently registers for FCM push notifications after login.
@@ -197,7 +210,8 @@ function App() {
 
   return (
     <>
-      <InstallPrompt />
+      {/* Let the first-run journey earn attention before offering installation. */}
+      {location.pathname !== '/' && <InstallPrompt />}
       <PwaUpdatePrompt />
       <Routes>
         {/* Public Routes */}
@@ -263,8 +277,8 @@ function App() {
           <Route path="flags" element={<AdminFeatureFlags />} />
         </Route>
 
-        {/* Redirect root to dashboard */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* New visitors see onboarding; returning/authenticated users bypass it. */}
+        <Route path="/" element={<RootRoute />} />
 
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
