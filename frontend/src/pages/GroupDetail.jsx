@@ -634,9 +634,9 @@ const GroupDetail = () => {
           )}
 
           {tab === 'logs' && (
-            <div className="glass-card p-6 lg:p-10">
-              <div className="flex items-center justify-between mb-10">
-                <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-widest font-inter">
+            <div className="glass-card rounded-[2rem] border border-white/[0.08] p-5 sm:p-7 lg:p-10">
+              <div className="mb-8 flex items-center justify-between gap-4 sm:mb-10">
+                <h3 className="text-sm font-semibold uppercase tracking-widest text-white/70 font-inter">
                   Recent Activity
                 </h3>
                 <ExportActions

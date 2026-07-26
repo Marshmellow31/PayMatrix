@@ -157,7 +157,7 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
 
   return (
     <>
-      <div className="space-y-6 relative before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-[1px] before:bg-outline-variant/10">
+      <div className="relative space-y-2 sm:space-y-3">
         {activities.map((activity, index) => {
           const isUpdate = activity.type === 'expense_updated';
           return (
@@ -166,10 +166,10 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="flex gap-4 relative z-10 group"
+              className="group relative z-10 flex items-start gap-3 rounded-2xl px-2 py-2.5 transition-colors hover:bg-white/[0.025] sm:gap-4 sm:px-3 sm:py-3"
             >
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border transition-all ${
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-all ${
                   isUpdate
                     ? 'bg-error/10 border-error/20 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
                     : 'bg-surface-container-high border-outline-variant/10'
@@ -177,10 +177,10 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
               >
                 {getIcon(activity.type)}
               </div>
-              <div className="flex flex-col gap-1 pt-1 flex-1 min-w-0">
+              <div className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5">
                 <div className="flex items-start justify-between gap-4 min-w-0">
                   <p
-                    className={`text-[13px] sm:text-sm font-inter leading-relaxed whitespace-normal break-words ${isUpdate ? 'text-error font-medium' : 'text-on-surface-variant'}`}
+                    className={`text-[13px] font-inter leading-relaxed whitespace-normal break-words sm:text-sm ${isUpdate ? 'font-medium text-error' : 'text-white/70'}`}
                   >
                     {typeof activity.message === 'string'
                       ? activity.message
@@ -196,7 +196,7 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
                   {activity.type === 'expense_deleted' && (
                     <button
                       onClick={() => handleRestore(activity.relatedId)}
-                      className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold text-primary transition-all border border-white/5 hover:border-primary/20 shrink-0"
+                      className="flex shrink-0 items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.05] px-3 py-1 text-[10px] font-bold text-white/70 transition-all hover:border-primary/20 hover:bg-white/10 hover:text-white"
                     >
                       <RotateCcw size={12} />
                       UNDO
@@ -206,7 +206,7 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
                   {activity.type === 'settlement_deleted' && (
                     <button
                       onClick={() => handleRestoreSettlement(activity.relatedId)}
-                      className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold text-primary transition-all border border-white/5 hover:border-primary/20 shrink-0"
+                      className="flex shrink-0 items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.05] px-3 py-1 text-[10px] font-bold text-white/70 transition-all hover:border-primary/20 hover:bg-white/10 hover:text-white"
                     >
                       <RotateCcw size={12} />
                       UNDO
@@ -223,7 +223,7 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
                     </button>
                   )}
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/40">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white/30">
                   {activity.createdAt ? format(new Date(activity.createdAt), 'MMM dd, HH:mm') : ''}
                 </span>
               </div>

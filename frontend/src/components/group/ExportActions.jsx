@@ -27,7 +27,7 @@ const ExportActions = ({ group, expenses, balances, logs = [], iconOnly = false 
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center justify-center rounded-xl bg-surface-container-high border border-outline-variant/10 text-on-surface hover:bg-surface-variant transition-all text-sm font-medium ${
+        className={`flex items-center justify-center rounded-full bg-surface-container-high border border-outline-variant/10 text-on-surface hover:bg-surface-variant transition-all text-sm font-medium ${
           iconOnly ? 'w-11 h-11 p-0' : 'gap-2 px-4 py-2 h-11'
         }`}
         title="Export Data"
