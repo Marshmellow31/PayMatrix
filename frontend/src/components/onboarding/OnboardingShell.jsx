@@ -19,7 +19,7 @@ const OnboardingShell = ({ children, step, onBack, onSkip, onSignIn }) => (
         </div>
       </header>
       <section className="min-h-0 flex-1 overflow-hidden py-3 sm:flex sm:items-center sm:justify-center sm:overflow-visible sm:py-14">{children}</section>
-      <p className="pb-1 text-center text-[9px] font-bold uppercase tracking-[0.16em] text-white/20 sm:pb-2 sm:text-[10px] sm:tracking-[0.2em]">Private by default · ready when your group is</p>
+      <p className="hidden pb-1 text-center text-[9px] font-bold uppercase tracking-[0.16em] text-white/20 sm:block sm:pb-2 sm:text-[10px] sm:tracking-[0.2em]">Private by default · ready when your group is</p>
     </div>
   </main>
 );
