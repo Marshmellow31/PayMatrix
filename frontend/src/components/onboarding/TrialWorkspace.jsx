@@ -9,7 +9,7 @@ const TrialWorkspace = ({ expenseAdded, onAddExpense, onContinue }) => {
   return (
     <div className="grid w-full max-w-6xl gap-4 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:gap-7">
       <div className="max-w-md">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-300/[0.07] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200"><Sparkles size={13} /> Try it with sample data</div>
+        <div className="mb-3 flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.16em] text-white/35 sm:text-[10px] sm:tracking-[0.18em]"><Sparkles size={13} className="text-emerald-300" /> Try it with sample data</div>
         <h1 className="font-manrope text-3xl font-black leading-[0.98] tracking-[-0.05em] sm:text-6xl">Add one expense.<br /><span className="text-white/35">Watch the split.</span></h1>
         <p className="mt-3 max-w-sm text-xs leading-5 text-white/50 sm:mt-5 sm:text-sm sm:leading-7">Tap the dinner below. You’ll see the exact moment PayMatrix turns a bill into a clear balance.</p>
         <button onClick={onContinue} className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/70 transition hover:border-white/25 hover:text-white sm:mt-7 sm:py-3 sm:text-xs">Next: see what’s included <ArrowRight size={15} /></button>
