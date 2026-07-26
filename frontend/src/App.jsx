@@ -57,10 +57,12 @@ const PublicRoute = ({ children }) => {
 
 const RootRoute = () => {
   const { user } = useSelector((state) => state.auth);
+  const location = useLocation();
 
   // Authenticated users and existing persisted sessions always bypass the
   // marketing journey and land in the product they already know.
   if (user) return <Navigate to="/dashboard" replace />;
+  if (new URLSearchParams(location.search).get('preview') === '1') return <Onboarding />;
   if (hasSeenOnboarding()) return <Navigate to="/login" replace />;
   return <Onboarding />;
 };
