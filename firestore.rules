@@ -69,6 +69,14 @@ service cloud.firestore {
         )
       ));
       allow delete: if false;
+
+      match /pushTokens/{installationId} {
+        allow read, delete: if isSignedIn() && request.auth.uid == userId;
+        allow create, update: if isSignedIn() && request.auth.uid == userId &&
+                              request.resource.data.keys().hasOnly(['token', 'platform', 'updatedAt']) &&
+                              isValidString(request.resource.data.get('token', ''), 4096) &&
+                              request.resource.data.get('platform', '') in ['web', 'android'];
+      }
     }
 
     // ─── Log Groups (shared spending timelines — e.g. "Parents") ───────────────

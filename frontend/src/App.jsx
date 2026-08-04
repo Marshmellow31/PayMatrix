@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './config/firebase.js';
 import { setUser } from './redux/authSlice.js';
@@ -10,38 +10,36 @@ import Loader from './components/common/Loader.jsx';
 import { usePushNotifications } from './hooks/usePushNotifications.js';
 import InstallPrompt from './components/common/InstallPrompt.jsx';
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt.jsx';
-import Onboarding from './pages/Onboarding.jsx';
 import { hasSeenOnboarding } from './hooks/useOnboardingState.js';
+import { isNativeRuntime } from '#paymatrix-runtime';
+import { useNativeAppBridge } from './platform/useNativeAppBridge.js';
 
 // Layout
-import AppLayout from './components/layout/AppLayout.jsx';
-
-// Admin
-import AdminLayout from './pages/admin/AdminLayout.jsx';
-import AdminDashboard from './pages/admin/AdminDashboard.jsx';
-import AdminUsers from './pages/admin/AdminUsers.jsx';
-import AdminGroups from './pages/admin/AdminGroups.jsx';
-import AdminNotifications from './pages/admin/AdminNotifications.jsx';
-import AdminAnalytics from './pages/admin/AdminAnalytics.jsx';
-import AdminSecurityLogs from './pages/admin/AdminSecurityLogs.jsx';
-import AdminFeatureFlags from './pages/admin/AdminFeatureFlags.jsx';
-import AdminAiScans from './pages/admin/AdminAiScans.jsx';
-
-// Pages
-import Login from './pages/Login.jsx';
-import Register from './pages/Register.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import Groups from './pages/Groups.jsx';
-import GroupDetail from './pages/GroupDetail.jsx';
-import AddExpense from './pages/AddExpense.jsx';
-import Activity from './pages/Activity.jsx';
-import Profile from './pages/Profile.jsx';
-import Analytics from './pages/Analytics.jsx';
-import JoinGroup from './pages/JoinGroup.jsx';
-import Friends from './pages/Friends.jsx';
-import LogGroups from './pages/LogGroups.jsx';
-import LogGroupDetail from './pages/LogGroupDetail.jsx';
-import NotFound from './pages/NotFound.jsx';
+const AppLayout = lazy(() => import('./components/layout/AppLayout.jsx'));
+const Onboarding = lazy(() => import('./pages/Onboarding.jsx'));
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout.jsx'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard.jsx'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers.jsx'));
+const AdminGroups = lazy(() => import('./pages/admin/AdminGroups.jsx'));
+const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications.jsx'));
+const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics.jsx'));
+const AdminSecurityLogs = lazy(() => import('./pages/admin/AdminSecurityLogs.jsx'));
+const AdminFeatureFlags = lazy(() => import('./pages/admin/AdminFeatureFlags.jsx'));
+const AdminAiScans = lazy(() => import('./pages/admin/AdminAiScans.jsx'));
+const Login = lazy(() => import('./pages/Login.jsx'));
+const Register = lazy(() => import('./pages/Register.jsx'));
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const Groups = lazy(() => import('./pages/Groups.jsx'));
+const GroupDetail = lazy(() => import('./pages/GroupDetail.jsx'));
+const AddExpense = lazy(() => import('./pages/AddExpense.jsx'));
+const Activity = lazy(() => import('./pages/Activity.jsx'));
+const Profile = lazy(() => import('./pages/Profile.jsx'));
+const Analytics = lazy(() => import('./pages/Analytics.jsx'));
+const JoinGroup = lazy(() => import('./pages/JoinGroup.jsx'));
+const Friends = lazy(() => import('./pages/Friends.jsx'));
+const LogGroups = lazy(() => import('./pages/LogGroups.jsx'));
+const LogGroupDetail = lazy(() => import('./pages/LogGroupDetail.jsx'));
+const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
@@ -62,6 +60,7 @@ const RootRoute = () => {
   // Authenticated users and existing persisted sessions always bypass the
   // marketing journey and land in the product they already know.
   if (user) return <Navigate to="/dashboard" replace />;
+  if (isNativeRuntime()) return <Navigate to="/login" replace />;
   if (new URLSearchParams(location.search).get('preview') === '1') return <Onboarding />;
   if (hasSeenOnboarding()) return <Navigate to="/login" replace />;
   return <Onboarding />;
@@ -113,6 +112,9 @@ function App() {
   const dispatch = useDispatch();
   const location = useLocation();
   const [initializing, setInitializing] = useState(true);
+  const nativeRuntime = isNativeRuntime();
+
+  useNativeAppBridge();
 
   // Silently registers for FCM push notifications after login.
   // Saves the device token to Firestore so Cloud Functions can target it.
@@ -213,9 +215,16 @@ function App() {
   return (
     <>
       {/* Let the first-run journey earn attention before offering installation. */}
-      {location.pathname !== '/' && <InstallPrompt />}
-      <PwaUpdatePrompt />
-      <Routes>
+      {!nativeRuntime && location.pathname !== '/' && <InstallPrompt />}
+      {!nativeRuntime && <PwaUpdatePrompt />}
+      <Suspense
+        fallback={
+          <div className="fixed inset-0 flex items-center justify-center bg-background">
+            <Loader size="lg" />
+          </div>
+        }
+      >
+        <Routes>
         {/* Public Routes */}
         <Route
           path="/login"
@@ -284,7 +293,8 @@ function App() {
 
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </>
   );
 }

@@ -14,6 +14,8 @@ import { useState, useCallback } from 'react';
 import { db, auth } from '../config/firebase.js';
 import { collection, addDoc } from 'firebase/firestore';
 
+const SCAN_API_URL = import.meta.env.VITE_SCAN_API_URL || '/api/scan-bill';
+
 // ─── Image helpers ────────────────────────────────────────────────────────────
 
 const loadImage = (file) =>
@@ -74,11 +76,15 @@ export const useBillScanner = () => {
     try {
       const fileArray = Array.isArray(files) ? files : [files];
       const processedImages = await Promise.all(fileArray.map((f) => fileToCompressedBase64(f)));
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Sign in before scanning a bill.');
+      const idToken = await currentUser.getIdToken();
 
-      const response = await fetch('/api/scan-bill', {
+      const response = await fetch(SCAN_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
         },
         body: JSON.stringify({ images: processedImages }),
       });
@@ -116,7 +122,7 @@ export const useBillScanner = () => {
           parsedAmount: parsed?.amount ?? null,
           itemsCount: parsed?.items?.length ?? 0,
           error: errorMsg ?? null,
-          model: 'gemini-2.0-flash-lite',
+          model: 'gemini-3.1-flash-lite',
         }).catch((e) => console.error('[useBillScanner] Failed to write ai_requests log:', e));
       }
 

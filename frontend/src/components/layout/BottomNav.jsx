@@ -11,7 +11,7 @@ const navItems = [
 
 const BottomNav = () => {
   return (
-    <nav className="lg:hidden fixed bottom-6 left-0 right-0 z-50 px-6">
+    <nav className="paymatrix-bottom-nav lg:hidden fixed bottom-6 left-0 right-0 z-50 px-6">
       <div className="glass-pill h-16 flex items-center justify-around px-2 relative">
         {navItems.map((item) => (
           <NavLink

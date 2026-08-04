@@ -3,6 +3,8 @@ import { ArrowRight, Fingerprint, ShieldCheck, Sparkles, Users, Zap } from 'luci
 import { useNavigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth.js';
 import toast from 'react-hot-toast';
+import NativeLogin from './NativeLogin.jsx';
+import { isNativeRuntime } from '#paymatrix-runtime';
 
 const GoogleIcon = () => (
   <svg
@@ -67,6 +69,10 @@ const Login = () => {
       toast.error(result.payload || 'Google login failed');
     }
   };
+
+  if (isNativeRuntime()) {
+    return <NativeLogin loading={loading} onGoogleLogin={handleGoogleLogin} />;
+  }
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#0e0e0e] text-white">

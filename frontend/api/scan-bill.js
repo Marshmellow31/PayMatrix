@@ -1,4 +1,42 @@
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
+const ALLOWED_ORIGINS = new Set([
+  "https://pay-matrix.vercel.app",
+  "https://localhost",
+]);
+const MAX_IMAGES = 4;
+const MAX_TOTAL_BASE64_LENGTH = 12_000_000;
+
+const setCorsHeaders = (request, response) => {
+  const origin = request.headers.origin;
+  if (ALLOWED_ORIGINS.has(origin)) {
+    response.setHeader("Access-Control-Allow-Origin", origin);
+    response.setHeader("Vary", "Origin");
+  }
+  response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+};
+
+const verifyFirebaseUser = async (request) => {
+  const authorization = request.headers.authorization || "";
+  const idToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!idToken) return null;
+
+  const apiKey = process.env.FIREBASE_WEB_API_KEY || process.env.VITE_FIREBASE_API_KEY;
+  if (!apiKey) throw new Error("Firebase token verification is not configured.");
+
+  const verifyResponse = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    },
+  );
+  if (!verifyResponse.ok) return null;
+
+  const payload = await verifyResponse.json();
+  return payload.users?.[0] || null;
+};
 
 const RECEIPT_SCHEMA = {
   type: "OBJECT",
@@ -37,13 +75,33 @@ const RECEIPT_PROMPT = [
 ].join("\n");
 
 export default async function handler(request, response) {
+  setCorsHeaders(request, response);
+  if (request.method === "OPTIONS") return response.status(204).end();
+
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Method not allowed' });
   }
 
+  try {
+    const firebaseUser = await verifyFirebaseUser(request);
+    if (!firebaseUser) return response.status(401).json({ error: "Authentication required." });
+  } catch (error) {
+    console.error("[scan-bill] auth verification failed:", error.message);
+    return response.status(503).json({ error: "Authentication service is unavailable." });
+  }
+
   const { images } = request.body || {};
-  if (!images || !Array.isArray(images) || images.length === 0) {
-    return response.status(400).json({ error: "images array is required." });
+  if (!Array.isArray(images) || images.length === 0 || images.length > MAX_IMAGES) {
+    return response.status(400).json({ error: `Provide between 1 and ${MAX_IMAGES} images.` });
+  }
+
+  const totalBase64Length = images.reduce((total, image) => total + (image?.base64?.length || 0), 0);
+  const invalidImage = images.some((image) =>
+    typeof image?.base64 !== "string" ||
+    !["image/jpeg", "image/png", "image/webp"].includes(image?.mimeType || "image/jpeg")
+  );
+  if (invalidImage || totalBase64Length > MAX_TOTAL_BASE64_LENGTH) {
+    return response.status(413).json({ error: "Image payload is invalid or too large." });
   }
 
   const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
@@ -106,6 +164,6 @@ export default async function handler(request, response) {
     return response.status(200).json(parsed);
   } catch (err) {
     console.error("[scan-bill] error:", err);
-    return response.status(500).json({ error: err.message || "Bill scanning failed." });
+    return response.status(500).json({ error: "Bill scanning failed. Please try again." });
   }
 }

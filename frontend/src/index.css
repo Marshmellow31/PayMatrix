@@ -327,3 +327,54 @@
     box-shadow: 0 0 20px rgba(99, 102, 241, 0.05);
   }
 }
+
+html.native-runtime {
+  scroll-behavior: auto;
+  background: #0e0e0e;
+}
+
+body.native-runtime {
+  min-height: 100dvh;
+  background: #0e0e0e;
+  overscroll-behavior: none;
+}
+
+.native-runtime [class*='backdrop-blur'],
+.native-runtime .glass-card,
+.native-runtime .glass-panel,
+.native-runtime .glass-pill,
+.native-runtime .gemini-animated-border,
+.native-runtime .gemini-animated-border-input {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.native-runtime .native-login {
+  padding-top: max(18px, env(safe-area-inset-top));
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  padding-left: env(safe-area-inset-left);
+}
+
+.native-runtime .paymatrix-bottom-nav {
+  bottom: 0;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+}
+
+.native-runtime .native-modal-shell {
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  padding-left: max(16px, env(safe-area-inset-left));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .native-runtime *,
+  .native-runtime *::before,
+  .native-runtime *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

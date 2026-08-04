@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiX } from 'react-icons/hi';
+import { registerBackHandler } from '../../platform/backNavigation.js';
 
 const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
   const [mounted, setMounted] = useState(false);
@@ -20,6 +21,14 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    return registerBackHandler(() => {
+      onClose();
+      return true;
+    }, 100);
+  }, [isOpen, onClose]);
+
   if (!mounted) return null;
   const sizes = {
     sm: 'max-w-sm',
@@ -35,7 +44,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 native-modal-shell">
           {/* Backdrop */}
           <motion.div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"

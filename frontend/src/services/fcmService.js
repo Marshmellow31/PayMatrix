@@ -10,10 +10,30 @@
  */
 
 import { getToken, onMessage, deleteToken as fbDeleteToken } from 'firebase/messaging';
-import { doc, updateDoc, deleteField } from 'firebase/firestore';
+import { deleteDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { messaging, db, auth } from '../config/firebase.js';
+import {
+  addNativePushReceivedListener,
+  deleteNativePushToken,
+  isNativeRuntime,
+  requestNativePushToken,
+} from '#paymatrix-runtime';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+const INSTALLATION_ID_KEY = 'paymatrix_push_installation_id_v1';
+
+const getInstallationId = () => {
+  const existing = localStorage.getItem(INSTALLATION_ID_KEY);
+  if (existing) return existing;
+
+  const id = globalThis.crypto?.randomUUID?.() ||
+    `install-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  localStorage.setItem(INSTALLATION_ID_KEY, id);
+  return id;
+};
+
+const getTokenDocument = (uid) =>
+  doc(db, 'users', uid, 'pushTokens', getInstallationId());
 
 const fcmService = {
   /**
@@ -21,6 +41,7 @@ const fcmService = {
    * Gracefully returns false on unsupported browsers.
    */
   isSupported: () => {
+    if (isNativeRuntime()) return true;
     return (
       typeof window !== 'undefined' &&
       'Notification' in window &&
@@ -39,6 +60,12 @@ const fcmService = {
     if (!fcmService.isSupported()) {
       console.log('[FCM] Push notifications not supported in this browser.');
       return null;
+    }
+
+    if (isNativeRuntime()) {
+      const token = await requestNativePushToken();
+      if (token) await fcmService.saveTokenToFirestore(token);
+      return token;
     }
 
     // Don't re-prompt if the user has already made a decision
@@ -78,15 +105,19 @@ const fcmService = {
   },
 
   /**
-   * Persists the FCM token to `users/{uid}.fcmToken` in Firestore.
-   * The Cloud Function reads this field to target the push.
+   * Persists one token per browser/app installation so Android, web, and
+   * multiple devices can all receive notifications for the same account.
    */
   saveTokenToFirestore: async (token) => {
     const uid = auth.currentUser?.uid;
     if (!uid || !token) return;
 
     try {
-      await updateDoc(doc(db, 'users', uid), { fcmToken: token });
+      await setDoc(getTokenDocument(uid), {
+        token,
+        platform: isNativeRuntime() ? 'android' : 'web',
+        updatedAt: serverTimestamp(),
+      });
     } catch (error) {
       console.error('[FCM] Failed to save token to Firestore:', error.message);
     }
@@ -99,9 +130,10 @@ const fcmService = {
   deleteToken: async () => {
     const uid = auth.currentUser?.uid;
     try {
-      await fbDeleteToken(messaging);
+      if (isNativeRuntime()) await deleteNativePushToken();
+      else await fbDeleteToken(messaging);
       if (uid) {
-        await updateDoc(doc(db, 'users', uid), { fcmToken: deleteField() });
+        await deleteDoc(getTokenDocument(uid));
       }
       console.log('[FCM] Token deleted on logout.');
     } catch (error) {
@@ -118,6 +150,18 @@ const fcmService = {
    * @returns {function} Unsubscribe function — call on component unmount.
    */
   onForegroundMessage: (callback) => {
+    if (isNativeRuntime()) {
+      let disposed = false;
+      let remove = () => {};
+      addNativePushReceivedListener(callback).then((listenerCleanup) => {
+        if (disposed) listenerCleanup();
+        else remove = listenerCleanup;
+      });
+      return () => {
+        disposed = true;
+        remove();
+      };
+    }
     return onMessage(messaging, callback);
   },
 };

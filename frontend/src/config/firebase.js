@@ -8,6 +8,7 @@ import {
 import { getStorage } from 'firebase/storage';
 import { getMessaging } from 'firebase/messaging';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
+import { isNativeRuntime } from '#paymatrix-runtime';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -27,7 +28,7 @@ const db = initializeFirestore(app, {
 });
 const storage = getStorage(app);
 // messaging is only initialized in browser context (not in the service worker)
-const messaging = getMessaging(app);
+const messaging = isNativeRuntime() ? null : getMessaging(app);
 // Callable Cloud Functions (e.g. scanBill — Gemini receipt parsing)
 const functions = getFunctions(app);
 

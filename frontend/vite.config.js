@@ -1,11 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-export default defineConfig({
-  plugins: [
-    react(),
-    VitePWA({
+const configDir = path.dirname(fileURLToPath(import.meta.url));
+
+const createPwaPlugin = () =>
+  VitePWA({
       // injectManifest: Workbox injects the precache manifest into our custom sw.js.
       // This is required to add FCM push event handling while keeping all
       // offline caching behaviour (precaching, SPA fallback, Fonts) intact.
@@ -57,9 +59,43 @@ export default defineConfig({
         enabled: false,
         type: 'module',
       },
-    }),
-  ],
-  server: {
+  });
+
+const androidIndexPlugin = {
+  name: 'paymatrix-android-index',
+  transformIndexHtml(html) {
+    return html
+      .replace(/\s*<link rel="preconnect" href="https:\/\/fonts\.googleapis\.com" \/>/, '')
+      .replace(
+        /\s*<link rel="preconnect" href="https:\/\/fonts\.gstatic\.com" crossorigin \/>/,
+        ''
+      )
+      .replace(/\s*<link href="https:\/\/fonts\.googleapis\.com\/[^\"]+" rel="stylesheet" \/>/, '');
+  },
+};
+
+export default defineConfig(({ mode }) => {
+  const isAndroid = mode === 'android';
+  const runtimeAdapter = isAndroid
+    ? path.resolve(configDir, '../android app/src/platform/androidRuntime.js')
+    : path.resolve(configDir, 'src/platform/webRuntime.js');
+
+  return {
+    plugins: [react(), ...(isAndroid ? [androidIndexPlugin] : [createPwaPlugin()])],
+    resolve: {
+      alias: {
+        '#paymatrix-runtime': runtimeAdapter,
+        ...(isAndroid
+          ? {
+              'virtual:pwa-register/react': path.resolve(
+                configDir,
+                'src/platform/nativePwaRegister.js'
+              ),
+            }
+          : {}),
+      },
+    },
+    server: {
     port: 5145,
     host: true,
     allowedHosts: true,
@@ -72,10 +108,11 @@ export default defineConfig({
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
     },
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: false,
-  },
-  // Test configuration lives in vitest.config.js to avoid loading PWA plugins in Node.
+    },
+    build: {
+      outDir: 'dist',
+      sourcemap: false,
+    },
+    // Test configuration lives in vitest.config.js to avoid loading PWA plugins in Node.
+  };
 });

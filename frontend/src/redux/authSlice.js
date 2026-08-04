@@ -1,7 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import authService from '../services/authService.js';
-import { auth } from '../config/firebase.js';
-import { signOut } from 'firebase/auth';
 import { clearSummaryCache } from '../services/expenseService.js';
 import { clearUserCache } from '../services/groupService.js';
 
@@ -76,7 +74,7 @@ const authSlice = createSlice({
       // Clear in-memory service caches so stale PII doesn't leak to the next user
       clearSummaryCache();
       clearUserCache();
-      signOut(auth).catch(console.error);
+      authService.signOut().catch(console.error);
     },
     clearError: (state) => {
       state.error = null;

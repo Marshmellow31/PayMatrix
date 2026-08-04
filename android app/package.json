@@ -1,0 +1,36 @@
+{
+  "name": "paymatrix-android",
+  "private": true,
+  "version": "1.2.0",
+  "description": "Native Android shell and release tooling for PayMatrix",
+  "scripts": {
+    "doctor": "node scripts/doctor.mjs",
+    "web:build": "node scripts/build-web.mjs",
+    "web:validate": "node scripts/validate-web.mjs",
+    "android:sync": "npm run web:build && npm run web:validate && cap sync android",
+    "android:open": "cap open android",
+    "android:run": "npm run android:sync && cap run android",
+    "android:apk": "npm run android:sync && node scripts/gradle.mjs assembleDebug",
+    "android:aab": "npm run android:sync && node scripts/gradle.mjs bundleRelease",
+    "android:signing-report": "node scripts/gradle.mjs signingReport"
+  },
+  "dependencies": {
+    "@capacitor-firebase/authentication": "8.3.0",
+    "@capacitor-firebase/messaging": "8.3.0",
+    "@capacitor/android": "8.5.0",
+    "@capacitor/app": "8.1.1",
+    "@capacitor/core": "8.5.0",
+    "@capacitor/haptics": "8.0.2",
+    "@capacitor/keyboard": "8.0.5",
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "8.0.3",
+    "firebase": "12.11.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

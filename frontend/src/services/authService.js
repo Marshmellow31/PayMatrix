@@ -1,18 +1,42 @@
 import { auth, db } from '../config/firebase.js';
 import {
   signInWithPopup,
+  signInWithCredential,
+  signOut as firebaseSignOut,
   GoogleAuthProvider,
   updateProfile as updateFirebaseProfile,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import loggingService from './loggingService.js';
+import {
+  isNativeRuntime,
+  signInWithGoogleNative,
+  signOutNative,
+} from '#paymatrix-runtime';
 
 const googleProvider = new GoogleAuthProvider();
 
 const authService = {
   googleAuth: async () => {
     try {
-      const userCredential = await signInWithPopup(auth, googleProvider);
+      let userCredential;
+
+      if (isNativeRuntime()) {
+        const nativeResult = await signInWithGoogleNative();
+        const nativeCredential = nativeResult.credential;
+        if (!nativeCredential?.idToken) {
+          throw new Error('Google did not return an identity token. Check the Android Firebase configuration.');
+        }
+
+        const credential = GoogleAuthProvider.credential(
+          nativeCredential.idToken,
+          nativeCredential.accessToken || null
+        );
+        userCredential = await signInWithCredential(auth, credential);
+      } else {
+        userCredential = await signInWithPopup(auth, googleProvider);
+      }
+
       let user = userCredential.user;
 
       // Force-reload to get the absolute latest Google profile data
@@ -77,6 +101,13 @@ const authService = {
       });
       throw error;
     }
+  },
+
+  signOut: async () => {
+    if (isNativeRuntime()) {
+      await signOutNative().catch(() => {});
+    }
+    await firebaseSignOut(auth);
   },
 
   getMe: async () => {

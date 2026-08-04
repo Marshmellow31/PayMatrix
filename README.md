@@ -14,6 +14,13 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 > [!NOTE]
 > This README is intentionally exhaustive: it documents every feature, how it works internally, the data model, the security model, and how to run the project. If you are evaluating the code, also read [`SECURITY_AND_CODE_REVIEW.md`](./SECURITY_AND_CODE_REVIEW.md) — it lists known security issues and a prioritised improvement plan.
 
+> [!WARNING]
+> **Work in progress: native Android app.** The separate Capacitor/Android project lives in
+> [`android app/`](./android%20app/); the existing React PWA remains in [`frontend/`](./frontend/)
+> and its Vercel configuration is unchanged. Android source and its release notes are ready for
+> device testing, but it is not yet a Play Store release. The current debug APK is a local build
+> artifact and is intentionally not committed.
+
 [**🌐 Live app**](https://pay-matrix.vercel.app/)
 
 ---
@@ -338,6 +345,10 @@ PayMatrix/
 │   │   └── utils/                # balanceEngine, upiUtils, exportUtils, formatCurrency …
 │   ├── .env.example
 │   └── vercel.json               # SPA rewrites + security headers
+├── android app/                   # WIP native Android wrapper (kept separate from the PWA)
+│   ├── android/                   # Capacitor-generated Gradle project
+│   ├── docs/                      # Setup, Firebase, test, and release guides
+│   └── README.md                  # Native build commands and required local files
 ├── functions/
 │   └── index.js                  # Cloud Functions: push, admin ops, Gemini scan, notifications
 ├── scripts/                      # Admin/maintenance node scripts (set-admin, broadcast, …)
@@ -382,6 +393,32 @@ firebase deploy --only functions
 firebase deploy --only firestore:rules            # publish security rules
 ```
 
+### Native Android app (work in progress)
+
+The Android wrapper is deliberately isolated in [`android app/`](./android%20app/), so web/PWA
+development and Vercel deployment continue to use `frontend/` unchanged. It uses native Android
+Google account selection rather than the web login popup, supports Android system Back navigation,
+and is built through Gradle/Capacitor for the device refresh rate.
+
+```powershell
+cd "android app"
+npm ci
+npm run doctor
+npm run android:apk
+```
+
+The test APK is generated locally at
+`android app/android/app/build/outputs/apk/debug/app-debug.apk`. It is ignored by Git along with
+keystores, `google-services.json`, generated Gradle files, and build output. Follow
+[`android app/README.md`](./android%20app/README.md) and its numbered docs for device setup.
+
+**Firebase Spark-plan status:** native Google sign-in and Firestore work with the existing Firebase
+project. Cloud Functions cannot be newly deployed on the Spark plan, so Android native push delivery
+remains a future release item. The bill scanner uses the existing Vercel endpoint. Its Android CORS
+and Firebase-token checks are committed in this branch, but the endpoint must be deployed through
+the existing Vercel project before bill scanning works from the APK. This branch does not modify
+`frontend/vercel.json` or deploy Vercel production.
+
 ### Granting yourself admin
 
 ```bash
@@ -417,6 +454,8 @@ Client variables are prefixed `VITE_` and are **compiled into the browser bundle
 - **Frontend + `/api`:** deployed to **Vercel** (SPA rewrites and security headers live in `frontend/vercel.json`). Set `GEMINI_API_KEY` and all `VITE_*` variables in the Vercel dashboard.
 - **Functions & rules:** deployed to **Firebase** (`firebase deploy --only functions,firestore:rules`).
 - `.firebaserc` / `firebase.json` pin the Firebase project.
+- **Android WIP branch:** building and pushing the Android workspace does not alter the Vercel
+  project. Deploy the Vercel project separately when the bill-scanner endpoint update is ready.
 
 ---
 
