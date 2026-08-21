@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Keyboard } from '@capacitor/keyboard';
@@ -6,6 +6,8 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import { FirebaseMessaging } from '@capacitor-firebase/messaging';
+
+const NativeUpi = registerPlugin('NativeUpi');
 
 export const isNativeRuntime = () =>
   Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
@@ -16,6 +18,8 @@ export const signInWithGoogleNative = () =>
 export const signOutNative = () => FirebaseAuthentication.signOut();
 
 export const minimizeNativeApp = () => App.minimizeApp();
+
+export const payWithGooglePayNative = (payment) => NativeUpi.payWithGooglePay(payment);
 
 export const performNativeHaptic = async (kind = 'light') => {
   const styles = {

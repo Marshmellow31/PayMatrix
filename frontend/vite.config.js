@@ -112,6 +112,37 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: false,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined;
+            if (id.includes('/firebase/') || id.includes('\\firebase\\')) return 'vendor-firebase';
+            if (id.includes('/framer-motion/') || id.includes('\\framer-motion\\')) {
+              return 'vendor-motion';
+            }
+            if (
+              id.includes('/chart.js/') ||
+              id.includes('\\chart.js\\') ||
+              id.includes('/react-chartjs-2/') ||
+              id.includes('\\react-chartjs-2\\')
+            ) {
+              return 'vendor-charts';
+            }
+            if (
+              id.includes('/jspdf/') ||
+              id.includes('\\jspdf\\') ||
+              id.includes('/jspdf-autotable/') ||
+              id.includes('\\jspdf-autotable\\')
+            ) {
+              return 'vendor-pdf';
+            }
+            if (id.includes('/qrcode.react/') || id.includes('\\qrcode.react\\')) {
+              return 'vendor-qr';
+            }
+            return undefined;
+          },
+        },
+      },
     },
     // Test configuration lives in vitest.config.js to avoid loading PWA plugins in Node.
   };

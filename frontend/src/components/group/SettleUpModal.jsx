@@ -15,6 +15,7 @@ import expenseService from '../../services/expenseService.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { getUPIQRValue, hasPaymentMethod } from '../../utils/upiUtils.js';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags.js';
+import { isNativeRuntime, payWithGooglePayNative } from '#paymatrix-runtime';
 import Avatar from '../common/Avatar.jsx';
 import { getShortName } from '../../utils/nameUtils.js';
 
@@ -44,6 +45,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
   const [memberPaymentDetails, setMemberPaymentDetails] = useState({});
   const [fetchingPayments, setFetchingPayments] = useState(false);
   const [qrModal, setQrModal] = useState(null);
+  const [directUpiTestId, setDirectUpiTestId] = useState(null);
   const qrCanvasRef = useRef(null);
 
   // Navigation: 'main' | 'custom'
@@ -191,6 +193,35 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
         upiId: receiverDetails?.upiId || '',
       },
     });
+  };
+
+  const handleGooglePayDirectTest = async (debt, receiverDetails) => {
+    const member = getMemberObj(debt.to);
+    const receiverName = receiverDetails?.name || member?.name || 'Group Member';
+    const receiverUpiId = receiverDetails?.upiId || '';
+    const amount = parseFloat(debt.amount || 0).toFixed(2);
+
+    setDirectUpiTestId(debt.to);
+    try {
+      const result = await payWithGooglePayNative({
+        payeeAddress: receiverUpiId,
+        payeeName: receiverName,
+        amount,
+        note: `PayMatrix settlement to ${receiverName}`.substring(0, 80),
+        transactionRef: `PMX${Date.now()}`,
+      });
+
+      toast.success(
+        result?.completed
+          ? 'Google Pay returned success. Verify in GPay/bank before marking paid.'
+          : 'Returned from Google Pay. Check whether it blocked, cancelled, or submitted.'
+      );
+    } catch (error) {
+      toast.error(error?.message || 'Google Pay direct test could not be launched');
+      console.warn('PayMatrix Google Pay direct test failed', error);
+    } finally {
+      setDirectUpiTestId(null);
+    }
   };
 
   // Save the QR to the device. A web app/PWA cannot silently write to the photo
@@ -471,24 +502,46 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                                       </Button>
                                     </div>
                                     {flags.upiDeepLinks && (
-                                      <button
-                                        disabled={
-                                          processing || !receiverHasPayment || fetchingPayments
-                                        }
-                                        onClick={() => handleUPIPay(debt, receiverDetails)}
-                                        title={
-                                          receiverHasPayment
-                                            ? `Pay ${receiverUser.name} via UPI`
-                                            : `${receiverUser.name} has not added a UPI ID`
-                                        }
-                                        className={`w-full h-11 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border ${
-                                          receiverHasPayment && !fetchingPayments
-                                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
-                                            : 'bg-white/[0.03] border-white/5 text-white/20 opacity-40 cursor-not-allowed grayscale'
-                                        }`}
-                                      >
-                                        <LucideIcons.Smartphone size={14} /> Pay via UPI
-                                      </button>
+                                      <div className="grid gap-2">
+                                        <button
+                                          disabled={
+                                            processing || !receiverHasPayment || fetchingPayments
+                                          }
+                                          onClick={() => handleUPIPay(debt, receiverDetails)}
+                                          title={
+                                            receiverHasPayment
+                                              ? `Pay ${receiverUser.name} via UPI`
+                                              : `${receiverUser.name} has not added a UPI ID`
+                                          }
+                                          className={`w-full h-11 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border ${
+                                            receiverHasPayment && !fetchingPayments
+                                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
+                                              : 'bg-white/[0.03] border-white/5 text-white/20 opacity-40 cursor-not-allowed grayscale'
+                                          }`}
+                                        >
+                                          <LucideIcons.Smartphone size={14} /> Pay via UPI
+                                        </button>
+                                        {isNativeRuntime() && (
+                                          <button
+                                            disabled={
+                                              processing ||
+                                              !receiverHasPayment ||
+                                              fetchingPayments ||
+                                              directUpiTestId === debt.to
+                                            }
+                                            onClick={() =>
+                                              handleGooglePayDirectTest(debt, receiverDetails)
+                                            }
+                                            title="Experimental P2P test: opens Google Pay directly with this personal UPI ID"
+                                            className="w-full h-10 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border bg-blue-500/10 border-blue-500/20 text-blue-300 hover:bg-blue-500/20 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                                          >
+                                            <LucideIcons.FlaskConical size={13} />
+                                            {directUpiTestId === debt.to
+                                              ? 'Testing GPay'
+                                              : 'Test GPay Direct'}
+                                          </button>
+                                        )}
+                                      </div>
                                     )}
                                   </div>
                                 )}
