@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">PayMatrix</string>
-    <string name="title_activity_main">PayMatrix</string>
+    <string name="app_name">paymatrix</string>
+    <string name="title_activity_main">paymatrix</string>
     <string name="package_name">com.paymatrix.app</string>
     <string name="custom_url_scheme">com.paymatrix.app</string>
 </resources>

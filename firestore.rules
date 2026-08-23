@@ -40,6 +40,16 @@ service cloud.firestore {
       return val is int && val > 0 && val <= 100000000;
     }
 
+    // Existing PayMatrix records predate the integer-paise migration. A
+    // status-only audited mutation (delete/restore) may preserve that legacy
+    // amount, while every financial edit must supply a valid amountPaise.
+    function hasValidExpenseAmountAfterUpdate() {
+      return isValidPaise(request.resource.data.get('amountPaise', 0)) ||
+             (!('amountPaise' in resource.data) &&
+              request.resource.data.get('amount', 0) == resource.data.get('amount', 0) &&
+              isValidAmount(resource.data.get('amount', 0)));
+    }
+
     function groupData(groupId) {
       return get(/databases/$(database)/documents/groups/$(groupId)).data;
     }
@@ -263,7 +273,7 @@ service cloud.firestore {
         allow update: if isMember(groupId) &&
                       isValidString(request.resource.data.get('title', ''), 100) &&
                       (request.resource.data.get('amount', 0) == 0 || isValidAmount(request.resource.data.amount)) &&
-                      isValidPaise(request.resource.data.amountPaise) &&
+                      hasValidExpenseAmountAfterUpdate() &&
                       request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                         'title', 'description', 'amount', 'amountPaise', 'currency', 'date',
                         'splitType', 'splitData', 'participants', 'category', 'attachments',
@@ -272,7 +282,7 @@ service cloud.firestore {
                       ]) &&
                       request.resource.data.get('createdBy', request.resource.data.get('admin', '')) == resource.data.get('createdBy', resource.data.get('admin', '')) &&
                       request.resource.data.get('paidBy', '') == resource.data.get('paidBy', '') &&
-                      request.resource.data.get('groupId', '') == groupId &&
+                      request.resource.data.get('groupId', groupId) == groupId &&
                       request.resource.data.get('participants', []).hasOnly(groupData(groupId).get('members', [])) &&
                       request.resource.data.get('splitUserIds', []).hasOnly(groupData(groupId).get('members', [])) &&
                       request.resource.data.get('lastEditedBy', '') == request.auth.uid &&
@@ -369,10 +379,24 @@ service cloud.firestore {
                     request.resource.data.to != request.auth.uid &&
                     request.resource.data.get('status', '') == 'pending' &&
                     request.resource.data.keys().hasOnly(['from', 'to', 'status', 'createdAt']);
-      allow update: if isSignedIn() && request.auth.uid == resource.data.to &&
-                    resource.data.get('status', '') == 'pending' &&
-                    request.resource.data.get('status', '') in ['accepted', 'rejected'] &&
-                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt']);
+      allow update: if isSignedIn() && (
+                    (request.auth.uid == resource.data.to &&
+                     resource.data.get('status', '') == 'pending' &&
+                     request.resource.data.get('status', '') in ['accepted', 'rejected'] &&
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt'])) ||
+                    // The original sender may securely re-send a deterministic
+                    // request after it was rejected or after a friendship was
+                    // removed. Identities remain immutable.
+                    (request.auth.uid == resource.data.get('from', '') &&
+                     requestId == resource.data.get('from', '') + '_' + resource.data.get('to', '') &&
+                     resource.data.get('status', '') in ['accepted', 'rejected'] &&
+                     request.resource.data.get('from', '') == resource.data.get('from', '') &&
+                     request.resource.data.get('to', '') == resource.data.get('to', '') &&
+                     request.resource.data.get('status', '') == 'pending' &&
+                     request.resource.data.keys().hasOnly(['from', 'to', 'status', 'createdAt']) &&
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                       'status', 'createdAt', 'respondedAt'
+                     ])));
     }
 
     // ─── Notifications ────────────────────────────────────────────────────────

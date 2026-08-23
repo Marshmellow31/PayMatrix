@@ -437,7 +437,7 @@ const Profile = () => {
                   <div className="flex flex-col">
                     <span className="text-sm font-bold text-white/60 font-inter">App Version</span>
                     <span className="text-[10px] text-white/30 font-inter">
-                      v1.2.1 (Build 10201)
+                      v1.2.2 (Build 10202)
                     </span>
                   </div>
                   <button
@@ -754,7 +754,7 @@ const Profile = () => {
 
               <div className="space-y-2 shrink-0">
                 <h3 className="text-2xl font-black text-white font-manrope">What&apos;s New</h3>
-                <p className="text-xs text-white/40 font-inter">Version 1.2.1 Updates</p>
+                <p className="text-xs text-white/40 font-inter">Version 1.2.2 Updates</p>
               </div>
 
               <div className="overflow-y-auto custom-scrollbar flex-1 pr-2 space-y-5">

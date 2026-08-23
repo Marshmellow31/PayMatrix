@@ -10,13 +10,20 @@ if (!projectId || !authExportPath || !globalModules) {
 }
 
 const firebaseAuth = require(path.join(globalModules, 'firebase-tools', 'lib', 'auth.js'));
+const scopes = require(path.join(globalModules, 'firebase-tools', 'lib', 'scopes.js'));
 const databaseRoot = `projects/${projectId}/databases/(default)/documents`;
 const apiRoot = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
 
 const getBearerToken = async () => {
   const account = firebaseAuth.getGlobalDefaultAccount();
   if (!account?.tokens?.refresh_token) throw new Error('Firebase CLI login is required.');
-  const token = await firebaseAuth.getAccessToken(account.tokens.refresh_token, []);
+  const token = await firebaseAuth.getAccessToken(account.tokens.refresh_token, [
+    scopes.EMAIL,
+    scopes.OPENID,
+    scopes.CLOUD_PROJECTS_READONLY,
+    scopes.FIREBASE_PLATFORM,
+    scopes.CLOUD_PLATFORM,
+  ]);
   if (!token?.access_token) throw new Error('Could not acquire a Firebase CLI access token.');
   return token.access_token;
 };
