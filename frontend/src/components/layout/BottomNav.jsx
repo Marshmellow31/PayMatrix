@@ -26,9 +26,7 @@ const BottomNav = () => {
             {({ isActive }) => (
               <div
                 className={`flex min-w-0 flex-col items-center justify-center gap-1 transition-all duration-300 ${
-                  isActive
-                    ? 'text-primary'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                  isActive ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
                 <span
