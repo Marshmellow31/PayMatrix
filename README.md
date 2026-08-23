@@ -5,6 +5,7 @@
 [![Firebase](https://img.shields.io/badge/Firebase-12.11-FFCA28?logo=firebase)](https://firebase.google.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
 [![PWA](https://img.shields.io/badge/PWA-Ready-00838F?logo=pwa)](https://web.dev/progressive-web-apps/)
+[![Latest release](https://img.shields.io/github/v/release/Marshmellow31/PayMatrix?label=Android%20release)](https://github.com/Marshmellow31/PayMatrix/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
 **AI-powered expense sharing with direct UPI settlements.**
@@ -20,7 +21,17 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 > and its Vercel configuration is unchanged. The signed Android 1.2.3 APK is available for direct
 > device testing, but it is not yet a Play Store release.
 
-[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 1.2.3**](./releases/paymatrix-1.2.3.apk)
+[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 1.2.3**](https://github.com/Marshmellow31/PayMatrix/releases/download/v1.2.3/paymatrix-1.2.3.apk) · [**Release notes**](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.3)
+
+### Latest Android release
+
+- Version: **1.2.3** (`versionCode 10203`)
+- Package: `com.paymatrix.app`
+- Signed APK: [`paymatrix-1.2.3.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v1.2.3/paymatrix-1.2.3.apk)
+- SHA-256: `c2e80135c458200d83dcfaec16bd4e1d27a92eb7ccfbccc46b74be58e54c52a3`
+
+This is a direct-install device-testing release, not a Play Store publication. Android may ask you
+to allow installation from the browser or file manager used to open the APK.
 
 ---
 
@@ -408,9 +419,9 @@ npm run android:apk
 
 The debug APK is generated locally at
 `android app/android/app/build/outputs/apk/debug/app-debug.apk`. Generated build output remains
-ignored, while the signed direct-testing release is published at
-[`releases/paymatrix-1.2.3.apk`](./releases/paymatrix-1.2.3.apk). Its SHA-256 checksum is recorded in
-[`releases/paymatrix-1.2.3.sha256`](./releases/paymatrix-1.2.3.sha256). Follow
+ignored, while the signed direct-testing APK and checksum are attached to the
+[`v1.2.3` GitHub release](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.3) and mirrored
+under [`releases/`](./releases/). Follow
 [`android app/README.md`](./android%20app/README.md) and its numbered docs for device setup.
 
 **Firebase Spark-plan status:** native Google sign-in and Firestore work with the existing Firebase
