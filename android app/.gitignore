@@ -1,0 +1,16 @@
+node_modules/
+www/
+artifacts/
+.gradle/
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+android/captures/
+android/.idea/
+android/app/google-services.json
+android/key.properties
+*.jks
+*.keystore
+*.apk
+*.aab

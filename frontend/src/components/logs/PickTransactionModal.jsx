@@ -1,5 +1,6 @@
+import { getLucideIcon } from '../../utils/iconMap.js';
 import { useState, useEffect } from 'react';
-import * as LucideIcons from 'lucide-react';
+
 import { Hash, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../common/Modal.jsx';
@@ -58,7 +59,7 @@ const PickTransactionModal = ({ isOpen, onClose, onSaved, groupId, existingEntri
               const entryId = `exp_${uid}_${share.sourceGroupId}_${share.sourceExpenseId}`;
               const isAdded = addedIds.has(entryId);
               const cat = EXPENSE_CATEGORIES.find((c) => c.value === share.category);
-              const IconComp = cat?.icon ? LucideIcons[cat.icon] || Hash : Hash;
+              const IconComp = cat?.icon ? getLucideIcon(cat.icon) || Hash : Hash;
 
               return (
                 <div

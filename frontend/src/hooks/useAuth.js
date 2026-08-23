@@ -1,6 +1,6 @@
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { googleLogin, logout, getMe, updateProfile } from '../redux/authSlice.js';
+import { googleLogin, logoutUser, getMe, updateProfile } from '../redux/authSlice.js';
 
 const useAuth = () => {
   const dispatch = useDispatch();
@@ -25,6 +25,12 @@ const useAuth = () => {
         return result;
       }
 
+      const returnTo = new URLSearchParams(window.location.search).get('returnTo');
+      if (returnTo?.startsWith('/') && !returnTo.startsWith('//')) {
+        navigate(returnTo);
+        return result;
+      }
+
       navigate('/dashboard');
     }
     return result;
@@ -35,9 +41,12 @@ const useAuth = () => {
     return result;
   };
 
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate('/login');
+  const handleLogout = async () => {
+    const result = await dispatch(logoutUser());
+    if (result.meta.requestStatus === 'fulfilled') {
+      window.location.replace('/login');
+    }
+    return result;
   };
 
   const refreshUser = () => {

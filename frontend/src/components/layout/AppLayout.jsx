@@ -11,6 +11,7 @@ import { fetchGroups } from '../../redux/groupSlice.js';
 import { addExpense, updateExpense } from '../../redux/expenseSlice.js';
 import toast from 'react-hot-toast';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags.js';
+import SyncStatus from '../common/SyncStatus.jsx';
 
 const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -119,6 +120,7 @@ const AppLayout = () => {
       </div>
 
       {!isFocusJourney && <BottomNav />}
+      {!isFocusJourney && <SyncStatus />}
 
       {/* Global Add Expense Modal */}
       <Modal

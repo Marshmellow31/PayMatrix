@@ -1,4 +1,5 @@
 import { ArrowLeft, SkipForward } from 'lucide-react';
+import AppLogo from '../common/AppLogo.jsx';
 
 const OnboardingShell = ({ children, step, onBack, onSkip }) => (
   <main className="relative h-[100dvh] min-h-0 overflow-hidden bg-[#0e0e0e] text-white sm:min-h-screen sm:overflow-x-hidden">
@@ -14,7 +15,8 @@ const OnboardingShell = ({ children, step, onBack, onSkip }) => (
         >
           <ArrowLeft size={16} /> Back
         </button>
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center gap-2">
+          <AppLogo size="xs" decorative />
           <span className="text-sm font-black uppercase tracking-[0.16em]">PayMatrix</span>
         </div>
         <div className="flex justify-end">

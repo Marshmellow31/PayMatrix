@@ -1,7 +1,6 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
-
 admin.initializeApp();
 
 // FIX SEC-02: FALLBACK_ADMIN_UID removed. All admin checks now rely solely on
@@ -24,6 +23,72 @@ const getNavigationUrl = (type, groupId) => {
   return "/dashboard";
 };
 
+const INVALID_TOKEN_CODES = new Set([
+  "messaging/registration-token-not-registered",
+  "messaging/invalid-registration-token",
+]);
+
+const getUserPushTargets = async (userRef) => {
+  const [userSnap, tokenSnap] = await Promise.all([
+    userRef.get(),
+    userRef.collection("pushTokens").get(),
+  ]);
+
+  if (!userSnap.exists) return null;
+
+  const targets = tokenSnap.docs
+    .map((snapshot) => ({ token: snapshot.data().token, ref: snapshot.ref }))
+    .filter(({ token }) => Boolean(token));
+  const legacyToken = userSnap.data().fcmToken;
+  if (legacyToken) targets.push({ token: legacyToken, legacyUserRef: userRef });
+
+  const deduplicated = new Map();
+  targets.forEach((target) => {
+    if (!deduplicated.has(target.token)) deduplicated.set(target.token, target);
+  });
+  return [...deduplicated.values()];
+};
+
+const clearUserPushTargets = async (userRef) => {
+  const tokenSnap = await userRef.collection("pushTokens").get();
+  const batch = admin.firestore().batch();
+  tokenSnap.docs.forEach((snapshot) => batch.delete(snapshot.ref));
+  batch.update(userRef, { fcmToken: admin.firestore.FieldValue.delete() });
+  await batch.commit();
+};
+
+const removeInvalidTargets = async (targets, response) => {
+  await Promise.all(response.responses.map(async (result, index) => {
+    if (result.success || !INVALID_TOKEN_CODES.has(result.error?.code)) return;
+    const target = targets[index];
+    if (target.ref) await target.ref.delete().catch(() => {});
+    if (target.legacyUserRef) {
+      await target.legacyUserRef.update({
+        fcmToken: admin.firestore.FieldValue.delete(),
+      }).catch(() => {});
+    }
+  }));
+};
+
+const buildMulticastPayload = ({ tokens, title, body, targetUrl, data, tag }) => ({
+  tokens,
+  notification: { title, body },
+  android: {
+    priority: "high",
+    notification: { channelId: "paymatrix_activity", tag },
+  },
+  webpush: {
+    notification: {
+      icon: "/logo.png",
+      badge: "/logo.png",
+      tag,
+      renotify: true,
+    },
+    fcmOptions: { link: targetUrl },
+  },
+  data: { url: targetUrl, ...data },
+});
+
 exports.sendPushOnNotification = onDocumentCreated(
   "notifications/{notificationId}",
   async (event) => {
@@ -38,53 +103,37 @@ exports.sendPushOnNotification = onDocumentCreated(
     }
 
     const userRef = admin.firestore().doc(`users/${to}`);
-    const userSnap = await userRef.get();
+    const targets = await getUserPushTargets(userRef);
 
-    if (!userSnap.exists) {
+    if (!targets) {
       console.warn(`[PUSH_SKIP] User document not found for uid: ${to}`);
       return;
     }
-
-    const fcmToken = userSnap.data().fcmToken;
-    if (!fcmToken) return;
+    if (!targets.length) return;
 
     const targetUrl = getNavigationUrl(type, groupId);
     const title     = NOTIFICATION_TITLES[type] || "PayMatrix";
 
-    const fcmPayload = {
-      token: fcmToken,
-      notification: { title, body: message },
-      webpush: {
-        notification: {
-          icon:     "/logo.png",
-          badge:    "/logo.png",
-          tag:      event.params.notificationId,
-          renotify: true,
-        },
-        fcmOptions: { link: targetUrl },
-      },
+    const fcmPayload = buildMulticastPayload({
+      tokens: targets.map(({ token }) => token),
+      title,
+      body: message,
+      targetUrl,
+      tag: event.params.notificationId,
       data: {
-        url:            targetUrl,
         type:           type           || "info",
         notificationId: event.params.notificationId,
         groupId:        groupId        || "",
         relatedId:      relatedId      || "",
       },
-    };
+    });
 
     try {
-      const response = await admin.messaging().send(fcmPayload);
-      console.log(`[PUSH_SENT] ${type} → ${to} | messageId: ${response}`);
+      const response = await admin.messaging().sendEachForMulticast(fcmPayload);
+      await removeInvalidTargets(targets, response);
+      console.log(`[PUSH_SENT] ${type} → ${to} | sent=${response.successCount} failed=${response.failureCount}`);
     } catch (error) {
-      if (
-        error.code === "messaging/registration-token-not-registered" ||
-        error.code === "messaging/invalid-registration-token"
-      ) {
-        console.log(`[TOKEN_CLEANUP] Stale FCM token for user ${to} — removing.`);
-        await userRef.update({ fcmToken: admin.firestore.FieldValue.delete() }).catch(() => {});
-      } else {
-        console.error(`[PUSH_FAILED] Could not send to ${to}:`, error.message);
-      }
+      console.error(`[PUSH_FAILED] Could not send to ${to}:`, error.message);
     }
   }
 );
@@ -116,7 +165,7 @@ exports.adminManageUser = onCall(
         await db.doc(`users/${uid}`).update({ suspended: false, suspendedAt: null });
         break;
       case "clearFcm":
-        await db.doc(`users/${uid}`).update({ fcmToken: admin.firestore.FieldValue.delete() });
+        await clearUserPushTargets(db.doc(`users/${uid}`));
         break;
       case "grantAdmin":
         await admin.auth().setCustomUserClaims(uid, { admin: true });
@@ -224,39 +273,51 @@ exports.broadcastNotification = onCall(
     const db        = admin.firestore();
     const messaging = admin.messaging();
 
-    let tokens         = [];
+    let targets        = [];
     let recipientCount = 0;
 
     if (targetUid) {
-      const userSnap = await db.doc(`users/${targetUid}`).get();
-      if (!userSnap.exists) throw new HttpsError("not-found", "User not found.");
-      const fcmToken = userSnap.data().fcmToken;
-      if (fcmToken) tokens.push(fcmToken);
+      targets = await getUserPushTargets(db.doc(`users/${targetUid}`));
+      if (!targets) throw new HttpsError("not-found", "User not found.");
       recipientCount = 1;
     } else {
-      const usersSnap = await db.collection("users")
+      const [tokenSnap, usersSnap] = await Promise.all([
+        db.collectionGroup("pushTokens").get(),
+        db.collection("users")
         .where("fcmToken", "!=", null)
         .select("fcmToken")
-        .get();
-      tokens         = usersSnap.docs.map((d) => d.data().fcmToken).filter(Boolean);
-      recipientCount = tokens.length;
+        .get(),
+      ]);
+      const candidates = [
+        ...tokenSnap.docs.map((snapshot) => ({ token: snapshot.data().token, ref: snapshot.ref })),
+        ...usersSnap.docs.map((snapshot) => ({
+          token: snapshot.data().fcmToken,
+          legacyUserRef: snapshot.ref,
+        })),
+      ].filter(({ token }) => Boolean(token));
+      const byToken = new Map();
+      candidates.forEach((target) => {
+        if (!byToken.has(target.token)) byToken.set(target.token, target);
+      });
+      targets = [...byToken.values()];
+      recipientCount = targets.length;
     }
 
     let sent   = 0;
     let failed = 0;
     const BATCH = 500;
 
-    for (let i = 0; i < tokens.length; i += BATCH) {
-      const batch = tokens.slice(i, i + BATCH);
-      const response = await messaging.sendEachForMulticast({
-        tokens: batch,
-        notification: { title, body },
-        webpush: {
-          notification: { icon: "/logo.png", badge: "/logo.png" },
-          fcmOptions:   { link: url || "/dashboard" },
-        },
-        data: { url: url || "/dashboard", type: "admin_broadcast" },
-      });
+    for (let i = 0; i < targets.length; i += BATCH) {
+      const targetBatch = targets.slice(i, i + BATCH);
+      const response = await messaging.sendEachForMulticast(buildMulticastPayload({
+        tokens: targetBatch.map(({ token }) => token),
+        title,
+        body,
+        targetUrl: url || "/dashboard",
+        tag: "admin_broadcast",
+        data: { type: "admin_broadcast" },
+      }));
+      await removeInvalidTargets(targetBatch, response);
       sent   += response.successCount;
       failed += response.failureCount;
     }
@@ -295,16 +356,27 @@ exports.createCrossUserNotification = onCall(
       throw new HttpsError("unauthenticated", "Must be signed in.");
     }
 
-    const { to, message, type, relatedId, groupId } = request.data || {};
-    if (!to || !message) {
-      throw new HttpsError("invalid-argument", "'to' and 'message' are required.");
+    const { to, type, relatedId, groupId } = request.data || {};
+    if (!to || !type) {
+      throw new HttpsError("invalid-argument", "'to' and 'type' are required.");
     }
 
     const db  = admin.firestore();
     const uid = request.auth.uid;
 
-    // Authorization: if a groupId is provided the caller must be a member
-    if (groupId) {
+    const allowedTypes = new Set(["expense_added", "settlement_received", "friend_request", "friend_accepted"]);
+    if (!allowedTypes.has(type)) {
+      throw new HttpsError("invalid-argument", "Unsupported notification type.");
+    }
+
+    let safeMessage;
+    const actorProfile = await db.doc(`publicProfiles/${uid}`).get();
+    const actorName = String(actorProfile.data()?.name || "A PayMatrix member").slice(0, 50);
+
+    if (type === "expense_added" || type === "settlement_received") {
+      if (!groupId || !relatedId) {
+        throw new HttpsError("invalid-argument", "Related group and record are required.");
+      }
       const groupSnap = await db.doc(`groups/${groupId}`).get();
       if (!groupSnap.exists) {
         throw new HttpsError("not-found", "Related group not found.");
@@ -313,6 +385,37 @@ exports.createCrossUserNotification = onCall(
       if (!members.includes(uid)) {
         throw new HttpsError("permission-denied", "Caller is not a member of the related group.");
       }
+      if (!members.includes(to)) {
+        throw new HttpsError("permission-denied", "Recipient is not a member of the related group.");
+      }
+
+      if (type === "expense_added") {
+        const expenseSnap = await db.doc(`groups/${groupId}/expenses/${relatedId}`).get();
+        const expense = expenseSnap.data();
+        if (!expenseSnap.exists || expense.paidBy !== uid || !(expense.participants || []).includes(to)) {
+          throw new HttpsError("permission-denied", "Expense notification does not match the ledger.");
+        }
+        safeMessage = `${actorName} added an expense in ${String(groupSnap.data().name || "your group").slice(0, 100)}.`;
+      } else {
+        const settlementSnap = await db.doc(`groups/${groupId}/settlements/${relatedId}`).get();
+        const settlement = settlementSnap.data();
+        if (!settlementSnap.exists || settlement.payer !== uid || settlement.payee !== to || settlement.confirmationStatus !== "confirmed") {
+          throw new HttpsError("permission-denied", "Settlement notification does not match the ledger.");
+        }
+        safeMessage = `${actorName} recorded a payer-confirmed settlement in ${String(groupSnap.data().name || "your group").slice(0, 100)}.`;
+      }
+    } else if (type === "friend_request") {
+      const friendRequest = await db.doc(`friendRequests/${uid}_${to}`).get();
+      if (!friendRequest.exists || friendRequest.data().status !== "pending") {
+        throw new HttpsError("permission-denied", "No matching pending friend request.");
+      }
+      safeMessage = `${actorName} sent you a friend request.`;
+    } else {
+      const friendRequest = await db.doc(`friendRequests/${to}_${uid}`).get();
+      if (!friendRequest.exists || friendRequest.data().status !== "accepted") {
+        throw new HttpsError("permission-denied", "No matching accepted friend request.");
+      }
+      safeMessage = `${actorName} accepted your friend request.`;
     }
 
     // Verify the recipient exists
@@ -323,8 +426,8 @@ exports.createCrossUserNotification = onCall(
 
     await db.collection("notifications").add({
       to,
-      message: String(message).slice(0, 500), // cap length
-      type:      type      || "info",
+      message: safeMessage,
+      type,
       relatedId: relatedId || null,
       groupId:   groupId   || null,
       read:      false,

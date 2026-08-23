@@ -36,6 +36,18 @@ service cloud.firestore {
       return val is number && val > 0 && val <= 1000000;
     }
 
+    function isValidPaise(val) {
+      return val is int && val > 0 && val <= 100000000;
+    }
+
+    function groupData(groupId) {
+      return get(/databases/$(database)/documents/groups/$(groupId)).data;
+    }
+
+    function isGroupUser(groupId, userId) {
+      return userId is string && userId in groupData(groupId).get('members', []);
+    }
+
     // ─── Users ────────────────────────────────────────────────────────────────
 
     match /users/{userId} {
@@ -45,23 +57,67 @@ service cloud.firestore {
         request.auth.uid == userId ||
         request.auth.uid in resource.data.get('friends', [])
       ));
+      function addedFriends() {
+        return request.resource.data.get('friends', []).removeAll(resource.data.get('friends', []));
+      }
+      function removedFriends() {
+        return resource.data.get('friends', []).removeAll(request.resource.data.get('friends', []));
+      }
+      function acceptedRequest(requesterId, recipientId) {
+        let requestPath = /databases/$(database)/documents/friendRequests/$(requesterId + '_' + recipientId);
+        return existsAfter(requestPath) &&
+               getAfter(requestPath).data.get('from', '') == requesterId &&
+               getAfter(requestPath).data.get('to', '') == recipientId &&
+               getAfter(requestPath).data.get('status', '') == 'accepted';
+      }
+      function validFriendAddition(userId) {
+        return addedFriends().size() == 1 && removedFriends().size() == 0 &&
+          (
+            (request.auth.uid == userId && acceptedRequest(addedFriends()[0], userId)) ||
+            (request.auth.uid != userId && addedFriends() == [request.auth.uid] &&
+             acceptedRequest(userId, request.auth.uid))
+          );
+      }
+      function validFriendRemoval(userId) {
+        return addedFriends().size() == 0 && removedFriends().size() == 1 &&
+          (request.auth.uid == userId || removedFriends() == [request.auth.uid]);
+      }
+      function validAvatar(url) {
+        return url == '' || (url is string && url.size() <= 2048 &&
+          (url.matches('^https://firebasestorage\\.googleapis\\.com/.*$') ||
+           url.matches('^https://lh3\\.googleusercontent\\.com/.*$')));
+      }
       allow create: if isSignedIn() && request.auth.uid == userId &&
-                    isValidString(request.resource.data.get('displayName', ''), 50);
+                    isValidString(request.resource.data.get('displayName', ''), 50) &&
+                    validAvatar(request.resource.data.get('avatar', request.resource.data.get('photoURL', '')));
       allow update: if isGlobalAdmin() || (isSignedIn() && (
+        (request.auth.uid == userId &&
+         request.resource.data.keys().hasOnly([
+           'uid', 'name', 'displayName', 'nameLowerCase', 'avatar', 'photoURL',
+           'friends', 'deletedAt', 'deletionStatus'
+         ]) &&
+         request.resource.data.get('uid', '') == userId &&
+         request.resource.data.get('name', '') == 'Deleted user' &&
+         request.resource.data.get('displayName', '') == 'Deleted user' &&
+         request.resource.data.get('nameLowerCase', '') == 'deleted user' &&
+         request.resource.data.get('avatar', '') == '' &&
+         request.resource.data.get('photoURL', '') == '' &&
+         request.resource.data.get('friends', []) == [] &&
+         request.resource.data.get('deletionStatus', '') == 'anonymized' &&
+         request.resource.data.get('deletedAt', null) == request.time &&
+         existsAfter(/databases/$(database)/documents/accountDeletionRequests/$(userId))) ||
         (request.auth.uid == userId &&
          isValidString(request.resource.data.get('displayName', ''), 50) &&
          isValidString(request.resource.data.get('upiId', ''), 100) &&
-         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email', 'createdAt']) &&
+         validAvatar(request.resource.data.get('avatar', request.resource.data.get('photoURL', ''))) &&
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email', 'createdAt', 'friends', 'deletion']) &&
          // Friend code is write-once — set by the client on first backfill, never changed after.
          (!('friendCode' in resource.data) ||
           request.resource.data.get('friendCode', '') == resource.data.get('friendCode', ''))
         ) ||
         (
          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends']) &&
-         (
-           request.resource.data.get('friends', []).removeAll(resource.data.get('friends', [])) == [request.auth.uid] ||
-           resource.data.get('friends', []).removeAll(request.resource.data.get('friends', [])) == [request.auth.uid]
-         )
+         (validFriendAddition(userId) || validFriendRemoval(userId))
         ) ||
         (
          request.auth.uid == userId &&
@@ -69,6 +125,14 @@ service cloud.firestore {
         )
       ));
       allow delete: if false;
+
+      match /pushTokens/{installationId} {
+        allow read, delete: if isSignedIn() && request.auth.uid == userId;
+        allow create, update: if isSignedIn() && request.auth.uid == userId &&
+                              request.resource.data.keys().hasOnly(['token', 'platform', 'updatedAt']) &&
+                              isValidString(request.resource.data.get('token', ''), 4096) &&
+                              request.resource.data.get('platform', '') in ['web', 'android'];
+      }
     }
 
     // ─── Log Groups (shared spending timelines — e.g. "Parents") ───────────────
@@ -86,7 +150,9 @@ service cloud.firestore {
          request.resource.data.get('members', []).hasAny([resource.data.ownerId]) &&
          isValidString(request.resource.data.get('name', ''), 100)) ||
         // Any member: self-removal only (leave)
-        (resource.data.get('members', []).removeAll(request.resource.data.get('members', [])) == [request.auth.uid] &&
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'updatedAt']) &&
+         resource.data.get('members', []).removeAll(request.resource.data.get('members', [])) == [request.auth.uid] &&
+         request.resource.data.get('members', []).removeAll(resource.data.get('members', [])).size() == 0 &&
          request.resource.data.get('ownerId', '') == resource.data.ownerId)
       ));
       allow delete: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == resource.data.ownerId);
@@ -119,7 +185,9 @@ service cloud.firestore {
                     code.matches('^[A-HJ-NP-Z2-9]{8}$') &&
                     request.resource.data.get('uid', '') == request.auth.uid &&
                     request.resource.data.keys().hasOnly(['uid', 'name', 'avatar', 'createdAt']) &&
-                    isValidString(request.resource.data.get('name', ''), 50);
+                    isValidString(request.resource.data.get('name', ''), 50) &&
+                    (request.resource.data.get('avatar', '') == '' ||
+                     request.resource.data.get('avatar', '').matches('^https://(firebasestorage\\.googleapis\\.com|lh3\\.googleusercontent\\.com)/.*$'));
       // Owner may refresh display fields only (name/avatar staleness fix on login)
       allow update: if isSignedIn() &&
                     resource.data.get('uid', '') == request.auth.uid &&
@@ -136,60 +204,152 @@ service cloud.firestore {
       ));
       allow create: if isSignedIn() &&
                     isValidString(request.resource.data.name, 100) &&
-                    request.resource.data.members is list;
-      allow update: if isGlobalAdmin() || (isSignedIn() && (
-        isAdmin(groupId) ||
-        (request.resource.data.get('members', []).hasAll(resource.data.get('members', [])) &&
-         request.resource.data.get('inviteCode', '') == resource.data.get('inviteCode', '')) ||
-        (resource.data.get('members', []).removeAll(request.resource.data.get('members', [])) == [request.auth.uid] &&
-         request.resource.data.get('inviteCode', '') == resource.data.get('inviteCode', ''))
-      ) && isValidString(request.resource.data.get('name', request.resource.data.get('title', '')), 100));
+                    request.resource.data.get('createdBy', '') == request.auth.uid &&
+                    request.resource.data.get('admin', '') == request.auth.uid &&
+                    request.resource.data.get('members', []) == [request.auth.uid] &&
+                    request.resource.data.get('historicalMembers', []) == [request.auth.uid] &&
+                    request.resource.data.get('inviteCode', '').matches('^[A-Z0-9]{8}$') &&
+                    request.resource.data.keys().hasOnly([
+                      'name', 'title', 'description', 'category', 'members', 'historicalMembers',
+                      'admin', 'createdBy', 'status', 'inviteCode', 'createdAt', 'updatedAt'
+                    ]);
+      allow update: if isGlobalAdmin() || (isSignedIn() &&
+        isValidString(request.resource.data.get('name', request.resource.data.get('title', '')), 100) &&
+        request.resource.data.get('createdBy', '') == resource.data.get('createdBy', '') &&
+        request.resource.data.get('inviteCode', '') == resource.data.get('inviteCode', '') &&
+        (
+          (isAdmin(groupId) &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+             'name', 'title', 'description', 'category', 'members', 'historicalMembers',
+             'admin', 'status', 'deletedAt', 'updatedAt'
+           ]) &&
+           request.resource.data.get('admin', '') in request.resource.data.get('members', []) &&
+           request.resource.data.get('members', []).removeAll(resource.data.get('members', [])).size() <= 1 &&
+           resource.data.get('members', []).removeAll(request.resource.data.get('members', [])).size() <= 1 &&
+           (
+             request.resource.data.get('members', []).removeAll(resource.data.get('members', [])).size() == 0 ||
+             request.auth.uid in get(/databases/$(database)/documents/users/$(request.resource.data.get('members', []).removeAll(resource.data.get('members', []))[0])).data.get('friends', [])
+           )) ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'historicalMembers', 'updatedAt']) &&
+           request.resource.data.get('members', []).removeAll(resource.data.get('members', [])) == [request.auth.uid] &&
+           resource.data.get('members', []).removeAll(request.resource.data.get('members', [])).size() == 0 &&
+           exists(/databases/$(database)/documents/groupInvites/$(resource.data.get('inviteCode', ''))) &&
+           get(/databases/$(database)/documents/groupInvites/$(resource.data.get('inviteCode', ''))).data.get('groupId', '') == groupId &&
+           get(/databases/$(database)/documents/groupInvites/$(resource.data.get('inviteCode', ''))).data.get('active', false) == true) ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'updatedAt']) &&
+           resource.data.get('members', []).removeAll(request.resource.data.get('members', [])) == [request.auth.uid] &&
+           request.resource.data.get('members', []).removeAll(resource.data.get('members', [])).size() == 0)
+        ));
       allow delete: if isGlobalAdmin() || isAdmin(groupId);
 
       match /expenses/{expenseId} {
         allow read: if isGlobalAdmin() || isMember(groupId);
         allow create: if isMember(groupId) &&
                       isValidString(request.resource.data.title, 100) &&
-                      isValidAmount(request.resource.data.amount) &&
-                      request.resource.data.participants is list;
-        // FIX (M-2): only the expense creator (admin/paidBy) or a group admin may
-        // edit financial fields (amount, splits, participants). Any other member is
-        // limited to flipping `status` (collaborative soft-delete / restore) so they
-        // cannot silently rewrite who-owes-whom.
+                      isValidPaise(request.resource.data.amountPaise) &&
+                      request.resource.data.get('groupId', '') == groupId &&
+                      request.resource.data.get('createdBy', request.resource.data.get('admin', '')) == request.auth.uid &&
+                      request.resource.data.get('paidBy', '') == request.auth.uid &&
+                      request.resource.data.get('participants', []).hasOnly(groupData(groupId).get('members', [])) &&
+                      request.resource.data.get('splitUserIds', request.resource.data.get('participants', [])).hasOnly(groupData(groupId).get('members', [])) &&
+                      request.resource.data.get('lastEditedBy', '') == request.auth.uid &&
+                      request.resource.data.get('version', 0) == 1 &&
+                      request.resource.data.get('lastMutationType', '') == 'expense_added' &&
+                      request.resource.data.get('lastMutationAt', null) == request.time &&
+                      existsAfter(/databases/$(database)/documents/groups/$(groupId)/logs/$(request.resource.data.get('lastMutationId', '')));
+        // Collaborative editing is a product rule: every current member may edit
+        // financial content. Actor/payer/creator identities remain immutable and
+        // each mutation must atomically create its matching audit log.
         allow update: if isMember(groupId) &&
                       isValidString(request.resource.data.get('title', ''), 100) &&
                       (request.resource.data.get('amount', 0) == 0 || isValidAmount(request.resource.data.amount)) &&
-                      (
-                        request.auth.uid == resource.data.get('admin', '') ||
-                        request.auth.uid == resource.data.get('paidBy', '') ||
-                        isAdmin(groupId) ||
-                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
-                      );
-        allow delete: if isGlobalAdmin() || isAdmin(groupId) ||
-                      (isMember(groupId) && (
-                        request.auth.uid == resource.data.get('admin', '') ||
-                        request.auth.uid == resource.data.get('paidBy', '')
-                      ));
+                      isValidPaise(request.resource.data.amountPaise) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                        'title', 'description', 'amount', 'amountPaise', 'currency', 'date',
+                        'splitType', 'splitData', 'participants', 'category', 'attachments',
+                        'notes', 'splits', 'splitUserIds', 'paidByName', 'status', 'updatedAt',
+                        'lastMutationAt', 'lastMutationId', 'lastMutationType', 'lastEditedBy', 'version'
+                      ]) &&
+                      request.resource.data.get('createdBy', request.resource.data.get('admin', '')) == resource.data.get('createdBy', resource.data.get('admin', '')) &&
+                      request.resource.data.get('paidBy', '') == resource.data.get('paidBy', '') &&
+                      request.resource.data.get('groupId', '') == groupId &&
+                      request.resource.data.get('participants', []).hasOnly(groupData(groupId).get('members', [])) &&
+                      request.resource.data.get('splitUserIds', []).hasOnly(groupData(groupId).get('members', [])) &&
+                      request.resource.data.get('lastEditedBy', '') == request.auth.uid &&
+                      request.resource.data.get('version', 0) == resource.data.get('version', 1) + 1 &&
+                      request.resource.data.get('lastMutationType', '') in ['expense_updated', 'expense_deleted', 'expense_restored'] &&
+                      request.resource.data.get('lastMutationAt', null) == request.time &&
+                      (!(resource.data.get('lastMutationAt', null) is timestamp) ||
+                       request.time > resource.data.get('lastMutationAt', request.time) + duration.value(1, 's')) &&
+                      existsAfter(/databases/$(database)/documents/groups/$(groupId)/logs/$(request.resource.data.get('lastMutationId', '')));
+        allow delete: if false;
       }
 
       match /settlements/{settlementId} {
         allow read:   if isGlobalAdmin() || isMember(groupId);
-        allow create: if isMember(groupId) && isValidAmount(request.resource.data.amount);
-        // FIX (M-2): the payer or a group admin may edit a settlement; any other
-        // member may only flip `status` (soft-delete / restore). This stops a member
-        // from silently rewriting a settlement's amount / payer / payee.
-        // Hard deletes still require group admin or global admin.
-        allow update: if isMember(groupId) && (
-                        request.auth.uid == resource.data.get('payer', '') ||
-                        isAdmin(groupId) ||
-                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
-                      );
-        allow delete: if isGlobalAdmin() || isAdmin(groupId);
+        allow create: if isMember(groupId) &&
+                      request.resource.data.keys().hasOnly([
+                        'payer', 'payee', 'amount', 'amountPaise', 'notes', 'groupId', 'operationId',
+                        'confirmationStatus', 'confirmedBy', 'confirmedAt', 'status', 'createdAt', 'updatedAt',
+                        'lastMutationAt', 'lastMutationId', 'lastMutationType', 'lastEditedBy', 'version'
+                      ]) &&
+                      request.resource.data.get('payer', '') == request.auth.uid &&
+                      request.resource.data.get('confirmedBy', '') == request.auth.uid &&
+                      request.resource.data.get('confirmationStatus', '') == 'confirmed' &&
+                      request.resource.data.get('operationId', '') == settlementId &&
+                      request.resource.data.get('groupId', '') == groupId &&
+                      isGroupUser(groupId, request.resource.data.get('payee', '')) &&
+                      request.resource.data.get('payee', '') != request.auth.uid &&
+                      isValidPaise(request.resource.data.amountPaise) &&
+                      request.resource.data.get('lastEditedBy', '') == request.auth.uid &&
+                      request.resource.data.get('version', 0) == 1 &&
+                      request.resource.data.get('lastMutationType', '') == 'settlement_added' &&
+                      request.resource.data.get('lastMutationAt', null) == request.time &&
+                      existsAfter(/databases/$(database)/documents/groups/$(groupId)/logs/$(request.resource.data.get('lastMutationId', '')));
+        // Only the payer or group admin can reverse/restore a payer-confirmed settlement.
+        allow update: if isMember(groupId) &&
+                      (request.auth.uid == resource.data.get('payer', '') || isAdmin(groupId)) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                        'status', 'updatedAt', 'lastMutationAt', 'lastMutationId',
+                        'lastMutationType', 'lastEditedBy', 'version'
+                      ]) &&
+                      request.resource.data.get('lastEditedBy', '') == request.auth.uid &&
+                      request.resource.data.get('version', 0) == resource.data.get('version', 1) + 1 &&
+                      request.resource.data.get('lastMutationType', '') in ['settlement_deleted', 'settlement_restored'] &&
+                      request.resource.data.get('lastMutationAt', null) == request.time &&
+                      (!(resource.data.get('lastMutationAt', null) is timestamp) ||
+                       request.time > resource.data.get('lastMutationAt', request.time) + duration.value(1, 's')) &&
+                      existsAfter(/databases/$(database)/documents/groups/$(groupId)/logs/$(request.resource.data.get('lastMutationId', '')));
+        allow delete: if false;
       }
 
       match /logs/{logId} {
         allow read: if isGlobalAdmin() || isMember(groupId);
-        allow create: if isMember(groupId);
+        allow create: if isMember(groupId) &&
+                      request.resource.data.get('actorId', '') == request.auth.uid &&
+                      request.resource.data.get('type', '') in [
+                        'expense_added', 'expense_updated', 'expense_deleted', 'expense_restored',
+                        'settlement_added', 'settlement_deleted', 'settlement_restored'
+                      ] &&
+                      isValidString(request.resource.data.get('message', ''), 500) &&
+                      isValidString(request.resource.data.get('relatedId', ''), 128) &&
+                      request.resource.data.get('groupId', '') == groupId &&
+                      request.resource.data.get('createdAt', null) == request.time &&
+                      request.resource.data.keys().hasOnly([
+                        'type', 'message', 'actorId', 'actorName', 'relatedId', 'groupId', 'createdAt'
+                      ]) &&
+                      (
+                        (request.resource.data.get('type', '').matches('^expense_.*$') &&
+                         existsAfter(/databases/$(database)/documents/groups/$(groupId)/expenses/$(request.resource.data.get('relatedId', ''))) &&
+                         getAfter(/databases/$(database)/documents/groups/$(groupId)/expenses/$(request.resource.data.get('relatedId', ''))).data.get('lastMutationId', '') == logId &&
+                         getAfter(/databases/$(database)/documents/groups/$(groupId)/expenses/$(request.resource.data.get('relatedId', ''))).data.get('lastMutationType', '') == request.resource.data.get('type', '') &&
+                         getAfter(/databases/$(database)/documents/groups/$(groupId)/expenses/$(request.resource.data.get('relatedId', ''))).data.get('lastEditedBy', '') == request.auth.uid) ||
+                        (request.resource.data.get('type', '').matches('^settlement_.*$') &&
+                         existsAfter(/databases/$(database)/documents/groups/$(groupId)/settlements/$(request.resource.data.get('relatedId', ''))) &&
+                         getAfter(/databases/$(database)/documents/groups/$(groupId)/settlements/$(request.resource.data.get('relatedId', ''))).data.get('lastMutationId', '') == logId &&
+                         getAfter(/databases/$(database)/documents/groups/$(groupId)/settlements/$(request.resource.data.get('relatedId', ''))).data.get('lastMutationType', '') == request.resource.data.get('type', '') &&
+                         getAfter(/databases/$(database)/documents/groups/$(groupId)/settlements/$(request.resource.data.get('relatedId', ''))).data.get('lastEditedBy', '') == request.auth.uid)
+                      );
         allow update, delete: if false;
       }
     }
@@ -202,17 +362,26 @@ service cloud.firestore {
       ));
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.from || request.auth.uid == resource.data.to);
       allow create: if isSignedIn() &&
+                    requestId == request.auth.uid + '_' + request.resource.data.to &&
                     request.auth.uid == request.resource.data.from &&
                     request.resource.data.to is string &&
                     request.resource.data.to.size() > 0 &&
-                    request.resource.data.to != request.auth.uid; // no self-requests
-      allow update: if isSignedIn() && request.auth.uid == resource.data.to;
+                    request.resource.data.to != request.auth.uid &&
+                    request.resource.data.get('status', '') == 'pending' &&
+                    request.resource.data.keys().hasOnly(['from', 'to', 'status', 'createdAt']);
+      allow update: if isSignedIn() && request.auth.uid == resource.data.to &&
+                    resource.data.get('status', '') == 'pending' &&
+                    request.resource.data.get('status', '') in ['accepted', 'rejected'] &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt']);
     }
 
     // ─── Notifications ────────────────────────────────────────────────────────
 
     match /notifications/{notificationId} {
-      allow read, update, delete: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == resource.data.to);
+      allow read, delete: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == resource.data.to);
+      allow update: if isGlobalAdmin() || (isSignedIn() &&
+                    request.auth.uid == resource.data.to &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']));
       // FIX SEC-08 (hardened): clients may ONLY create notifications targeting
       // themselves (self/system alerts). A previous version only checked
       // `createdBy == auth.uid` and left `to` unconstrained, so any signed-in
@@ -222,13 +391,16 @@ service cloud.firestore {
       // admin privileges and validates group membership before writing.
       allow create: if isSignedIn() &&
                     request.resource.data.get('createdBy', '') == request.auth.uid &&
-                    request.resource.data.get('to', '') == request.auth.uid;
+                    request.resource.data.get('to', '') == request.auth.uid &&
+                    request.resource.data.keys().hasOnly([
+                      'to', 'createdBy', 'message', 'type', 'relatedId', 'groupId', 'read', 'createdAt'
+                    ]) && isValidString(request.resource.data.get('message', ''), 500);
     }
 
     // ─── Security Logs ────────────────────────────────────────────────────────
 
     match /security_logs/{logId} {
-      allow create: if isSignedIn();
+      allow create: if false;
       allow read: if isGlobalAdmin();
       allow update, delete: if false;
     }
@@ -236,17 +408,38 @@ service cloud.firestore {
     // ─── Rate Limits ──────────────────────────────────────────────────────────
 
     match /rate_limits/{userId} {
-      // FIX: users can read their own limit doc but cannot write it directly —
-      // users could previously reset their own rate-limit counters.
-      allow read:  if isGlobalAdmin() || (isSignedIn() && request.auth.uid == userId);
-      allow write: if isGlobalAdmin();
+      allow read: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow create: if isSignedIn() && request.auth.uid == userId &&
+                    request.resource.data.keys().hasOnly(['uid', 'count', 'windowStart', 'lastRequestAt']) &&
+                    request.resource.data.get('uid', '') == request.auth.uid &&
+                    request.resource.data.get('count', 0) == 1 &&
+                    request.resource.data.get('windowStart', request.time) <= request.time &&
+                    request.resource.data.get('windowStart', request.time) >= request.time - duration.value(10, 's') &&
+                    request.resource.data.get('lastRequestAt', request.time) <= request.time &&
+                    request.resource.data.get('lastRequestAt', request.time) >= request.time - duration.value(10, 's');
+      allow update: if isSignedIn() && request.auth.uid == userId &&
+                    request.resource.data.keys().hasOnly(['uid', 'count', 'windowStart', 'lastRequestAt']) &&
+                    request.resource.data.get('uid', '') == request.auth.uid &&
+                    request.resource.data.get('lastRequestAt', request.time) <= request.time &&
+                    request.resource.data.get('lastRequestAt', request.time) >= request.time - duration.value(10, 's') &&
+                    (
+                      (request.time < resource.data.windowStart + duration.value(1, 'h') &&
+                       request.resource.data.windowStart == resource.data.windowStart &&
+                       request.resource.data.count == resource.data.count + 1 &&
+                       request.resource.data.count <= 10) ||
+                      (request.time >= resource.data.windowStart + duration.value(1, 'h') &&
+                       request.resource.data.count == 1 &&
+                       request.resource.data.windowStart <= request.time &&
+                       request.resource.data.windowStart >= request.time - duration.value(10, 's'))
+                    );
+      allow delete: if false;
     }
 
     // ─── AI Requests ──────────────────────────────────────────────────────────
 
     match /ai_requests/{requestId} {
       allow read: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == resource.data.uid);
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.uid;
+      allow create: if false;
       allow update, delete: if false;
     }
 
@@ -261,6 +454,58 @@ service cloud.firestore {
 
     match /admin_notifications/{docId} {
       allow read, write: if isGlobalAdmin();
+    }
+
+    // Minimal exact-ID identity cards. Group and request UIs use this collection
+    // instead of exposing private user documents. Enumeration is denied.
+    match /publicProfiles/{userId} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create, update: if isSignedIn() && request.auth.uid == userId &&
+                            request.resource.data.keys().hasOnly(['name', 'avatar', 'updatedAt', 'deleted']) &&
+                            isValidString(request.resource.data.get('name', ''), 50) &&
+                            (request.resource.data.get('deleted', false) == false ||
+                             (request.resource.data.get('deleted', false) == true &&
+                              request.resource.data.get('name', '') == 'Deleted user' &&
+                              request.resource.data.get('avatar', '') == '' &&
+                              request.resource.data.get('updatedAt', null) == request.time &&
+                              existsAfter(/databases/$(database)/documents/accountDeletionRequests/$(userId)))) &&
+                            (request.resource.data.get('avatar', '') == '' ||
+                             request.resource.data.get('avatar', '').matches('^https://(firebasestorage\\.googleapis\\.com|lh3\\.googleusercontent\\.com)/.*$'));
+      allow delete: if false;
+    }
+
+    // PII-free receipt for the 30-day deletion window. Personal profile fields
+    // are anonymized immediately; the receipt exists only to prove completion.
+    match /accountDeletionRequests/{userId} {
+      allow get: if isSignedIn() && request.auth.uid == userId;
+      allow list: if false;
+      allow create: if isSignedIn() && request.auth.uid == userId &&
+                    request.resource.data.keys().hasOnly(['uidHashVersion', 'status', 'requestedAt', 'deleteAfter']) &&
+                    request.resource.data.get('uidHashVersion', 0) == 1 &&
+                    request.resource.data.get('status', '') == 'anonymized' &&
+                    request.resource.data.get('requestedAt', null) == request.time &&
+                    request.resource.data.get('deleteAfter', request.time) >= request.time + duration.value(29, 'd') &&
+                    request.resource.data.get('deleteAfter', request.time) <= request.time + duration.value(31, 'd');
+      allow update, delete: if false;
+    }
+
+    // Bearer invite documents contain only the group ID and active state. Exact-code
+    // reads are allowed; enumeration is denied. Group creation writes this atomically.
+    match /groupInvites/{code} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isSignedIn() &&
+                    code.matches('^[A-Z0-9]{8}$') &&
+                    request.resource.data.keys().hasOnly(['groupId', 'createdBy', 'active', 'createdAt']) &&
+                    request.resource.data.get('createdBy', '') == request.auth.uid &&
+                    request.resource.data.get('active', false) == true &&
+                    getAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.get('createdBy', '') == request.auth.uid &&
+                    getAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.get('inviteCode', '') == code;
+      allow update: if isSignedIn() &&
+                    request.auth.uid == resource.data.get('createdBy', '') &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active']);
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.get('createdBy', '');
     }
   }
 }

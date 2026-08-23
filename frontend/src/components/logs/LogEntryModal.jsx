@@ -1,5 +1,6 @@
+import { getLucideIcon } from '../../utils/iconMap.js';
 import { useState, useEffect } from 'react';
-import * as LucideIcons from 'lucide-react';
+
 import { Hash } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Modal from '../common/Modal.jsx';
@@ -109,7 +110,7 @@ const LogEntryModal = ({ isOpen, onClose, onSaved, entry, groupId }) => {
           </label>
           <div className="flex flex-wrap gap-2">
             {EXPENSE_CATEGORIES.map((cat) => {
-              const IconComp = cat.icon ? LucideIcons[cat.icon] || Hash : Hash;
+              const IconComp = cat.icon ? getLucideIcon(cat.icon) || Hash : Hash;
               const active = category === cat.value;
               return (
                 <button

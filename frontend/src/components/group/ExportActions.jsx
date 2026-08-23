@@ -7,13 +7,13 @@ const ExportActions = ({ group, expenses, balances, logs = [], iconOnly = false 
   const [isOpen, setIsOpen] = useState(false);
   const [_isExporting, setIsExporting] = useState(false);
 
-  const handleExport = (type) => {
+  const handleExport = async (type) => {
     setIsExporting(true);
     try {
       if (type === 'pdf') {
-        exportToPDF(group, expenses, balances, logs);
+        await exportToPDF(group, expenses, balances, logs);
       } else {
-        exportToCSV(group, expenses);
+        await exportToCSV(group, expenses);
       }
     } finally {
       setTimeout(() => {

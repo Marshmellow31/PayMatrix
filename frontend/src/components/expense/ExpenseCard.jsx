@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiTrash, HiPencil } from 'react-icons/hi';
-import * as LucideIcons from 'lucide-react';
+import { Hash, Receipt } from 'lucide-react';
+import { getLucideIcon } from '../../utils/iconMap.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 import { format } from 'date-fns';
@@ -48,15 +49,15 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
         >
           {category?.icon ? (
             (() => {
-              const IconComponent = LucideIcons[category.icon];
+              const IconComponent = getLucideIcon(category.icon);
               return IconComponent ? (
                 <IconComponent size={20} style={{ color: category.color }} />
               ) : (
-                <LucideIcons.Hash size={20} />
+                <Hash size={20} />
               );
             })()
           ) : (
-            <LucideIcons.Hash size={20} />
+            <Hash size={20} />
           )}
         </div>
 
@@ -88,7 +89,7 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
           )}
           {isItemized && gstTotal > 0.01 && (
             <span className="inline-flex items-center gap-1 mt-1.5 text-[8px] font-black text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
-              <LucideIcons.Receipt size={9} /> GST
+              <Receipt size={9} /> GST
             </span>
           )}
         </div>

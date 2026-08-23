@@ -1,9 +1,11 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import authService from '../services/authService.js';
-import { auth } from '../config/firebase.js';
-import { signOut } from 'firebase/auth';
 import { clearSummaryCache } from '../services/expenseService.js';
 import { clearUserCache } from '../services/groupService.js';
+import fcmService from '../services/fcmService.js';
+import { db } from '../config/firebase.js';
+import { clearIndexedDbPersistence, terminate } from 'firebase/firestore';
+import syncTracker from '../services/syncTracker.js';
 
 // Safe localStorage parser
 const safeParse = (key) => {
@@ -64,20 +66,35 @@ export const updateProfile = createAsyncThunk(
   }
 );
 
+export const logoutUser = createAsyncThunk('auth/logoutUser', async (_, thunkAPI) => {
+  try {
+    await fcmService.deleteToken();
+    await authService.signOut();
+    clearSummaryCache();
+    clearUserCache();
+    syncTracker.clear();
+
+    localStorage.removeItem('paymatrix_user');
+    localStorage.removeItem('persist:root');
+    localStorage.removeItem('lastGroupId');
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith('paymatrix_outbox_') || key.startsWith('paymatrix_account_'))
+      .forEach((key) => localStorage.removeItem(key));
+
+    // Firestore's web cache is shared by the installation, not by Firebase UID.
+    // Terminate and clear it before another account can be used.
+    await terminate(db);
+    await clearIndexedDbPersistence(db);
+    return true;
+  } catch (error) {
+    return thunkAPI.rejectWithValue(error.message || 'Secure logout could not be completed.');
+  }
+});
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    logout: (state) => {
-      state.user = null;
-      state.loading = false;
-      state.error = null;
-      localStorage.removeItem('paymatrix_user');
-      // Clear in-memory service caches so stale PII doesn't leak to the next user
-      clearSummaryCache();
-      clearUserCache();
-      signOut(auth).catch(console.error);
-    },
     clearError: (state) => {
       state.error = null;
     },
@@ -110,9 +127,17 @@ const authSlice = createSlice({
       // Update Profile
       .addCase(updateProfile.fulfilled, (state, action) => {
         state.user = action.payload.user;
+      })
+      .addCase(logoutUser.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(logoutUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });
 
-export const { logout, clearError, setUser } = authSlice.actions;
+export const { clearError, setUser } = authSlice.actions;
 export default authSlice.reducer;

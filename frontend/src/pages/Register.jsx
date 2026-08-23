@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import useAuth from '../hooks/useAuth.js';
 import toast from 'react-hot-toast';
+import AppLogo from '../components/common/AppLogo.jsx';
 
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -77,9 +78,7 @@ const Register = () => {
               className="md:hidden mb-12 flex items-center gap-4 justify-center"
               variants={itemVariants}
             >
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center">
-                <div className="w-5 h-5 bg-[#131313] rounded-[4px]" />
-              </div>
+              <AppLogo decorative />
               <span className="text-2xl font-bold tracking-tight text-white uppercase">
                 PayMatrix
               </span>
@@ -156,9 +155,7 @@ const Register = () => {
               <span className="text-2xl font-bold tracking-tight text-white uppercase letter-spacing-[0.05em]">
                 PayMatrix
               </span>
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-lg">
-                <div className="w-5 h-5 bg-[#131313] rounded-[4px]" />
-              </div>
+              <AppLogo decorative className="shadow-lg" />
             </motion.div>
           </div>
 

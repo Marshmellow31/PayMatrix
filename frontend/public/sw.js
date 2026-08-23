@@ -46,6 +46,16 @@ try {
 
 registerRoute(new NavigationRoute(spaHandler));
 
+// Large lazy feature bundles (reports/charts) are cached after first use,
+// keeping initial installation fast without giving up repeat/offline access.
+registerRoute(
+  ({ request, url }) => url.origin === self.location.origin && request.destination === 'script',
+  new CacheFirst({
+    cacheName: 'paymatrix-lazy-scripts-v1',
+    plugins: [new ExpirationPlugin({ maxEntries: 24, maxAgeSeconds: 60 * 60 * 24 * 30 })],
+  })
+);
+
 // ── 3. Runtime Caching: Google Fonts ──────────────────────────────────────
 // Cache font CSS and font files with a 1-year expiry.
 // Inter (used by PayMatrix) will be available offline after first load.

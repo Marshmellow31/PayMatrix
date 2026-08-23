@@ -3,7 +3,19 @@ import { createPortal } from 'react-dom';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import * as LucideIcons from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  AtSign,
+  CheckCircle,
+  CheckCircle2,
+  ChevronRight,
+  CircleCheck,
+  Copy,
+  Download,
+  SlidersHorizontal,
+  Smartphone,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
@@ -45,6 +57,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
   const [fetchingPayments, setFetchingPayments] = useState(false);
   const [qrModal, setQrModal] = useState(null);
   const qrCanvasRef = useRef(null);
+  const settlementOperationIds = useRef(new Map());
 
   // Navigation: 'main' | 'custom'
   const [view, setView] = useState('main');
@@ -143,36 +156,66 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
 
   // ── settle actions ───────────────────────────────────────────────────────────
 
-  const handleSettle = (payeeId, amount, notes = 'Settled up') => {
-    setProcessing(true);
-    if (onSettled) onSettled();
-    toast.success('Payment recorded successfully');
-    setProcessing(false);
-    setPartialPayment(null);
-    onClose();
-    expenseService
-      .createSettlement(groupId, { payee: payeeId, amount: parseFloat(amount), notes }, userId)
-      .catch((err) => console.warn('Settlement delayed or failed:', err));
+  const getSettlementOperationId = (payeeId, amount) => {
+    const key = `${payeeId}:${amount}`;
+    if (!settlementOperationIds.current.has(key)) {
+      settlementOperationIds.current.set(key, crypto.randomUUID());
+    }
+    return { key, operationId: settlementOperationIds.current.get(key) };
   };
 
-  const handleSettleAll = () => {
+  const handleSettle = async (payeeId, amount, notes = 'Settled up') => {
+    setProcessing(true);
+    const operation = getSettlementOperationId(payeeId, amount);
+    try {
+      await expenseService.createSettlement(
+        groupId,
+        { payee: payeeId, amount, notes, operationId: operation.operationId },
+        userId
+      );
+      settlementOperationIds.current.delete(operation.key);
+      await onSettled?.();
+      toast.success('Payment confirmed and recorded');
+      setPartialPayment(null);
+      onClose();
+    } catch (error) {
+      toast.error(error?.message || 'Payment could not be recorded');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleSettleAll = async () => {
     if (settlements.length === 0) return;
     setProcessing(true);
-    if (onSettled) onSettled();
-    toast.success('All debts settled successfully!');
-    setProcessing(false);
-    onClose();
-    settlements.forEach((debt) => {
-      if (debt.amount > 0) {
-        expenseService
-          .createSettlement(
-            groupId,
-            { payee: debt.to, amount: debt.amount, notes: 'Settled all debts' },
-            userId
-          )
-          .catch((err) => console.warn(err));
-      }
-    });
+    try {
+      const payableDebts = settlements.filter((debt) => debt.amount > 0);
+      await Promise.all(
+        payableDebts.map((debt) => {
+          const operation = getSettlementOperationId(debt.to, debt.amount);
+          return expenseService
+            .createSettlement(
+              groupId,
+              {
+                payee: debt.to,
+                amount: debt.amount,
+                notes: 'Settled all debts',
+                operationId: operation.operationId,
+              },
+              userId
+            )
+            .then(() => settlementOperationIds.current.delete(operation.key));
+        })
+      );
+      await onSettled?.();
+      toast.success('All payer-confirmed debts were recorded');
+      onClose();
+    } catch (error) {
+      toast.error(error?.message || 'Some payments could not be recorded. Nothing was replayed.');
+      await loadSettlementPlan();
+    } finally {
+      setProcessing(false);
+    }
   };
 
   // ── UPI actions ──────────────────────────────────────────────────────────────
@@ -310,7 +353,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                   ) : settlements.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6 border border-primary/20">
-                        <LucideIcons.CheckCircle size={32} className="text-primary" />
+                        <CheckCircle size={32} className="text-primary" />
                       </div>
                       <h3 className="text-xl font-bold font-manrope text-white mb-2 tracking-tight">
                         You are all settled up
@@ -371,11 +414,11 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                                     <div className="absolute top-3 right-3">
                                       {receiverHasPayment ? (
                                         <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/10 text-emerald-400/80 text-[8px] font-black uppercase tracking-widest">
-                                          <LucideIcons.CheckCircle2 size={9} /> Ready
+                                          <CheckCircle2 size={9} /> Ready
                                         </span>
                                       ) : (
                                         <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/10 text-amber-400/60 text-[8px] font-black uppercase tracking-widest">
-                                          <LucideIcons.AlertCircle size={9} /> No ID
+                                          <AlertCircle size={9} /> No ID
                                         </span>
                                       )}
                                     </div>
@@ -471,24 +514,26 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                                       </Button>
                                     </div>
                                     {flags.upiDeepLinks && (
-                                      <button
-                                        disabled={
-                                          processing || !receiverHasPayment || fetchingPayments
-                                        }
-                                        onClick={() => handleUPIPay(debt, receiverDetails)}
-                                        title={
-                                          receiverHasPayment
-                                            ? `Pay ${receiverUser.name} via UPI`
-                                            : `${receiverUser.name} has not added a UPI ID`
-                                        }
-                                        className={`w-full h-11 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border ${
-                                          receiverHasPayment && !fetchingPayments
-                                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
-                                            : 'bg-white/[0.03] border-white/5 text-white/20 opacity-40 cursor-not-allowed grayscale'
-                                        }`}
-                                      >
-                                        <LucideIcons.Smartphone size={14} /> Pay via UPI
-                                      </button>
+                                      <div className="grid gap-2">
+                                        <button
+                                          disabled={
+                                            processing || !receiverHasPayment || fetchingPayments
+                                          }
+                                          onClick={() => handleUPIPay(debt, receiverDetails)}
+                                          title={
+                                            receiverHasPayment
+                                              ? `Pay ${receiverUser.name} via UPI`
+                                              : `${receiverUser.name} has not added a UPI ID`
+                                          }
+                                          className={`w-full h-11 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all border ${
+                                            receiverHasPayment && !fetchingPayments
+                                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
+                                              : 'bg-white/[0.03] border-white/5 text-white/20 opacity-40 cursor-not-allowed grayscale'
+                                          }`}
+                                        >
+                                          <Smartphone size={14} /> Pay via UPI
+                                        </button>
+                                      </div>
                                     )}
                                   </div>
                                 )}
@@ -512,7 +557,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                        <LucideIcons.SlidersHorizontal size={14} className="text-violet-400" />
+                        <SlidersHorizontal size={14} className="text-violet-400" />
                       </div>
                       <div className="text-left">
                         <p className="text-xs font-black text-white uppercase tracking-widest">
@@ -523,7 +568,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                         </p>
                       </div>
                     </div>
-                    <LucideIcons.ChevronRight
+                    <ChevronRight
                       size={16}
                       className="text-white/30 group-hover:text-white/60 transition-colors"
                     />
@@ -548,7 +593,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                     className="flex items-center gap-2 text-on-surface-variant hover:text-white transition-colors group w-fit"
                   >
                     <div className="w-8 h-8 rounded-xl bg-white/[0.04] group-hover:bg-white/[0.08] border border-white/5 flex items-center justify-center transition-colors">
-                      <LucideIcons.ArrowLeft size={15} />
+                      <ArrowLeft size={15} />
                     </div>
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 group-hover:opacity-100 transition-opacity">
                       Back
@@ -652,7 +697,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                                   : 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed'
                               }`}
                             >
-                              <LucideIcons.CircleCheck size={15} />
+                              <CircleCheck size={15} />
                               {processing ? '…' : 'Mark Paid'}
                             </button>
 
@@ -679,7 +724,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                                     : 'bg-white/[0.03] border-white/5 text-white/20 opacity-40 cursor-not-allowed grayscale'
                                 }`}
                               >
-                                <LucideIcons.Smartphone size={14} /> Pay via UPI
+                                <Smartphone size={14} /> Pay via UPI
                               </button>
                             )}
                           </div>
@@ -770,7 +815,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
 
                     {qrModal.receiver.upiId && (
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/5 mb-5">
-                        <LucideIcons.AtSign size={13} className="text-white/40 shrink-0" />
+                        <AtSign size={13} className="text-white/40 shrink-0" />
                         <span className="text-xs font-mono text-white/60 truncate flex-1">
                           {qrModal.receiver.upiId}
                         </span>
@@ -778,7 +823,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                           onClick={() => handleCopyUPI(qrModal.receiver.upiId)}
                           className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 text-[9px] font-black uppercase tracking-wider transition-all"
                         >
-                          <LucideIcons.Copy size={10} /> Copy
+                          <Copy size={10} /> Copy
                         </button>
                       </div>
                     )}
@@ -795,7 +840,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                         disabled={!qrModal.receiver.upiId}
                         className="flex-1 py-3.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 text-xs font-black tracking-widest uppercase transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        <LucideIcons.Download size={14} /> Save QR
+                        <Download size={14} /> Save QR
                       </button>
                     </div>
                   </div>

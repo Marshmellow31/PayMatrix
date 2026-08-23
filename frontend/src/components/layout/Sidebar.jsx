@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Users, LayoutGrid, User, X, ScrollText } from 'lucide-react';
+import AppLogo from '../common/AppLogo.jsx';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -59,9 +60,12 @@ const Sidebar = ({ isOpen, onClose, maintenanceMode }) => {
               transition={{ type: 'spring', damping: 20, stiffness: 200 }}
             >
               <div className="flex items-center justify-between mb-8">
-                <span className="text-xl font-bold font-manrope text-primary tracking-tight">
-                  PayMatrix
-                </span>
+                <div className="flex items-center gap-2.5">
+                  <AppLogo size="xs" decorative />
+                  <span className="text-xl font-bold font-manrope text-primary tracking-tight">
+                    PayMatrix
+                  </span>
+                </div>
                 <button
                   onClick={onClose}
                   className="p-2 rounded-md hover:bg-surface-container text-on-surface-variant"

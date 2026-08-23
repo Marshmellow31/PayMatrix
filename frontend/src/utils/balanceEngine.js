@@ -1,11 +1,9 @@
 /**
  * Balance Engine for PayMatrix
  * Handles net balance calculations and debt simplification (min-flow algorithm).
- * Numbers are handled as 2-decimal floats.
+ * All calculations use integer paise. Rupee numbers are exposed only at UI boundaries.
  */
-
-// Helper for 2-decimal rounding to prevent float precision drift
-const round2 = (num) => Math.round(num * 100) / 100;
+import { allocatePaise, fromPaise, toPaise } from './money.js';
 
 /**
  * Extracts a unique ID from various member/user object shapes or strings.
@@ -31,36 +29,54 @@ const extractUid = (user) => {
  * Returns Array of { user: userId, amount: float, percent?: float, shares?: int }
  */
 export const calculateSplits = (amount, splitType, splitData, participants = []) => {
-  const total = parseFloat(amount || 0);
+  const totalPaise = toPaise(amount);
   if (participants.length === 0) return [];
+
+  const finalize = (entries) =>
+    entries
+      .map((entry) => ({
+        ...entry,
+        amountPaise: entry.paise,
+        amount: fromPaise(entry.paise),
+      }))
+      .map(({ paise: _paise, weight: _weight, ...entry }) => entry);
 
   switch (splitType) {
     case 'equal': {
-      const perPerson = round2(total / participants.length);
-      return participants.map((uid) => ({ user: uid, amount: perPerson }));
+      return finalize(
+        allocatePaise(
+          totalPaise,
+          participants.map((user) => ({ user, weight: 1 }))
+        )
+      );
     }
     case 'percentage': {
       const pcts = splitData.percentages || {};
-      return participants.map((uid) => {
-        const pct = parseFloat(pcts[uid] || 0);
-        return { user: uid, amount: round2((total * pct) / 100), percent: pct };
-      });
+      const entries = participants.map((user) => ({
+        user,
+        weight: Number(pcts[user] || 0),
+        percent: Number(pcts[user] || 0),
+      }));
+      const totalPercent = entries.reduce((sum, entry) => sum + entry.percent, 0);
+      if (Math.abs(totalPercent - 100) > 0.0001) throw new Error('Percentages must total 100%.');
+      return finalize(allocatePaise(totalPaise, entries));
     }
     case 'exact': {
       const values = splitData.exactAmounts || {};
-      return participants.map((uid) => ({
-        user: uid,
-        amount: round2(parseFloat(values[uid] || 0)),
-      }));
+      const entries = participants.map((user) => ({ user, paise: toPaise(values[user] || 0) }));
+      if (entries.reduce((sum, entry) => sum + entry.paise, 0) !== totalPaise) {
+        throw new Error('Exact splits must equal the expense total.');
+      }
+      return finalize(entries);
     }
     case 'shares': {
       const shares = splitData.shares || {};
-      const totalShares = participants.reduce((sum, uid) => sum + parseInt(shares[uid] || 1), 0);
-      return participants.map((uid) => {
-        const userShares = parseInt(shares[uid] || 1);
-        const amt = totalShares > 0 ? round2((total * userShares) / totalShares) : 0;
-        return { user: uid, amount: amt, shares: userShares };
-      });
+      const entries = participants.map((user) => ({
+        user,
+        weight: Number.parseInt(shares[user] || 1, 10),
+        shares: Number.parseInt(shares[user] || 1, 10),
+      }));
+      return finalize(allocatePaise(totalPaise, entries));
     }
     case 'itemized': {
       // Restaurant-style split: each participant has a base "dish" cost, and the
@@ -70,28 +86,31 @@ export const calculateSplits = (amount, splitType, splitData, participants = [])
       //   dish * (total / subtotal) === dish + (dish / subtotal) * (total - subtotal)
       // i.e. their dish plus their proportional slice of the GST.
       const dishes = splitData.dishAmounts || {};
-      const subtotal = participants.reduce((sum, uid) => sum + (parseFloat(dishes[uid]) || 0), 0);
+      const dishPaise = participants.map((user) => ({
+        user,
+        dishPaise: toPaise(dishes[user] || 0),
+      }));
+      const subtotalPaise = dishPaise.reduce((sum, entry) => sum + entry.dishPaise, 0);
 
       // No dishes entered yet → degrade gracefully to an equal split of the total.
-      if (subtotal <= 0) {
-        const perPerson = round2(total / participants.length);
-        return participants.map((uid) => ({ user: uid, amount: perPerson, dish: 0 }));
+      if (subtotalPaise <= 0) {
+        return finalize(
+          allocatePaise(
+            totalPaise,
+            participants.map((user) => ({ user, weight: 1, dish: 0, dishPaise: 0 }))
+          )
+        );
       }
-
-      // Allocate proportionally; the last participant absorbs any rounding drift
-      // so the splits always sum back to the stored total exactly.
-      let allocated = 0;
-      return participants.map((uid, idx) => {
-        const dish = round2(parseFloat(dishes[uid]) || 0);
-        let amount;
-        if (idx === participants.length - 1) {
-          amount = round2(total - allocated);
-        } else {
-          amount = round2((total * dish) / subtotal);
-          allocated = round2(allocated + amount);
-        }
-        return { user: uid, amount, dish };
-      });
+      return finalize(
+        allocatePaise(
+          totalPaise,
+          dishPaise.map((entry) => ({
+            ...entry,
+            dish: fromPaise(entry.dishPaise),
+            weight: entry.dishPaise,
+          }))
+        )
+      );
     }
     default:
       return [];
@@ -103,19 +122,19 @@ export const simplifyDebts = (balances) => {
 
   // Filter out zero balances and split into creditors and debtors
   Object.keys(balances).forEach((userId) => {
-    const amount = round2(balances[userId]);
-    if (Math.abs(amount) < 0.01) return; // Ignore dust
+    const amountPaise = toPaise(balances[userId]);
+    if (amountPaise === 0) return;
 
-    if (amount > 0) {
-      creditors.push({ userId, amount });
+    if (amountPaise > 0) {
+      creditors.push({ userId, amountPaise });
     } else {
-      debtors.push({ userId, amount: Math.abs(amount) });
+      debtors.push({ userId, amountPaise: Math.abs(amountPaise) });
     }
   });
 
   // Sort both lists (descending) to match largest creditor with largest debtor
-  creditors.sort((a, b) => b.amount - a.amount);
-  debtors.sort((a, b) => b.amount - a.amount);
+  creditors.sort((a, b) => b.amountPaise - a.amountPaise);
+  debtors.sort((a, b) => b.amountPaise - a.amountPaise);
 
   const simplifiedTransactions = [];
 
@@ -126,26 +145,20 @@ export const simplifyDebts = (balances) => {
     const creditor = creditors[i];
     const debtor = debtors[j];
 
-    const amountToTransfer = round2(Math.min(creditor.amount, debtor.amount));
-
-    // Safety check for tiny fractions
-    if (amountToTransfer < 0.01) {
-      if (creditor.amount < 0.01) i++;
-      if (debtor.amount < 0.01) j++;
-      continue;
-    }
+    const amountPaise = Math.min(creditor.amountPaise, debtor.amountPaise);
 
     simplifiedTransactions.push({
       from: debtor.userId,
       to: creditor.userId,
-      amount: amountToTransfer,
+      amountPaise,
+      amount: fromPaise(amountPaise),
     });
 
-    creditor.amount = round2(creditor.amount - amountToTransfer);
-    debtor.amount = round2(debtor.amount - amountToTransfer);
+    creditor.amountPaise -= amountPaise;
+    debtor.amountPaise -= amountPaise;
 
-    if (creditor.amount < 0.01) i++;
-    if (debtor.amount < 0.01) j++;
+    if (creditor.amountPaise === 0) i++;
+    if (debtor.amountPaise === 0) j++;
   }
 
   return simplifiedTransactions;
@@ -180,13 +193,14 @@ export const computeGroupBalances = (expenses = [], settlements = [], groupMembe
         const splitUserId = extractUid(split.user);
         if (!splitUserId) return;
 
-        const splitAmount = parseFloat(split.amount || 0);
-        if (isNaN(splitAmount)) return;
+        const splitPaise = Number.isSafeInteger(split.amountPaise)
+          ? split.amountPaise
+          : toPaise(split.amount || 0);
 
         // The person who paid is owed back
         if (payerId !== splitUserId) {
-          netBalances[payerId] = round2((netBalances[payerId] || 0) + splitAmount);
-          netBalances[splitUserId] = round2((netBalances[splitUserId] || 0) - splitAmount);
+          netBalances[payerId] = (netBalances[payerId] || 0) + splitPaise;
+          netBalances[splitUserId] = (netBalances[splitUserId] || 0) - splitPaise;
         }
       });
     } catch (err) {
@@ -199,18 +213,29 @@ export const computeGroupBalances = (expenses = [], settlements = [], groupMembe
     try {
       const payerId = extractUid(settlement.payer || settlement.createdBy);
       const payeeId = extractUid(settlement.payee || settlement.recipient || settlement.to);
-      if (!payerId || !payeeId || payerId === payeeId || settlement.status === 'deleted') continue;
+      if (
+        !payerId ||
+        !payeeId ||
+        payerId === payeeId ||
+        settlement.status === 'deleted' ||
+        (settlement.confirmationStatus && settlement.confirmationStatus !== 'confirmed')
+      )
+        continue;
 
-      const amount = round2(parseFloat(settlement.amount || 0));
-      if (isNaN(amount) || amount <= 0) continue;
+      const amountPaise = Number.isSafeInteger(settlement.amountPaise)
+        ? settlement.amountPaise
+        : toPaise(settlement.amount || 0);
+      if (amountPaise <= 0) continue;
 
       // Payer settles debt (less negative), Payee is paid (less positive)
-      netBalances[payerId] = round2((netBalances[payerId] || 0) + amount);
-      netBalances[payeeId] = round2((netBalances[payeeId] || 0) - amount);
+      netBalances[payerId] = (netBalances[payerId] || 0) + amountPaise;
+      netBalances[payeeId] = (netBalances[payeeId] || 0) - amountPaise;
     } catch (err) {
       console.error('Error processing settlement for balance:', err, settlement);
     }
   }
 
-  return netBalances;
+  return Object.fromEntries(
+    Object.entries(netBalances).map(([userId, paise]) => [userId, fromPaise(paise)])
+  );
 };

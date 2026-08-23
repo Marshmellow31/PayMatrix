@@ -1,30 +1,31 @@
-import { useState, useEffect } from 'react';
-import { WifiOff } from 'lucide-react';
+import { Cloud, CloudOff, LoaderCircle } from 'lucide-react';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus.js';
+import { useSyncStatus } from '../../hooks/useSyncStatus.js';
 
 const SyncStatus = () => {
-  const [isOnline, setIsOnline] = useState(typeof window !== 'undefined' ? navigator.onLine : true);
+  const online = useOnlineStatus();
+  const { pending, error } = useSyncStatus();
 
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+  if (online && pending === 0 && !error) return null;
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  if (isOnline) return null;
+  const label = !online
+    ? pending > 0
+      ? `${pending} change${pending === 1 ? '' : 's'} saved on this device`
+      : 'Offline mode'
+    : error
+      ? 'Some changes need attention'
+      : `Syncing ${pending} change${pending === 1 ? '' : 's'}…`;
 
   return (
-    <div
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-4 py-2.5 rounded-full flex items-center gap-3 backdrop-blur-xl border font-inter text-xs font-medium tracking-wide shadow-2xl transition-all duration-300 bg-red-500/10 text-red-500 border-red-500/20 shadow-red-500/10`}
-    >
-      <WifiOff size={14} className="animate-pulse" />
-      <span>Offline Mode. Changes saved safely via Firebase.</span>
+    <div className="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-neutral-950/95 px-4 py-2 text-xs font-semibold text-white shadow-2xl backdrop-blur lg:bottom-6">
+      {!online ? (
+        <CloudOff size={14} className="text-amber-400" />
+      ) : pending ? (
+        <LoaderCircle size={14} className="animate-spin text-primary" />
+      ) : (
+        <Cloud size={14} className="text-red-400" />
+      )}
+      <span>{label}</span>
     </div>
   );
 };

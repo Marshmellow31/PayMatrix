@@ -1,5 +1,6 @@
+import { getLucideIcon } from '../../utils/iconMap.js';
 import { motion } from 'framer-motion';
-import * as LucideIcons from 'lucide-react';
+
 import { Hash, Users, Pencil, Trash2 } from 'lucide-react';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
@@ -64,7 +65,7 @@ const LogTimeline = ({
             {group.entries.map((entry) => {
               const i = idx++;
               const cat = EXPENSE_CATEGORIES.find((c) => c.value === entry.category);
-              const IconComp = cat?.icon ? LucideIcons[cat.icon] || Hash : Hash;
+              const IconComp = cat?.icon ? getLucideIcon(cat.icon) || Hash : Hash;
               const iconColor = cat?.color || '#919191';
               const isExpense = entry.type === 'expense';
               const isMine = entry.addedBy === currentUid;

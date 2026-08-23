@@ -1,11 +1,11 @@
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { json2csv } from 'json-2-csv';
-
 /**
  * Export group expenses to PDF
  */
-export const exportToPDF = (group, expenses, balances, logs = []) => {
+export const exportToPDF = async (group, expenses, balances, logs = []) => {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ]);
   const doc = new jsPDF();
   const timestamp = new Date().toLocaleString();
 
@@ -129,7 +129,7 @@ export const exportToPDF = (group, expenses, balances, logs = []) => {
 /**
  * Export group expenses to CSV
  */
-export const exportToCSV = (group, expenses) => {
+export const exportToCSV = async (group, expenses) => {
   const data = expenses.map((e) => ({
     Date: new Date(e.createdAt || e.date).toLocaleDateString(),
     Title: e.title || 'Untitled',
@@ -140,6 +140,7 @@ export const exportToCSV = (group, expenses) => {
   }));
 
   try {
+    const { json2csv } = await import('json-2-csv');
     const csv = json2csv(data); // v5.x is synchronous by default
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');

@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
-import { Plus } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
+import { Hash, Loader2, Plus } from 'lucide-react';
+import { getLucideIcon } from '../utils/iconMap.js';
 import { createGroup, setGroups } from '../redux/groupSlice.js';
 import GroupCard from '../components/group/GroupCard.jsx';
 import Modal from '../components/common/Modal.jsx';
@@ -158,7 +158,7 @@ const Groups = () => {
               disabled={!isOnline}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${!isOnline ? 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed opacity-50 grayscale' : 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/20'}`}
             >
-              <LucideIcons.Plus size={16} />
+              <Plus size={16} />
               <span className="text-[10px] uppercase tracking-widest font-bold">
                 {isOnline ? 'New Cohort' : 'Offline'}
               </span>
@@ -216,7 +216,7 @@ const Groups = () => {
           onClick={() => openAddExpense()}
           className="h-14 w-14 rounded-full bg-primary text-on-primary shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform duration-200"
         >
-          <LucideIcons.Plus size={24} />
+          <Plus size={24} />
         </button>
       </div>
 
@@ -251,7 +251,7 @@ const Groups = () => {
                   }`}
                 >
                   {(() => {
-                    const IconComp = LucideIcons[cat.icon] || LucideIcons.Hash;
+                    const IconComp = getLucideIcon(cat.icon) || Hash;
                     return <IconComp size={14} />;
                   })()}
                   <span>{cat.label}</span>
@@ -304,7 +304,7 @@ const Groups = () => {
             }`}
           >
             {loading ? (
-              <LucideIcons.Loader2 className="animate-spin" />
+              <Loader2 className="animate-spin" />
             ) : isOnline ? (
               'Launch Cohort'
             ) : (

@@ -21,7 +21,7 @@ if (fs.existsSync(envPath)) {
 }
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '8mb' }));
 
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
 
@@ -60,6 +60,12 @@ app.post('/api/scan-bill', async (req, res) => {
   const { imageBase64, mimeType = "image/jpeg" } = req.body || {};
   if (!imageBase64) {
     return res.status(400).json({ error: "imageBase64 is required." });
+  }
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
+    return res.status(415).json({ error: 'Unsupported receipt image type.' });
+  }
+  if (typeof imageBase64 !== 'string' || imageBase64.length > 7_000_000) {
+    return res.status(413).json({ error: 'Receipt image is too large.' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
@@ -123,6 +129,6 @@ app.post('/api/scan-bill', async (req, res) => {
 });
 
 const PORT = 5000;
-app.listen(PORT, () => {
-  console.log(`[dev-server] Local API server listening on port ${PORT}`);
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`[dev-server] Local API server listening on http://127.0.0.1:${PORT}`);
 });
