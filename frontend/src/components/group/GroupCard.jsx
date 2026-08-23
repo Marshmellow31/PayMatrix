@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Hash } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
+import { ChevronRight, Hash } from 'lucide-react';
+import { getLucideIcon } from '../../utils/iconMap.js';
 import { GROUP_CATEGORIES } from '../../utils/constants.js';
 import Avatar from '../common/Avatar.jsx';
 
 const GroupCard = ({ group, balance = 0 }) => {
   const category = GROUP_CATEGORIES.find((c) => c.value === group.category);
-  const _IconComponent = category?.icon ? LucideIcons[category.icon] || Hash : Hash;
+  const _IconComponent = category?.icon ? getLucideIcon(category.icon) || Hash : Hash;
 
   // De-duplicate members by user ID (handles both raw UIDs and expanded objects)
   const uniqueMembers = Array.from(
@@ -82,7 +82,7 @@ const GroupCard = ({ group, balance = 0 }) => {
             )}
           </div>
           <div className="w-8 h-8 rounded-full bg-surface-container-high/50 flex items-center justify-center group-hover:bg-primary group-hover:text-on-primary transition-all duration-300">
-            <LucideIcons.ChevronRight
+            <ChevronRight
               size={16}
               className="text-on-surface-variant group-hover:text-on-primary"
             />

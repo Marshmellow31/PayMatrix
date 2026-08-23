@@ -1,3 +1,4 @@
+import { getLucideIcon } from '../utils/iconMap.js';
 import { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link, useOutletContext } from 'react-router-dom';
@@ -13,7 +14,7 @@ import {
   Hash,
   Nfc,
 } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
+
 import { setGroups } from '../redux/groupSlice.js';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
 import groupService from '../services/groupService.js';
@@ -383,7 +384,7 @@ const Dashboard = () => {
                 {/* Rounded-square icon matching GroupDetail header style */}
                 {(() => {
                   const cat = GROUP_CATEGORIES.find((c) => c.value === group.category);
-                  const IconComp = cat?.icon ? LucideIcons[cat.icon] || Hash : Hash;
+                  const IconComp = cat?.icon ? getLucideIcon(cat.icon) || Hash : Hash;
                   const iconColor = cat?.color || '#919191';
                   return (
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shadow-inner group-hover:scale-105 transition-all">

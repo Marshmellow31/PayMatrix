@@ -1,7 +1,6 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
-
 admin.initializeApp();
 
 // FIX SEC-02: FALLBACK_ADMIN_UID removed. All admin checks now rely solely on
@@ -357,16 +356,27 @@ exports.createCrossUserNotification = onCall(
       throw new HttpsError("unauthenticated", "Must be signed in.");
     }
 
-    const { to, message, type, relatedId, groupId } = request.data || {};
-    if (!to || !message) {
-      throw new HttpsError("invalid-argument", "'to' and 'message' are required.");
+    const { to, type, relatedId, groupId } = request.data || {};
+    if (!to || !type) {
+      throw new HttpsError("invalid-argument", "'to' and 'type' are required.");
     }
 
     const db  = admin.firestore();
     const uid = request.auth.uid;
 
-    // Authorization: if a groupId is provided the caller must be a member
-    if (groupId) {
+    const allowedTypes = new Set(["expense_added", "settlement_received", "friend_request", "friend_accepted"]);
+    if (!allowedTypes.has(type)) {
+      throw new HttpsError("invalid-argument", "Unsupported notification type.");
+    }
+
+    let safeMessage;
+    const actorProfile = await db.doc(`publicProfiles/${uid}`).get();
+    const actorName = String(actorProfile.data()?.name || "A PayMatrix member").slice(0, 50);
+
+    if (type === "expense_added" || type === "settlement_received") {
+      if (!groupId || !relatedId) {
+        throw new HttpsError("invalid-argument", "Related group and record are required.");
+      }
       const groupSnap = await db.doc(`groups/${groupId}`).get();
       if (!groupSnap.exists) {
         throw new HttpsError("not-found", "Related group not found.");
@@ -375,6 +385,37 @@ exports.createCrossUserNotification = onCall(
       if (!members.includes(uid)) {
         throw new HttpsError("permission-denied", "Caller is not a member of the related group.");
       }
+      if (!members.includes(to)) {
+        throw new HttpsError("permission-denied", "Recipient is not a member of the related group.");
+      }
+
+      if (type === "expense_added") {
+        const expenseSnap = await db.doc(`groups/${groupId}/expenses/${relatedId}`).get();
+        const expense = expenseSnap.data();
+        if (!expenseSnap.exists || expense.paidBy !== uid || !(expense.participants || []).includes(to)) {
+          throw new HttpsError("permission-denied", "Expense notification does not match the ledger.");
+        }
+        safeMessage = `${actorName} added an expense in ${String(groupSnap.data().name || "your group").slice(0, 100)}.`;
+      } else {
+        const settlementSnap = await db.doc(`groups/${groupId}/settlements/${relatedId}`).get();
+        const settlement = settlementSnap.data();
+        if (!settlementSnap.exists || settlement.payer !== uid || settlement.payee !== to || settlement.confirmationStatus !== "confirmed") {
+          throw new HttpsError("permission-denied", "Settlement notification does not match the ledger.");
+        }
+        safeMessage = `${actorName} recorded a payer-confirmed settlement in ${String(groupSnap.data().name || "your group").slice(0, 100)}.`;
+      }
+    } else if (type === "friend_request") {
+      const friendRequest = await db.doc(`friendRequests/${uid}_${to}`).get();
+      if (!friendRequest.exists || friendRequest.data().status !== "pending") {
+        throw new HttpsError("permission-denied", "No matching pending friend request.");
+      }
+      safeMessage = `${actorName} sent you a friend request.`;
+    } else {
+      const friendRequest = await db.doc(`friendRequests/${to}_${uid}`).get();
+      if (!friendRequest.exists || friendRequest.data().status !== "accepted") {
+        throw new HttpsError("permission-denied", "No matching accepted friend request.");
+      }
+      safeMessage = `${actorName} accepted your friend request.`;
     }
 
     // Verify the recipient exists
@@ -385,8 +426,8 @@ exports.createCrossUserNotification = onCall(
 
     await db.collection("notifications").add({
       to,
-      message: String(message).slice(0, 500), // cap length
-      type:      type      || "info",
+      message: safeMessage,
+      type,
       relatedId: relatedId || null,
       groupId:   groupId   || null,
       read:      false,

@@ -1,5 +1,16 @@
 import { useState, useEffect } from 'react';
-import * as Lucide from 'lucide-react';
+import {
+  AlertCircle,
+  ChevronRight,
+  Clock,
+  CreditCard,
+  Inbox,
+  Lock,
+  Mail,
+  UserCheck,
+  UserMinus,
+  UserPlus,
+} from 'lucide-react';
 import Avatar from '../common/Avatar.jsx';
 import Button from '../common/Button.jsx';
 import Modal from '../common/Modal.jsx';
@@ -30,13 +41,6 @@ const MemberList = ({
   const isOnline = useOnlineStatus();
 
   // Icons from Lucide (using robust access)
-  const UserMinus = Lucide.UserMinus || Lucide.Trash2;
-  const _X = Lucide.X || Lucide.XCircle;
-  const Mail = Lucide.Mail;
-  const Clock = Lucide.Clock;
-  const CreditCard = Lucide.CreditCard;
-  const ChevronRight = Lucide.ChevronRight;
-  const _AlertCircle = Lucide.AlertCircle;
 
   // De-duplicate members by user ID for visual consistency
   const uniqueMembers = [];
@@ -306,7 +310,7 @@ const MemberList = ({
                         loading={isRequesting}
                         disabled={!isOnline}
                       >
-                        <Lucide.UserPlus size={16} />
+                        <UserPlus size={16} />
                         Add Friend
                       </Button>
                     ) : (
@@ -320,7 +324,7 @@ const MemberList = ({
                       className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest opacity-80 cursor-not-allowed bg-white/5 border border-white/10 gap-2 text-white/80"
                       disabled
                     >
-                      <Lucide.Clock size={16} />
+                      <Clock size={16} />
                       Request Sent
                     </Button>
                   ) : relationshipStatus === 'pending_incoming' ? (
@@ -329,7 +333,7 @@ const MemberList = ({
                       className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest text-[#e5e2e1] bg-white/10 border border-white/20 cursor-default hover:bg-white/10 gap-2"
                       disabled
                     >
-                      <Lucide.Inbox size={16} />
+                      <Inbox size={16} />
                       Pending Request
                     </Button>
                   ) : relationshipStatus === 'friend' ? (
@@ -338,7 +342,7 @@ const MemberList = ({
                       className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest text-green-400 bg-green-400/5 border border-green-400/20 cursor-default hover:bg-green-400/5 gap-2"
                       disabled
                     >
-                      <Lucide.UserCheck size={16} />
+                      <UserCheck size={16} />
                       Friends
                     </Button>
                   ) : null}
@@ -357,9 +361,9 @@ const MemberList = ({
                       disabled={Math.abs(selectedMember.balance || 0) > 0.01 || !isOnline}
                     >
                       {!isOnline ? (
-                        <Lucide.Lock size={14} />
+                        <Lock size={14} />
                       ) : Math.abs(selectedMember.balance || 0) > 0.01 ? (
-                        <Lucide.Lock size={14} />
+                        <Lock size={14} />
                       ) : (
                         UserMinus && <UserMinus size={16} />
                       )}
@@ -372,7 +376,7 @@ const MemberList = ({
 
                     {Math.abs(selectedMember.balance || 0) > 0.01 && (
                       <div className="flex items-center justify-center gap-2 text-[9px] text-red-400 font-bold uppercase tracking-widest opacity-80 font-manrope">
-                        <Lucide.AlertCircle size={12} />
+                        <AlertCircle size={12} />
                         <span>Settle {formatCurrency(selectedMember.balance)} for removal</span>
                       </div>
                     )}

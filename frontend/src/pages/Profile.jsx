@@ -21,6 +21,9 @@ import {
   Smartphone,
   KeyRound,
   Copy,
+  Bell,
+  Trash2,
+  Shield,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
@@ -31,6 +34,7 @@ import { exportToPDF } from '../utils/exportUtils.js';
 import { validateUPIId, hasPaymentMethod } from '../utils/upiUtils.js';
 import friendService from '../services/friendService.js';
 import { formatFriendCode } from '../services/friendCodeService.js';
+import fcmService from '../services/fcmService.js';
 
 const Profile = () => {
   const { id } = useParams();
@@ -54,6 +58,8 @@ const Profile = () => {
 
   // Changelog modal state
   const [showChangelog, setShowChangelog] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(fcmService.isExplicitlyEnabled());
+  const [savingPush, setSavingPush] = useState(false);
 
   const isOwnProfile = !id || id === currentUser?._id || id === currentUser?.uid;
 
@@ -69,7 +75,7 @@ const Profile = () => {
 
       try {
         setLoading(true);
-        const docRef = doc(db, 'users', id);
+        const docRef = doc(db, 'publicProfiles', id);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setTargetUser({ _id: docSnap.id, ...docSnap.data() });
@@ -378,6 +384,43 @@ const Profile = () => {
                   {currentUser?.preferences?.currency || 'INR'}
                 </span>
               </div>
+              {isOwnProfile && (
+                <div className="flex items-center justify-between pb-4 border-b border-white/5">
+                  <div className="flex items-center gap-3">
+                    <Bell size={16} className="text-white/40" />
+                    <div>
+                      <p className="text-sm font-bold text-white/60">Push notifications</p>
+                      <p className="text-[10px] text-white/25">
+                        Permission is requested only when enabled
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={savingPush}
+                    onClick={async () => {
+                      const next = !pushEnabled;
+                      setSavingPush(true);
+                      try {
+                        const token = await fcmService.setExplicitlyEnabled(next);
+                        const enabled =
+                          next &&
+                          (token ||
+                            (typeof Notification !== 'undefined' &&
+                              Notification.permission === 'granted'));
+                        setPushEnabled(Boolean(enabled));
+                        if (next && !enabled)
+                          toast.error('Notification permission was not granted.');
+                      } finally {
+                        setSavingPush(false);
+                      }
+                    }}
+                    className={`h-8 rounded-full px-4 text-[10px] font-black uppercase tracking-widest ${pushEnabled ? 'bg-emerald-500/15 text-emerald-400' : 'bg-white/5 text-white/35'}`}
+                  >
+                    {savingPush ? 'Saving…' : pushEnabled ? 'Enabled' : 'Off'}
+                  </button>
+                </div>
+              )}
               <div className="flex items-center justify-between pb-4 border-b border-white/5">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-white/60 font-inter">Interface</span>
@@ -393,7 +436,9 @@ const Profile = () => {
                 <div className="flex flex-col gap-1.5">
                   <div className="flex flex-col">
                     <span className="text-sm font-bold text-white/60 font-inter">App Version</span>
-                    <span className="text-[10px] text-white/30 font-inter">v1.2.0 (Build 43)</span>
+                    <span className="text-[10px] text-white/30 font-inter">
+                      v1.2.1 (Build 10201)
+                    </span>
                   </div>
                   <button
                     onClick={handleOpenChangelog}
@@ -421,6 +466,38 @@ const Profile = () => {
                   Force Update
                 </button>
               </div>
+              {isOwnProfile && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/privacy')}
+                  className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-left transition-colors hover:bg-white/5"
+                >
+                  <span>
+                    <span className="block text-sm font-bold text-white/65">
+                      Privacy &amp; Data
+                    </span>
+                    <span className="text-[10px] text-white/30">
+                      Stored data, AI processing, exports and retention
+                    </span>
+                  </span>
+                  <Shield size={16} className="text-primary" />
+                </button>
+              )}
+              {isOwnProfile && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/delete-account')}
+                  className="flex w-full items-center justify-between rounded-2xl border border-red-500/15 bg-red-500/5 p-4 text-left transition-colors hover:bg-red-500/10"
+                >
+                  <span>
+                    <span className="block text-sm font-bold text-red-400">Delete account</span>
+                    <span className="text-[10px] text-white/30">
+                      Export data, anonymize profile, and remove sign-in
+                    </span>
+                  </span>
+                  <Trash2 size={16} className="text-red-400" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -677,7 +754,7 @@ const Profile = () => {
 
               <div className="space-y-2 shrink-0">
                 <h3 className="text-2xl font-black text-white font-manrope">What&apos;s New</h3>
-                <p className="text-xs text-white/40 font-inter">Version 1.2.0 Updates</p>
+                <p className="text-xs text-white/40 font-inter">Version 1.2.1 Updates</p>
               </div>
 
               <div className="overflow-y-auto custom-scrollbar flex-1 pr-2 space-y-5">
@@ -819,7 +896,7 @@ const CohortHistory = ({ userId, myId, isFriendView = false }) => {
         };
       });
 
-      exportToPDF(group, expenses, formattedBalances, logs);
+      await exportToPDF(group, expenses, formattedBalances, logs);
       toast.success(`PDF Security Report exported for ${group.name || group.title}`);
     } catch (err) {
       console.error(err);

@@ -1,6 +1,17 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import * as LucideIcons from 'lucide-react';
+import {
+  Activity,
+  AlertCircle,
+  BarChart3,
+  CheckCircle2,
+  Crown,
+  Hash,
+  IndianRupee,
+  TrendingUp,
+  Zap,
+} from 'lucide-react';
+import { getLucideIcon } from '../../utils/iconMap.js';
 import Avatar from '../common/Avatar.jsx';
 import { formatCompactCurrency } from '../../utils/formatCurrency.js';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
@@ -74,7 +85,7 @@ const ScoreTile = ({ icon: Icon, label, primary, secondary, accent, delay = 0 })
 const CategoryBar = ({ category, amount, total, delay }) => {
   const pct = total > 0 ? Math.round((amount / total) * 100) : 0;
   const cat = EXPENSE_CATEGORIES.find((c) => c.value === category);
-  const IconCmp = cat ? LucideIcons[cat.icon] : LucideIcons.Hash;
+  const IconCmp = cat ? getLucideIcon(cat.icon) : Hash;
   const color = cat?.color || '#888';
 
   return (
@@ -295,7 +306,7 @@ const GroupInsightsTab = ({ members = [], expenses = [], settlements = [], netBa
         className="flex flex-col items-center justify-center py-24 gap-4"
       >
         <div className="w-16 h-16 rounded-3xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
-          <LucideIcons.BarChart3 size={28} className="text-white/20" />
+          <BarChart3 size={28} className="text-white/20" />
         </div>
         <p className="text-sm font-inter text-white/30 text-center">
           No expenses yet — insights will appear once the first expense is recorded.
@@ -326,7 +337,7 @@ const GroupInsightsTab = ({ members = [], expenses = [], settlements = [], netBa
       {/* ── Hero Stats Strip ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <StatCard
-          icon={LucideIcons.IndianRupee}
+          icon={IndianRupee}
           label="Total Spent"
           value={formatCompactCurrency(totalGroupSpend)}
           subValue={`${expenseCount} expense${expenseCount !== 1 ? 's' : ''}`}
@@ -335,7 +346,7 @@ const GroupInsightsTab = ({ members = [], expenses = [], settlements = [], netBa
           className="col-span-2 sm:col-span-1"
         />
         <StatCard
-          icon={LucideIcons.CheckCircle2}
+          icon={CheckCircle2}
           label="Settled"
           value={formatCompactCurrency(totalSettled)}
           subValue={`${settlementProgress}% of total`}
@@ -344,7 +355,7 @@ const GroupInsightsTab = ({ members = [], expenses = [], settlements = [], netBa
           className="col-span-1"
         />
         <StatCard
-          icon={LucideIcons.AlertCircle}
+          icon={AlertCircle}
           label="Outstanding"
           value={formatCompactCurrency(unsettled)}
           subValue={unsettled <= 0 ? 'All clear!' : 'remaining'}
@@ -361,7 +372,7 @@ const GroupInsightsTab = ({ members = [], expenses = [], settlements = [], netBa
       >
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <LucideIcons.TrendingUp size={12} className="text-emerald-400/60" />
+            <TrendingUp size={12} className="text-emerald-400/60" />
             <p className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.22em]">
               Settlement Progress
             </p>
@@ -396,7 +407,7 @@ const GroupInsightsTab = ({ members = [], expenses = [], settlements = [], netBa
       {/* ── 2×2 Scorecard ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3">
         <ScoreTile
-          icon={LucideIcons.TrendingUp}
+          icon={TrendingUp}
           label="Avg Expense"
           primary={formatCompactCurrency(avgExpense)}
           secondary="per transaction"
@@ -404,7 +415,7 @@ const GroupInsightsTab = ({ members = [], expenses = [], settlements = [], netBa
           delay={0.16}
         />
         <ScoreTile
-          icon={LucideIcons.Zap}
+          icon={Zap}
           label="Largest Expense"
           primary={largestExp ? formatCompactCurrency(parseFloat(largestExp.amount || 0)) : '—'}
           secondary={largestExp?.title || '—'}
@@ -412,7 +423,7 @@ const GroupInsightsTab = ({ members = [], expenses = [], settlements = [], netBa
           delay={0.18}
         />
         <ScoreTile
-          icon={LucideIcons.Crown}
+          icon={Crown}
           label="Top Payer"
           primary={topPayerName}
           secondary={`${formatCompactCurrency(topPayerAmt)} paid`}
@@ -420,7 +431,7 @@ const GroupInsightsTab = ({ members = [], expenses = [], settlements = [], netBa
           delay={0.2}
         />
         <ScoreTile
-          icon={LucideIcons.Activity}
+          icon={Activity}
           label="Most Active"
           primary={mostActiveName}
           secondary={`${mostActiveCount} expense${mostActiveCount !== 1 ? 's' : ''} added`}

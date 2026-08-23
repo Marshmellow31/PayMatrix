@@ -5,6 +5,7 @@ import useAuth from '../hooks/useAuth.js';
 import toast from 'react-hot-toast';
 import NativeLogin from './NativeLogin.jsx';
 import { isNativeRuntime } from '#paymatrix-runtime';
+import AppLogo from '../components/common/AppLogo.jsx';
 
 const GoogleIcon = () => (
   <svg
@@ -34,7 +35,8 @@ const GoogleIcon = () => (
 );
 
 const Brand = () => (
-  <div className="flex items-center">
+  <div className="flex items-center gap-2.5">
+    <AppLogo size="sm" decorative />
     <span className="text-sm font-black uppercase tracking-[0.16em] sm:text-base">PayMatrix</span>
   </div>
 );
@@ -75,34 +77,37 @@ const Login = () => {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#0e0e0e] text-white">
+    <main className="relative h-[100dvh] overflow-hidden bg-[#0e0e0e] text-white">
       <div className="pointer-events-none absolute -left-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-white/[0.05] blur-[130px]" />
       <div className="pointer-events-none absolute -bottom-48 -right-32 h-[34rem] w-[34rem] rounded-full bg-sky-400/[0.06] blur-[140px]" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-5 sm:px-8 sm:py-7 lg:px-12">
+      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-8 sm:py-7 lg:px-12">
         <header className="flex items-center justify-between">
           <Brand />
           <button
             onClick={() => navigate('/?preview=1')}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-white/55 transition hover:border-white/25 hover:bg-white/[0.05] hover:text-white sm:px-4 sm:text-xs"
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-white/55 transition hover:border-white/25 hover:bg-white/[0.05] hover:text-white min-[390px]:px-3 sm:px-4 sm:text-xs"
           >
-            <Sparkles size={14} className="text-emerald-300" /> Preview onboarding
+            <Sparkles size={14} className="text-emerald-300" />
+            <span>
+              <span className="hidden min-[390px]:inline">Preview </span>onboarding
+            </span>
           </button>
         </header>
 
-        <section className="flex flex-1 items-center justify-center py-10 sm:py-14">
-          <div className="grid w-full max-w-6xl items-center gap-10 lg:grid-cols-[1fr_0.82fr] lg:gap-20">
+        <section className="flex min-h-0 flex-1 items-center justify-center py-3 sm:py-8 lg:py-10">
+          <div className="grid w-full max-w-6xl items-center gap-4 sm:gap-7 lg:grid-cols-[1fr_0.82fr] lg:gap-20">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               className="max-w-2xl"
             >
-              <h1 className="font-manrope text-5xl font-black leading-[0.94] tracking-[-0.06em] sm:text-7xl">
+              <h1 className="font-manrope text-[2rem] font-black leading-[0.96] tracking-[-0.045em] min-[390px]:text-4xl sm:text-6xl lg:text-7xl">
                 Welcome back.
                 <br />
                 <span className="text-white/35">See what’s fair.</span>
               </h1>
-              <p className="mt-6 max-w-lg text-sm leading-7 text-white/50 sm:text-base">
+              <p className="mt-3 max-w-lg text-xs leading-5 text-white/50 min-[390px]:text-sm sm:mt-5 sm:text-base sm:leading-7 [@media(max-height:600px)]:hidden">
                 Sign in to return to your groups, balances, and shared activity — all in one clear
                 place.
               </p>
@@ -114,23 +119,23 @@ const Login = () => {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="w-full max-w-md justify-self-center rounded-[1.75rem] border border-white/10 bg-[#171717]/95 p-5 shadow-[0_30px_100px_rgba(0,0,0,0.45)] sm:p-7"
+              className="w-full max-w-md justify-self-center rounded-[1.35rem] border border-white/10 bg-[#171717]/95 p-4 shadow-[0_30px_100px_rgba(0,0,0,0.45)] min-[390px]:p-5 sm:rounded-[1.75rem] sm:p-7"
             >
-              <div className="mb-7">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-black">
+              <div className="mb-4 sm:mb-7">
+                <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white text-black sm:mb-4 sm:h-11 sm:w-11 sm:rounded-2xl">
                   <ShieldCheck size={21} />
                 </div>
-                <h2 className="font-manrope text-2xl font-black tracking-[-0.04em] sm:text-3xl">
+                <h2 className="font-manrope text-xl font-black tracking-[-0.04em] sm:text-3xl">
                   Sign in to PayMatrix.
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-white/40">
+                <p className="mt-1.5 text-xs leading-5 text-white/40 sm:mt-2 sm:text-sm sm:leading-6">
                   Your groups are waiting exactly where you left them.
                 </p>
               </div>
               <button
                 onClick={handleGoogleLogin}
                 disabled={loading}
-                className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-white px-5 text-sm font-black text-black shadow-[0_12px_35px_rgba(255,255,255,0.1)] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-white px-5 text-sm font-black text-black shadow-[0_12px_35px_rgba(255,255,255,0.1)] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70 sm:h-14 sm:rounded-2xl"
               >
                 {loading ? (
                   <span className="h-5 w-5 animate-spin rounded-full border-2 border-black/20 border-t-black" />
@@ -139,24 +144,22 @@ const Login = () => {
                 )}
                 {loading ? 'Signing in…' : 'Continue with Google'}
               </button>
-              <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.06] px-3 py-2.5 text-[11px] text-emerald-100/70">
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.06] px-3 py-2 text-[10px] text-emerald-100/70 sm:mt-4 sm:py-2.5 sm:text-[11px]">
                 <ShieldCheck size={14} className="shrink-0 text-emerald-300" /> Secure sign-in. Your
                 shared data stays private.
               </div>
-              <div className="mt-6 border-t border-white/[0.08] pt-5 text-center">
+              <div className="mt-3 border-t border-white/[0.08] pt-3 text-center min-[390px]:mt-4 min-[390px]:pt-4 sm:mt-6 sm:pt-5">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/25">
                   Not ready to sign in yet?
                 </p>
                 <button
                   onClick={() => navigate('/?preview=1')}
-                  className="mt-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-white/65 transition hover:text-white"
+                  className="mt-2 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-white/65 transition hover:text-white sm:mt-3 sm:text-xs"
                 >
                   Try the interactive preview <ArrowRight size={14} />
                 </button>
               </div>
             </motion.div>
-
-            <FeatureCards className="grid lg:hidden w-full max-w-md justify-self-center" />
           </div>
         </section>
 

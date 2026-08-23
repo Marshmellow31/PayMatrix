@@ -4,15 +4,14 @@ import {
   doc,
   getDoc,
   getDocs,
-  setDoc,
-  addDoc,
-  updateDoc,
   query,
   where,
   orderBy,
   limit,
   getDocFromCache,
+  getDocFromServer,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { calculateSplits } from '../utils/balanceEngine.js';
 import { createNotification } from '../utils/notificationHelper.js';
@@ -20,6 +19,8 @@ import { withRetry } from '../utils/retryOperation.js';
 import loggingService from './loggingService.js';
 import validationService, { ExpenseSchema } from './validationService.js';
 import sanitizationService from './sanitizationService.js';
+import { fromPaise, toPaise } from '../utils/money.js';
+import syncTracker from './syncTracker.js';
 
 // Helper to mimic Axios response structure expected by Redux Thunks
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -47,13 +48,52 @@ const clean = (obj) => {
 const getStoredName = async (uid, fallback = 'Member') => {
   if (!uid) return fallback;
   try {
-    const snap = await getDocFromCache(doc(db, 'users', uid));
+    const snap = await getDocFromCache(doc(db, 'publicProfiles', uid));
     if (snap.exists() && snap.data().name) return snap.data().name;
     if (snap.exists() && snap.data().email) return snap.data().email;
   } catch (_) {
     // Cache miss or offline error
   }
   return fallback;
+};
+
+const commitAuditedMutation = async ({
+  groupId,
+  recordRef,
+  create = false,
+  mutation,
+  type,
+  message,
+  actorId,
+  actorName,
+}) => {
+  const logRef = doc(collection(db, 'groups', groupId, 'logs'));
+  const auditedMutation = {
+    ...mutation,
+    lastMutationId: logRef.id,
+    lastMutationType: type,
+    lastMutationAt: serverTimestamp(),
+    lastEditedBy: actorId,
+  };
+
+  await withRetry(() => {
+    const batch = writeBatch(db);
+    if (create) batch.set(recordRef, auditedMutation);
+    else batch.update(recordRef, auditedMutation);
+    batch.set(logRef, {
+      type,
+      message,
+      actorId,
+      actorName,
+      relatedId: recordRef.id,
+      groupId,
+      createdAt: serverTimestamp(),
+    });
+    return batch.commit();
+  });
+  syncTracker.trackPendingWrites();
+
+  return auditedMutation;
 };
 
 // Simple memoization cache for getSummary
@@ -121,11 +161,14 @@ const expenseService = {
     const payload = clean({
       ...cleanData,
       amount,
+      amountPaise: toPaise(data.amount),
       groupId,
-      paidBy: data.paidBy || currentUid,
+      paidBy: currentUid,
       paidByName: 'Member',
       splits,
+      splitUserIds: splits.map((split) => split.user),
       admin: currentUid,
+      createdBy: currentUid,
       createdAt: data.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -133,39 +176,23 @@ const expenseService = {
     // Final schema check
     validationService.validate(ExpenseSchema, payload);
 
-    // Pre-generate docRef so the ID is known before the write (idempotency: safe to retry setDoc)
+    // Pre-generate IDs so the financial write and its audit record are atomic and replay-safe.
     const docRef = doc(collection(db, 'groups', groupId, 'expenses'));
-
-    // Primary write: awaited with retry — financial data must not be lost silently.
-    // Firebase offline persistence means this resolves from local cache even when offline.
-    await withRetry(() => setDoc(docRef, payload));
-
-    // Refresh group's updatedAt to trigger listeners (non-blocking — non-critical)
-    updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+    const actorName = await getStoredName(currentUid, 'Someone');
+    const auditedPayload = await commitAuditedMutation({
+      groupId,
+      recordRef: docRef,
+      create: true,
+      mutation: { ...payload, status: payload.status || 'active', version: 1 },
+      type: 'expense_added',
+      message: `${actorName} added "${data.title || 'an expense'}" (₹${amount.toFixed(2)})`,
+      actorId: currentUid,
+      actorName,
+    });
 
     // Secondary tasks: Log and metadata lookups happen in background (non-blocking)
-    (async () => {
+    (() => {
       try {
-        const [resolvedPaidByName, actorName] = await Promise.all([
-          getStoredName(data.paidBy || userId, 'Member'),
-          getStoredName(userId, 'Someone'),
-        ]);
-
-        // Update the expense with resolved name if it changed (silent)
-        if (resolvedPaidByName !== 'Member') {
-          updateDoc(docRef, { paidByName: resolvedPaidByName }).catch(() => {});
-        }
-
-        // Write activity log
-        addDoc(collection(db, 'groups', groupId, 'logs'), {
-          type: 'expense_added',
-          message: `${actorName} added "${data.title || 'an expense'}" (₹${parseFloat(data.amount || 0).toFixed(2)})`,
-          actorId: userId,
-          actorName,
-          relatedId: docRef.id,
-          createdAt: new Date().toISOString(),
-        }).catch(() => {});
-
         // Create global notifications for all participants (except the actor)
         const participantIds = data.participants || [];
         participantIds.forEach((pId) => {
@@ -182,19 +209,22 @@ const expenseService = {
       } catch (_) {
         // ignore background logging failures
       }
-    })().catch(() => {});
+    })();
 
     return wrap(
-      { expense: { _id: docRef.id, ...payload } },
+      { expense: { _id: docRef.id, ...auditedPayload } },
       'Expense saved instantly offline/online'
     );
   },
 
-  updateExpense: async (id, data, userId) => {
+  updateExpense: async (id, data, _userId) => {
     const groupId = data.groupId;
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) throw new Error('Auth session missing');
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
+    const previousSnap = await getDoc(docRef);
+    if (!previousSnap.exists()) throw new Error('Expense not found');
+    const previous = previousSnap.data();
 
     // Re-calculate splits if amount or split configuration changed
     const splits = calculateSplits(
@@ -205,104 +235,64 @@ const expenseService = {
     );
 
     const payload = clean({
-      ...data,
-      paidByName: data.paidByName || 'Member',
+      title: data.title,
+      description: data.description,
+      amount: Number(data.amount),
+      amountPaise: toPaise(data.amount),
+      currency: data.currency || previous.currency || 'INR',
+      date: data.date,
+      splitType: data.splitType,
+      splitData: data.splitData || {},
+      participants: data.participants || [],
+      category: data.category,
+      attachments: data.attachments,
+      notes: data.notes,
+      paidByName: previous.paidByName || 'Member',
       splits,
-      updatedAt: new Date().toISOString(),
+      splitUserIds: splits.map((split) => split.user),
+      updatedAt: serverTimestamp(),
+      version: Number(previous.version || 1) + 1,
+    });
+    const actorName = await getStoredName(currentUid, 'Someone');
+    const changes = [];
+    if (previous.title !== data.title) changes.push('title');
+    if (toPaise(previous.amount) !== toPaise(data.amount)) changes.push('amount');
+    if (previous.category !== data.category) changes.push('category');
+    const auditedPayload = await commitAuditedMutation({
+      groupId,
+      recordRef: docRef,
+      mutation: payload,
+      type: 'expense_updated',
+      message: `${actorName} edited "${data.title || 'an expense'}"${changes.length ? ` (${changes.join(', ')})` : ''}`,
+      actorId: currentUid,
+      actorName,
     });
 
-    // Primary write: awaited with retry — financial data must not be lost silently.
-    await withRetry(() => updateDoc(docRef, payload));
-
-    // Refresh group's updatedAt to trigger listeners (non-blocking — non-critical)
-    if (groupId) {
-      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(
-        () => {}
-      );
-    }
-
-    // Secondary tasks (non-blocking)
-    (async () => {
-      try {
-        const [resolvedPaidByName, actorName, prevDoc] = await Promise.all([
-          getStoredName(data.paidBy || userId, 'Member'),
-          getStoredName(userId, 'Someone'),
-          getDoc(docRef).catch(() => null),
-        ]);
-
-        let diffMessage = '';
-        if (prevDoc?.exists()) {
-          const old = prevDoc.data();
-          const changes = [];
-          if (old.title !== data.title) changes.push(`title: "${old.title}" -> "${data.title}"`);
-          if (parseFloat(old.amount) !== parseFloat(data.amount))
-            changes.push(`amount: ${old.amount} -> ${data.amount}`);
-          if (old.category !== data.category)
-            changes.push(`category: ${old.category} -> ${data.category}`);
-          if (changes.length > 0) diffMessage = ` (${changes.join(', ')})`;
-        }
-
-        if (resolvedPaidByName !== 'Member' && resolvedPaidByName !== data.paidByName) {
-          updateDoc(docRef, { paidByName: resolvedPaidByName }).catch(() => {});
-        }
-
-        if (groupId) {
-          addDoc(collection(db, 'groups', groupId, 'logs'), {
-            type: 'expense_updated',
-            message: `${actorName} edited "${data.title || 'an expense'}"${diffMessage}`,
-            actorId: userId || 'unknown',
-            actorName,
-            relatedId: id,
-            createdAt: new Date().toISOString(),
-          }).catch(() => {});
-        }
-      } catch (_) {
-        // ignore background logging failures
-      }
-    })().catch(() => {});
-
-    return wrap({ expense: { _id: id, ...payload } });
+    return wrap({ expense: { _id: id, ...previous, ...auditedPayload } });
   },
 
   deleteExpense: async (id, groupId, userId) => {
     if (!groupId) throw new Error('deleteExpense requires groupId');
 
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
-
-    // Primary write: awaited with retry — soft-delete must be confirmed before returning.
-    await withRetry(() =>
-      updateDoc(docRef, {
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) throw new Error('Expense not found');
+    const actorId = auth.currentUser?.uid;
+    if (!actorId || actorId !== userId) throw new Error('Authentication session mismatch.');
+    const actorName = await getStoredName(actorId, 'Someone');
+    await commitAuditedMutation({
+      groupId,
+      recordRef: docRef,
+      mutation: {
         status: 'deleted',
-        updatedAt: new Date().toISOString(),
-      })
-    );
-
-    // Secondary task: Resolution happens in background
-    (async () => {
-      try {
-        let expenseTitle = 'an expense';
-        const [expSnap, actorName] = await Promise.all([
-          getDoc(docRef).catch(() => null),
-          getStoredName(userId, 'Someone'),
-        ]);
-
-        if (expSnap?.exists()) expenseTitle = expSnap.data().title || 'an expense';
-
-        addDoc(collection(db, 'groups', groupId, 'logs'), {
-          type: 'expense_deleted',
-          message: `${actorName} deleted "${expenseTitle}"`,
-          actorId: userId || 'unknown',
-          actorName,
-          relatedId: id,
-          createdAt: new Date().toISOString(),
-        }).catch(() => {});
-      } catch (_) {
-        // ignore background logging failures
-      }
-    })().catch(() => {});
-
-    // Refresh group's updatedAt to trigger listeners (non-blocking)
-    updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+        updatedAt: serverTimestamp(),
+        version: Number(snap.data().version || 1) + 1,
+      },
+      type: 'expense_deleted',
+      message: `${actorName} deleted "${snap.data().title || 'an expense'}"`,
+      actorId,
+      actorName,
+    });
 
     return wrap({ message: 'Expense deleted' });
   },
@@ -323,27 +313,23 @@ const expenseService = {
         );
       }
 
-      // Primary write: Restore to active state
-      await updateDoc(docRef, {
-        status: 'active',
-        updatedAt: new Date().toISOString(),
-      });
-
-      // Log restoration
-      const actorName = await getStoredName(userId, 'Someone');
+      const actorId = auth.currentUser?.uid;
+      if (!actorId || actorId !== userId) throw new Error('Authentication session mismatch.');
+      const actorName = await getStoredName(actorId, 'Someone');
       const expenseTitle = snap.data()?.title || 'an expense';
-      await addDoc(collection(db, 'groups', groupId, 'logs'), {
+      await commitAuditedMutation({
+        groupId,
+        recordRef: docRef,
+        mutation: {
+          status: 'active',
+          updatedAt: serverTimestamp(),
+          version: Number(snap.data().version || 1) + 1,
+        },
         type: 'expense_restored',
         message: `${actorName} restored "${expenseTitle}"`,
-        actorId: userId || 'unknown',
+        actorId,
         actorName,
-        relatedId: id,
-        createdAt: new Date().toISOString(),
-      }).catch(() => {});
-
-      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(
-        () => {}
-      );
+      });
       return wrap({ message: 'Expense restored' });
     } catch (err) {
       console.error('Restore failed:', err);
@@ -423,59 +409,27 @@ const expenseService = {
     if (!groupId) throw new Error('deleteSettlement requires groupId');
     const docRef = doc(db, 'groups', groupId, 'settlements', id);
 
-    // Primary write: awaited with retry — settlement deletion must be confirmed.
-    await withRetry(() =>
-      updateDoc(docRef, {
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) throw new Error('Settlement not found');
+    const actorId = auth.currentUser?.uid;
+    if (!actorId || actorId !== userId) throw new Error('Authentication session mismatch.');
+    const [actorName, payeeName] = await Promise.all([
+      getStoredName(actorId, 'Someone'),
+      getStoredName(snap.data().payee, 'Member'),
+    ]);
+    await commitAuditedMutation({
+      groupId,
+      recordRef: docRef,
+      mutation: {
         status: 'deleted',
-        updatedAt: new Date().toISOString(),
-      })
-    );
-
-    // Log the deletion
-    (async () => {
-      try {
-        const [settSnap, actorName] = await Promise.all([
-          getDoc(docRef).catch(() => null),
-          getStoredName(userId, 'Someone'),
-        ]);
-
-        let amount = 0;
-        let payeeName = 'someone';
-        if (settSnap?.exists()) {
-          const data = settSnap.data();
-          amount = data.amount || 0;
-          payeeName = await getStoredName(data.payee, 'Member');
-        }
-
-        addDoc(collection(db, 'groups', groupId, 'logs'), {
-          type: 'settlement_deleted',
-          message: `${actorName} deleted a settlement of ₹${amount.toFixed(2)} to ${payeeName}`,
-          actorId: userId || 'unknown',
-          actorName,
-          relatedId: id,
-          createdAt: new Date().toISOString(),
-        }).catch(() => {});
-
-        // Notify the payee that a settlement was removed
-        if (settSnap?.exists()) {
-          const data = settSnap.data();
-          if (userId !== data.payee) {
-            const { createNotification } = await import('../utils/notificationHelper.js');
-            createNotification(
-              data.payee,
-              `${actorName} deleted a previous settlement of ₹${(data.amount || 0).toFixed(2)} with you.`,
-              'settlement_deleted',
-              id,
-              groupId
-            ).catch(() => {});
-          }
-        }
-      } catch (_) {
-        // ignore background logging failures
-      }
-    })().catch(() => {});
-
-    updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+        updatedAt: serverTimestamp(),
+        version: Number(snap.data().version || 1) + 1,
+      },
+      type: 'settlement_deleted',
+      message: `${actorName} deleted a settlement of ₹${Number(snap.data().amount || 0).toFixed(2)} to ${payeeName}`,
+      actorId,
+      actorName,
+    });
     return wrap({ message: 'Settlement deleted' });
   },
 
@@ -486,25 +440,24 @@ const expenseService = {
     const snap = await getDoc(docRef);
     if (!snap.exists()) return wrap({ error: 'Settlement record not found.' }, 404);
 
-    await updateDoc(docRef, {
-      status: 'active',
-      updatedAt: new Date().toISOString(),
-    });
-
-    const actorName = await getStoredName(userId, 'Someone');
+    const actorId = auth.currentUser?.uid;
+    if (!actorId || actorId !== userId) throw new Error('Authentication session mismatch.');
+    const actorName = await getStoredName(actorId, 'Someone');
     const data = snap.data();
     const payeeName = await getStoredName(data.payee, 'Member');
-
-    await addDoc(collection(db, 'groups', groupId, 'logs'), {
+    await commitAuditedMutation({
+      groupId,
+      recordRef: docRef,
+      mutation: {
+        status: 'active',
+        updatedAt: serverTimestamp(),
+        version: Number(data.version || 1) + 1,
+      },
       type: 'settlement_restored',
       message: `${actorName} restored a settlement of ₹${(data.amount || 0).toFixed(2)} to ${payeeName}`,
-      actorId: userId || 'unknown',
+      actorId,
       actorName,
-      relatedId: id,
-      createdAt: new Date().toISOString(),
-    }).catch(() => {});
-
-    updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(() => {});
+    });
     return wrap({ message: 'Settlement restored' });
   },
 
@@ -513,33 +466,61 @@ const expenseService = {
     if (!groupId) throw new Error('Group ID required for settlement');
 
     // Safety check: ensure amount is a valid positive number
-    const amount = parseFloat(data.amount || 0);
-    if (isNaN(amount) || amount <= 0) throw new Error('Invalid settlement amount');
-    if (amount > 1000000) throw new Error('Settlement amount exceeds safety threshold (1M)');
+    const amountPaise = toPaise(data.amount);
+    if (amountPaise <= 0) throw new Error('Invalid settlement amount');
+    if (amountPaise > 100000000) throw new Error('Settlement amount exceeds safety threshold (1M)');
+    const amount = fromPaise(amountPaise);
 
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) throw new Error('Auth session missing');
+    if (currentUid !== userId) throw new Error('Settlement payer does not match this session.');
+    if (!data.payee || data.payee === currentUid) throw new Error('Choose another group member.');
+
+    // Financial confirmations are never finalized from an unverified offline session.
+    await getDocFromServer(doc(db, 'groups', groupId)).catch(() => {
+      throw new Error('Connect to the internet before confirming a payment.');
+    });
+
+    const operationId = String(data.operationId || '')
+      .replace(/[^a-zA-Z0-9_-]/g, '')
+      .slice(0, 120);
+    if (!operationId) throw new Error('Settlement operation identifier is required.');
 
     const settlementData = {
       payer: currentUid,
       payee: data.payee,
       amount,
+      amountPaise,
       notes: data.notes || 'Settled up',
       groupId,
+      operationId,
+      confirmationStatus: 'confirmed',
+      confirmedBy: currentUid,
+      confirmedAt: serverTimestamp(),
+      status: 'active',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      version: 1,
     };
 
-    const docRef = doc(collection(db, 'groups', groupId, 'settlements'));
+    const docRef = doc(db, 'groups', groupId, 'settlements', operationId);
 
     try {
-      // Primary write: awaited with retry — settlement amount is financial data.
-      await withRetry(() => setDoc(docRef, settlementData));
-
-      // Refresh group's updatedAt to trigger listeners (non-blocking — non-critical)
-      updateDoc(doc(db, 'groups', groupId), { updatedAt: new Date().toISOString() }).catch(
-        () => {}
-      );
+      const [actorName, payeeName] = await Promise.all([
+        getStoredName(currentUid, 'Someone'),
+        getStoredName(data.payee, 'Member'),
+      ]);
+      const auditedSettlement = await commitAuditedMutation({
+        groupId,
+        recordRef: docRef,
+        create: true,
+        mutation: settlementData,
+        type: 'settlement_added',
+        message: `${actorName} recorded a payment to ${payeeName}: ₹${amount.toFixed(2)}`,
+        actorId: currentUid,
+        actorName,
+      });
+      Object.assign(settlementData, auditedSettlement);
     } catch (error) {
       await loggingService.logError('expenseService', 'createSettlement', error);
       throw error;
@@ -548,20 +529,7 @@ const expenseService = {
     // Secondary tasks (non-blocking)
     (async () => {
       try {
-        const [actorName, payeeName] = await Promise.all([
-          getStoredName(currentUid, 'Someone'),
-          getStoredName(data.payee, 'Member'),
-        ]);
-
-        // Write activity log with resolved names
-        await addDoc(collection(db, 'groups', groupId, 'logs'), {
-          type: 'settlement_added',
-          message: `${actorName} recorded a payment to ${payeeName}: ₹${amount.toFixed(2)}`,
-          actorId: currentUid,
-          relatedId: docRef.id,
-          groupId,
-          createdAt: new Date().toISOString(),
-        });
+        const actorName = await getStoredName(currentUid, 'Someone');
 
         // Trigger notification for the recipient
         if (currentUid !== data.payee) {

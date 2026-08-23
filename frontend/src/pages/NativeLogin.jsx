@@ -1,4 +1,5 @@
-import { Fingerprint, LockKeyhole, ShieldCheck, Users } from 'lucide-react';
+import { LockKeyhole, ShieldCheck, Users } from 'lucide-react';
+import AppLogo from '../components/common/AppLogo.jsx';
 
 const GoogleIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
@@ -22,16 +23,11 @@ const GoogleIcon = () => (
 );
 
 const NativeLogin = ({ loading, onGoogleLogin }) => (
-  <main className="native-login flex min-h-[100dvh] bg-[#0e0e0e] text-white">
-    <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col px-6">
-      <header className="flex items-center justify-between pt-2">
+  <main className="native-login flex h-[100dvh] overflow-hidden bg-[#0e0e0e] text-white">
+    <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col px-5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))]">
+      <header className="flex shrink-0 items-center justify-between">
         <div className="flex items-center gap-3">
-          <div
-            aria-hidden="true"
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white"
-          >
-            <span className="h-3 w-3 rounded-[4px] bg-[#0e0e0e]" />
-          </div>
+          <AppLogo decorative />
           <span className="text-sm font-black uppercase tracking-[0.16em]">PayMatrix</span>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-300/80">
@@ -39,39 +35,38 @@ const NativeLogin = ({ loading, onGoogleLogin }) => (
         </div>
       </header>
 
-      <section className="flex flex-1 flex-col justify-center py-10">
-        <div className="mb-9 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
-          <Fingerprint size={31} strokeWidth={1.7} className="text-white" />
-        </div>
-
-        <h1 className="font-manrope text-[2.65rem] font-black leading-[1.02] tracking-normal">
+      <section className="flex min-h-0 flex-1 flex-col justify-center py-4 sm:py-6">
+        <h1 className="font-manrope text-[2rem] font-black leading-[1.02] tracking-normal min-[390px]:text-[2.25rem]">
           Your shared money,
           <span className="mt-1 block text-white/45">clear at a glance.</span>
         </h1>
-        <p className="mt-5 max-w-sm text-[15px] leading-7 text-white/50">
-          Choose a Google account on this phone to securely open your groups, balances, and activity.
+        <p className="mt-3 max-w-sm text-[13px] leading-5 text-white/50 min-[390px]:text-sm">
+          Choose a Google account on this phone to securely open your groups, balances, and
+          activity.
         </p>
 
-        <div className="mt-9 grid grid-cols-2 gap-3">
-          <div className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-4">
-            <Users size={18} className="text-sky-300" />
-            <p className="mt-3 text-xs font-bold text-white/80">One shared view</p>
-            <p className="mt-1 text-[11px] leading-4 text-white/35">Live groups and balances.</p>
+        <div className="mt-5 grid grid-cols-2 gap-2 [@media(max-height:640px)]:hidden">
+          <div className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-3">
+            <Users size={16} className="text-sky-300" />
+            <p className="mt-2 text-xs font-bold text-white/80">One shared view</p>
+            <p className="mt-1 text-[10px] leading-4 text-white/35">Live groups and balances.</p>
           </div>
-          <div className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-4">
-            <LockKeyhole size={18} className="text-emerald-300" />
-            <p className="mt-3 text-xs font-bold text-white/80">Private access</p>
-            <p className="mt-1 text-[11px] leading-4 text-white/35">Device-native account sign-in.</p>
+          <div className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-3">
+            <LockKeyhole size={16} className="text-emerald-300" />
+            <p className="mt-2 text-xs font-bold text-white/80">Private access</p>
+            <p className="mt-1 text-[10px] leading-4 text-white/35">
+              Device-native account sign-in.
+            </p>
           </div>
         </div>
       </section>
 
-      <footer className="pb-3">
+      <footer className="shrink-0">
         <button
           type="button"
           onClick={onGoogleLogin}
           disabled={loading}
-          className="flex h-14 w-full items-center justify-center gap-3 rounded-lg bg-white px-5 text-[15px] font-extrabold text-[#111] shadow-[0_10px_30px_rgba(255,255,255,0.08)] active:scale-[0.985] disabled:opacity-65"
+          className="flex h-[3.25rem] min-h-[3.25rem] w-full items-center justify-center gap-3 rounded-xl bg-white px-5 text-sm font-extrabold text-[#111] shadow-[0_10px_30px_rgba(255,255,255,0.08)] active:scale-[0.985] disabled:opacity-65"
         >
           {loading ? (
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-black/20 border-t-black" />
@@ -80,9 +75,9 @@ const NativeLogin = ({ loading, onGoogleLogin }) => (
           )}
           {loading ? 'Opening accounts...' : 'Continue with Google'}
         </button>
-        <p className="mx-auto mt-4 max-w-xs text-center text-[10px] leading-4 text-white/30">
-          Android will show the Google accounts already available on this device. PayMatrix never sees
-          your Google password.
+        <p className="mx-auto mt-2 max-w-xs text-center text-[9px] leading-3.5 text-white/30">
+          Android will show the Google accounts already available on this device. PayMatrix never
+          sees your Google password.
         </p>
       </footer>
     </div>

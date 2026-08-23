@@ -18,13 +18,10 @@ describe('calculateSplits', () => {
     splits.forEach((s) => expect(s.amount).toBe(30));
   });
 
-  it('equal: handles non-divisible amounts via rounding', () => {
-    // 100 / 3 = 33.33… — should not accumulate float drift
+  it('equal: allocates non-divisible paise deterministically and conserves the total', () => {
     const splits = calculateSplits(100, 'equal', {}, members);
-    expect(splits.every((s) => typeof s.amount === 'number')).toBe(true);
-    const total = splits.reduce((s, x) => s + x.amount, 0);
-    // Allow 1 cent rounding tolerance across three splits
-    expect(Math.abs(total - 100)).toBeLessThanOrEqual(0.02);
+    expect(splits.map((split) => split.amountPaise)).toEqual([3334, 3333, 3333]);
+    expect(splits.reduce((sum, split) => sum + split.amountPaise, 0)).toBe(10000);
   });
 
   it('equal: returns empty array for no participants', () => {
@@ -47,6 +44,12 @@ describe('calculateSplits', () => {
     expect(map.alice).toBe(50);
     expect(map.bob).toBe(25);
     expect(map.carol).toBe(25);
+  });
+
+  it('exact: rejects values that do not conserve the expense total', () => {
+    expect(() =>
+      calculateSplits(100, 'exact', { exactAmounts: { alice: 40, bob: 30, carol: 20 } }, members)
+    ).toThrow('Exact splits must equal the expense total.');
   });
 
   it('shares: distributes proportionally by share count', () => {
@@ -197,6 +200,25 @@ describe('computeGroupBalances', () => {
     ]);
     expect(Math.abs(balances.alice)).toBeLessThanOrEqual(0.01);
     expect(Math.abs(balances.bob)).toBeLessThanOrEqual(0.01);
+  });
+
+  it('ignores a settlement until the payer-confirmed state is durable', () => {
+    const expenses = [
+      {
+        paidBy: 'alice',
+        splits: [
+          { user: 'alice', amountPaise: 3000 },
+          { user: 'bob', amountPaise: 3000 },
+        ],
+      },
+    ];
+    const pending = [
+      { payer: 'bob', payee: 'alice', amountPaise: 3000, confirmationStatus: 'pending' },
+    ];
+    expect(computeGroupBalances(expenses, pending, [{ uid: 'alice' }, { uid: 'bob' }])).toEqual({
+      alice: 30,
+      bob: -30,
+    });
   });
 
   it('ignores deleted expenses', () => {

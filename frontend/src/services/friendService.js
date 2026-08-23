@@ -4,7 +4,8 @@ import {
   doc,
   getDoc,
   getDocs,
-  addDoc,
+  setDoc,
+  writeBatch,
   updateDoc,
   deleteDoc,
   query,
@@ -46,15 +47,12 @@ const friendService = {
     const senderId = auth.currentUser?.uid;
     if (!senderId) throw new Error('Auth required');
 
-    // Check if request already exists
-    const q = query(
-      collection(db, 'friendRequests'),
-      where('from', '==', senderId),
-      where('to', '==', receiverId),
-      where('status', '==', 'pending')
-    );
-    const existing = await getDocs(q);
-    if (!existing.empty) throw new Error('Request already pending');
+    const requestId = `${senderId}_${receiverId}`;
+    const requestRef = doc(db, 'friendRequests', requestId);
+    const existing = await getDoc(requestRef);
+    if (existing.exists() && existing.data()?.status === 'pending') {
+      throw new Error('Request already pending');
+    }
 
     const requestPayload = {
       from: senderId,
@@ -66,7 +64,7 @@ const friendService = {
     // Validate
     validationService.validate(FriendRequestSchema, requestPayload);
 
-    await addDoc(collection(db, 'friendRequests'), requestPayload);
+    await setDoc(requestRef, requestPayload);
 
     // Notify the receiver
     createNotification(
@@ -101,8 +99,8 @@ const friendService = {
     const incoming = await Promise.all(
       incomingSnap.docs.map(async (d) => {
         const data = d.data();
-        let uSnap = await getDocFromCache(doc(db, 'users', data.from)).catch(() => null);
-        if (!uSnap) uSnap = await getDoc(doc(db, 'users', data.from)).catch(() => null);
+        let uSnap = await getDocFromCache(doc(db, 'publicProfiles', data.from)).catch(() => null);
+        if (!uSnap) uSnap = await getDoc(doc(db, 'publicProfiles', data.from)).catch(() => null);
         return { _id: d.id, ...data, from: { _id: data.from, ..._normalize(uSnap?.data()) } };
       })
     );
@@ -110,8 +108,8 @@ const friendService = {
     const outgoing = await Promise.all(
       outgoingSnap.docs.map(async (d) => {
         const data = d.data();
-        let uSnap = await getDocFromCache(doc(db, 'users', data.to)).catch(() => null);
-        if (!uSnap) uSnap = await getDoc(doc(db, 'users', data.to)).catch(() => null);
+        let uSnap = await getDocFromCache(doc(db, 'publicProfiles', data.to)).catch(() => null);
+        if (!uSnap) uSnap = await getDoc(doc(db, 'publicProfiles', data.to)).catch(() => null);
         return { _id: d.id, ...data, to: { _id: data.to, ..._normalize(uSnap?.data()) } };
       })
     );
@@ -124,17 +122,19 @@ const friendService = {
     const reqSnap = await getDoc(reqRef);
     if (!reqSnap.exists()) throw new Error('Request not found');
     const reqData = reqSnap.data();
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid || reqData.to !== currentUid)
+      throw new Error('Only the recipient can respond.');
+    if (reqData.status !== 'pending') throw new Error('This request has already been handled.');
 
     if (status === 'accepted') {
-      // Add to each other's friends list
       const fromRef = doc(db, 'users', reqData.from);
       const toRef = doc(db, 'users', reqData.to);
-
-      await Promise.all([
-        updateDoc(fromRef, { friends: arrayUnion(reqData.to) }),
-        updateDoc(toRef, { friends: arrayUnion(reqData.from) }),
-        updateDoc(reqRef, { status: 'accepted' }),
-      ]);
+      const batch = writeBatch(db);
+      batch.update(reqRef, { status: 'accepted', respondedAt: new Date().toISOString() });
+      batch.update(fromRef, { friends: arrayUnion(reqData.to) });
+      batch.update(toRef, { friends: arrayUnion(reqData.from) });
+      await batch.commit();
 
       // Notify the requester
       createNotification(
@@ -143,7 +143,7 @@ const friendService = {
         'friend_accepted'
       );
     } else {
-      await updateDoc(reqRef, { status: 'rejected' });
+      await updateDoc(reqRef, { status: 'rejected', respondedAt: new Date().toISOString() });
     }
 
     return wrap({ message: `Request ${status}` });
@@ -298,8 +298,6 @@ const friendService = {
       const theirDoc = await getDoc(doc(db, 'users', targetUserId));
       const theirFriends = theirDoc.data()?.friends || [];
       if (theirFriends.includes(userId)) {
-        // Self-heal: make the link bidirectional so future checks pass without this extra read
-        updateDoc(doc(db, 'users', userId), { friends: arrayUnion(targetUserId) }).catch(() => {});
         return wrap({ status: 'friend' });
       }
 
@@ -341,10 +339,10 @@ const friendService = {
       const friendRef = doc(db, 'users', friendId);
 
       // 1. Remove from both friends arrays
-      await Promise.all([
-        updateDoc(userRef, { friends: arrayRemove(friendId) }),
-        updateDoc(friendRef, { friends: arrayRemove(userId) }),
-      ]);
+      const batch = writeBatch(db);
+      batch.update(userRef, { friends: arrayRemove(friendId) });
+      batch.update(friendRef, { friends: arrayRemove(userId) });
+      await batch.commit();
 
       // 2. Clean up any pending requests between these two
       const qIn = query(

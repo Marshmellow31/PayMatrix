@@ -1,7 +1,8 @@
 /* eslint-disable no-console */
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, X, Smartphone, Monitor } from 'lucide-react';
+import { Download, X, Monitor } from 'lucide-react';
+import AppLogo from './AppLogo.jsx';
 
 /* Responsive bottom offset: clear the mobile bottom nav (bottom-6 + h-16 = ~6rem)
    but stay close to the edge on large screens */
@@ -510,7 +511,7 @@ export default function InstallPrompt() {
             {/* ── Chrome/Edge native install banner ── */}
             {view === 'banner' && (
               <BannerRow
-                icon={<Smartphone size={22} color="#e5e2e1" />}
+                icon={<AppLogo size="sm" decorative />}
                 title="Install PayMatrix"
                 subtitle="Add to your home screen for the best experience"
                 actionLabel={
@@ -526,7 +527,7 @@ export default function InstallPrompt() {
             {/* ── iOS: compact banner first, then expands to guide ── */}
             {view === 'banner-ios' && (
               <BannerRow
-                icon={<Smartphone size={24} color="#e5e2e1" />}
+                icon={<AppLogo size="sm" decorative />}
                 title="Install PayMatrix"
                 subtitle="Add to your home screen for the best experience"
                 actionLabel="How?"

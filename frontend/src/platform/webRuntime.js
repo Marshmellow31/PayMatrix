@@ -9,9 +9,6 @@ export const configureNativeRuntime = () => Promise.resolve(() => {});
 
 export const minimizeNativeApp = () => Promise.resolve();
 
-export const payWithGooglePayNative = () =>
-  Promise.reject(new Error('Native Google Pay intent is unavailable in the web runtime.'));
-
 export const requestNativePushToken = () => Promise.resolve(null);
 
 export const deleteNativePushToken = () => Promise.resolve();

@@ -21,21 +21,30 @@ import {
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 const INSTALLATION_ID_KEY = 'paymatrix_push_installation_id_v1';
+const PUSH_OPT_IN_KEY = 'paymatrix_push_opt_in_v1';
 
 const getInstallationId = () => {
   const existing = localStorage.getItem(INSTALLATION_ID_KEY);
   if (existing) return existing;
 
-  const id = globalThis.crypto?.randomUUID?.() ||
+  const id =
+    globalThis.crypto?.randomUUID?.() ||
     `install-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
   localStorage.setItem(INSTALLATION_ID_KEY, id);
   return id;
 };
 
-const getTokenDocument = (uid) =>
-  doc(db, 'users', uid, 'pushTokens', getInstallationId());
+const getTokenDocument = (uid) => doc(db, 'users', uid, 'pushTokens', getInstallationId());
 
 const fcmService = {
+  isExplicitlyEnabled: () => localStorage.getItem(PUSH_OPT_IN_KEY) === 'true',
+
+  setExplicitlyEnabled: async (enabled) => {
+    localStorage.setItem(PUSH_OPT_IN_KEY, enabled ? 'true' : 'false');
+    if (enabled) return fcmService.requestPermissionAndGetToken();
+    await fcmService.deleteToken();
+    return null;
+  },
   /**
    * Returns true if this browser supports Web Push / FCM.
    * Gracefully returns false on unsupported browsers.

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { Bell, Menu, BarChart3 } from 'lucide-react';
 import Avatar from '../common/Avatar.jsx';
+import AppLogo from '../common/AppLogo.jsx';
 
 import { useFeatureFlags } from '../../hooks/useFeatureFlags.js';
 
@@ -23,6 +24,7 @@ const Header = ({ onToggleSidebar }) => {
             <Menu size={22} />
           </button>
           <Link to="/dashboard" className="flex items-center gap-2">
+            <AppLogo size="xs" decorative />
             <span className="text-xl font-bold font-manrope text-primary tracking-tight">
               PayMatrix
             </span>

@@ -1,7 +1,7 @@
 {
   "name": "paymatrix-android",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Native Android shell and release tooling for PayMatrix",
   "scripts": {
     "doctor": "node scripts/doctor.mjs",

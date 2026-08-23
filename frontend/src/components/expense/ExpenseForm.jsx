@@ -1,7 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import * as LucideIcons from 'lucide-react';
+import {
+  Calendar,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  CircleCheck,
+  FileText,
+  Hash,
+  Info,
+  PenTool,
+  Receipt,
+  ReceiptText,
+  Users,
+} from 'lucide-react';
+import { getLucideIcon } from '../../utils/iconMap.js';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 import Button from '../common/Button.jsx';
 import Avatar from '../common/Avatar.jsx';
@@ -459,7 +473,7 @@ const ExpenseForm = ({
           {/* Description */}
           <div className="relative group">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-40 group-focus-within:opacity-100 transition-opacity">
-              <LucideIcons.PenTool size={18} />
+              <PenTool size={18} />
             </div>
             <input
               className="w-full bg-surface-container-low/50 border border-white/5 rounded-2xl py-4 sm:py-5 pl-12 pr-6 text-white font-manrope font-bold text-base sm:text-lg focus:bg-surface-container-high focus:ring-1 focus:ring-white/10 transition-all placeholder:text-on-surface-variant/30"
@@ -474,7 +488,7 @@ const ExpenseForm = ({
 
           {/* Date Picker */}
           <div className="relative flex items-center gap-2 text-on-surface-variant hover:text-white transition-colors cursor-pointer w-fit">
-            <LucideIcons.Calendar size={16} className="pointer-events-none" />
+            <Calendar size={16} className="pointer-events-none" />
             <input
               type="date"
               name="date"
@@ -499,7 +513,7 @@ const ExpenseForm = ({
                 isNotesExpanded || !!form.notes.trim() ? 'top-4' : 'top-1/2 -translate-y-1/2'
               }`}
             >
-              <LucideIcons.FileText size={16} />
+              <FileText size={16} />
             </div>
             <textarea
               className={`w-full bg-surface-container-low/50 border border-white/5 rounded-2xl pl-12 pr-6 text-white font-manrope font-medium text-sm focus:bg-surface-container-high focus:ring-1 focus:ring-white/10 transition-all placeholder:text-on-surface-variant/30 resize-none leading-relaxed ${
@@ -547,7 +561,7 @@ const ExpenseForm = ({
             </label>
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:grid md:grid-cols-3 md:gap-2">
               {EXPENSE_CATEGORIES.map((cat) => {
-                const IconComp = LucideIcons[cat.icon] || LucideIcons.Hash;
+                const IconComp = getLucideIcon(cat.icon) || Hash;
                 return (
                   <button
                     key={cat.value}
@@ -578,7 +592,7 @@ const ExpenseForm = ({
           className="w-full h-16 rounded-3xl font-manrope font-black text-lg bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl"
         >
           Next
-          <LucideIcons.ChevronRight size={24} />
+          <ChevronRight size={24} />
         </Button>
       </div>
     </motion.div>
@@ -645,7 +659,7 @@ const ExpenseForm = ({
                   { id: 'exact', icon: 'Target', label: 'Exact' },
                   { id: 'itemized', icon: 'Receipt', label: 'GST' },
                 ].map((type) => {
-                  const Icon = LucideIcons[type.icon];
+                  const Icon = getLucideIcon(type.icon);
                   const isSelected = splitType === type.id;
                   return (
                     <button
@@ -687,7 +701,7 @@ const ExpenseForm = ({
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <LucideIcons.Info
+                      <Info
                         size={14}
                         className={
                           isSplitValid
@@ -711,9 +725,7 @@ const ExpenseForm = ({
                       >
                         ₹{Math.abs(leftValue).toFixed(2)}
                       </span>
-                      {isSplitValid && (
-                        <LucideIcons.CheckCircle2 size={14} className="text-primary" />
-                      )}
+                      {isSplitValid && <CheckCircle2 size={14} className="text-primary" />}
                     </div>
                   </motion.div>
                 )}
@@ -733,7 +745,7 @@ const ExpenseForm = ({
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <LucideIcons.Receipt
+                        <Receipt
                           size={14}
                           className={itemizedGst < -0.01 ? 'text-red-400' : 'text-primary'}
                         />
@@ -785,7 +797,7 @@ const ExpenseForm = ({
                 {uniqueMembers.length > 3 && (
                   <div className="flex items-center gap-0.5 text-[9px] text-primary/80 font-black uppercase tracking-widest animate-pulse">
                     <span>Swipe</span>
-                    <LucideIcons.ChevronRight size={11} className="shrink-0" />
+                    <ChevronRight size={11} className="shrink-0" />
                   </div>
                 )}
               </div>
@@ -817,7 +829,7 @@ const ExpenseForm = ({
                           <span className="font-manrope font-bold text-xs whitespace-nowrap">
                             {getShortName(u?.name, allMemberNames)}
                           </span>
-                          {isSelected && <LucideIcons.Check size={14} className="shrink-0" />}
+                          {isSelected && <Check size={14} className="shrink-0" />}
                         </button>
                       );
                     });
@@ -876,7 +888,7 @@ const ExpenseForm = ({
                             </p>
                           </div>
                         </button>
-                        <LucideIcons.CheckCircle2
+                        <CheckCircle2
                           size={16}
                           className={`transition-colors shrink-0 ${isSelected ? 'text-primary' : 'text-white/20'}`}
                         />
@@ -946,7 +958,7 @@ const ExpenseForm = ({
           >
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
-                <LucideIcons.ReceiptText size={15} className="text-primary" />
+                <ReceiptText size={15} className="text-primary" />
                 <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-70">
                   Assign Dishes
                 </span>
@@ -957,7 +969,7 @@ const ExpenseForm = ({
                   onClick={assignRemainingToEveryone}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all"
                 >
-                  <LucideIcons.Users size={11} />
+                  <Users size={11} />
                   {unassignedCount} left · share all
                 </button>
               )}
@@ -1021,9 +1033,7 @@ const ExpenseForm = ({
                             <span className="text-[10px] font-bold whitespace-nowrap">
                               {getShortName(u?.name, [])}
                             </span>
-                            {on && (
-                              <LucideIcons.Check size={11} strokeWidth={3} className="shrink-0" />
-                            )}
+                            {on && <Check size={11} strokeWidth={3} className="shrink-0" />}
                           </button>
                         );
                       })}
@@ -1101,7 +1111,7 @@ const ExpenseForm = ({
             disabled={!isSplitValid}
             className="flex-[2] h-14 rounded-3xl font-manrope font-black text-base bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl disabled:opacity-50 disabled:bg-white/10 disabled:text-white/20"
           >
-            <LucideIcons.CircleCheck size={20} />
+            <CircleCheck size={20} />
             {initialData ? 'Update Transaction' : 'Commit Transaction'}
           </Button>
         </div>

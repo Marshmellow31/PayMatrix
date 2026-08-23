@@ -20,7 +20,8 @@ import Input from '../components/common/Input.jsx';
 import SettleUpModal from '../components/group/SettleUpModal.jsx';
 import GroupInsightsTab from '../components/group/GroupInsightsTab.jsx';
 import { Plus, UserPlus, WalletCards, Trash2, ScanLine } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
+import { Copy, Hash, Lock, Settings, Share2, User } from 'lucide-react';
+import { getLucideIcon } from '../utils/iconMap.js';
 import BillScannerModal from '../components/bill/BillScannerModal.jsx';
 import { useFeatureFlags } from '../hooks/useFeatureFlags.js';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
@@ -424,15 +425,15 @@ const GroupDetail = () => {
                   <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shadow-inner backdrop-blur-sm">
                     {category?.icon ? (
                       (() => {
-                        const IconComponent = LucideIcons[category.icon];
+                        const IconComponent = getLucideIcon(category.icon);
                         return IconComponent ? (
                           <IconComponent size={24} style={{ color: category.color }} />
                         ) : (
-                          <LucideIcons.Hash size={24} />
+                          <Hash size={24} />
                         );
                       })()
                     ) : (
-                      <LucideIcons.Hash size={24} />
+                      <Hash size={24} />
                     )}
                   </div>
                   <div className="flex flex-col gap-1 min-w-0 flex-1">
@@ -513,7 +514,7 @@ const GroupDetail = () => {
                       : 'bg-white/5 border-white/5 text-on-surface-variant hover:bg-white/10'
                   }`}
                 >
-                  <LucideIcons.User size={12} />
+                  <User size={12} />
                   {showOnlyMe ? 'Viewing Yours' : 'View Yours'}
                 </button>
               </div>
@@ -592,7 +593,7 @@ const GroupDetail = () => {
                         disabled={!isOnline}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0 ${!isOnline ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-white/10 bg-white/5 hover:bg-white/10 text-white'}`}
                       >
-                        <LucideIcons.Settings size={14} />
+                        <Settings size={14} />
                         Edit
                       </button>
                     </div>
@@ -620,7 +621,7 @@ const GroupDetail = () => {
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[10px] font-black tracking-widest uppercase transition-all active:scale-95 shrink-0 ${!isOnline || hasPending ? 'opacity-20 grayscale border-white/10 bg-white/5 text-white/40 cursor-not-allowed' : 'border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500'}`}
                       >
                         {hasPending ? (
-                          <LucideIcons.Lock size={12} className="opacity-40" />
+                          <Lock size={12} className="opacity-40" />
                         ) : (
                           <Trash2 size={14} />
                         )}
@@ -670,15 +671,15 @@ const GroupDetail = () => {
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shrink-0">
                   {category?.icon ? (
                     (() => {
-                      const IconComponent = LucideIcons[category.icon];
+                      const IconComponent = getLucideIcon(category.icon);
                       return IconComponent ? (
                         <IconComponent size={20} style={{ color: category.color }} />
                       ) : (
-                        <LucideIcons.Hash size={20} />
+                        <Hash size={20} />
                       );
                     })()
                   ) : (
-                    <LucideIcons.Hash size={20} />
+                    <Hash size={20} />
                   )}
                 </div>
                 <div className="min-w-0">
@@ -913,7 +914,7 @@ const GroupDetail = () => {
                   disabled={!activeGroup?.inviteCode}
                   className="h-11 px-4 rounded-xl flex items-center justify-center gap-2 bg-white text-black hover:bg-white/90 transition-all shrink-0 text-[10px] font-black uppercase tracking-widest"
                 >
-                  <LucideIcons.Share2 size={16} />
+                  <Share2 size={16} />
                   Share
                 </Button>
               )}
@@ -927,7 +928,7 @@ const GroupDetail = () => {
                 disabled={!activeGroup?.inviteCode}
                 className="h-11 w-11 p-0 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all shrink-0"
               >
-                <LucideIcons.Copy size={20} className="text-white" />
+                <Copy size={20} className="text-white" />
               </Button>
             </div>
           </div>
@@ -1080,7 +1081,7 @@ const GroupDetail = () => {
                   }`}
                 >
                   {(() => {
-                    const IconComp = LucideIcons[cat.icon] || LucideIcons.Hash;
+                    const IconComp = getLucideIcon(cat.icon) || Hash;
                     return <IconComp size={14} />;
                   })()}
                   <span>{cat.label}</span>

@@ -51,6 +51,7 @@ export const ExpenseSchema = z
     title: z.string().min(1, 'Title is required').max(100),
     description: z.string().max(500).optional(),
     amount: z.number().positive('Amount must be positive').max(1000000, 'Amount exceeds limit'),
+    amountPaise: z.number().int().positive().max(100000000),
     currency: z.string().length(3).default('INR'),
     date: z
       .string()
@@ -58,10 +59,12 @@ export const ExpenseSchema = z
       .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
       .optional(), // ISO or YYYY-MM-DD
     paidBy: z.string().min(1, 'Payer UID required'),
+    createdBy: z.string().min(1, 'Creator UID required'),
     paidByName: z.string().optional(),
     splitType: z.enum(['equal', 'exact', 'percentage', 'shares', 'itemized']).default('equal'),
     splitData: z.record(z.string(), z.any()), // Further validation in split logic
     participants: z.array(z.string()).min(1),
+    splitUserIds: z.array(z.string()).min(1),
     category: z.string().max(50).optional(),
     attachments: z.array(z.string()).optional(),
     notes: z.string().max(500).optional(),
@@ -72,6 +75,7 @@ export const ExpenseSchema = z
         z.object({
           user: z.string().min(1),
           amount: z.number(),
+          amountPaise: z.number().int(),
           percent: z.number().optional(),
           shares: z.number().optional(),
           dish: z.number().optional(), // pre-GST dish/item cost for itemized splits

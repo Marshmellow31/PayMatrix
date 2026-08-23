@@ -4,7 +4,7 @@ import {
   doc,
   getDoc,
   getDocs,
-  addDoc,
+  writeBatch,
   updateDoc,
   query,
   where,
@@ -57,40 +57,79 @@ const groupService = {
 
       if (!memberIds || memberIds.length === 0) return [];
 
+      const resolvedByUid = new Map();
+
       const memberPromises = memberIds.map(async (item) => {
         const uid =
-          item && typeof item === 'object' ? item.user?._id || item.uid || item._id : item;
+          item && typeof item === 'object'
+            ? item.user?._id || item.user?.uid || item.uid || item._id
+            : item;
         if (!uid || typeof uid !== 'string' || uid === 'undefined') return null;
 
+        const embeddedProfile = item && typeof item === 'object' ? item.user || item : null;
+        if (embeddedProfile?.name || embeddedProfile?.displayName) {
+          const resolvedUser = {
+            ...embeddedProfile,
+            _id: uid,
+            uid,
+            name: embeddedProfile.name || embeddedProfile.displayName,
+            avatar: embeddedProfile.avatar || embeddedProfile.photoURL || '',
+          };
+          updateCache(uid, resolvedUser);
+          resolvedByUid.set(uid, resolvedUser);
+          return;
+        }
+
         if (userCache[uid]) {
-          return { user: { ...userCache[uid], _id: uid }, role: 'member' };
+          resolvedByUid.set(uid, { ...userCache[uid], _id: uid, uid });
+          return;
         }
 
         try {
-          let uSnap = await getDocFromCache(doc(db, 'users', uid)).catch(() => null);
+          let uSnap = await getDocFromCache(doc(db, 'publicProfiles', uid)).catch(() => null);
           if (!uSnap) {
-            uSnap = await getDoc(doc(db, 'users', uid)).catch(() => null);
+            uSnap = await getDoc(doc(db, 'publicProfiles', uid)).catch(() => null);
           }
 
-          const uData = uSnap?.exists() ? uSnap.data() : { name: 'Member', email: 'Member' };
+          if (!uSnap?.exists()) {
+            return;
+          }
+
+          const uData = uSnap.data();
+          const profileName = String(uData.name || uData.displayName || '').trim();
+          if (!profileName || ['member', 'group member'].includes(profileName.toLowerCase())) {
+            return;
+          }
 
           // Synthesize standard attributes
           const resolvedUser = {
             ...uData,
             _id: uid,
             uid: uid,
-            name: uData.name || uData.displayName || 'Member',
+            name: profileName,
             avatar: uData.avatar || uData.photoURL,
           };
 
           updateCache(uid, resolvedUser);
-          return { user: resolvedUser, role: 'member' };
+          resolvedByUid.set(uid, resolvedUser);
         } catch (err) {
-          return { user: { _id: uid, uid: uid, name: 'Member' }, role: 'member' };
+          return;
         }
       });
 
-      return (await Promise.all(memberPromises)).filter(Boolean);
+      await Promise.all(memberPromises);
+
+      return memberIds
+        .map((item) => {
+          const uid =
+            item && typeof item === 'object'
+              ? item.user?._id || item.user?.uid || item.uid || item._id
+              : item;
+          if (!uid) return null;
+          const user = resolvedByUid.get(uid) || { _id: uid, uid, name: 'Member', avatar: '' };
+          return { user, role: item?.role || 'member' };
+        })
+        .filter(Boolean);
     } catch (err) {
       loggingService.logError('groupService', 'resolveMemberProfiles', err);
       throw err;
@@ -232,24 +271,59 @@ const groupService = {
         .map((m) => (m && typeof m === 'object' ? m._id || m.user?._id || m.uid : m))
         .filter((m) => m && typeof m === 'string' && m !== 'undefined');
 
+      const selectedMemberIds = Array.from(new Set(sanitizedMemberIds)).filter(
+        (id) => id !== creatorId
+      );
+      const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase();
       const groupData = {
         ...validData,
         name: validData.name || validData.title, // Standardize to 'name' for Firestore rules
-        members: Array.from(new Set([...sanitizedMemberIds, creatorId])).filter(
-          (id) => id && typeof id === 'string' && id !== 'undefined'
-        ),
-        historicalMembers: Array.from(new Set([...sanitizedMemberIds, creatorId])).filter(
-          (id) => id && typeof id === 'string' && id !== 'undefined'
-        ),
+        members: [creatorId],
+        historicalMembers: [creatorId],
         admin: creatorId,
+        createdBy: creatorId,
         status: 'active',
-        inviteCode: Math.random().toString(36).substring(2, 10).toUpperCase(),
+        inviteCode,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      const docRef = await addDoc(collection(db, 'groups'), groupData);
-      return wrap({ group: { _id: docRef.id, ...groupData } });
+      const docRef = doc(collection(db, 'groups'));
+      const batch = writeBatch(db);
+      batch.set(docRef, groupData);
+      batch.set(doc(db, 'groupInvites', inviteCode), {
+        groupId: docRef.id,
+        createdBy: creatorId,
+        active: true,
+        createdAt: new Date().toISOString(),
+      });
+      await batch.commit();
+
+      // Existing friends selected during creation are added through the same
+      // one-member-at-a-time authorization path as the group member picker.
+      const addedMembers = [];
+      for (const memberId of selectedMemberIds) {
+        try {
+          // Membership additions are intentionally serialized because each rule
+          // evaluation permits exactly one reviewed friend to be added.
+          // eslint-disable-next-line no-await-in-loop
+          await updateDoc(docRef, {
+            members: arrayUnion(memberId),
+            historicalMembers: arrayUnion(memberId),
+            updatedAt: new Date().toISOString(),
+          });
+          addedMembers.push(memberId);
+        } catch (error) {
+          console.warn(`Member ${memberId} was not added to the new group`, error);
+        }
+      }
+
+      const finalGroup = {
+        ...groupData,
+        members: [creatorId, ...addedMembers],
+        historicalMembers: [creatorId, ...addedMembers],
+      };
+      return wrap({ group: { _id: docRef.id, ...finalGroup } });
     } catch (err) {
       loggingService.logError('createGroup', err);
       throw err;
@@ -375,27 +449,18 @@ const groupService = {
 
     const normalizedCode = inviteCode.trim().toUpperCase();
 
-    // 1. Find group with this invite code
-    const q = query(collection(db, 'groups'), where('inviteCode', '==', normalizedCode), limit(1));
-    const snap = await getDocs(q);
-
-    if (snap.empty) {
+    // Exact-code bearer lookup is readable without exposing or enumerating groups.
+    const inviteSnap = await getDoc(doc(db, 'groupInvites', normalizedCode));
+    if (!inviteSnap.exists() || inviteSnap.data()?.active !== true) {
       throw new Error('Invalid or expired invite link. Please ask the group admin for a new link.');
     }
+    const groupId = inviteSnap.data().groupId;
 
-    const groupDoc = snap.docs[0];
-    const groupId = groupDoc.id;
-    const groupData = groupDoc.data();
-
-    // 2. Check if user is already a member
-    if (groupData.members && groupData.members.includes(userId)) {
-      return wrap({ groupId }, 'You are already a member of this cohort.');
-    }
-
-    // 3. Add user to group members and historical members
+    // The rules verify this exact code-to-group mapping and permit only self-addition.
     await updateDoc(doc(db, 'groups', groupId), {
       members: arrayUnion(userId),
       historicalMembers: arrayUnion(userId),
+      updatedAt: new Date().toISOString(),
     });
 
     return wrap({ groupId }, 'Successfully joined the cohort!');

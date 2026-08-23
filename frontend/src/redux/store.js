@@ -15,18 +15,25 @@ import groupReducer from './groupSlice.js';
 import expenseReducer from './expenseSlice.js';
 import notificationReducer from './notificationSlice.js';
 
-const rootReducer = combineReducers({
+const appReducer = combineReducers({
   auth: authReducer,
   groups: groupReducer,
   expenses: expenseReducer,
   notifications: notificationReducer,
 });
 
+const rootReducer = (state, action) => {
+  if (action.type === 'auth/logoutUser/fulfilled') return appReducer(undefined, action);
+  return appReducer(state, action);
+};
+
 const persistConfig = {
   key: 'root',
   version: 1,
   storage,
-  whitelist: ['auth', 'groups', 'notifications'], // Persist these essential layers
+  // Firebase Auth owns session persistence. User and financial data must never
+  // survive an account switch in shared, unpartitioned localStorage.
+  whitelist: [],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

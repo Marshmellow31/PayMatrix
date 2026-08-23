@@ -40,10 +40,16 @@ const Friends = lazy(() => import('./pages/Friends.jsx'));
 const LogGroups = lazy(() => import('./pages/LogGroups.jsx'));
 const LogGroupDetail = lazy(() => import('./pages/LogGroupDetail.jsx'));
 const NotFound = lazy(() => import('./pages/NotFound.jsx'));
+const DeleteAccount = lazy(() => import('./pages/DeleteAccount.jsx'));
+const Privacy = lazy(() => import('./pages/Privacy.jsx'));
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
-  if (!user) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!user) {
+    const returnTo = `${location.pathname}${location.search}`;
+    return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
+  }
   return children;
 };
 
@@ -130,10 +136,16 @@ function App() {
           userDocRef,
           (docSnap) => {
             if (docSnap.exists()) {
-              dispatch(setUser({ _id: docSnap.id, ...docSnap.data() }));
-              if (!docSnap.data().friendCode) {
+              const profileData = docSnap.data();
+              dispatch(setUser({ _id: docSnap.id, ...profileData }));
+              if (!firstSnapshotReceived) {
+                import('./services/authService.js').then(({ ensurePublicProfile }) =>
+                  ensurePublicProfile(firebaseUser, profileData).catch(() => {})
+                );
+              }
+              if (!profileData.friendCode) {
                 import('./services/friendCodeService.js').then(({ default: friendCodeService }) =>
-                  friendCodeService.ensureFriendCode({ uid: firebaseUser.uid, ...docSnap.data() })
+                  friendCodeService.ensureFriendCode({ uid: firebaseUser.uid, ...profileData })
                 );
               }
             } else {
@@ -225,74 +237,76 @@ function App() {
         }
       >
         <Routes>
-        {/* Public Routes */}
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            <PublicRoute>
-              <Register />
-            </PublicRoute>
-          }
-        />
+          {/* Public Routes */}
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <PublicRoute>
+                <Register />
+              </PublicRoute>
+            }
+          />
 
-        <Route path="/join/:code" element={<JoinGroup />} />
+          <Route path="/join/:code" element={<JoinGroup />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/delete-account" element={<DeleteAccount />} />
 
-        {/* Protected Routes — inside AppLayout */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <AppLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/friends" element={<Friends />} />
-          <Route path="/groups" element={<Groups />} />
-          <Route path="/groups/:id" element={<GroupDetail />} />
-          <Route path="/groups/:id/add-expense" element={<AddExpense />} />
-          <Route path="/add-expense" element={<AddExpense />} />
-          <Route path="/analytics" element={<Analytics />} />
+          {/* Protected Routes — inside AppLayout */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/friends" element={<Friends />} />
+            <Route path="/groups" element={<Groups />} />
+            <Route path="/groups/:id" element={<GroupDetail />} />
+            <Route path="/groups/:id/add-expense" element={<AddExpense />} />
+            <Route path="/add-expense" element={<AddExpense />} />
+            <Route path="/analytics" element={<Analytics />} />
 
-          <Route path="/settlements" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/activity" element={<Activity />} />
-          <Route path="/logs" element={<LogGroups />} />
-          <Route path="/logs/:groupId" element={<LogGroupDetail />} />
-          <Route path="/friends/:id" element={<Profile />} />
-          <Route path="/profile" element={<Profile />} />
-        </Route>
+            <Route path="/settlements" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/activity" element={<Activity />} />
+            <Route path="/logs" element={<LogGroups />} />
+            <Route path="/logs/:groupId" element={<LogGroupDetail />} />
+            <Route path="/friends/:id" element={<Profile />} />
+            <Route path="/profile" element={<Profile />} />
+          </Route>
 
-        {/* Admin Panel */}
-        <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <AdminLayout />
-            </AdminRoute>
-          }
-        >
-          <Route index element={<AdminDashboard />} />
-          <Route path="users" element={<AdminUsers />} />
-          <Route path="groups" element={<AdminGroups />} />
-          <Route path="notifications" element={<AdminNotifications />} />
-          <Route path="analytics" element={<AdminAnalytics />} />
-          <Route path="ai-scans" element={<AdminAiScans />} />
-          <Route path="security" element={<AdminSecurityLogs />} />
-          <Route path="flags" element={<AdminFeatureFlags />} />
-        </Route>
+          {/* Admin Panel */}
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminLayout />
+              </AdminRoute>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="groups" element={<AdminGroups />} />
+            <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
+            <Route path="ai-scans" element={<AdminAiScans />} />
+            <Route path="security" element={<AdminSecurityLogs />} />
+            <Route path="flags" element={<AdminFeatureFlags />} />
+          </Route>
 
-        {/* New visitors see onboarding; returning/authenticated users bypass it. */}
-        <Route path="/" element={<RootRoute />} />
+          {/* New visitors see onboarding; returning/authenticated users bypass it. */}
+          <Route path="/" element={<RootRoute />} />
 
-        {/* 404 */}
-        <Route path="*" element={<NotFound />} />
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
     </>

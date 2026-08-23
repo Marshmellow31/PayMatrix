@@ -1,10 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  configureNativeRuntime,
-  isNativeRuntime,
-  minimizeNativeApp,
-} from '#paymatrix-runtime';
+import { configureNativeRuntime, isNativeRuntime, minimizeNativeApp } from '#paymatrix-runtime';
 import { consumeBackRequest } from './backNavigation.js';
 
 const rootRoutes = new Set(['/', '/login', '/dashboard']);

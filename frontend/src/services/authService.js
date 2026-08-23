@@ -8,13 +8,27 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import loggingService from './loggingService.js';
-import {
-  isNativeRuntime,
-  signInWithGoogleNative,
-  signOutNative,
-} from '#paymatrix-runtime';
+import { isNativeRuntime, signInWithGoogleNative, signOutNative } from '#paymatrix-runtime';
 
 const googleProvider = new GoogleAuthProvider();
+
+export const ensurePublicProfile = async (firebaseUser, storedProfile = {}) => {
+  if (!firebaseUser?.uid) return;
+  const isAnonymized = storedProfile.deletionStatus === 'anonymized';
+  await setDoc(
+    doc(db, 'publicProfiles', firebaseUser.uid),
+    {
+      name: isAnonymized
+        ? 'Deleted user'
+        : storedProfile.name || storedProfile.displayName || firebaseUser.displayName || 'Member',
+      avatar: isAnonymized
+        ? ''
+        : storedProfile.avatar || storedProfile.photoURL || firebaseUser.photoURL || '',
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true }
+  );
+};
 
 const authService = {
   googleAuth: async () => {
@@ -25,7 +39,9 @@ const authService = {
         const nativeResult = await signInWithGoogleNative();
         const nativeCredential = nativeResult.credential;
         if (!nativeCredential?.idToken) {
-          throw new Error('Google did not return an identity token. Check the Android Firebase configuration.');
+          throw new Error(
+            'Google did not return an identity token. Check the Android Firebase configuration.'
+          );
         }
 
         const credential = GoogleAuthProvider.credential(
@@ -92,6 +108,8 @@ const authService = {
         }
       }
 
+      await ensurePublicProfile(user, userData);
+
       return { user: userData, token: user.accessToken };
     } catch (error) {
       // Log authentication failure
@@ -133,6 +151,17 @@ const authService = {
 
     const updateData = { ...sanitizedData, updatedAt: new Date().toISOString() };
     await updateDoc(doc(db, 'users', user.uid), updateData);
+    if ('name' in sanitizedData || 'avatar' in sanitizedData || 'photoURL' in sanitizedData) {
+      await setDoc(
+        doc(db, 'publicProfiles', user.uid),
+        {
+          name: sanitizedData.name || user.displayName || 'Member',
+          avatar: sanitizedData.avatar || sanitizedData.photoURL || user.photoURL || '',
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    }
 
     const updatedDoc = await getDoc(doc(db, 'users', user.uid));
     const userData = updatedDoc.data();

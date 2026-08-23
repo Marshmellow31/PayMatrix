@@ -66,6 +66,12 @@ jobs:
         with:
           node-version: 20
 
+      - name: Set up Java for Firebase Emulator
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
@@ -80,8 +86,15 @@ jobs:
             // Basic structural checks
             if (!rules.includes('rules_version')) process.exit(1);
             if (!rules.includes('service cloud.firestore')) process.exit(1);
-            console.log('Firestore rules structure OK');
+          console.log('Firestore rules structure OK');
           "
+
+      - name: Install rule-test dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run Firestore authorization tests
+        run: firebase emulators:exec --only firestore --project demo-paymatrix "npm --prefix frontend run test:rules"
 
   # ─── Cloud Functions ───────────────────────────────────────────────────────
   functions:

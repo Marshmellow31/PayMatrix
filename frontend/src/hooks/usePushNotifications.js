@@ -2,7 +2,7 @@
  * usePushNotifications Hook
  *
  * Initiates FCM setup after the user logs in:
- *  - Silently requests notification permission on first run
+ *  - Never prompts automatically; permission is requested only after explicit opt-in
  *  - Saves the FCM token to Firestore (used by Cloud Functions to target pushes)
  *  - Shows a toast for FCM messages received while the app is in focus (foreground)
  *
@@ -27,11 +27,9 @@ export const usePushNotifications = () => {
 
     initialized.current = true;
 
-    // Silently attempt to get/refresh token.
-    // Will prompt for permission if not previously granted.
-    fcmService.requestPermissionAndGetToken().catch(() => {
-      // Suppress — permission denial or unsupported browser is acceptable
-    });
+    if (fcmService.isExplicitlyEnabled()) {
+      fcmService.requestPermissionAndGetToken().catch(() => {});
+    }
 
     // Listen for messages while the app tab is open (foreground).
     // Background messages are handled directly by the service worker.

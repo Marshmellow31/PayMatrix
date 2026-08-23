@@ -14,7 +14,7 @@ const createPwaPlugin = () =>
       strategies: 'injectManifest',
       srcDir: 'public',
       filename: 'sw.js',
-      includeAssets: ['favicon.ico', 'logo.png'],
+      includeAssets: ['logo.png', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: 'PayMatrix',
         short_name: 'PayMatrix',
@@ -32,17 +32,17 @@ const createPwaPlugin = () =>
         },
         icons: [
           {
-            src: 'logo.png',
+            src: 'pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: 'logo.png',
+            src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
           },
           {
-            src: 'logo.png',
+            src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable',
@@ -54,6 +54,13 @@ const createPwaPlugin = () =>
       injectManifest: {
         maximumFileSizeToCacheInBytes: 5000000,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Reporting and charts are fetched and cached only when used. Keeping
+        // them out of install-time precache saves roughly 800 KB of JavaScript.
+        globIgnores: [
+          '**/vendor-pdf-*.js',
+          '**/vendor-charts-*.js',
+          '**/html2canvas*.js',
+        ],
       },
       devOptions: {
         enabled: false,
@@ -108,6 +115,17 @@ export default defineConfig(({ mode }) => {
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
     },
+    },
+    preview: {
+      port: 5146,
+      host: true,
+      allowedHosts: true,
+      proxy: {
+        '/api': {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+        },
+      },
     },
     build: {
       outDir: 'dist',

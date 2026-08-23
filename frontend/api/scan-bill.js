@@ -5,6 +5,8 @@ const ALLOWED_ORIGINS = new Set([
 ]);
 const MAX_IMAGES = 4;
 const MAX_TOTAL_BASE64_LENGTH = 12_000_000;
+const MAX_SCANS_PER_HOUR = 10;
+const RATE_WINDOW_MS = 60 * 60 * 1000;
 
 const setCorsHeaders = (request, response) => {
   const origin = request.headers.origin;
@@ -35,7 +37,54 @@ const verifyFirebaseUser = async (request) => {
   if (!verifyResponse.ok) return null;
 
   const payload = await verifyResponse.json();
-  return payload.users?.[0] || null;
+  const user = payload.users?.[0] || null;
+  return user ? { user, idToken } : null;
+};
+
+const parseInteger = (field) => Number(field?.integerValue || 0);
+const parseTimestamp = (field) => Date.parse(field?.timestampValue || 0);
+
+const consumeScanQuota = async ({ uid, idToken }) => {
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
+  if (!projectId) throw new Error('Firebase project ID is not configured.');
+
+  const documentUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/rate_limits/${encodeURIComponent(uid)}`;
+  const headers = { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' };
+  const currentResponse = await fetch(documentUrl, { headers, signal: AbortSignal.timeout(8000) });
+  const now = new Date();
+  const nowIso = now.toISOString();
+
+  let count = 1;
+  let windowStart = nowIso;
+  let precondition = 'currentDocument.exists=false';
+
+  if (currentResponse.ok) {
+    const current = await currentResponse.json();
+    const currentWindow = parseTimestamp(current.fields?.windowStart);
+    const inCurrentWindow = Number.isFinite(currentWindow) && now.getTime() - currentWindow < RATE_WINDOW_MS;
+    count = inCurrentWindow ? parseInteger(current.fields?.count) + 1 : 1;
+    windowStart = inCurrentWindow ? new Date(currentWindow).toISOString() : nowIso;
+    if (count > MAX_SCANS_PER_HOUR) return false;
+    precondition = `currentDocument.updateTime=${encodeURIComponent(current.updateTime)}`;
+  } else if (currentResponse.status !== 404) {
+    throw new Error(`Rate-limit lookup failed (${currentResponse.status}).`);
+  }
+
+  const fields = {
+    uid: { stringValue: uid },
+    count: { integerValue: String(count) },
+    windowStart: { timestampValue: windowStart },
+    lastRequestAt: { timestampValue: nowIso },
+  };
+  const writeResponse = await fetch(`${documentUrl}?${precondition}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ fields }),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (writeResponse.status === 409) return false;
+  if (!writeResponse.ok) throw new Error(`Rate-limit update failed (${writeResponse.status}).`);
+  return true;
 };
 
 const RECEIPT_SCHEMA = {
@@ -83,8 +132,15 @@ export default async function handler(request, response) {
   }
 
   try {
-    const firebaseUser = await verifyFirebaseUser(request);
-    if (!firebaseUser) return response.status(401).json({ error: "Authentication required." });
+    const firebaseIdentity = await verifyFirebaseUser(request);
+    if (!firebaseIdentity) return response.status(401).json({ error: "Authentication required." });
+    const withinQuota = await consumeScanQuota({
+      uid: firebaseIdentity.user.localId,
+      idToken: firebaseIdentity.idToken,
+    });
+    if (!withinQuota) {
+      return response.status(429).json({ error: `Bill scanning is limited to ${MAX_SCANS_PER_HOUR} requests per hour.` });
+    }
   } catch (error) {
     console.error("[scan-bill] auth verification failed:", error.message);
     return response.status(503).json({ error: "Authentication service is unavailable." });
@@ -135,6 +191,7 @@ export default async function handler(request, response) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(25000),
     });
 
     if (!resp.ok) {
