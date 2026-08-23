@@ -36,7 +36,7 @@ Updated: 2026-08-23
 
 ## Live Firebase state
 
-The tested Firestore rules were deployed to project `paymatrix-174b5` on 2026-08-23. No Cloud Functions are deployed in that project.
+The tested Firestore rules were deployed to project `paymatrix-174b5` on 2026-08-23. A compatibility migration then added the new paise/version metadata to legacy financial records, restored canonical pending friend requests, repaired missing group invite mappings, and fixed one asymmetric friendship without changing monetary values or deleting history. No Cloud Functions are deployed in that project.
 
 ## Release gates still requiring external setup or human validation
 
@@ -45,7 +45,7 @@ The tested Firestore rules were deployed to project `paymatrix-174b5` on 2026-08
 - Publish the current web build so `/privacy` and `/delete-account` have stable public HTTPS URLs.
 - Firebase Spark cannot deploy the repository's trusted Cloud Functions. Cross-user push notifications, server-authoritative security telemetry, scheduled reminders and automated cleanup cannot be called production-ready on the current plan. In-app Firestore updates still work.
 - Configure Firebase App Check before exposing paid AI scanning broadly. Rate limiting is present, but App Check adds device/app attestation.
-- Perform a live-data compatibility/migration review for legacy friend-request IDs and older financial documents before inviting existing users to edit them.
+- Complete a two-user physical-device smoke test for login, friend acceptance, legacy expense edit/delete, and group invite joining after the compatibility migration.
 
 ## Verification commands
 

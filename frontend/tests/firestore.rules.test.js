@@ -169,6 +169,29 @@ describe('PayMatrix Firestore authorization', () => {
     await assertFails(batch.commit());
   });
 
+  test('allows a legacy expense to be soft-deleted with an atomic audit record', async () => {
+    await environment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'groups', 'group-1', 'expenses', 'legacy-expense'), {
+        title: 'Legacy dinner', amount: 75, paidBy: 'owner', admin: 'owner',
+        groupId: 'group-1', participants: ['owner', 'member'], status: 'active',
+      });
+    });
+
+    const db = environment.authenticatedContext('member').firestore();
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'groups', 'group-1', 'expenses', 'legacy-expense'), {
+      status: 'deleted', updatedAt: serverTimestamp(), version: 2,
+      lastEditedBy: 'member', lastMutationId: 'legacy-delete-log',
+      lastMutationType: 'expense_deleted', lastMutationAt: serverTimestamp(),
+    });
+    batch.set(doc(db, 'groups', 'group-1', 'logs', 'legacy-delete-log'), {
+      type: 'expense_deleted', message: 'Member deleted Legacy dinner', actorId: 'member',
+      actorName: 'Member', relatedId: 'legacy-expense', groupId: 'group-1',
+      createdAt: serverTimestamp(),
+    });
+    await assertSucceeds(batch.commit());
+  });
+
   test('binds confirmed settlement payer to the authenticated user', async () => {
     const db = environment.authenticatedContext('member').firestore();
     const forged = {
@@ -210,6 +233,18 @@ describe('PayMatrix Firestore authorization', () => {
     await assertFails(updateDoc(doc(db, 'groups', 'group-1'), {
       members: arrayUnion('somebody-else'), historicalMembers: arrayUnion('somebody-else'),
       updatedAt: 'now',
+    }));
+  });
+
+  test('lets the original sender re-send a deterministic rejected request', async () => {
+    await environment.withSecurityRulesDisabled((context) =>
+      setDoc(doc(context.firestore(), 'friendRequests', 'owner_member'), {
+        from: 'owner', to: 'member', status: 'rejected', createdAt: 'old', respondedAt: 'old',
+      })
+    );
+    const ownerDb = environment.authenticatedContext('owner').firestore();
+    await assertSucceeds(setDoc(doc(ownerDb, 'friendRequests', 'owner_member'), {
+      from: 'owner', to: 'member', status: 'pending', createdAt: 'new',
     }));
   });
 
