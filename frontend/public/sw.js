@@ -11,7 +11,8 @@
 
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { CacheFirst } from 'workbox-strategies';
+import { clientsClaim } from 'workbox-core';
+import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
@@ -23,6 +24,12 @@ precacheAndRoute(self.__WB_MANIFEST);
 
 // Remove caches from older SW versions on activation
 cleanupOutdatedCaches();
+
+// Activate a newly deployed worker immediately. Combined with network-first
+// navigation below, this prevents an old HTML shell from requesting bundle
+// filenames that no longer exist after a Vercel deployment.
+self.skipWaiting();
+clientsClaim();
 
 // Allow the client to force the new SW to take control immediately
 self.addEventListener('message', (event) => {
@@ -37,14 +44,30 @@ self.addEventListener('message', (event) => {
 // This is what makes the app fully functional offline for all routes.
 // Development Note: In dev mode, /index.html might not be precached, 
 // so we use a fallback to avoid the "non-precached-url" crash.
-let spaHandler;
+let offlineSpaHandler;
 try {
-  spaHandler = createHandlerBoundToURL('/index.html');
+  offlineSpaHandler = createHandlerBoundToURL('/index.html');
 } catch (error) {
-  spaHandler = ({ event }) => fetch('/index.html');
+  offlineSpaHandler = () => caches.match('/index.html');
 }
 
-registerRoute(new NavigationRoute(spaHandler));
+const onlineNavigation = new NetworkFirst({
+  cacheName: 'paymatrix-navigation-v2',
+  networkTimeoutSeconds: 5,
+  plugins: [new CacheableResponsePlugin({ statuses: [0, 200] })],
+});
+
+registerRoute(
+  new NavigationRoute(async (context) => {
+    try {
+      const response = await onlineNavigation.handle(context);
+      if (response) return response;
+    } catch {
+      // Fall through to the precached SPA shell when the device is offline.
+    }
+    return offlineSpaHandler(context);
+  })
+);
 
 // Large lazy feature bundles (reports/charts) are cached after first use,
 // keeping initial installation fast without giving up repeat/offline access.
