@@ -94,14 +94,20 @@ const AppLayout = () => {
       {!isFocusJourney && <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />}
 
       {!isFocusJourney && flags.maintenanceMode && (
-        <div className="fixed top-20 left-0 right-0 z-40 bg-orange-500/10 border-b border-orange-500/25 text-orange-500 py-2.5 px-4 text-center text-xs font-bold font-inter tracking-wide flex items-center justify-center gap-2 backdrop-blur-md">
+        <div className="paymatrix-maintenance-banner fixed top-20 left-0 right-0 z-40 bg-orange-500/10 border-b border-orange-500/25 text-orange-500 py-2.5 px-4 text-center text-xs font-bold font-inter tracking-wide flex items-center justify-center gap-2 backdrop-blur-md">
           <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
           PayMatrix is currently undergoing scheduled maintenance. Some services may be temporarily
           unavailable.
         </div>
       )}
 
-      <div className={`flex ${!isFocusJourney ? (flags.maintenanceMode ? 'pt-32' : 'pt-20') : ''}`}>
+      <div
+        className={`flex ${
+          !isFocusJourney
+            ? `paymatrix-app-body ${flags.maintenanceMode ? 'paymatrix-app-body--maintenance pt-32' : 'pt-20'}`
+            : ''
+        }`}
+      >
         {!isFocusJourney && (
           <Sidebar
             isOpen={sidebarOpen}

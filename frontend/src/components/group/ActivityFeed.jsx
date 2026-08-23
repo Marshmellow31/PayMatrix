@@ -13,8 +13,20 @@ import {
 } from '../../redux/expenseSlice.js';
 import Modal from '../common/Modal.jsx';
 
+const createdAtMillis = (activity) => {
+  const value = activity?.createdAt || activity?.updatedAt;
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const newestFirst = (items = []) =>
+  [...items].sort((a, b) => createdAtMillis(b) - createdAtMillis(a));
+
 const ActivityFeed = ({ groupId, externalLogs }) => {
-  const [activities, setActivities] = useState(externalLogs || []);
+  const [activities, setActivities] = useState(() => newestFirst(externalLogs));
   const [loading, setLoading] = useState(!externalLogs);
   const [settlementToDelete, setSettlementToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -22,7 +34,7 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
 
   useEffect(() => {
     if (externalLogs) {
-      setActivities(externalLogs);
+      setActivities(newestFirst(externalLogs));
       setLoading(false);
       return;
     }
@@ -44,7 +56,7 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
           _id: docSnap.id,
           ...docSnap.data(),
         }));
-        setActivities(liveActivities);
+        setActivities(newestFirst(liveActivities));
         setLoading(false);
       },
       (err) => {

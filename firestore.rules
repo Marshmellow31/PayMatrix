@@ -406,19 +406,82 @@ service cloud.firestore {
       allow update: if isGlobalAdmin() || (isSignedIn() &&
                     request.auth.uid == resource.data.to &&
                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']));
-      // FIX SEC-08 (hardened): clients may ONLY create notifications targeting
-      // themselves (self/system alerts). A previous version only checked
-      // `createdBy == auth.uid` and left `to` unconstrained, so any signed-in
-      // user could push arbitrary-text notifications (and OS push) to any other
-      // user — a phishing/spam vector. Cross-user notifications must go through
-      // the trusted `createCrossUserNotification` Cloud Function, which runs with
-      // admin privileges and validates group membership before writing.
+      function hasValidNotificationShape() {
+        return request.resource.data.keys().hasOnly([
+                 'to', 'createdBy', 'message', 'type', 'relatedId', 'groupId', 'read', 'createdAt'
+               ]) &&
+               request.resource.data.get('createdBy', '') == request.auth.uid &&
+               request.resource.data.get('to', '') is string &&
+               request.resource.data.get('read', true) == false &&
+               request.resource.data.get('createdAt', null) == request.time &&
+               isValidString(request.resource.data.get('message', ''), 500);
+      }
+      function validFriendRequestNotification(notificationId) {
+        let recipientId = request.resource.data.get('to', '');
+        let requestPath = /databases/$(database)/documents/friendRequests/$(request.auth.uid + '_' + recipientId);
+        return notificationId == 'friend_request_' + request.auth.uid + '_' + recipientId &&
+               request.resource.data.get('type', '') == 'friend_request' &&
+               request.resource.data.get('relatedId', null) == null &&
+               request.resource.data.get('groupId', null) == null &&
+               request.resource.data.get('message', '') == 'A PayMatrix member sent you a friend request.' &&
+               exists(requestPath) &&
+               get(requestPath).data.get('from', '') == request.auth.uid &&
+               get(requestPath).data.get('to', '') == recipientId &&
+               get(requestPath).data.get('status', '') == 'pending';
+      }
+      function validFriendAcceptedNotification(notificationId) {
+        let recipientId = request.resource.data.get('to', '');
+        let requestPath = /databases/$(database)/documents/friendRequests/$(recipientId + '_' + request.auth.uid);
+        return notificationId == 'friend_accepted_' + recipientId + '_' + request.auth.uid &&
+               request.resource.data.get('type', '') == 'friend_accepted' &&
+               request.resource.data.get('relatedId', null) == null &&
+               request.resource.data.get('groupId', null) == null &&
+               request.resource.data.get('message', '') == 'A PayMatrix member accepted your friend request.' &&
+               exists(requestPath) &&
+               get(requestPath).data.get('from', '') == recipientId &&
+               get(requestPath).data.get('to', '') == request.auth.uid &&
+               get(requestPath).data.get('status', '') == 'accepted';
+      }
+      function validExpenseNotification(notificationId) {
+        let recipientId = request.resource.data.get('to', '');
+        let groupId = request.resource.data.get('groupId', '');
+        let expenseId = request.resource.data.get('relatedId', '');
+        let expensePath = /databases/$(database)/documents/groups/$(groupId)/expenses/$(expenseId);
+        return notificationId == 'expense_added_' + expenseId + '_' + recipientId &&
+               request.resource.data.get('type', '') == 'expense_added' &&
+               request.resource.data.get('message', '') == 'A group member added an expense.' &&
+               isMember(groupId) && isGroupUser(groupId, recipientId) &&
+               exists(expensePath) &&
+               get(expensePath).data.get('paidBy', '') == request.auth.uid &&
+               recipientId in get(expensePath).data.get('participants', []);
+      }
+      function validSettlementNotification(notificationId) {
+        let recipientId = request.resource.data.get('to', '');
+        let groupId = request.resource.data.get('groupId', '');
+        let settlementId = request.resource.data.get('relatedId', '');
+        let settlementPath = /databases/$(database)/documents/groups/$(groupId)/settlements/$(settlementId);
+        return notificationId == 'settlement_received_' + settlementId + '_' + recipientId &&
+               request.resource.data.get('type', '') == 'settlement_received' &&
+               request.resource.data.get('message', '') == 'A group member recorded a payer-confirmed settlement.' &&
+               isMember(groupId) && isGroupUser(groupId, recipientId) &&
+               exists(settlementPath) &&
+               get(settlementPath).data.get('payer', '') == request.auth.uid &&
+               get(settlementPath).data.get('payee', '') == recipientId &&
+               get(settlementPath).data.get('confirmationStatus', '') == 'confirmed';
+      }
       allow create: if isSignedIn() &&
-                    request.resource.data.get('createdBy', '') == request.auth.uid &&
-                    request.resource.data.get('to', '') == request.auth.uid &&
-                    request.resource.data.keys().hasOnly([
-                      'to', 'createdBy', 'message', 'type', 'relatedId', 'groupId', 'read', 'createdAt'
-                    ]) && isValidString(request.resource.data.get('message', ''), 500);
+                    hasValidNotificationShape() &&
+                    (
+                      request.resource.data.get('to', '') == request.auth.uid ||
+                      (request.resource.data.get('to', '') != request.auth.uid &&
+                       exists(/databases/$(database)/documents/users/$(request.resource.data.get('to', ''))) &&
+                       (
+                         validFriendRequestNotification(notificationId) ||
+                         validFriendAcceptedNotification(notificationId) ||
+                         validExpenseNotification(notificationId) ||
+                         validSettlementNotification(notificationId)
+                       ))
+                    );
     }
 
     // ─── Security Logs ────────────────────────────────────────────────────────

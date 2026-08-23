@@ -36,7 +36,7 @@ All four must pass. CI runs the same checks on every push.
 - Use `round2(x)` from `balanceEngine.js` for all currency arithmetic.
 
 ### Cross-user notifications
-Never write to `notifications/{id}` from the client with a `to` field pointing at another user — Firestore rules block it. Call `createCrossUserNotification` Cloud Function instead.
+Use `createNotification()` from `notificationHelper.js`. It creates deterministic IDs and fixed copy; Firestore rules verify the matching friend request or group ledger record. Do not write arbitrary cross-user notification documents or user-controlled notification text.
 
 ### Logging
 Use `logger(moduleName)` from `src/utils/logger.js`. Do not use `console.log` directly — it is silenced in production but still produces lint warnings.

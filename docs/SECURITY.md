@@ -8,7 +8,7 @@ PayMatrix is a financial application. A security bug can cause real monetary dis
 |--------|-----------|
 | Privilege escalation (claim admin without credentials) | Admin status derives solely from Firebase Custom Claims (`token.admin === true`). No UID hardcoding. |
 | DevTools bypass of admin gate | Admin state lives in React component state only — never `sessionStorage` or `localStorage`. |
-| Cross-user notification spam | Firestore rules block `notifications` creates where `to !== auth.uid`. Cross-user writes go through `createCrossUserNotification` Cloud Function which validates group membership. |
+| Cross-user notification spam | Spark-compatible Firestore rules allow only deterministic notifications backed by a matching friend request, expense, or confirmed settlement. Notification text is fixed by type and duplicate event IDs cannot be recreated. |
 | User profile scraping | `users/{userId}` read requires `auth.uid == userId` or `auth.uid in friends[]`. Global read removed. |
 | Settlement fraud (payer deletes their own debt) | Hard-delete on settlements requires group admin. Payers can only soft-delete (status change). |
 | Rate-limit manipulation | `rate_limits` collection is write-restricted to global admins. Clients can only read their own doc. |

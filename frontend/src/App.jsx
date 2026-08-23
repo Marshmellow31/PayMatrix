@@ -13,6 +13,7 @@ import PwaUpdatePrompt from './components/common/PwaUpdatePrompt.jsx';
 import { hasSeenOnboarding } from './hooks/useOnboardingState.js';
 import { isNativeRuntime } from '#paymatrix-runtime';
 import { useNativeAppBridge } from './platform/useNativeAppBridge.js';
+import { serializeFirestoreData } from './utils/firestoreSerialization.js';
 
 // Layout
 const AppLayout = lazy(() => import('./components/layout/AppLayout.jsx'));
@@ -136,7 +137,7 @@ function App() {
           userDocRef,
           (docSnap) => {
             if (docSnap.exists()) {
-              const profileData = docSnap.data();
+              const profileData = serializeFirestoreData(docSnap.data());
               dispatch(setUser({ _id: docSnap.id, ...profileData }));
               if (!firstSnapshotReceived) {
                 import('./services/authService.js').then(({ ensurePublicProfile }) =>
@@ -177,7 +178,7 @@ function App() {
           qNotifs,
           (snapshot) => {
             const liveNotifs = snapshot.docs
-              .map((d) => ({ _id: d.id, ...d.data() }))
+              .map((d) => serializeFirestoreData({ _id: d.id, ...d.data() }))
               .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
             dispatch(setNotifications(liveNotifs));
           },

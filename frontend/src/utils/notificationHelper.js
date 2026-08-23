@@ -1,17 +1,21 @@
-import { db, auth, functions } from '../config/firebase.js';
-import { collection, addDoc } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
+import { db, auth } from '../config/firebase.js';
+import { collection, addDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+
+const crossUserMessages = {
+  expense_added: 'A group member added an expense.',
+  settlement_received: 'A group member recorded a payer-confirmed settlement.',
+  friend_request: 'A PayMatrix member sent you a friend request.',
+  friend_accepted: 'A PayMatrix member accepted your friend request.',
+};
 
 /**
  * Creates a notification for a user.
  *
- * Firestore rules (notifications) now allow a client to create a doc ONLY when
- * BOTH `createdBy` and `to` equal the caller's uid — i.e. self-notifications.
- * Cross-user notifications (expense added, settlement, friend request, …) are
- * created through the `createCrossUserNotification` Cloud Function, which runs
- * with admin privileges and validates group membership / recipient existence
- * before writing. This closes the notification phishing/spam vector where any
- * user could previously write a notification targeting anyone else.
+ * Self-notifications are limited to the current user.
+ * Cross-user notifications use deterministic IDs, fixed non-user-controlled
+ * copy, and Firestore rules that verify the related friend request or group
+ * ledger record. This keeps the feature available on Firebase Spark without
+ * allowing arbitrary notification phishing or duplicate-event spam.
  *
  * @param {string} to        - UID of the recipient.
  * @param {string} message   - Notification body.
@@ -44,18 +48,36 @@ export const createNotification = async (
         relatedId,
         groupId,
         read: false,
-        createdAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
         createdBy: currentUser.uid,
       });
     } else {
-      // Cross-user notification — must go through the trusted Cloud Function.
-      const createCrossUserNotification = httpsCallable(functions, 'createCrossUserNotification');
-      await createCrossUserNotification({
+      const fixedMessage = crossUserMessages[type];
+      if (!fixedMessage) return;
+
+      const relationId =
+        relatedId ||
+        (type === 'friend_request'
+          ? `${currentUser.uid}_${to}`
+          : type === 'friend_accepted'
+            ? `${to}_${currentUser.uid}`
+            : null);
+      if (!relationId) return;
+
+      const notificationId =
+        type === 'friend_request' || type === 'friend_accepted'
+          ? `${type}_${relationId}`
+          : `${type}_${relationId}_${to}`;
+
+      await setDoc(doc(db, 'notifications', notificationId), {
         to,
-        message: safeMessage,
+        message: fixedMessage,
         type,
         relatedId,
         groupId,
+        read: false,
+        createdAt: serverTimestamp(),
+        createdBy: currentUser.uid,
       });
     }
   } catch (error) {

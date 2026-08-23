@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { Bell, Menu, BarChart3 } from 'lucide-react';
 import Avatar from '../common/Avatar.jsx';
-import AppLogo from '../common/AppLogo.jsx';
 
 import { useFeatureFlags } from '../../hooks/useFeatureFlags.js';
 
@@ -12,9 +11,9 @@ const Header = ({ onToggleSidebar }) => {
   const flags = useFeatureFlags();
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-white/5">
+    <header className="paymatrix-app-header fixed top-0 left-0 right-0 z-50 bg-background border-b border-white/5">
       <div className="flex items-center justify-between h-20 px-4 sm:px-6 lg:px-10">
-        {/* Left — Menu + Logo */}
+        {/* Left — Menu + Wordmark */}
         <div className="flex items-center gap-3">
           <button
             onClick={onToggleSidebar}
@@ -23,8 +22,7 @@ const Header = ({ onToggleSidebar }) => {
           >
             <Menu size={22} />
           </button>
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <AppLogo size="xs" decorative />
+          <Link to="/dashboard" className="flex items-center">
             <span className="text-xl font-bold font-manrope text-primary tracking-tight">
               PayMatrix
             </span>

@@ -10,6 +10,7 @@ import {
   writeBatch,
   orderBy,
 } from 'firebase/firestore';
+import { serializeFirestoreData } from '../utils/firestoreSerialization.js';
 
 const initialState = {
   notifications: [],
@@ -29,7 +30,9 @@ export const fetchNotifications = createAsyncThunk(
         orderBy('createdAt', 'desc')
       );
       const snap = await getDocs(q);
-      const notifications = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
+      const notifications = snap.docs.map((d) =>
+        serializeFirestoreData({ _id: d.id, ...d.data() })
+      );
       const unreadCount = notifications.filter((n) => !n.read).length;
       return { notifications, unreadCount };
     } catch (error) {

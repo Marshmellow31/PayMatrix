@@ -248,6 +248,53 @@ describe('PayMatrix Firestore authorization', () => {
     }));
   });
 
+  test('allows a verified Spark-plan friend notification and rejects forged copy', async () => {
+    await environment.withSecurityRulesDisabled((context) =>
+      setDoc(doc(context.firestore(), 'friendRequests', 'owner_member'), {
+        from: 'owner', to: 'member', status: 'pending', createdAt: 'now',
+      })
+    );
+    const db = environment.authenticatedContext('owner').firestore();
+    const validNotification = {
+      to: 'member', createdBy: 'owner',
+      message: 'A PayMatrix member sent you a friend request.',
+      type: 'friend_request', relatedId: null, groupId: null, read: false,
+      createdAt: serverTimestamp(),
+    };
+
+    await assertSucceeds(
+      setDoc(doc(db, 'notifications', 'friend_request_owner_member'), validNotification)
+    );
+    await assertFails(
+      setDoc(doc(db, 'notifications', 'friend_request_owner_attacker'), {
+        ...validNotification,
+        to: 'attacker',
+        message: 'Click this urgent payment link.',
+      })
+    );
+  });
+
+  test('allows only ledger-backed group expense notifications', async () => {
+    const ownerDb = environment.authenticatedContext('owner').firestore();
+    const notification = {
+      to: 'member', createdBy: 'owner', message: 'A group member added an expense.',
+      type: 'expense_added', relatedId: 'expense-1', groupId: 'group-1', read: false,
+      createdAt: serverTimestamp(),
+    };
+
+    await assertSucceeds(
+      setDoc(doc(ownerDb, 'notifications', 'expense_added_expense-1_member'), notification)
+    );
+
+    const attackerDb = environment.authenticatedContext('attacker').firestore();
+    await assertFails(
+      setDoc(doc(attackerDb, 'notifications', 'expense_added_expense-1_member'), {
+        ...notification,
+        createdBy: 'attacker',
+      })
+    );
+  });
+
   test('enforces the AI request counter and hourly cap', async () => {
     const db = environment.authenticatedContext('member').firestore();
     await assertSucceeds(setDoc(doc(db, 'rate_limits', 'member'), {

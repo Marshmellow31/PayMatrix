@@ -19,7 +19,7 @@ Browser (React 19 + Vite PWA)
         │       ├── getAdminStats
         │       ├── broadcastNotification
         │       ├── scanBillWithGemini      ← Gemini API key never leaves server
-        │       └── createCrossUserNotification
+        │       └── Firestore-validated deterministic notifications
         ├── Cloud Storage (receipt images — future)
         └── FCM (push notifications)
 ```
@@ -44,7 +44,7 @@ Browser (React 19 + Vite PWA)
 2. `expenseService.addExpense` validates with Zod, sanitises with DOMPurify
 3. `calculateSplits` (balanceEngine) computes per-member amounts
 4. `withRetry(() => setDoc(docRef, payload))` writes to Firestore (awaited)
-5. Background task: resolve names → write activity log → send notifications via `createCrossUserNotification` Cloud Function
+5. Background task: resolve names → write activity log → create a deterministic notification validated against the related ledger record by Firestore rules
 6. Redux slice updates optimistically; `onSnapshot` listeners reconcile
 
 ### Balance calculation

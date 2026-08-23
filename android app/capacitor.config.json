@@ -1,6 +1,6 @@
 {
   "appId": "com.paymatrix.app",
-  "appName": "PayMatrix",
+  "appName": "paymatrix",
   "webDir": "www",
   "backgroundColor": "#0e0e0e",
   "loggingBehavior": "none",

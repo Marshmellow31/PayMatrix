@@ -21,6 +21,7 @@ import validationService, { ExpenseSchema } from './validationService.js';
 import sanitizationService from './sanitizationService.js';
 import { fromPaise, toPaise } from '../utils/money.js';
 import syncTracker from './syncTracker.js';
+import { serializeFirestoreData } from '../utils/firestoreSerialization.js';
 
 // Helper to mimic Axios response structure expected by Redux Thunks
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -122,7 +123,7 @@ const expenseService = {
       querySnapshot = await getDocsFromCache(q);
     }
     const expenses = querySnapshot.docs
-      .map((doc) => ({ _id: doc.id, ...doc.data() }))
+      .map((doc) => serializeFirestoreData({ _id: doc.id, ...doc.data() }))
       .filter((exp) => exp.status !== 'deleted' && exp.status !== 'archived');
 
     // Mimic the backend pagination signature
@@ -134,7 +135,7 @@ const expenseService = {
     const docRef = doc(db, 'groups', groupId, 'expenses', id);
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) throw new Error('Expense not found');
-    return wrap({ expense: { _id: docSnap.id, ...docSnap.data() } });
+    return wrap({ expense: serializeFirestoreData({ _id: docSnap.id, ...docSnap.data() }) });
   },
 
   addExpense: async (groupId, data, userId) => {
@@ -212,7 +213,7 @@ const expenseService = {
     })();
 
     return wrap(
-      { expense: { _id: docRef.id, ...auditedPayload } },
+      { expense: serializeFirestoreData({ _id: docRef.id, ...auditedPayload }) },
       'Expense saved instantly offline/online'
     );
   },
@@ -268,7 +269,9 @@ const expenseService = {
       actorName,
     });
 
-    return wrap({ expense: { _id: id, ...previous, ...auditedPayload } });
+    return wrap({
+      expense: serializeFirestoreData({ _id: id, ...previous, ...auditedPayload }),
+    });
   },
 
   deleteExpense: async (id, groupId, userId) => {

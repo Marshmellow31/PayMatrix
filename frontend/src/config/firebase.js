@@ -32,7 +32,9 @@ const messaging = isNativeRuntime() ? null : getMessaging(app);
 // Callable Cloud Functions (e.g. scanBill — Gemini receipt parsing)
 const functions = getFunctions(app);
 
-if (import.meta.env.DEV) {
+// Opt in for backend testing; normal localhost use should not require an
+// emulator process to be running.
+if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true') {
   connectFunctionsEmulator(functions, 'localhost', 5001);
 }
 

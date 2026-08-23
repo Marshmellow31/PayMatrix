@@ -17,6 +17,7 @@ import {
 import loggingService from './loggingService.js';
 import validationService, { GroupSchema, GroupBaseSchema } from './validationService.js';
 import sanitizationService from './sanitizationService.js';
+import { serializeFirestoreData } from '../utils/firestoreSerialization.js';
 
 // Helper to mimic Axios response
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -38,7 +39,7 @@ const updateCache = (uid, userData) => {
 const groupService = {
   // 1. Initial Instant Extraction (Extracts raw IDs and basic document fields)
   getBasicGroup: (groupDoc) => {
-    const data = groupDoc.data ? groupDoc.data() : groupDoc;
+    const data = serializeFirestoreData(groupDoc.data ? groupDoc.data() : groupDoc);
     return {
       _id: groupDoc.id || data._id,
       ...data,
@@ -95,20 +96,20 @@ const groupService = {
             return;
           }
 
-          const uData = uSnap.data();
+          const uData = serializeFirestoreData(uSnap.data());
           const profileName = String(uData.name || uData.displayName || '').trim();
           if (!profileName || ['member', 'group member'].includes(profileName.toLowerCase())) {
             return;
           }
 
           // Synthesize standard attributes
-          const resolvedUser = {
+          const resolvedUser = serializeFirestoreData({
             ...uData,
             _id: uid,
             uid: uid,
             name: profileName,
             avatar: uData.avatar || uData.photoURL,
-          };
+          });
 
           updateCache(uid, resolvedUser);
           resolvedByUid.set(uid, resolvedUser);

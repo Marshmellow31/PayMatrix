@@ -26,7 +26,7 @@ The new `firestore.rules` file has 5 security fixes. You need to deploy it.
 
 ## 2. Deploy updated Cloud Functions  ⚠️ CRITICAL
 
-Two new Cloud Functions were added (`scanBillWithGemini`, `createCrossUserNotification`) and the existing ones were updated.
+Cloud Function source includes `scanBillWithGemini` and the legacy `createCrossUserNotification`, but the active Spark-plan client no longer depends on a deployed notification function. Cross-user in-app notifications are validated by Firestore rules.
 
 Since you can't use the CLI, you have two options:
 

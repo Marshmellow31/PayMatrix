@@ -31,6 +31,7 @@ import friendService from '../services/friendService.js';
 import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
+import { serializeFirestoreData } from '../utils/firestoreSerialization.js';
 
 const GroupDetail = () => {
   const { id } = useParams();
@@ -98,7 +99,7 @@ const GroupDetail = () => {
           } catch (err) {
             console.error('Error expanding group snapshot:', err);
             // Fallback to raw data if expansion fails (minimizes broken UI)
-            const rawData = { _id: docSnap.id, ...docSnap.data() };
+            const rawData = serializeFirestoreData({ _id: docSnap.id, ...docSnap.data() });
             dispatch({ type: 'groups/fetchOne/fulfilled', payload: { data: { group: rawData } } });
           }
         }
@@ -114,10 +115,12 @@ const GroupDetail = () => {
     const unsubscribeExpenses = onSnapshot(
       qExpenses,
       (snapshot) => {
-        const liveExpenses = snapshot.docs.map((docSnap) => ({
-          _id: docSnap.id,
-          ...docSnap.data(),
-        }));
+        const liveExpenses = snapshot.docs.map((docSnap) =>
+          serializeFirestoreData({
+            _id: docSnap.id,
+            ...docSnap.data(),
+          })
+        );
         dispatch(setExpenses({ expenses: liveExpenses, groupId: id }));
       },
       (err) => {
@@ -134,12 +137,14 @@ const GroupDetail = () => {
     const unsubscribeSettlements = onSnapshot(
       qSettlements,
       (snapshot) => {
-        const liveSettlements = snapshot.docs.map((doc) => ({
-          _id: doc.id,
-          // Ensure groupId is explicitly attached for filtering
-          groupId: id,
-          ...doc.data(),
-        }));
+        const liveSettlements = snapshot.docs.map((doc) =>
+          serializeFirestoreData({
+            _id: doc.id,
+            // Ensure groupId is explicitly attached for filtering
+            groupId: id,
+            ...doc.data(),
+          })
+        );
         setSettlements(liveSettlements);
       },
       (err) => {
@@ -170,10 +175,18 @@ const GroupDetail = () => {
     const unsubscribeLogs = onSnapshot(
       qLogs,
       (snapshot) => {
-        const liveLogs = snapshot.docs.map((docSnap) => ({
-          _id: docSnap.id,
-          ...docSnap.data(),
-        }));
+        const liveLogs = snapshot.docs
+          .map((docSnap) =>
+            serializeFirestoreData({
+              _id: docSnap.id,
+              ...docSnap.data(),
+            })
+          )
+          .sort(
+            (a, b) =>
+              new Date(b.createdAt || b.updatedAt || 0).getTime() -
+              new Date(a.createdAt || a.updatedAt || 0).getTime()
+          );
         setGroupLogs(liveLogs);
       },
       (err) => {

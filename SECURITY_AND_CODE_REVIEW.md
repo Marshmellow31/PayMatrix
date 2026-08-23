@@ -15,7 +15,7 @@ All High and Medium findings have been addressed, and the AI Copilot feature (th
 | ID | Finding | Status | What changed |
 | :- | :--- | :--- | :--- |
 | H-1 | Gemini key in browser bundle | ✅ Fixed | **Copilot feature removed** (page, routes, nav). It was the only client-side Gemini caller. `VITE_GEMINI_API_KEY` deleted from `.env.example` and CI. Only server path (`/api/scan-bill`) remains. **Rotate the old key.** |
-| H-2 | Notification phishing/spam | ✅ Fixed | `notifications` create rule now requires `to == auth.uid`. Cross-user notifications rerouted through the `createCrossUserNotification` Cloud Function (`notificationHelper.js`). |
+| H-2 | Notification phishing/spam | ✅ Fixed | Cross-user notification writes use deterministic IDs, fixed copy, and Firestore rules that validate the matching friend request or group ledger record. |
 | M-1 | Rate limiting fail-open | ✅ Fixed | `rateLimitService` now fails **closed** on contention/unexpected errors; only genuine offline is allowed. |
 | M-2 | Member can tamper with settlements/expenses | ✅ Fixed | Update rules restrict financial-field edits to the creator/payer or group admin; other members may only flip `status`. |
 | M-3 | Client-side admin password | ✅ Fixed | `AdminRoute` is now custom-claim-only; password path and `VITE_ADMIN_PASSWORD` removed. |
@@ -27,7 +27,7 @@ All High and Medium findings have been addressed, and the AI Copilot feature (th
 | L-4 | Friend-request anti-abuse | ✅ Fixed | Rule now rejects self-requests and empty `to`. |
 | L-6 | Weak CSP | ✅ Improved | `'unsafe-inline'` removed from `script-src` (the app has no inline scripts). Smoke-test the deployed build. |
 
-**Follow-ups still recommended:** rotate the Gemini API key; verify the Gemini model id in `scan-bill.js` against the current model list; consider rate-limiting `createCrossUserNotification` server-side; plan the vitest v3 upgrade. The original findings below are kept for reference.
+**Follow-ups still recommended:** rotate the Gemini API key; verify the Gemini model id in `scan-bill.js` against the current model list; plan the vitest v3 upgrade. The original findings below are kept for reference.
 
 ---
 

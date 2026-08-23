@@ -15,13 +15,12 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 > This README is intentionally exhaustive: it documents every feature, how it works internally, the data model, the security model, and how to run the project. If you are evaluating the code, also read [`SECURITY_AND_CODE_REVIEW.md`](./SECURITY_AND_CODE_REVIEW.md) — it lists known security issues and a prioritised improvement plan.
 
 > [!WARNING]
-> **Work in progress: native Android app.** The separate Capacitor/Android project lives in
+> **Device-testing release: native Android app.** The separate Capacitor/Android project lives in
 > [`android app/`](./android%20app/); the existing React PWA remains in [`frontend/`](./frontend/)
-> and its Vercel configuration is unchanged. Android source and its release notes are ready for
-> device testing, but it is not yet a Play Store release. The current debug APK is a local build
-> artifact and is intentionally not committed.
+> and its Vercel configuration is unchanged. The signed Android 1.2.3 APK is available for direct
+> device testing, but it is not yet a Play Store release.
 
-[**🌐 Live app**](https://pay-matrix.vercel.app/)
+[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 1.2.3**](./releases/paymatrix-1.2.3.apk)
 
 ---
 
@@ -407,9 +406,11 @@ npm run doctor
 npm run android:apk
 ```
 
-The test APK is generated locally at
-`android app/android/app/build/outputs/apk/debug/app-debug.apk`. It is ignored by Git along with
-keystores, `google-services.json`, generated Gradle files, and build output. Follow
+The debug APK is generated locally at
+`android app/android/app/build/outputs/apk/debug/app-debug.apk`. Generated build output remains
+ignored, while the signed direct-testing release is published at
+[`releases/paymatrix-1.2.3.apk`](./releases/paymatrix-1.2.3.apk). Its SHA-256 checksum is recorded in
+[`releases/paymatrix-1.2.3.sha256`](./releases/paymatrix-1.2.3.sha256). Follow
 [`android app/README.md`](./android%20app/README.md) and its numbered docs for device setup.
 
 **Firebase Spark-plan status:** native Google sign-in and Firestore work with the existing Firebase

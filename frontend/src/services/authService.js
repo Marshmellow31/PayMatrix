@@ -9,6 +9,7 @@ import {
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import loggingService from './loggingService.js';
 import { isNativeRuntime, signInWithGoogleNative, signOutNative } from '#paymatrix-runtime';
+import { serializeFirestoreData } from '../utils/firestoreSerialization.js';
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -81,7 +82,7 @@ const authService = {
         userData.createdAt = new Date().toISOString();
         await setDoc(userDocRef, userData);
       } else {
-        const existingData = userDoc.data();
+        const existingData = serializeFirestoreData(userDoc.data());
 
         // Always write avatar + photoURL on every login — this ensures
         // that users whose avatar was never stored (or was null due to
@@ -133,7 +134,7 @@ const authService = {
     if (!user) throw new Error('Authentication session expired. Please sign in again.');
     const userDoc = await getDoc(doc(db, 'users', user.uid));
     if (!userDoc.exists()) throw new Error('User document not found');
-    const userData = userDoc.data();
+    const userData = serializeFirestoreData(userDoc.data());
     if (userData.photoURL && !userData.avatar) userData.avatar = userData.photoURL;
     return { data: { data: { user: userData } } };
   },
@@ -164,7 +165,7 @@ const authService = {
     }
 
     const updatedDoc = await getDoc(doc(db, 'users', user.uid));
-    const userData = updatedDoc.data();
+    const userData = serializeFirestoreData(updatedDoc.data());
     if (userData.photoURL && !userData.avatar) userData.avatar = userData.photoURL;
     return { data: { data: { user: userData } } };
   },
