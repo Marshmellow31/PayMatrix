@@ -8,6 +8,7 @@ const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 const createPwaPlugin = () =>
   VitePWA({
+      registerType: 'autoUpdate',
       // injectManifest: Workbox injects the precache manifest into our custom sw.js.
       // This is required to add FCM push event handling while keeping all
       // offline caching behaviour (precaching, SPA fallback, Fonts) intact.
