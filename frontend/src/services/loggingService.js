@@ -1,9 +1,10 @@
-import { db, auth } from '../config/firebase.js';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-
 /**
  * Centralized security and error logging service.
- * Logs are stored in the 'security_logs' collection in Firestore.
+ *
+ * Client writes to `security_logs` are intentionally forbidden by Firestore
+ * rules because a client-generated security trail is forgeable. Trusted
+ * backend code owns that collection. Keep this interface as a production
+ * no-op so optional telemetry can never break authentication or user actions.
  */
 const loggingService = {
   /**
@@ -11,30 +12,7 @@ const loggingService = {
    * @param {string} type - e.g., 'auth/login-success', 'auth/login-failure', 'security/unauthorized'
    * @param {object} metadata - Additional context for the event
    */
-  logSecurityEvent: async (type, metadata = {}) => {
-    try {
-      const user = auth.currentUser;
-
-      // Serialize metadata to handle non-plain objects like Errors
-      const serializedMetadata = loggingService.serializeMetadata(metadata);
-
-      const logEntry = {
-        type,
-        uid: user?.uid || 'anonymous',
-        email: user?.email || metadata.email || 'unknown',
-        timestamp: serverTimestamp(),
-        metadata: serializedMetadata,
-        userAgent: navigator.userAgent,
-        platform: navigator.platform,
-        url: window.location.href,
-      };
-
-      await addDoc(collection(db, 'security_logs'), logEntry);
-    } catch (error) {
-      // Fail silently to avoid interrupting the main application flow
-      console.error('Logging failed:', error);
-    }
-  },
+  logSecurityEvent: () => Promise.resolve(),
 
   /**
    * Helper to serialize metadata for Firestore.

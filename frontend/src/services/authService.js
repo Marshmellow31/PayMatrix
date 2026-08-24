@@ -13,6 +13,10 @@ import { serializeFirestoreData } from '../utils/firestoreSerialization.js';
 
 const googleProvider = new GoogleAuthProvider();
 
+const isAllowedProfileAvatar = (value) =>
+  !value ||
+  /^https:\/\/(firebasestorage\.googleapis\.com|lh3\.googleusercontent\.com)\//.test(value);
+
 export const ensurePublicProfile = async (firebaseUser, storedProfile = {}) => {
   if (!firebaseUser?.uid) return;
   const isAnonymized = storedProfile.deletionStatus === 'anonymized';
@@ -24,7 +28,9 @@ export const ensurePublicProfile = async (firebaseUser, storedProfile = {}) => {
         : storedProfile.name || storedProfile.displayName || firebaseUser.displayName || 'Member',
       avatar: isAnonymized
         ? ''
-        : storedProfile.avatar || storedProfile.photoURL || firebaseUser.photoURL || '',
+        : [storedProfile.avatar, storedProfile.photoURL, firebaseUser.photoURL].find(
+            (candidate) => candidate && isAllowedProfileAvatar(candidate)
+          ) || '',
       updatedAt: new Date().toISOString(),
     },
     { merge: true }
@@ -71,10 +77,11 @@ const authService = {
         _id: user.uid,
         uid: user.uid,
         email: user.email,
-        name: user.displayName,
+        name: user.displayName || 'Member',
+        displayName: user.displayName || '',
         nameLowerCase: user.displayName?.toLowerCase(),
-        photoURL: user.photoURL,
-        avatar: user.photoURL,
+        photoURL: user.photoURL || '',
+        avatar: user.photoURL || '',
         friends: [],
       };
 
@@ -99,17 +106,24 @@ const authService = {
           updates.nameLowerCase = user.displayName.toLowerCase();
         }
 
-        await updateDoc(userDocRef, updates);
+        // Profile refresh is maintenance, not authentication. Legacy accounts
+        // may contain values rejected by newer validation rules, and a flaky
+        // refresh must never turn a valid Firebase session into "login failed".
+        await updateDoc(userDocRef, updates).catch((refreshError) => {
+          if (import.meta.env.DEV) console.warn('Profile refresh skipped:', refreshError);
+        });
         userData = { ...existingData, ...updates };
 
         // Ensure friends array exists
         if (!userData.friends) {
           userData.friends = [];
-          await updateDoc(userDocRef, { friends: [] });
+          await updateDoc(userDocRef, { friends: [] }).catch(() => {});
         }
       }
 
-      await ensurePublicProfile(user, userData);
+      await ensurePublicProfile(user, userData).catch((profileError) => {
+        if (import.meta.env.DEV) console.warn('Public profile refresh skipped:', profileError);
+      });
 
       return { user: userData, token: user.accessToken };
     } catch (error) {

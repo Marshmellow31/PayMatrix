@@ -294,31 +294,20 @@ const friendService = {
       const myFriends = uDoc.data()?.friends || [];
       if (myFriends.includes(targetUserId)) return wrap({ status: 'friend' });
 
-      // ALSO check their friends array (handles one-sided data corruption / race conditions)
-      const theirDoc = await getDoc(doc(db, 'users', targetUserId));
-      const theirFriends = theirDoc.data()?.friends || [];
-      if (theirFriends.includes(userId)) {
-        return wrap({ status: 'friend' });
+      // Relationship documents use deterministic IDs. Exact reads are both
+      // cheaper and allowed by the privacy rules; pre-friend reads of the
+      // target's private `users/{uid}` document are intentionally forbidden.
+      const [incomingSnap, outgoingSnap] = await Promise.all([
+        getDoc(doc(db, 'friendRequests', `${targetUserId}_${userId}`)),
+        getDoc(doc(db, 'friendRequests', `${userId}_${targetUserId}`)),
+      ]);
+
+      if (incomingSnap.exists() && incomingSnap.data()?.status === 'pending') {
+        return wrap({ status: 'pending_incoming' });
       }
-
-      // Check for pending requests (both directions)
-      const qIncoming = query(
-        collection(db, 'friendRequests'),
-        where('from', '==', targetUserId),
-        where('to', '==', userId),
-        where('status', '==', 'pending')
-      );
-      const qOutgoing = query(
-        collection(db, 'friendRequests'),
-        where('from', '==', userId),
-        where('to', '==', targetUserId),
-        where('status', '==', 'pending')
-      );
-
-      const [inSnap, outSnap] = await Promise.all([getDocs(qIncoming), getDocs(qOutgoing)]);
-
-      if (!inSnap.empty) return wrap({ status: 'pending_incoming' });
-      if (!outSnap.empty) return wrap({ status: 'pending_outgoing' });
+      if (outgoingSnap.exists() && outgoingSnap.data()?.status === 'pending') {
+        return wrap({ status: 'pending_outgoing' });
+      }
 
       return wrap({ status: 'none' });
     } catch (error) {

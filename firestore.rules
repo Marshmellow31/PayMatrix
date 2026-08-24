@@ -97,6 +97,12 @@ service cloud.firestore {
           (url.matches('^https://firebasestorage\\.googleapis\\.com/.*$') ||
            url.matches('^https://lh3\\.googleusercontent\\.com/.*$')));
       }
+      function validAvatarAfterUpdate() {
+        let avatarUnchanged = request.resource.data.get('avatar', '') == resource.data.get('avatar', '');
+        let photoUnchanged = request.resource.data.get('photoURL', '') == resource.data.get('photoURL', '');
+        return (avatarUnchanged || validAvatar(request.resource.data.get('avatar', ''))) &&
+               (photoUnchanged || validAvatar(request.resource.data.get('photoURL', '')));
+      }
       allow create: if isSignedIn() && request.auth.uid == userId &&
                     isValidString(request.resource.data.get('displayName', ''), 50) &&
                     validAvatar(request.resource.data.get('avatar', request.resource.data.get('photoURL', '')));
@@ -119,7 +125,7 @@ service cloud.firestore {
         (request.auth.uid == userId &&
          isValidString(request.resource.data.get('displayName', ''), 50) &&
          isValidString(request.resource.data.get('upiId', ''), 100) &&
-         validAvatar(request.resource.data.get('avatar', request.resource.data.get('photoURL', ''))) &&
+         validAvatarAfterUpdate() &&
          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email', 'createdAt', 'friends', 'deletion']) &&
          // Friend code is write-once — set by the client on first backfill, never changed after.
          (!('friendCode' in resource.data) ||

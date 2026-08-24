@@ -119,6 +119,20 @@ describe('PayMatrix Firestore authorization', () => {
     await assertFails(getDoc(doc(db, 'users', 'owner')));
   });
 
+  test('lets an owner refresh a legacy profile without rewriting its unchanged avatar', async () => {
+    await environment.withSecurityRulesDisabled((context) =>
+      setDoc(doc(context.firestore(), 'users', 'legacy'), {
+        uid: 'legacy', displayName: 'Legacy', friends: [],
+        avatar: 'https://legacy.example/avatar.png', createdAt: 'old',
+      })
+    );
+    const db = environment.authenticatedContext('legacy').firestore();
+    await assertSucceeds(updateDoc(doc(db, 'users', 'legacy'), { updatedAt: 'new' }));
+    await assertFails(
+      updateDoc(doc(db, 'users', 'legacy'), { avatar: 'https://attacker.example/avatar.png' })
+    );
+  });
+
   test('requires an atomic audit record for collaborative expense edits', async () => {
     const db = environment.authenticatedContext('member').firestore();
     await assertFails(updateDoc(doc(db, 'groups', 'group-1', 'expenses', 'expense-1'), {
