@@ -18,17 +18,17 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 > [!WARNING]
 > **Device-testing release: native Android app.** The separate Capacitor/Android project lives in
 > [`android app/`](./android%20app/); the existing React PWA remains in [`frontend/`](./frontend/)
-> and its Vercel configuration is unchanged. The signed Android 1.2.4 APK is available for direct
+> and its Vercel configuration is unchanged. The signed Android 1.2.5 APK is available for direct
 > device testing, but it is not yet a Play Store release.
 
-[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 1.2.4**](https://github.com/Marshmellow31/PayMatrix/releases/download/v1.2.4/paymatrix-1.2.4.apk) · [**Release notes**](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.4)
+[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 1.2.5**](https://github.com/Marshmellow31/PayMatrix/releases/download/v1.2.5/paymatrix-1.2.5.apk) · [**Release notes**](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5)
 
 ### Latest Android release
 
-- Version: **1.2.4** (`versionCode 10204`)
+- Version: **1.2.5** (`versionCode 10205`)
 - Package: `com.paymatrix.app`
-- Signed APK: [`paymatrix-1.2.4.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v1.2.4/paymatrix-1.2.4.apk)
-- SHA-256: `ca47615c96c8583bb160a107e8b67a336dd5ac86687065c692318e5b0f2c4fcc`
+- Signed APK: [`paymatrix-1.2.5.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v1.2.5/paymatrix-1.2.5.apk)
+- SHA-256: `9e8a2971f2a6b02ad2cb43cc07d126d6149b90bfb168198946f628265763aac9`
 
 This is a direct-install device-testing release, not a Play Store publication. Android may ask you
 to allow installation from the browser or file manager used to open the APK.
@@ -420,7 +420,7 @@ npm run android:apk
 The debug APK is generated locally at
 `android app/android/app/build/outputs/apk/debug/app-debug.apk`. Generated build output remains
 ignored, while the signed direct-testing APK and checksum are attached to the
-[`v1.2.4` GitHub release](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.4) and mirrored
+[`v1.2.5` GitHub release](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5) and mirrored
 under [`releases/`](./releases/). Follow
 [`android app/README.md`](./android%20app/README.md) and its numbered docs for device setup.
 
