@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Home, Users, User, ScrollText, LayoutGrid } from 'lucide-react';
 
 const navItems = [
@@ -10,40 +11,41 @@ const navItems = [
 ];
 
 const BottomNav = () => {
+  const reduceMotion = useReducedMotion();
+
   return (
     <nav
       aria-label="Main navigation"
-      className="paymatrix-bottom-nav lg:hidden fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-0 right-0 z-50 px-3 sm:px-6"
+      className="paymatrix-bottom-nav fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.07] bg-[#1A1A1A]/[0.98] pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl lg:hidden"
     >
-      <div className="glass-pill h-[72px] flex items-center justify-around px-1.5 relative">
+      <div className="mx-auto flex h-[58px] max-w-md items-stretch px-2 sm:px-5">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             aria-label={item.label}
-            className="flex min-w-0 flex-1 items-center justify-center h-16 rounded-2xl transition-all duration-300 relative"
+            className="relative flex min-w-0 flex-1 items-center justify-center"
           >
             {({ isActive }) => (
-              <div
-                className={`flex min-w-0 flex-col items-center justify-center gap-1 transition-all duration-300 ${
-                  isActive ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
-                }`}
+              <motion.div
+                whileTap={reduceMotion ? undefined : { scale: 0.9 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                className={`relative flex h-full min-w-0 flex-col items-center justify-center gap-1 ${isActive ? 'text-white' : 'text-white/[0.38]'}`}
               >
+                {isActive && (
+                  <motion.span
+                    layoutId="paymatrix-bottom-nav-active"
+                    className="absolute top-0 h-0.5 w-5 rounded-full bg-white"
+                    transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+                  />
+                )}
+                <item.icon size={19} strokeWidth={isActive ? 2.1 : 1.65} />
                 <span
-                  className={`flex h-8 w-10 items-center justify-center rounded-full transition-colors ${
-                    isActive ? 'bg-surface-variant/25' : ''
-                  }`}
-                >
-                  <item.icon size={20} strokeWidth={isActive ? 2.5 : 1.5} />
-                </span>
-                <span
-                  className={`max-w-full truncate text-[9px] leading-none tracking-wide ${
-                    isActive ? 'font-extrabold' : 'font-semibold'
-                  }`}
+                  className={`truncate text-[10px] leading-none ${isActive ? 'font-semibold' : 'font-medium'}`}
                 >
                   {item.label}
                 </span>
-              </div>
+              </motion.div>
             )}
           </NavLink>
         ))}

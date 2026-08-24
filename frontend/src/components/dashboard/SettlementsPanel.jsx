@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 
 const SettlementsPanel = ({ groups = [], groupBalances = {} }) => {
+  const reduceMotion = useReducedMotion();
   const groupsWithBalances = groups
     .map((g) => ({ ...g, myBalance: groupBalances[g._id] || 0 }))
     .filter((g) => g.myBalance !== 0);
@@ -11,12 +12,12 @@ const SettlementsPanel = ({ groups = [], groupBalances = {} }) => {
   if (groupsWithBalances.length === 0) return null;
 
   return (
-    <div className="lg:col-span-12 space-y-3">
+    <section className="space-y-4 lg:col-span-12">
       <div className="flex items-center justify-between">
-        <h2 className="font-manrope font-black text-xs uppercase tracking-wider text-white">
+        <h2 className="font-manrope text-base font-semibold tracking-[-0.02em] text-white">
           Settlements
         </h2>
-        <p className="text-[9px] text-white/30 font-inter">
+        <p className="text-xs text-white/[0.35]">
           {groupsWithBalances.length} active balance{groupsWithBalances.length !== 1 ? 's' : ''}
         </p>
       </div>
@@ -27,47 +28,44 @@ const SettlementsPanel = ({ groups = [], groupBalances = {} }) => {
           return (
             <motion.div
               key={group._id}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.03 }}
+              transition={{
+                type: 'spring',
+                stiffness: 340,
+                damping: 32,
+                delay: reduceMotion ? 0 : idx * 0.03,
+              }}
+              whileTap={reduceMotion ? undefined : { scale: 0.99 }}
             >
               <Link
                 to={`/groups/${group._id}`}
-                className="group px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.07] hover:border-white/20 flex items-center justify-between transition-all duration-300 shadow-xl"
+                className="group flex items-center justify-between rounded-2xl border border-white/[0.08] bg-[#1A1A1A] px-4 py-3.5 shadow-[0_10px_26px_rgba(0,0,0,0.08)] transition-colors hover:bg-[#202020]"
               >
                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div
-                    className={`w-11 h-11 rounded-xl flex items-center justify-center font-black font-manrope text-sm border shrink-0
-                    ${
-                      isPositive
-                        ? 'bg-white text-black border-white'
-                        : 'bg-white/10 text-white/60 border-white/10'
-                    }`}
-                  >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.045] font-manrope text-sm font-semibold text-white/70">
                     {(group.name || group.title || '?')[0].toUpperCase()}
                   </div>
                   <div className="flex flex-col gap-0.5 min-w-0">
-                    <p className="text-base font-black text-white font-manrope truncate group-hover:text-white">
+                    <p className="truncate font-manrope text-sm font-semibold text-white/[0.82]">
                       {group.name || group.title}
                     </p>
-                    <p
-                      className={`text-[9px] font-black tracking-[0.2em] truncate ${isPositive ? 'text-white/40' : 'text-white/20'}`}
-                    >
-                      {isPositive ? 'RECEIVABLE' : 'PAYABLE'}
+                    <p className="truncate text-[11px] text-white/30">
+                      {isPositive ? 'You are owed' : 'You owe'}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0 ml-4">
                   <p
-                    className={`text-lg sm:text-xl font-black font-manrope whitespace-nowrap ${isPositive ? 'text-white' : 'text-white/60'}`}
+                    className={`whitespace-nowrap font-manrope text-base font-semibold tabular-nums ${isPositive ? 'text-emerald-300/90' : 'text-red-300/90'}`}
                   >
                     {isPositive ? '+' : '-'}
                     {formatCurrency(Math.abs(group.myBalance))}
                   </p>
                   <ChevronRight
                     size={16}
-                    className="text-white/10 group-hover:text-white/50 transition-colors shrink-0"
+                    className="shrink-0 text-white/[0.18] transition-colors group-hover:text-white/[0.45]"
                   />
                 </div>
               </Link>
@@ -75,7 +73,7 @@ const SettlementsPanel = ({ groups = [], groupBalances = {} }) => {
           );
         })}
       </div>
-    </div>
+    </section>
   );
 };
 

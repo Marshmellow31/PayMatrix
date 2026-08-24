@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { createNotification } from '../utils/notificationHelper.js';
 import validationService, { FriendRequestSchema } from './validationService.js';
+import { withRetry } from '../utils/retryOperation.js';
 
 // Helper to mimic Axios response
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -27,6 +28,19 @@ const _normalize = (userData) => {
     name: userData.name || userData.displayName || 'Member',
     avatar: userData.avatar || userData.photoURL,
   };
+};
+
+const requireAuthenticatedUser = async () => {
+  await auth.authStateReady();
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Your session expired. Please sign in again.');
+  }
+
+  // Refreshes an expired token before the Firestore write. This is especially
+  // important after an Android app resumes from a long background period.
+  await currentUser.getIdToken();
+  return currentUser;
 };
 
 const friendService = {
@@ -44,14 +58,18 @@ const friendService = {
   },
 
   sendRequest: async (receiverId) => {
-    const senderId = auth.currentUser?.uid;
-    if (!senderId) throw new Error('Auth required');
+    const currentUser = await requireAuthenticatedUser();
+    const senderId = currentUser.uid;
+    if (!receiverId || typeof receiverId !== 'string') {
+      throw new Error('This friend code is no longer valid.');
+    }
+    if (receiverId === senderId) throw new Error('You cannot connect with your own account.');
 
     const requestId = `${senderId}_${receiverId}`;
     const requestRef = doc(db, 'friendRequests', requestId);
-    const existing = await getDoc(requestRef);
+    const existing = await withRetry(() => getDoc(requestRef));
     if (existing.exists() && existing.data()?.status === 'pending') {
-      throw new Error('Request already pending');
+      return wrap({ message: 'Friend request already pending', alreadyPending: true });
     }
 
     const requestPayload = {
@@ -64,12 +82,13 @@ const friendService = {
     // Validate
     validationService.validate(FriendRequestSchema, requestPayload);
 
-    await setDoc(requestRef, requestPayload);
+    await withRetry(() => setDoc(requestRef, requestPayload));
 
-    // Notify the receiver
-    createNotification(
+    // Notification delivery is best-effort and must never turn a successful
+    // friend-request write into a failed UI action.
+    void createNotification(
       receiverId,
-      `${auth.currentUser?.displayName || 'Someone'} sent you a friend request`,
+      `${currentUser.displayName || 'Someone'} sent you a friend request`,
       'friend_request'
     );
 

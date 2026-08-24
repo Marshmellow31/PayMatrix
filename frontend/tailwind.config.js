@@ -4,26 +4,26 @@ export default {
   darkMode: 'class',
   theme: {
     screens: {
-      'xs': '375px',
-      'sm': '640px',
-      'md': '768px',
-      'lg': '1024px',
-      'xl': '1280px',
+      xs: '375px',
+      sm: '640px',
+      md: '768px',
+      lg: '1024px',
+      xl: '1280px',
       '2xl': '1536px',
     },
     extend: {
       colors: {
         // Digital Obsidian — Surface Hierarchy
         surface: {
-          DEFAULT: '#1a1a1a',
+          DEFAULT: '#151515',
           dim: '#0e0e0e',
           bright: '#3a3939',
           container: {
-            DEFAULT: '#1a1a1a',
-            low: '#1a1a1a',      // Deep Ink
+            DEFAULT: '#151515',
+            low: '#131313',
             lowest: '#1a1a1a',
-            high: '#2a2a2a',
-            highest: '#353535',
+            high: '#1b1b1b',
+            highest: '#242424',
           },
           variant: '#353534',
           tint: '#c6c6c7',

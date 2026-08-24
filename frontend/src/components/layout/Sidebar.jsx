@@ -19,7 +19,7 @@ const Sidebar = ({ isOpen, onClose, maintenanceMode }) => {
     <>
       {/* Desktop sidebar */}
       <aside
-        className={`hidden lg:flex flex-col w-64 bg-surface-container-low/40 backdrop-blur-xl border-r border-outline-variant/5 fixed left-0 p-6 z-30 transition-all ${topOffset}`}
+        className={`fixed left-0 z-30 hidden w-64 flex-col border-r border-white/[0.06] bg-[#1A1A1A] p-6 lg:flex ${topOffset}`}
       >
         <nav className="flex flex-col gap-1 mt-4">
           {navItems.map((item) => (
@@ -27,10 +27,10 @@ const Sidebar = ({ isOpen, onClose, maintenanceMode }) => {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-surface-container-high text-primary'
-                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                    ? 'bg-white/[0.07] text-white'
+                    : 'text-white/[0.42] hover:bg-white/[0.035] hover:text-white/75'
                 }`
               }
             >
@@ -53,7 +53,7 @@ const Sidebar = ({ isOpen, onClose, maintenanceMode }) => {
               onClick={onClose}
             />
             <motion.aside
-              className="fixed top-0 left-0 bottom-0 w-72 bg-surface-container-low/80 backdrop-blur-2xl z-50 p-6 lg:hidden shadow-2xl"
+              className="fixed bottom-0 left-0 top-0 z-50 w-72 border-r border-white/[0.07] bg-[#1A1A1A]/95 p-6 shadow-2xl backdrop-blur-2xl lg:hidden"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
@@ -62,8 +62,8 @@ const Sidebar = ({ isOpen, onClose, maintenanceMode }) => {
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-2.5">
                   <AppLogo size="xs" decorative />
-                  <span className="text-xl font-bold font-manrope text-primary tracking-tight">
-                    PayMatrix
+                  <span className="font-manrope text-xl font-semibold tracking-[-0.04em] text-white">
+                    paymatrix
                   </span>
                 </div>
                 <button
@@ -81,10 +81,10 @@ const Sidebar = ({ isOpen, onClose, maintenanceMode }) => {
                     to={item.to}
                     onClick={onClose}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                      `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
                         isActive
-                          ? 'bg-surface-container-high text-primary'
-                          : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                          ? 'bg-white/[0.07] text-white'
+                          : 'text-white/[0.42] hover:bg-white/[0.035] hover:text-white/75'
                       }`
                     }
                   >

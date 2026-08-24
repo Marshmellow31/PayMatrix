@@ -4,6 +4,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
+  persistentSingleTabManager,
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getMessaging } from 'firebase/messaging';
@@ -23,7 +24,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  // A Capacitor WebView has one document, so a single-tab lease avoids the
+  // IndexedDB coordination overhead (and occasional stale primary-tab lease)
+  // that is useful on the web but unnecessary inside the APK.
+  localCache: persistentLocalCache({
+    tabManager: isNativeRuntime() ? persistentSingleTabManager() : persistentMultipleTabManager(),
+  }),
   experimentalForceLongPolling: true,
 });
 const storage = getStorage(app);

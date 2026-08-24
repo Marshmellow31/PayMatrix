@@ -80,7 +80,10 @@ beforeEach(async () => {
       setDoc(doc(db, 'groups', 'group-1'), group),
       setDoc(doc(db, 'groups', 'group-1', 'expenses', 'expense-1'), expense),
       setDoc(doc(db, 'groupInvites', 'JOIN1234'), {
-        groupId: 'group-1', createdBy: 'owner', active: true, createdAt: 'now',
+        groupId: 'group-1',
+        createdBy: 'owner',
+        active: true,
+        createdAt: 'now',
       }),
     ]);
   });
@@ -96,17 +99,23 @@ describe('PayMatrix Firestore authorization', () => {
 
   test('rejects unilateral friendship and permits accepted-request atomic friendship', async () => {
     const attackerDb = environment.authenticatedContext('attacker').firestore();
-    await assertFails(updateDoc(doc(attackerDb, 'users', 'owner'), { friends: arrayUnion('attacker') }));
+    await assertFails(
+      updateDoc(doc(attackerDb, 'users', 'owner'), { friends: arrayUnion('attacker') })
+    );
 
     await environment.withSecurityRulesDisabled((context) =>
       setDoc(doc(context.firestore(), 'friendRequests', 'owner_member'), {
-        from: 'owner', to: 'member', status: 'pending', createdAt: 'now',
+        from: 'owner',
+        to: 'member',
+        status: 'pending',
+        createdAt: 'now',
       })
     );
     const memberDb = environment.authenticatedContext('member').firestore();
     const batch = writeBatch(memberDb);
     batch.update(doc(memberDb, 'friendRequests', 'owner_member'), {
-      status: 'accepted', respondedAt: 'now',
+      status: 'accepted',
+      respondedAt: 'now',
     });
     batch.update(doc(memberDb, 'users', 'owner'), { friends: arrayUnion('member') });
     batch.update(doc(memberDb, 'users', 'member'), { friends: arrayUnion('owner') });
@@ -122,8 +131,11 @@ describe('PayMatrix Firestore authorization', () => {
   test('lets an owner refresh a legacy profile without rewriting its unchanged avatar', async () => {
     await environment.withSecurityRulesDisabled((context) =>
       setDoc(doc(context.firestore(), 'users', 'legacy'), {
-        uid: 'legacy', displayName: 'Legacy', friends: [],
-        avatar: 'https://legacy.example/avatar.png', createdAt: 'old',
+        uid: 'legacy',
+        displayName: 'Legacy',
+        friends: [],
+        avatar: 'https://legacy.example/avatar.png',
+        createdAt: 'old',
       })
     );
     const db = environment.authenticatedContext('legacy').firestore();
@@ -135,10 +147,12 @@ describe('PayMatrix Firestore authorization', () => {
 
   test('requires an atomic audit record for collaborative expense edits', async () => {
     const db = environment.authenticatedContext('member').firestore();
-    await assertFails(updateDoc(doc(db, 'groups', 'group-1', 'expenses', 'expense-1'), {
-      amount: 90,
-      amountPaise: 9000,
-    }));
+    await assertFails(
+      updateDoc(doc(db, 'groups', 'group-1', 'expenses', 'expense-1'), {
+        amount: 90,
+        amountPaise: 9000,
+      })
+    );
 
     const batch = writeBatch(db);
     batch.update(doc(db, 'groups', 'group-1', 'expenses', 'expense-1'), {
@@ -171,13 +185,21 @@ describe('PayMatrix Firestore authorization', () => {
     const db = environment.authenticatedContext('member').firestore();
     const batch = writeBatch(db);
     batch.update(doc(db, 'groups', 'group-1', 'expenses', 'expense-1'), {
-      title: 'Stale dinner', lastEditedBy: 'member', lastMutationId: 'stale-log',
-      lastMutationType: 'expense_updated', lastMutationAt: serverTimestamp(),
-      updatedAt: serverTimestamp(), version: 1,
+      title: 'Stale dinner',
+      lastEditedBy: 'member',
+      lastMutationId: 'stale-log',
+      lastMutationType: 'expense_updated',
+      lastMutationAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      version: 1,
     });
     batch.set(doc(db, 'groups', 'group-1', 'logs', 'stale-log'), {
-      type: 'expense_updated', message: 'Member edited Dinner', actorId: 'member',
-      actorName: 'Member', relatedId: 'expense-1', groupId: 'group-1',
+      type: 'expense_updated',
+      message: 'Member edited Dinner',
+      actorId: 'member',
+      actorName: 'Member',
+      relatedId: 'expense-1',
+      groupId: 'group-1',
       createdAt: serverTimestamp(),
     });
     await assertFails(batch.commit());
@@ -186,21 +208,34 @@ describe('PayMatrix Firestore authorization', () => {
   test('allows a legacy expense to be soft-deleted with an atomic audit record', async () => {
     await environment.withSecurityRulesDisabled(async (context) => {
       await setDoc(doc(context.firestore(), 'groups', 'group-1', 'expenses', 'legacy-expense'), {
-        title: 'Legacy dinner', amount: 75, paidBy: 'owner', admin: 'owner',
-        groupId: 'group-1', participants: ['owner', 'member'], status: 'active',
+        title: 'Legacy dinner',
+        amount: 75,
+        paidBy: 'owner',
+        admin: 'owner',
+        groupId: 'group-1',
+        participants: ['owner', 'member'],
+        status: 'active',
       });
     });
 
     const db = environment.authenticatedContext('member').firestore();
     const batch = writeBatch(db);
     batch.update(doc(db, 'groups', 'group-1', 'expenses', 'legacy-expense'), {
-      status: 'deleted', updatedAt: serverTimestamp(), version: 2,
-      lastEditedBy: 'member', lastMutationId: 'legacy-delete-log',
-      lastMutationType: 'expense_deleted', lastMutationAt: serverTimestamp(),
+      status: 'deleted',
+      updatedAt: serverTimestamp(),
+      version: 2,
+      lastEditedBy: 'member',
+      lastMutationId: 'legacy-delete-log',
+      lastMutationType: 'expense_deleted',
+      lastMutationAt: serverTimestamp(),
     });
     batch.set(doc(db, 'groups', 'group-1', 'logs', 'legacy-delete-log'), {
-      type: 'expense_deleted', message: 'Member deleted Legacy dinner', actorId: 'member',
-      actorName: 'Member', relatedId: 'legacy-expense', groupId: 'group-1',
+      type: 'expense_deleted',
+      message: 'Member deleted Legacy dinner',
+      actorId: 'member',
+      actorName: 'Member',
+      relatedId: 'legacy-expense',
+      groupId: 'group-1',
       createdAt: serverTimestamp(),
     });
     await assertSucceeds(batch.commit());
@@ -209,12 +244,23 @@ describe('PayMatrix Firestore authorization', () => {
   test('binds confirmed settlement payer to the authenticated user', async () => {
     const db = environment.authenticatedContext('member').firestore();
     const forged = {
-      payer: 'owner', payee: 'member', amount: 10, amountPaise: 1000,
-      groupId: 'group-1', operationId: 'forged', confirmationStatus: 'confirmed',
-      confirmedBy: 'member', confirmedAt: serverTimestamp(), status: 'active',
-      createdAt: serverTimestamp(), updatedAt: serverTimestamp(), version: 1,
-      lastEditedBy: 'member', lastMutationId: 'forged-log',
-      lastMutationType: 'settlement_added', lastMutationAt: serverTimestamp(),
+      payer: 'owner',
+      payee: 'member',
+      amount: 10,
+      amountPaise: 1000,
+      groupId: 'group-1',
+      operationId: 'forged',
+      confirmationStatus: 'confirmed',
+      confirmedBy: 'member',
+      confirmedAt: serverTimestamp(),
+      status: 'active',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      version: 1,
+      lastEditedBy: 'member',
+      lastMutationId: 'forged-log',
+      lastMutationType: 'settlement_added',
+      lastMutationAt: serverTimestamp(),
     };
     await assertFails(setDoc(doc(db, 'groups', 'group-1', 'settlements', 'forged'), forged));
   });
@@ -223,16 +269,31 @@ describe('PayMatrix Firestore authorization', () => {
     const db = environment.authenticatedContext('member').firestore();
     const batch = writeBatch(db);
     batch.set(doc(db, 'groups', 'group-1', 'settlements', 'payment-1'), {
-      payer: 'member', payee: 'owner', amount: 10, amountPaise: 1000,
-      groupId: 'group-1', operationId: 'payment-1', confirmationStatus: 'confirmed',
-      confirmedBy: 'member', confirmedAt: serverTimestamp(), status: 'active',
-      createdAt: serverTimestamp(), updatedAt: serverTimestamp(), version: 1,
-      lastEditedBy: 'member', lastMutationId: 'payment-log',
-      lastMutationType: 'settlement_added', lastMutationAt: serverTimestamp(),
+      payer: 'member',
+      payee: 'owner',
+      amount: 10,
+      amountPaise: 1000,
+      groupId: 'group-1',
+      operationId: 'payment-1',
+      confirmationStatus: 'confirmed',
+      confirmedBy: 'member',
+      confirmedAt: serverTimestamp(),
+      status: 'active',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      version: 1,
+      lastEditedBy: 'member',
+      lastMutationId: 'payment-log',
+      lastMutationType: 'settlement_added',
+      lastMutationAt: serverTimestamp(),
     });
     batch.set(doc(db, 'groups', 'group-1', 'logs', 'payment-log'), {
-      type: 'settlement_added', message: 'Member recorded a payment', actorId: 'member',
-      actorName: 'Member', relatedId: 'payment-1', groupId: 'group-1',
+      type: 'settlement_added',
+      message: 'Member recorded a payment',
+      actorId: 'member',
+      actorName: 'Member',
+      relatedId: 'payment-1',
+      groupId: 'group-1',
       createdAt: serverTimestamp(),
     });
     await assertSucceeds(batch.commit());
@@ -240,39 +301,82 @@ describe('PayMatrix Firestore authorization', () => {
 
   test('allows an invited user to join only themselves', async () => {
     const db = environment.authenticatedContext('attacker').firestore();
-    await assertSucceeds(updateDoc(doc(db, 'groups', 'group-1'), {
-      members: arrayUnion('attacker'), historicalMembers: arrayUnion('attacker'),
-      updatedAt: 'now',
-    }));
-    await assertFails(updateDoc(doc(db, 'groups', 'group-1'), {
-      members: arrayUnion('somebody-else'), historicalMembers: arrayUnion('somebody-else'),
-      updatedAt: 'now',
-    }));
+    await assertSucceeds(
+      updateDoc(doc(db, 'groups', 'group-1'), {
+        members: arrayUnion('attacker'),
+        historicalMembers: arrayUnion('attacker'),
+        updatedAt: 'now',
+      })
+    );
+    await assertFails(
+      updateDoc(doc(db, 'groups', 'group-1'), {
+        members: arrayUnion('somebody-else'),
+        historicalMembers: arrayUnion('somebody-else'),
+        updatedAt: 'now',
+      })
+    );
   });
 
   test('lets the original sender re-send a deterministic rejected request', async () => {
     await environment.withSecurityRulesDisabled((context) =>
       setDoc(doc(context.firestore(), 'friendRequests', 'owner_member'), {
-        from: 'owner', to: 'member', status: 'rejected', createdAt: 'old', respondedAt: 'old',
+        from: 'owner',
+        to: 'member',
+        status: 'rejected',
+        createdAt: 'old',
+        respondedAt: 'old',
       })
     );
     const ownerDb = environment.authenticatedContext('owner').firestore();
-    await assertSucceeds(setDoc(doc(ownerDb, 'friendRequests', 'owner_member'), {
-      from: 'owner', to: 'member', status: 'pending', createdAt: 'new',
-    }));
+    await assertSucceeds(
+      setDoc(doc(ownerDb, 'friendRequests', 'owner_member'), {
+        from: 'owner',
+        to: 'member',
+        status: 'pending',
+        createdAt: 'new',
+      })
+    );
+  });
+
+  test('lets former friends re-send a deterministic accepted request after disconnecting', async () => {
+    await environment.withSecurityRulesDisabled((context) =>
+      setDoc(doc(context.firestore(), 'friendRequests', 'owner_member'), {
+        from: 'owner',
+        to: 'member',
+        status: 'accepted',
+        createdAt: 'old',
+        respondedAt: 'old',
+      })
+    );
+    const ownerDb = environment.authenticatedContext('owner').firestore();
+    await assertSucceeds(
+      setDoc(doc(ownerDb, 'friendRequests', 'owner_member'), {
+        from: 'owner',
+        to: 'member',
+        status: 'pending',
+        createdAt: 'new',
+      })
+    );
   });
 
   test('allows a verified Spark-plan friend notification and rejects forged copy', async () => {
     await environment.withSecurityRulesDisabled((context) =>
       setDoc(doc(context.firestore(), 'friendRequests', 'owner_member'), {
-        from: 'owner', to: 'member', status: 'pending', createdAt: 'now',
+        from: 'owner',
+        to: 'member',
+        status: 'pending',
+        createdAt: 'now',
       })
     );
     const db = environment.authenticatedContext('owner').firestore();
     const validNotification = {
-      to: 'member', createdBy: 'owner',
+      to: 'member',
+      createdBy: 'owner',
       message: 'A PayMatrix member sent you a friend request.',
-      type: 'friend_request', relatedId: null, groupId: null, read: false,
+      type: 'friend_request',
+      relatedId: null,
+      groupId: null,
+      read: false,
       createdAt: serverTimestamp(),
     };
 
@@ -291,8 +395,13 @@ describe('PayMatrix Firestore authorization', () => {
   test('allows only ledger-backed group expense notifications', async () => {
     const ownerDb = environment.authenticatedContext('owner').firestore();
     const notification = {
-      to: 'member', createdBy: 'owner', message: 'A group member added an expense.',
-      type: 'expense_added', relatedId: 'expense-1', groupId: 'group-1', read: false,
+      to: 'member',
+      createdBy: 'owner',
+      message: 'A group member added an expense.',
+      type: 'expense_added',
+      relatedId: 'expense-1',
+      groupId: 'group-1',
+      read: false,
       createdAt: serverTimestamp(),
     };
 
@@ -311,30 +420,52 @@ describe('PayMatrix Firestore authorization', () => {
 
   test('enforces the AI request counter and hourly cap', async () => {
     const db = environment.authenticatedContext('member').firestore();
-    await assertSucceeds(setDoc(doc(db, 'rate_limits', 'member'), {
-      uid: 'member', count: 1, windowStart: serverTimestamp(), lastRequestAt: serverTimestamp(),
-    }));
-    await assertSucceeds(updateDoc(doc(db, 'rate_limits', 'member'), {
-      count: 2, lastRequestAt: serverTimestamp(),
-    }));
-    await assertFails(updateDoc(doc(db, 'rate_limits', 'member'), {
-      count: 10, lastRequestAt: serverTimestamp(),
-    }));
+    await assertSucceeds(
+      setDoc(doc(db, 'rate_limits', 'member'), {
+        uid: 'member',
+        count: 1,
+        windowStart: serverTimestamp(),
+        lastRequestAt: serverTimestamp(),
+      })
+    );
+    await assertSucceeds(
+      updateDoc(doc(db, 'rate_limits', 'member'), {
+        count: 2,
+        lastRequestAt: serverTimestamp(),
+      })
+    );
+    await assertFails(
+      updateDoc(doc(db, 'rate_limits', 'member'), {
+        count: 10,
+        lastRequestAt: serverTimestamp(),
+      })
+    );
   });
 
   test('permits atomic anonymization only with a 30-day deletion receipt', async () => {
     const db = environment.authenticatedContext('owner').firestore();
     const batch = writeBatch(db);
     batch.set(doc(db, 'users', 'owner'), {
-      uid: 'owner', name: 'Deleted user', displayName: 'Deleted user',
-      nameLowerCase: 'deleted user', avatar: '', photoURL: '', friends: [],
-      deletedAt: serverTimestamp(), deletionStatus: 'anonymized',
+      uid: 'owner',
+      name: 'Deleted user',
+      displayName: 'Deleted user',
+      nameLowerCase: 'deleted user',
+      avatar: '',
+      photoURL: '',
+      friends: [],
+      deletedAt: serverTimestamp(),
+      deletionStatus: 'anonymized',
     });
     batch.set(doc(db, 'publicProfiles', 'owner'), {
-      name: 'Deleted user', avatar: '', updatedAt: serverTimestamp(), deleted: true,
+      name: 'Deleted user',
+      avatar: '',
+      updatedAt: serverTimestamp(),
+      deleted: true,
     });
     batch.set(doc(db, 'accountDeletionRequests', 'owner'), {
-      uidHashVersion: 1, status: 'anonymized', requestedAt: serverTimestamp(),
+      uidHashVersion: 1,
+      status: 'anonymized',
+      requestedAt: serverTimestamp(),
       deleteAfter: Timestamp.fromMillis(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
     await assertSucceeds(batch.commit());

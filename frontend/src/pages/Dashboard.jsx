@@ -2,18 +2,8 @@ import { getLucideIcon } from '../utils/iconMap.js';
 import { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link, useOutletContext } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import {
-  Plus,
-  ArrowUpRight,
-  ArrowDownLeft,
-  ChevronRight,
-  Filter,
-  WifiOff,
-  Camera,
-  Hash,
-  Nfc,
-} from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { Activity, Camera, ChevronRight, Hash, Plus, ReceiptText, WifiOff } from 'lucide-react';
 
 import { setGroups } from '../redux/groupSlice.js';
 import { GROUP_CATEGORIES } from '../utils/constants.js';
@@ -25,8 +15,30 @@ import SettlementsPanel from '../components/dashboard/SettlementsPanel.jsx';
 import { db } from '../config/firebase.js';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
+const spring = { type: 'spring', stiffness: 340, damping: 32, mass: 0.8 };
+
+const formatAmount = (value) =>
+  Number(value || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+const formatMemberSince = (value) => {
+  const date = value ? new Date(value) : new Date();
+  return date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+};
+
+const formatUserId = (value) => {
+  const normalized = String(value || '')
+    .replace(/\s+/g, '')
+    .toUpperCase();
+
+  return normalized ? normalized.match(/.{1,4}/g)?.join(' ') : 'GENERATING…';
+};
+
 const Dashboard = () => {
   const dispatch = useDispatch();
+  const reduceMotion = useReducedMotion();
   const { openAddExpense } = useOutletContext();
   const { user } = useSelector((state) => state.auth);
   const { groups = [], loading: groupsLoading } = useSelector((state) => state.groups);
@@ -34,56 +46,42 @@ const Dashboard = () => {
   const [summary, setSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(!summary);
   const [showBillScanner, setShowBillScanner] = useState(false);
-
-  const groupsUpdatedHash = useMemo(
-    () => JSON.stringify(groups.map((g) => g.updatedAt || g._id)),
-    [groups]
-  );
-
   const [isOffline, setIsOffline] = useState(
     typeof window !== 'undefined' ? !navigator.onLine : false
   );
 
+  const groupsUpdatedHash = useMemo(
+    () => JSON.stringify(groups.map((group) => group.updatedAt || group._id)),
+    [groups]
+  );
+
   useEffect(() => {
-    if (!user?._id && !user?.uid) return;
+    if (!user?._id && !user?.uid) return undefined;
     const userId = user._id || user.uid;
-
-    const qGroups = query(collection(db, 'groups'), where('members', 'array-contains', userId));
-
-    const _isInitialLoad = !groups.length;
+    const groupsQuery = query(collection(db, 'groups'), where('members', 'array-contains', userId));
 
     const unsubscribeGroups = onSnapshot(
-      qGroups,
+      groupsQuery,
       (snapshot) => {
         try {
-          // 1. Instant Step: Extract basic doc data (IDs, Titles, etc)
-          const basicGroups = snapshot.docs.map((doc) => groupService.getBasicGroup(doc));
-          const activeBasicGroups = basicGroups.filter((g) => g?.status !== 'deleted');
+          const basicGroups = snapshot.docs.map((snapshotDoc) =>
+            groupService.getBasicGroup(snapshotDoc)
+          );
+          dispatch(setGroups(basicGroups.filter((group) => group?.status !== 'deleted')));
 
-          // Dispatch basic data immediately to avoid blocking the UI
-          dispatch(setGroups(activeBasicGroups));
-
-          // 2. Background Step: Resolve full profiles (avatars, names)
-          const expandedGroupsPromise = Promise.all(
-            snapshot.docs.map(async (doc) => {
-              const basic = groupService.getBasicGroup(doc);
+          Promise.all(
+            snapshot.docs.map(async (snapshotDoc) => {
+              const basic = groupService.getBasicGroup(snapshotDoc);
               if (basic.status === 'deleted') return null;
               const profiles = await groupService.resolveMemberProfiles(basic._id, basic.members);
               return { ...basic, members: profiles, isBasic: false };
             })
-          );
-
-          expandedGroupsPromise.then((expanded) => {
-            const finalGroups = expanded.filter(Boolean);
-            dispatch(setGroups(finalGroups));
-          });
-        } catch (err) {
-          console.error('Error expanding group snapshot:', err);
+          ).then((expanded) => dispatch(setGroups(expanded.filter(Boolean))));
+        } catch (error) {
+          console.error('Error expanding group snapshot:', error);
         }
       },
-      (err) => {
-        console.error('Dashboard group snapshot error:', err);
-      }
+      (error) => console.error('Dashboard group snapshot error:', error)
     );
 
     const handleOnline = () => setIsOffline(false);
@@ -96,21 +94,18 @@ const Dashboard = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, user?._id, user?.uid]);
 
-  // 3. Reactive summary - updates whenever any group's metadata is "touched"
   useEffect(() => {
     if (!user?._id && !user?.uid) return;
 
     const updateSummary = async () => {
       if (!summary) setLoadingSummary(true);
-
       try {
-        const res = await expenseService.getSummary();
-        setSummary(res.data.data);
-      } catch (err) {
-        console.warn('Silent refresh of summary failed (likely offline):', err);
+        const response = await expenseService.getSummary();
+        setSummary(response.data.data);
+      } catch (error) {
+        console.warn('Silent refresh of summary failed (likely offline):', error);
       } finally {
         setLoadingSummary(false);
       }
@@ -121,351 +116,287 @@ const Dashboard = () => {
   }, [groupsUpdatedHash, user?._id, user?.uid]);
 
   const recentActivity = notifications.slice(0, 5);
+  const entrance = reduceMotion
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 0.16 } }
+    : { initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0 }, transition: spring };
 
   if (groupsLoading && groups.length === 0 && loadingSummary && !isOffline) return <Loader />;
 
   return (
-    <div className="w-full max-w-md lg:max-w-6xl mx-auto px-4 lg:px-8 pt-2 pb-32 space-y-6">
-      {isOffline && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex justify-center mt-1"
-        >
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/10 text-on-surface-variant text-[11px] font-bold font-inter tracking-wide">
-            <WifiOff size={13} className="opacity-60" />
-            Offline — changes will sync when reconnected
-          </span>
-        </motion.div>
-      )}
+    <div className="mx-auto w-full max-w-md pb-32 pt-2 lg:max-w-6xl">
+      <AnimatePresence>
+        {isOffline && (
+          <motion.div
+            initial={{ opacity: 0, y: reduceMotion ? 0 : -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: reduceMotion ? 0 : -8 }}
+            transition={spring}
+            className="mb-4 flex justify-center"
+          >
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-[#171717] px-3 py-1.5 text-xs font-medium text-white/[0.55]">
+              <WifiOff size={13} />
+              Offline · changes will sync later
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Desktop-optimised responsive grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 lg:items-start">
-        {/* Amex Corporate Platinum Style Balance Card */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6">
         <motion.section
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-8 relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-200 via-gray-100 to-slate-300 p-1 shadow-2xl flex flex-col justify-between h-52 lg:h-auto lg:min-h-[14rem] select-none"
+          {...entrance}
+          className="relative min-h-[12.5rem] overflow-hidden rounded-[1.35rem] border border-white/60 bg-[linear-gradient(145deg,#f5f5f3_0%,#e6e7e4_48%,#cfd1cf_100%)] p-6 text-[#121212] shadow-[0_28px_75px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.9)] lg:col-span-8 lg:p-8"
         >
-          {/* Inner Border (Intricate Frame Simulation) */}
-          <div className="absolute inset-2 border-[1.5px] border-black/40 rounded-lg pointer-events-none" />
-          <div className="absolute inset-[10px] border border-black/10 rounded-md pointer-events-none" />
-
-          {/* Subtle noise texture */}
-          <div className="absolute inset-0 opacity-[0.03] mix-blend-multiply pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiLz48cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjMDAwIi8+PC9zdmc+')]"></div>
-
-          {/* Centered Top Text */}
-          <div className="absolute top-4 left-0 right-0 flex flex-col items-center justify-center z-10 pointer-events-none">
-            <h1
-              className="font-sans font-black text-black/90 text-lg lg:text-[22px] tracking-tight leading-none scale-x-[1.15] origin-center"
-              style={{ textShadow: '0px 1px 0px rgba(255,255,255,0.6)' }}
-            >
-              PAYMATRIX EXPRESS
-            </h1>
-            <h2
-              className="font-serif font-bold text-black/80 text-[10px] lg:text-[11px] tracking-[0.55em] mt-1 pl-[0.55em]"
-              style={{ textShadow: '0px 1px 0px rgba(255,255,255,0.6)' }}
-            >
-              CORPORATE
-            </h2>
-          </div>
-
-          {/* Left: Chip, Right: Contactless & Top spacing */}
-          <div className="flex justify-between items-start z-10 w-full mt-10 px-5">
-            <div className="w-10 h-7 rounded bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center shadow-sm relative overflow-hidden border border-gray-500/50">
-              {/* Fake chip lines */}
-              <div className="absolute inset-0 opacity-40 border border-gray-600/50 rounded-sm m-1" />
-              <div className="absolute w-full h-[1px] bg-gray-600/50 top-1/2 -translate-y-1/2" />
-              <div className="absolute w-[1px] h-full bg-gray-600/50 left-1/3" />
-              <div className="absolute w-[1px] h-full bg-gray-600/50 right-1/3" />
-            </div>
-
-            <div className="flex items-center gap-1.5 mt-1">
-              <Nfc size={20} className="text-black/60 rotate-90" strokeWidth={1.5} />
-              <span className="text-black/80 font-mono text-[10px] font-bold tracking-wider">
-                {user?.friendCode ? user.friendCode.slice(4, 8) : '7997'}
-              </span>
-            </div>
-          </div>
-
-          {/* Center Graphic */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 opacity-90 mt-4 lg:mt-3">
-            <div className="w-20 h-24 lg:w-24 lg:h-28 border-[1.5px] border-black/40 rounded-[50%] overflow-hidden flex items-center justify-center bg-[#eaeaea] p-1 shadow-inner">
-              <img
-                src="/centurion.png"
-                alt="Centurion Logo"
-                className="w-full h-full object-contain mix-blend-multiply opacity-80"
-              />
-            </div>
-          </div>
-
-          {/* Bottom Row: Friend Code, Balance & Member Since */}
-          <div className="flex justify-between items-end z-10 px-5 pb-3 pt-6 w-full mt-auto">
-            <div className="flex flex-col">
-              <span className="text-xs sm:text-sm font-mono text-black/80 uppercase tracking-[0.2em] font-bold mb-3 drop-shadow-sm flex gap-3">
-                {user?.friendCode ? (
-                  <>
-                    <span>{user.friendCode.slice(0, 4)}</span>
-                    <span>{user.friendCode.slice(4, 8)}</span>
-                  </>
-                ) : (
-                  <span>GENERATING...</span>
-                )}
-              </span>
-              <span className="text-[10px] sm:text-xs font-inter text-black/80 uppercase tracking-widest font-bold truncate max-w-[150px]">
-                {user?.name || user?.email?.split('@')[0] || 'USER'}
-              </span>
-            </div>
-
-            <div className="flex flex-col items-center justify-end text-center mb-1">
-              <div className="border border-black/40 px-2 rounded-[2px] mb-0.5 relative">
-                <div className="absolute -left-[2px] -right-[2px] top-1/2 h-[1px] bg-black/40" />
-                <p className="text-[6px] lg:text-[7px] text-black/80 uppercase tracking-[0.1em] font-serif font-bold relative z-10 bg-[#e3e5e8] px-1 leading-none py-[1px]">
-                  MEMBER SINCE
+          <div className="relative z-10 flex h-full min-h-[9.5rem] flex-col justify-between">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-black/[0.36]">
+                  User ID
+                </p>
+                <p className="mt-1 truncate font-mono text-sm font-semibold tracking-[0.14em] text-black/[0.78] sm:text-base">
+                  {formatUserId(user?.friendCode)}
                 </p>
               </div>
-              <span className="text-sm font-sans text-black/80 font-medium tracking-widest">
-                {(() => {
-                  const d = user?.createdAt ? new Date(user.createdAt) : new Date();
-                  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(2)}`;
-                })()}
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-black/[0.08] bg-white/25 px-2.5 py-1 text-[11px] font-medium text-black/[0.48]">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                Online
               </span>
             </div>
+
+            <div className="py-6">
+              <p className="text-xs font-medium text-black/[0.42]">Net balance</p>
+              <p className="mt-1 font-manrope text-[2.2rem] font-semibold leading-none tracking-[-0.055em] text-black/[0.88] tabular-nums sm:text-[2.65rem]">
+                <span className="mr-1 text-[0.62em] font-medium text-black/[0.42]">₹</span>
+                {formatAmount(Math.abs(summary?.netBalance || 0))}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 items-end gap-4 border-t border-black/[0.09] pt-4 text-xs">
+              <div className="min-w-0">
+                <p className="text-black/[0.36]">Account</p>
+                <p className="mt-1 truncate font-medium text-black/[0.72]">
+                  {user?.name || user?.email?.split('@')[0] || 'Member'}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-black/[0.36]">Member since</p>
+                <p className="mt-1 font-medium text-black/[0.72]">
+                  {formatMemberSince(user?.createdAt)}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full bg-white/[0.45] blur-3xl" />
+          <div className="pointer-events-none absolute inset-x-5 top-1 h-px bg-white/70" />
+        </motion.section>
+
+        <motion.section
+          {...entrance}
+          transition={{ ...spring, delay: reduceMotion ? 0 : 0.04 }}
+          className="rounded-2xl border border-white/[0.08] bg-[#1A1A1A] p-5 shadow-[0_16px_38px_rgba(0,0,0,0.12)] lg:col-span-4 lg:p-6"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-manrope text-base font-semibold tracking-[-0.02em] text-white">
+                Balances
+              </h2>
+              <p className="mt-1 text-xs text-white/[0.35]">Across all groups</p>
+            </div>
+            <Activity size={18} className="text-white/30" />
           </div>
 
-          {/* Balance Overlay */}
-          <div className="absolute bottom-[35%] left-6 z-10">
-            <p className="font-inter text-black/50 text-[7px] font-bold tracking-[0.15em] uppercase mb-0.5">
-              Total Liquidity
-            </p>
-            <h2 className="font-manrope font-extrabold text-xl sm:text-2xl mt-0 tracking-tight text-black/80 flex items-baseline leading-none shadow-sm drop-shadow-sm">
-              <span className="text-black/60 font-medium mr-0.5 text-sm sm:text-base">₹</span>
-              {Math.abs(summary?.netBalance || 0).toLocaleString()}
-              <span className="text-black/50 text-xs font-normal">.00</span>
-            </h2>
-          </div>
-
-          {/* Status Corner */}
-          <div className="absolute bottom-2 right-4 z-10 flex items-center justify-end">
-            <span className="text-[7px] font-sans font-bold uppercase tracking-wider text-black/50 border border-black/20 rounded-full px-1.5 flex items-center gap-1 bg-white/10 backdrop-blur-sm">
-              <span className="w-1 h-1 rounded-full bg-emerald-600 animate-pulse" />
-              Online
-            </span>
+          <div className="mt-6 grid grid-cols-2 divide-x divide-white/[0.08] lg:grid-cols-1 lg:divide-x-0 lg:divide-y">
+            <div className="pb-1 pr-5 lg:pb-5 lg:pr-0">
+              <p className="text-xs text-white/40">You owe</p>
+              <p className="mt-2 font-manrope text-2xl font-semibold tracking-[-0.03em] text-red-300/90 tabular-nums">
+                ₹{formatAmount(summary?.totalOwe)}
+              </p>
+            </div>
+            <div className="pb-1 pl-5 lg:pb-0 lg:pl-0 lg:pt-5">
+              <p className="text-xs text-white/40">You are owed</p>
+              <p className="mt-2 font-manrope text-2xl font-semibold tracking-[-0.03em] text-emerald-300/90 tabular-nums">
+                ₹{formatAmount(summary?.totalOwed)}
+              </p>
+            </div>
           </div>
         </motion.section>
 
-        {/* Bento Grid Stats (sits beside balance on desktop, stacked) */}
-        <div className="lg:col-span-4 grid grid-cols-2 gap-4 lg:flex lg:flex-col lg:h-full lg:min-h-[14rem]">
-          {/* You Owe Card */}
-          <div className="group bg-gradient-to-br from-[#1c1414] to-[#141416]/40 hover:from-[#241616] p-4 lg:p-5 rounded-[20px] border border-red-500/10 hover:border-red-500/30 transition-all duration-300 relative overflow-hidden shadow-md flex flex-col justify-between h-28 lg:h-auto lg:flex-1 cursor-default select-none">
-            {/* Subtle red glow in corner */}
-            <div className="absolute top-[-20px] right-[-20px] w-20 h-20 bg-red-500/10 rounded-full blur-[20px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-            <div className="flex justify-between items-center mb-1 relative z-10">
-              <span className="font-inter text-[9px] font-black tracking-widest uppercase text-red-400/70 group-hover:text-red-400 transition-colors">
-                Debt Status
-              </span>
-              <div className="w-6 h-6 rounded-full bg-red-500/10 group-hover:bg-red-500/20 transition-colors flex items-center justify-center text-red-400 group-hover:scale-110 duration-300">
-                <ArrowUpRight size={12} strokeWidth={2.5} />
-              </div>
-            </div>
-            <div className="relative z-10 mt-2">
-              <h3 className="font-manrope font-semibold text-[10px] text-white/40 uppercase tracking-wide leading-none mb-1 group-hover:text-white/60 transition-colors">
-                You Owe
-              </h3>
-              <p className="font-manrope text-lg sm:text-xl lg:text-3xl font-extrabold text-red-400/90 group-hover:text-red-400 transition-colors tracking-tight">
-                <span className="text-red-400/50 mr-0.5 text-sm sm:text-base lg:text-xl font-medium">
-                  ₹
-                </span>
-                {summary?.totalOwe?.toLocaleString('en-IN') || '0'}
-              </p>
-            </div>
-          </div>
-
-          {/* You Are Owed Card */}
-          <div className="group bg-gradient-to-br from-[#131a16] to-[#141416]/40 hover:from-[#16241c] p-4 lg:p-5 rounded-[20px] border border-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 relative overflow-hidden shadow-md flex flex-col justify-between h-28 lg:h-auto lg:flex-1 cursor-default select-none">
-            {/* Subtle emerald glow in corner */}
-            <div className="absolute top-[-20px] right-[-20px] w-20 h-20 bg-emerald-500/10 rounded-full blur-[20px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-            <div className="flex justify-between items-center mb-1 relative z-10">
-              <span className="font-inter text-[9px] font-black tracking-widest uppercase text-emerald-400/70 group-hover:text-emerald-400 transition-colors">
-                Pending Returns
-              </span>
-              <div className="w-6 h-6 rounded-full bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors flex items-center justify-center text-emerald-400 group-hover:scale-110 duration-300">
-                <ArrowDownLeft size={12} strokeWidth={2.5} />
-              </div>
-            </div>
-            <div className="relative z-10 mt-2">
-              <h3 className="font-manrope font-semibold text-[10px] text-white/40 uppercase tracking-wide leading-none mb-1 group-hover:text-white/60 transition-colors">
-                You Are Owed
-              </h3>
-              <p className="font-manrope text-lg sm:text-xl lg:text-3xl font-extrabold text-emerald-400/90 group-hover:text-emerald-400 transition-colors tracking-tight">
-                <span className="text-emerald-400/50 mr-0.5 text-sm sm:text-base lg:text-xl font-medium">
-                  ₹
-                </span>
-                {summary?.totalOwed?.toLocaleString('en-IN') || '0'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Unified Quick Actions Hub (full-width action bar) */}
-        <div className="lg:col-span-12 grid grid-cols-2 gap-3 lg:gap-5">
-          {/* Scan Bill */}
-          <button
+        <motion.div
+          {...entrance}
+          transition={{ ...spring, delay: reduceMotion ? 0 : 0.08 }}
+          className="grid grid-cols-2 gap-3 lg:col-span-12 lg:gap-4"
+        >
+          <motion.button
+            type="button"
+            whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+            transition={spring}
             onClick={() => setShowBillScanner(true)}
-            className="group relative flex flex-col items-center justify-center p-4 lg:p-6 rounded-[20px] bg-gradient-to-b from-[#16241c]/40 to-[#141416]/40 hover:from-[#1b2f23]/60 border border-emerald-500/20 hover:border-emerald-400/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all duration-300 text-center overflow-hidden"
+            className="flex min-h-24 items-center gap-3 rounded-2xl bg-white px-4 text-left text-black shadow-[0_12px_35px_rgba(255,255,255,0.06)] sm:px-5"
           >
-            <div className="absolute inset-0 bg-emerald-500/0 group-hover:bg-emerald-500/5 transition-colors duration-300" />
-            <div className="relative w-10 h-10 lg:w-14 lg:h-14 rounded-full bg-emerald-500/10 group-hover:bg-emerald-500/20 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:text-emerald-300 group-hover:scale-110 transition-all duration-300 mb-2 lg:mb-3 shadow-inner">
-              <Camera size={18} className="lg:hidden" />
-              <Camera size={24} className="hidden lg:block" />
-            </div>
-            <span className="relative text-[10px] lg:text-xs font-black uppercase tracking-[0.15em] text-emerald-200 group-hover:text-white transition-colors">
-              Scan Bill
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/[0.06]">
+              <Camera size={19} strokeWidth={2} />
             </span>
-            <span className="relative text-[8px] lg:text-[10px] font-semibold text-emerald-400/50 group-hover:text-emerald-300/80 mt-1 transition-colors">
-              Gemini OCR
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold tracking-[-0.01em]">Scan bill</span>
+              <span className="mt-0.5 block truncate text-xs text-black/[0.45]">
+                Use a receipt photo
+              </span>
             </span>
-          </button>
+          </motion.button>
 
-          {/* Record (Manual) */}
-          <button
+          <motion.button
+            type="button"
+            whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+            transition={spring}
             onClick={() => openAddExpense()}
-            className="group relative flex flex-col items-center justify-center p-4 lg:p-6 rounded-[20px] bg-gradient-to-b from-[#242426]/40 to-[#141416]/40 hover:from-[#2d2d30]/60 border border-white/10 hover:border-white/30 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] transition-all duration-300 text-center overflow-hidden"
+            className="flex min-h-24 items-center gap-3 rounded-2xl border border-white/[0.08] bg-[#1A1A1A] px-4 text-left text-white shadow-[0_12px_30px_rgba(0,0,0,0.08)] sm:px-5"
           >
-            <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors duration-300" />
-            <div className="relative w-10 h-10 lg:w-14 lg:h-14 rounded-full bg-white/5 group-hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/60 group-hover:text-white group-hover:scale-110 transition-all duration-300 mb-2 lg:mb-3 shadow-inner">
-              <Plus size={18} strokeWidth={2.5} className="lg:hidden" />
-              <Plus size={24} strokeWidth={2.5} className="hidden lg:block" />
-            </div>
-            <span className="relative text-[10px] lg:text-xs font-black uppercase tracking-[0.15em] text-white/70 group-hover:text-white transition-colors">
-              Record
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
+              <ReceiptText size={19} strokeWidth={1.8} />
             </span>
-            <span className="relative text-[8px] lg:text-[10px] font-semibold text-white/40 group-hover:text-white/60 mt-1 transition-colors">
-              Add manually
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold tracking-[-0.01em]">Record</span>
+              <span className="mt-0.5 block truncate text-xs text-white/[0.35]">
+                Enter manually
+              </span>
             </span>
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
 
-        {/* Settlements (merged from the old dedicated /settlements page) */}
         <SettlementsPanel groups={groups} groupBalances={summary?.groupBalances || {}} />
 
-        {/* Active Cohorts (wraps to fill width on desktop) */}
-        <div className="lg:col-span-5 space-y-3">
-          <div className="flex items-center justify-between">
+        <motion.section
+          {...entrance}
+          transition={{ ...spring, delay: reduceMotion ? 0 : 0.12 }}
+          className="space-y-4 lg:col-span-5"
+        >
+          <div className="flex items-end justify-between">
             <div>
-              <h2 className="font-manrope font-black text-xs uppercase tracking-wider text-white">
-                Active Cohorts
+              <h2 className="font-manrope text-base font-semibold tracking-[-0.02em] text-white">
+                Groups
               </h2>
-              <p className="text-[9px] text-white/30 font-inter">{groups.length} active groups</p>
+              <p className="mt-1 text-xs text-white/[0.35]">{groups.length} active</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Link
                 to="/groups?add=true"
-                className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white/70 hover:text-white transition-all active:scale-95"
+                aria-label="Create group"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-white/[0.65] hover:text-white"
               >
-                <Plus size={12} />
+                <Plus size={15} />
               </Link>
               <Link
                 to="/groups"
-                className="text-[10px] font-bold tracking-wider text-indigo-400 hover:text-indigo-300 transition-colors"
+                className="px-1 text-xs font-medium text-white/[0.55] hover:text-white"
               >
-                See All
+                See all
               </Link>
             </div>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto no-scrollbar lg:flex-wrap lg:overflow-visible lg:gap-5 py-1 px-1 w-full max-w-full">
-            {groups.map((group) => (
-              <Link
-                to={`/groups/${group._id}`}
-                key={group._id}
-                className="flex flex-col items-center shrink-0 w-16 group"
-              >
-                {/* Rounded-square icon matching GroupDetail header style */}
-                {(() => {
-                  const cat = GROUP_CATEGORIES.find((c) => c.value === group.category);
-                  const IconComp = cat?.icon ? getLucideIcon(cat.icon) || Hash : Hash;
-                  const iconColor = cat?.color || '#919191';
-                  return (
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 shadow-inner group-hover:scale-105 transition-all">
-                      <IconComp size={20} style={{ color: iconColor }} />
-                    </div>
-                  );
-                })()}
-                <span className="text-[9px] text-white/70 mt-2 truncate w-full text-center font-semibold font-inter group-hover:text-white transition-colors">
-                  {group.name || group.title}
-                </span>
-              </Link>
-            ))}
+          <div className="flex max-w-full gap-4 overflow-x-auto py-1 no-scrollbar lg:flex-wrap lg:overflow-visible">
+            {groups.map((group, index) => {
+              const category = GROUP_CATEGORIES.find((item) => item.value === group.category);
+              const Icon = category?.icon ? getLucideIcon(category.icon) || Hash : Hash;
+              return (
+                <motion.div
+                  key={group._id}
+                  initial={{ opacity: 0, y: reduceMotion ? 0 : 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...spring, delay: reduceMotion ? 0 : index * 0.035 }}
+                  whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+                  className="w-16 shrink-0"
+                >
+                  <Link to={`/groups/${group._id}`} className="group flex flex-col items-center">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-[#171717] text-white/[0.58] transition-colors group-hover:text-white">
+                      <Icon size={19} strokeWidth={1.7} />
+                    </span>
+                    <span className="mt-2 w-full truncate text-center text-[11px] font-medium text-white/[0.55] group-hover:text-white/[0.85]">
+                      {group.name || group.title}
+                    </span>
+                  </Link>
+                </motion.div>
+              );
+            })}
 
             {groups.length === 0 && (
-              <div className="w-full py-6 text-center rounded-2xl border border-dashed border-white/10 bg-white/[0.01]">
-                <p className="text-white/30 text-xs font-inter">No active cohorts yet.</p>
+              <div className="w-full rounded-2xl border border-white/[0.08] bg-[#1A1A1A] px-5 py-8 text-center shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
+                <p className="text-sm font-medium text-white/[0.58]">No groups yet</p>
+                <p className="mt-1 text-xs text-white/30">
+                  Create one when you have an expense to share.
+                </p>
               </div>
             )}
           </div>
-        </div>
+        </motion.section>
 
-        {/* Recent Timeline */}
-        <div className="lg:col-span-7 space-y-3">
-          <div className="flex items-center justify-between">
+        <motion.section
+          {...entrance}
+          transition={{ ...spring, delay: reduceMotion ? 0 : 0.16 }}
+          className="space-y-4 lg:col-span-7"
+        >
+          <div className="flex items-end justify-between">
             <div>
-              <h2 className="font-manrope font-black text-xs uppercase tracking-wider text-white">
-                Recent Timeline
+              <h2 className="font-manrope text-base font-semibold tracking-[-0.02em] text-white">
+                Recent activity
               </h2>
-              <p className="text-[9px] text-white/30 font-inter">Recent activities & logs</p>
+              <p className="mt-1 text-xs text-white/[0.35]">Updates from your account</p>
             </div>
-            <Filter
-              size={14}
-              className="text-white/40 hover:text-white cursor-pointer transition-colors"
-            />
+            <Link to="/activity" className="text-xs font-medium text-white/[0.55] hover:text-white">
+              View all
+            </Link>
           </div>
 
-          <div className="glass-card rounded-2xl overflow-hidden border border-white/[0.05]">
-            <div className="divide-y divide-white/[0.04]">
-              {recentActivity.map((notif) => (
-                <div
-                  key={notif._id}
-                  className="p-3.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer group"
+          <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1A1A1A] shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
+            {recentActivity.map((notification, index) => (
+              <motion.div
+                key={notification._id}
+                initial={{ opacity: 0, x: reduceMotion ? 0 : -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ ...spring, delay: reduceMotion ? 0 : index * 0.035 }}
+                className="border-b border-white/[0.06] last:border-b-0"
+              >
+                <Link
+                  to="/activity"
+                  className="group flex min-h-[4.5rem] items-center gap-3 px-4 py-3.5 transition-colors hover:bg-white/[0.025]"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-7 h-7 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-white/50 group-hover:text-white transition-colors shrink-0">
-                      <Plus size={12} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-manrope font-bold text-white text-xs leading-snug truncate">
-                        {typeof notif.message === 'string'
-                          ? notif.message
-                          : notif.message?.message || 'Notification action performed'}
-                      </p>
-                      <p className="text-[8px] font-bold text-white/30 uppercase tracking-widest font-mono mt-0.5">
-                        {new Date(notif.createdAt).toLocaleDateString('en-IN', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                  </div>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.045] text-white/[0.45] group-hover:text-white/75">
+                    <Activity size={16} strokeWidth={1.7} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium leading-snug text-white/[0.78]">
+                      {typeof notification.message === 'string'
+                        ? notification.message
+                        : notification.message?.message || 'Account activity updated'}
+                    </span>
+                    <span className="mt-1 block text-[11px] text-white/30">
+                      {new Date(notification.createdAt).toLocaleDateString('en-IN', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </span>
                   <ChevronRight
-                    size={14}
-                    className="text-white/30 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0"
+                    size={15}
+                    className="shrink-0 text-white/[0.18] group-hover:text-white/[0.45]"
                   />
-                </div>
-              ))}
+                </Link>
+              </motion.div>
+            ))}
 
-              {recentActivity.length === 0 && (
-                <div className="py-10 text-center">
-                  <p className="text-white/30 text-xs font-inter">Timeline is quiet.</p>
-                </div>
-              )}
-            </div>
+            {recentActivity.length === 0 && (
+              <div className="px-5 py-10 text-center">
+                <p className="text-sm font-medium text-white/[0.52]">Nothing new yet</p>
+                <p className="mt-1 text-xs text-white/[0.28]">
+                  Your latest account activity will appear here.
+                </p>
+              </div>
+            )}
           </div>
-        </div>
+        </motion.section>
       </div>
 
-      {/* Bill Scanner Modal */}
       <BillScannerModal
         isOpen={showBillScanner}
         onClose={() => setShowBillScanner(false)}

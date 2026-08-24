@@ -178,13 +178,18 @@ const Friends = () => {
     if (!codePreview?.uid) return;
     setSendingRequest(true);
     try {
-      await friendService.sendRequest(codePreview.uid);
-      toast.success('Connection request broadcasted');
+      const result = await friendService.sendRequest(codePreview.uid);
+      toast.success(
+        result.data.data?.alreadyPending
+          ? 'Connection request is already pending'
+          : 'Connection request sent'
+      );
       setCodePreview(null);
       setCodeInput('');
       fetchData();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Connection failed');
+      const message = error.response?.data?.message || error.message;
+      toast.error(message || 'Could not send the request. Check your connection and try again.');
     } finally {
       setSendingRequest(false);
     }
@@ -339,24 +344,25 @@ const Friends = () => {
                     <motion.div
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="flex items-center justify-between gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-2xl"
+                      className="flex flex-col gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-4"
                     >
-                      <div className="flex items-center gap-4 min-w-0">
+                      <div className="flex w-full min-w-0 items-center gap-4">
                         <Avatar name={codePreview.name} src={codePreview.avatar} size="sm" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-white font-manrope truncate">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-manrope text-sm font-bold leading-snug text-white">
                             {codePreview.name || 'Member'}
                           </p>
-                          <p className="text-[10px] text-white/20 font-medium uppercase tracking-widest">
+                          <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-white/30">
                             {RELATIONSHIP_LABELS[codePreview.status] || 'Not yet connected'}
                           </p>
                         </div>
                       </div>
                       {codePreview.status === 'none' && (
                         <button
+                          type="button"
                           onClick={handleSendRequestByCode}
                           disabled={sendingRequest}
-                          className="h-10 px-5 rounded-xl bg-white text-black flex items-center justify-center hover:bg-white/90 active:scale-95 transition-all shadow-lg shadow-white/5 text-[10px] font-black uppercase tracking-widest shrink-0 disabled:opacity-50"
+                          className="flex h-11 w-full items-center justify-center rounded-xl bg-white px-5 text-[10px] font-black uppercase tracking-widest text-black shadow-lg shadow-white/5 transition-all hover:bg-white/90 active:scale-[0.98] disabled:opacity-50"
                         >
                           {sendingRequest ? 'Connecting…' : 'Connect'}
                         </button>
