@@ -1,0 +1,32 @@
+{
+  "project_info": {
+    "project_number": "344969363066",
+    "project_id": "paymatrix-174b5",
+    "storage_bucket": "paymatrix-174b5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:344969363066:android:f200bee5cbcf086a3305c3",
+        "android_client_info": { "package_name": "com.paymatrix.app" }
+      },
+      "oauth_client": [
+        { "client_id": "344969363066-cr4hc3a3103luhicm59n0n7jva8uv7id.apps.googleusercontent.com", "client_type": 1, "android_info": { "package_name": "com.paymatrix.app", "certificate_hash": "9f3ff15481b069a1c4f2dda3744b7f6e11653335" } },
+        { "client_id": "344969363066-h52s21hb64mjcnk54rk00a2s1uqiihui.apps.googleusercontent.com", "client_type": 1, "android_info": { "package_name": "com.paymatrix.app", "certificate_hash": "67a9e5fa08cdb6793256184614f603835357303d" } },
+        { "client_id": "344969363066-htc8tjde6cbpg28l6sfiuue42392rsej.apps.googleusercontent.com", "client_type": 3 }
+      ],
+      "api_key": [{ "current_key": "AIzaSyCBX6At66RcgTYTVWLk62-ghUDrtgjJGbk" }]
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:344969363066:android:3709eb27bcfa07fb3305c3",
+        "android_client_info": { "package_name": "com.paymatrix.app.native.dev" }
+      },
+      "oauth_client": [
+        { "client_id": "344969363066-htc8tjde6cbpg28l6sfiuue42392rsej.apps.googleusercontent.com", "client_type": 3 }
+      ],
+      "api_key": [{ "current_key": "AIzaSyCBX6At66RcgTYTVWLk62-ghUDrtgjJGbk" }]
+    }
+  ],
+  "configuration_version": "1"
+}
