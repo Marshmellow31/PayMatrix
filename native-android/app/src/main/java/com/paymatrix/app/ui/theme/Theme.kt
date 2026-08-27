@@ -22,6 +22,10 @@ private val Obsidian = darkColorScheme(
     surfaceVariant = Color(0xFF202020),
     onSurfaceVariant = Color(0xFF919191),
     error = Color(0xFFFF7B72),
+    surfaceContainer = Color(0xFF1A1A1A),
+    surfaceContainerHigh = Color(0xFF202020),
+    surfaceContainerHighest = Color(0xFF282828),
+    outline = Color(0xFF383838),
 )
 
 private val PayMatrixTypography = Typography(

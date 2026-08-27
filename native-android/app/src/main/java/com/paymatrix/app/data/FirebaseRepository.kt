@@ -48,9 +48,13 @@ class FirebaseRepository(
         awaitClose { registrations.forEach { it.remove() } }
     }
 
-    suspend fun groups(): List<Group> = db.collection("groups")
-        .whereArrayContains("members", uid).get().await().documents.map(::groupFrom)
-        .filter { it.status != "deleted" }.sortedByDescending { it.createdAt }
+    suspend fun groups(): List<Group> = coroutineScope {
+        val groups = db.collection("groups").whereArrayContains("members", uid).get().await().documents
+            .map(::groupFrom).filter { it.status != "deleted" }.sortedByDescending { it.createdAt }
+        val previewIds = groups.flatMap { it.members.take(4) }.distinct()
+        val profiles = previewIds.map { member -> async { member to runCatching { publicProfile(member) }.getOrElse { UserProfile(uid = member) } } }.awaitAll().toMap()
+        groups.map { group -> group.copy(memberProfiles = group.members.associateWith { profiles[it] ?: UserProfile(uid = it) }) }
+    }
 
     suspend fun createGroup(name: String, description: String, category: String): String {
         require(name.trim().isNotEmpty() && name.length <= 100) { "Group name is required and must be at most 100 characters." }

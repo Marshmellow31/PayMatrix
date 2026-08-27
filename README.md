@@ -16,19 +16,19 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 > This README is intentionally exhaustive: it documents every feature, how it works internally, the data model, the security model, and how to run the project. If you are evaluating the code, also read [`SECURITY_AND_CODE_REVIEW.md`](./SECURITY_AND_CODE_REVIEW.md) — it lists known security issues and a prioritised improvement plan.
 
 > [!WARNING]
-> **Device-testing release: native Android app.** The separate Capacitor/Android project lives in
-> [`android app/`](./android%20app/); the existing React PWA remains in [`frontend/`](./frontend/)
-> and its Vercel configuration is unchanged. The signed Android 1.2.5 APK is available for direct
-> device testing, but it is not yet a Play Store release.
+> **Device-testing release: native Android app.** The Kotlin/Compose app lives in
+> [`native-android/`](./native-android/). The previous Capacitor client remains in
+> [`android app/`](./android%20app/) and its signed v1.2.5 GitHub release remains available.
+> Version 2.0.1 may contain bugs; please report them through GitHub Issues.
 
-[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 1.2.5**](https://github.com/Marshmellow31/PayMatrix/releases/download/v1.2.5/paymatrix-1.2.5.apk) · [**Release notes**](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5)
+[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 2.0.1**](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.0.1/paymatrix-native-2.0.1.apk) · [**Keep/download v1.2.5**](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5)
 
 ### Latest Android release
 
-- Version: **1.2.5** (`versionCode 10205`)
+- Version: **2.0.1** (`versionCode 20100`)
 - Package: `com.paymatrix.app`
-- Signed APK: [`paymatrix-1.2.5.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v1.2.5/paymatrix-1.2.5.apk)
-- SHA-256: `9e8a2971f2a6b02ad2cb43cc07d126d6149b90bfb168198946f628265763aac9`
+- Signed APK: [`paymatrix-native-2.0.1.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.0.1/paymatrix-native-2.0.1.apk)
+- SHA-256: `5446994f377951ffbd11111264022187d497c35fddaec1a5d59d2b13905b407c`
 
 This is a direct-install device-testing release, not a Play Store publication. Android may ask you
 to allow installation from the browser or file manager used to open the APK.
@@ -403,26 +403,23 @@ firebase deploy --only functions
 firebase deploy --only firestore:rules            # publish security rules
 ```
 
-### Native Android app (work in progress)
+### Native Android app
 
-The Android wrapper is deliberately isolated in [`android app/`](./android%20app/), so web/PWA
-development and Vercel deployment continue to use `frontend/` unchanged. It uses native Android
-Google account selection rather than the web login popup, supports Android system Back navigation,
-and is built through Gradle/Capacitor for the device refresh rate.
+The Kotlin/Compose client is isolated in [`native-android/`](./native-android/), so web/PWA and
+Capacitor source remain intact. It uses native Android Google account selection, navigation,
+camera permission, notifications, lazy lists, and lifecycle handling without a WebView.
 
 ```powershell
-cd "android app"
-npm ci
-npm run doctor
-npm run android:apk
+cd native-android
+$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+.\gradlew.bat testDebugUnitTest assembleRelease
 ```
 
-The debug APK is generated locally at
-`android app/android/app/build/outputs/apk/debug/app-debug.apk`. Generated build output remains
-ignored, while the signed direct-testing APK and checksum are attached to the
-[`v1.2.5` GitHub release](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5) and mirrored
-under [`releases/`](./releases/). Follow
-[`android app/README.md`](./android%20app/README.md) and its numbered docs for device setup.
+The signed v2.0.1 APK upgrades v1.2.5 in place because package, release certificate, and Firebase
+identity are compatible and its version code is higher. The old
+[`v1.2.5` release](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5) remains available.
+Follow [`native-android/README.md`](./native-android/README.md) and its learning/verification docs.
 
 **Firebase Spark-plan status:** native Google sign-in and Firestore work with the existing Firebase
 project. Cloud Functions cannot be newly deployed on the Spark plan, so Android native push delivery

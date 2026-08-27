@@ -42,12 +42,7 @@ fun DashboardScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostC
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { AccountCard(state) }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                BalanceCard("You owe", state.summary.totalOwePaise, positive = false, Modifier.weight(1f))
-                BalanceCard("You are owed", state.summary.totalOwedPaise, positive = true, Modifier.weight(1f))
-            }
-        }
+        item { BalancesPanel(state) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (state.flags.billScanning) QuickAction(Icons.Default.CameraAlt, "Scan bill", "Use a receipt photo", true, Modifier.weight(1f)) { nav.navigate("scanner") }
@@ -56,12 +51,10 @@ fun DashboardScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostC
                 }
             }
         }
-        if (state.flags.settlements) item {
-            SectionTitle("Settle up", "Outstanding balances") {
-                TextButton(onClick = { nav.navigate("groups") }) { Text("View groups", color = MutedText, fontSize = 12.sp) }
-            }
-        }
         val unsettled = if (state.flags.settlements) state.groups.filter { kotlin.math.abs(state.summary.groupBalances[it.id] ?: 0L) > 1L } else emptyList()
+        if (state.flags.settlements) item {
+            SectionTitle("Settlements", "${unsettled.size} active balance${if (unsettled.size == 1) "" else "s"}")
+        }
         if (state.flags.settlements && unsettled.isEmpty()) item { ObsidianCard { Text("You're all settled", color = Color.White, fontWeight = FontWeight.SemiBold); Text("Nothing needs your attention right now.", color = QuietText, fontSize = 12.sp) } }
         else if (state.flags.settlements) items(unsettled.take(3), key = { it.id }) { group -> SettlementGroupRow(group, state.summary.groupBalances[group.id] ?: 0L) { nav.navigate("group/${group.id}") } }
         item {
@@ -125,6 +118,21 @@ private fun AccountCard(state: PayMatrixState) {
 }
 
 @Composable
+private fun BalancesPanel(state: PayMatrixState) {
+    ObsidianCard(contentPadding = PaddingValues(20.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) { Text("Balances", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp); Text("Across all groups", color = QuietText, fontSize = 12.sp) }
+            Icon(Icons.Default.MonitorHeart, null, tint = Color.White.copy(alpha = .25f), modifier = Modifier.size(21.dp))
+        }
+        Row(Modifier.padding(top = 12.dp).height(IntrinsicSize.Min)) {
+            Column(Modifier.weight(1f).padding(end = 18.dp)) { Text("You owe", color = MutedText, fontSize = 12.sp); Spacer(Modifier.height(7.dp)); Text(Money.format(state.summary.totalOwePaise), color = Color(0xFFFF8F96), fontSize = 25.sp, fontWeight = FontWeight.Bold) }
+            VerticalDivider(color = Hairline)
+            Column(Modifier.weight(1f).padding(start = 18.dp)) { Text("You are owed", color = MutedText, fontSize = 12.sp); Spacer(Modifier.height(7.dp)); Text(Money.format(state.summary.totalOwedPaise), color = Color(0xFF54DDAF), fontSize = 25.sp, fontWeight = FontWeight.Bold) }
+        }
+    }
+}
+
+@Composable
 private fun QuickAction(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, light: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Row(modifier.height(94.dp).clip(RoundedCornerShape(18.dp)).background(if (light) Color.White else ObsidianSurface).border(1.dp, if (light) Color.Transparent else Hairline, RoundedCornerShape(18.dp)).clickable(onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(39.dp).clip(RoundedCornerShape(12.dp)).background(if (light) Color.Black.copy(alpha = .06f) else Color.White.copy(alpha = .06f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = if (light) Color.Black else Color.White, modifier = Modifier.size(18.dp)) }
@@ -136,7 +144,7 @@ private fun QuickAction(icon: androidx.compose.ui.graphics.vector.ImageVector, t
 private fun SettlementGroupRow(group: Group, amount: Long, onClick: () -> Unit) {
     ObsidianCard(Modifier.clickable(onClick = onClick)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(40.dp).clip(RoundedCornerShape(13.dp)).background(Color.White.copy(alpha = .05f)), contentAlignment = Alignment.Center) { Icon(categoryIcon(group.category), null, tint = MutedText, modifier = Modifier.size(18.dp)) }
+            Box(Modifier.size(44.dp).clip(CircleShape).background(categoryColor(group.category).copy(alpha = .13f)).border(1.dp, categoryColor(group.category).copy(alpha = .25f), CircleShape), contentAlignment = Alignment.Center) { Text(group.name.firstOrNull()?.uppercase() ?: "#", color = categoryColor(group.category), fontWeight = FontWeight.Bold) }
             Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(group.name, color = Color.White, fontWeight = FontWeight.SemiBold); Text(if (amount < 0) "You owe" else "You are owed", color = QuietText, fontSize = 11.sp) }
             MoneyText(amount)
         }
@@ -145,8 +153,8 @@ private fun SettlementGroupRow(group: Group, amount: Long, onClick: () -> Unit) 
 
 @Composable
 private fun DashboardGroup(group: Group, onClick: () -> Unit) {
-    Column(Modifier.width(68.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(50.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF171717)).border(1.dp, Hairline, RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) { Icon(categoryIcon(group.category), null, tint = MutedText, modifier = Modifier.size(20.dp)) }
-        Spacer(Modifier.height(7.dp)); Text(group.name, color = MutedText, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Column(Modifier.width(82.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(54.dp).clip(RoundedCornerShape(18.dp)).background(categoryColor(group.category).copy(alpha = .12f)).border(1.dp, categoryColor(group.category).copy(alpha = .24f), RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) { Icon(categoryIcon(group.category), null, tint = categoryColor(group.category), modifier = Modifier.size(22.dp)) }
+        Spacer(Modifier.height(7.dp)); Text(group.name, color = Color.White.copy(alpha = .72f), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

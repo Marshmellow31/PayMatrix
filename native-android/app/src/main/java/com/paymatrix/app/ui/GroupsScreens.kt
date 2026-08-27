@@ -43,14 +43,13 @@ fun GroupsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCont
     var join by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { vm.loadGroups(); vm.loadFriends() }
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 100.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            item { PageTitle("Groups", "Manage shared expenses and collective balances") }
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp, 22.dp, 20.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PrimaryAction("Establish group", { create = true }, Modifier.weight(1f), icon = { Icon(Icons.Default.Add, null, Modifier.size(17.dp)) })
-                    SecondaryAction("Join", { join = true }, icon = { Icon(Icons.Default.Link, null, Modifier.size(17.dp)) })
+                PageTitle("Groups", "Manage shared expenses and collective balances") {
+                    SecondaryAction("NEW COHORT", { create = true }, icon = { Icon(Icons.Default.Add, null, Modifier.size(17.dp)) })
                 }
             }
+            item { TextButton(onClick = { join = true }) { Icon(Icons.Default.Link, null, Modifier.size(16.dp)); Spacer(Modifier.width(7.dp)); Text("JOIN WITH INVITE CODE", fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) } }
             if (state.groups.isEmpty()) item { EmptyState("No active groups", "Create a cohort or join one using an invite code.") }
             items(state.groups, key = { it.id }) { group -> GroupListCard(group, state.summary.groupBalances[group.id] ?: 0L) { nav.navigate("group/${group.id}") } }
         }
@@ -62,16 +61,23 @@ fun GroupsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCont
 
 @Composable
 private fun GroupListCard(group: Group, balance: Long, onClick: () -> Unit) {
-    ObsidianCard(Modifier.clickable(onClick = onClick), PaddingValues(20.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).background(Color.White.copy(alpha = .045f)), contentAlignment = Alignment.Center) { Icon(categoryIcon(group.category), null, tint = MutedText) }
-            Spacer(Modifier.width(14.dp))
+    ObsidianCard(Modifier.clickable(onClick = onClick), PaddingValues(24.dp)) {
+        Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Text(group.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(4.dp)); Text("${group.category.uppercase()} · ${group.members.size} MEMBERS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                Text(group.name, color = Color.White, fontWeight = FontWeight.Black, fontSize = 21.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(6.dp)); Text("${group.category.uppercase()}  •  ${group.members.size} MEMBERS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
             }
-            Column(horizontalAlignment = Alignment.End) { Text("YOUR BALANCE", color = QuietText, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp); Spacer(Modifier.height(4.dp)); MoneyText(balance) }
-            Spacer(Modifier.width(4.dp)); Icon(Icons.Default.ChevronRight, null, tint = Color.White.copy(alpha = .35f))
+            Column(horizontalAlignment = Alignment.End) {
+                Text("●  YOUR BALANCE", color = Color.White.copy(alpha = .68f), fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Spacer(Modifier.height(5.dp))
+                Text("${if (balance >= 0) "+" else "−"}${Money.format(kotlin.math.abs(balance))}", color = if (balance < 0) Color(0xFFFF737B) else Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp)
+            }
+        }
+        Spacer(Modifier.height(22.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AvatarStack(group.members, group.memberProfiles, 36)
+            Spacer(Modifier.weight(1f))
+            Icon(Icons.Default.ChevronRight, "Open ${group.name}", tint = Color.White.copy(alpha = .7f))
         }
     }
 }
@@ -88,47 +94,52 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
     var menu by remember { mutableStateOf(false) }
     var leaveConfirm by remember { mutableStateOf(false) }
     var deleteConfirm by remember { mutableStateOf(false) }
+    var mineOnly by remember { mutableStateOf(false) }
 
-    Scaffold(
-        containerColor = CanvasBlack,
-        topBar = {
-            BackBar(snapshot?.group?.name ?: "Group", nav) {
-                IconButton(onClick = { addMember = true }) { Icon(Icons.Default.PersonAdd, "Add member") }
-                Box { IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "Group menu") }; DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem({ Text("Edit group") }, { menu = false; editGroup = true }, leadingIcon = { Icon(Icons.Default.Edit, null) })
-                    DropdownMenuItem({ Text("Share invite") }, {
-                        menu = false
-                        val link = "https://pay-matrix.vercel.app/join/${snapshot?.group?.inviteCode.orEmpty()}"
-                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, link) }, "Share group invite"))
-                    }, leadingIcon = { Icon(Icons.Default.Share, null) })
-                    DropdownMenuItem({ Text("Leave group") }, { menu = false; leaveConfirm = true }, leadingIcon = { Icon(Icons.Default.Logout, null) })
-                    if (snapshot?.group?.admin == state.user?.uid) DropdownMenuItem({ Text("Delete group", color = Negative) }, { menu = false; deleteConfirm = true }, leadingIcon = { Icon(Icons.Default.DeleteOutline, null, tint = Negative) })
-                } }
+    Box(Modifier.fillMaxSize()) {
+        if (snapshot == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
+        else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp, 22.dp, 20.dp, 120.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            item {
+                GroupHero(
+                    snapshot = snapshot,
+                    onRecord = { nav.navigate("expense/$id") },
+                    onSettle = { settle = true },
+                    onAddMember = { addMember = true },
+                    onMenu = { menu = true },
+                )
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = ModalSurface) {
+                        DropdownMenuItem({ Text("Edit group") }, { menu = false; editGroup = true }, leadingIcon = { Icon(Icons.Default.Edit, null) })
+                        DropdownMenuItem({ Text("Share invite") }, {
+                            menu = false
+                            val link = "https://pay-matrix.vercel.app/join/${snapshot.group.inviteCode}"
+                            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, link) }, "Share group invite"))
+                        }, leadingIcon = { Icon(Icons.Default.Share, null) })
+                        DropdownMenuItem({ Text("Leave group") }, { menu = false; leaveConfirm = true }, leadingIcon = { Icon(Icons.Default.Logout, null) })
+                        if (snapshot.group.admin == state.user?.uid) DropdownMenuItem({ Text("Delete group", color = Negative) }, { menu = false; deleteConfirm = true }, leadingIcon = { Icon(Icons.Default.DeleteOutline, null, tint = Negative) })
+                    }
+                }
             }
-        },
-        floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (state.flags.billScanning) SmallFloatingActionButton(onClick = { nav.navigate("scanner") }, containerColor = ObsidianSurface, contentColor = Color.White) { Icon(Icons.Default.DocumentScanner, "Scan bill") }
-                FloatingActionButton(onClick = { nav.navigate("expense/$id") }, containerColor = Color.White, contentColor = Color.Black) { Icon(Icons.Default.Add, "Add expense") }
-            }
-        },
-    ) { padding ->
-        if (snapshot == null) Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
-        else LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            item { GroupHero(snapshot, state.user?.uid.orEmpty(), state.flags.settlements, onSettle = { settle = true }) }
             item {
                 ScrollableTabRow(selectedTabIndex = tab, containerColor = CanvasBlack, contentColor = Color.White, edgePadding = 14.dp, divider = {}, indicator = { positions -> TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(positions[tab]), color = Color.White) }) {
-                    listOf("Overview", "Expenses", "Members", "Insights", "Activity").forEachIndexed { index, label -> Tab(tab == index, { tab = index }, text = { Text(label, fontSize = 12.sp, fontWeight = if (tab == index) FontWeight.Bold else FontWeight.Medium) }) }
+                    listOf("Expenses", "Members", "Logs", "Insights").forEachIndexed { index, label -> Tab(tab == index, { tab = index }, text = { Text(label, fontSize = 12.sp, fontWeight = if (tab == index) FontWeight.Bold else FontWeight.Medium) }) }
                 }
             }
             when (tab) {
-                0 -> overviewItems(snapshot, state, vm, nav, state.flags.settlements, { settle = true })
-                1 -> expenseItems(snapshot, vm, nav)
-                2 -> memberItems(snapshot, state, vm, { addMember = true })
-                3 -> insightItems(snapshot)
-                else -> activityItems(snapshot, vm)
+                0 -> expenseItems(snapshot, state.user?.uid.orEmpty(), mineOnly, { mineOnly = !mineOnly }, vm, nav)
+                1 -> memberItems(snapshot, state, vm, { addMember = true })
+                2 -> activityItems(snapshot, vm)
+                else -> insightItems(snapshot)
             }
         }
+        if (state.flags.billScanning && snapshot != null) ExtendedFloatingActionButton(
+            onClick = { nav.navigate("scanner") },
+            icon = { Icon(Icons.Default.DocumentScanner, null) },
+            text = { Text("SCAN BILL", fontWeight = FontWeight.Bold, letterSpacing = 1.sp) },
+            containerColor = ObsidianSurface,
+            contentColor = Color.White,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+        )
     }
 
     if (settle && snapshot != null) SettlementDialog(snapshot, state.user?.uid.orEmpty(), { settle = false }) { payee, amount, note -> vm.settle(id, payee, amount, note) { settle = false } }
@@ -139,17 +150,24 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
 }
 
 @Composable
-private fun GroupHero(snapshot: GroupSnapshot, uid: String, settlementsEnabled: Boolean, onSettle: () -> Unit) {
-    val mine = snapshot.balances[uid] ?: 0L
-    val total = snapshot.expenses.filter { it.status != "deleted" }.sumOf { it.amountPaise }
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Column(Modifier.weight(1f)) { Text("YOUR POSITION", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp); MoneyText(mine, large = true); Text(if (mine > 1) "You are owed" else if (mine < -1) "You owe" else "All settled", color = QuietText, fontSize = 11.sp) }
-            if (settlementsEnabled) PrimaryAction("Settle up", onSettle, icon = { Icon(Icons.Default.Payments, null, Modifier.size(16.dp)) })
+private fun GroupHero(snapshot: GroupSnapshot, onRecord: () -> Unit, onSettle: () -> Unit, onAddMember: () -> Unit, onMenu: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(32.dp)).background(Color(0xFF121212)).border(1.dp, Hairline, RoundedCornerShape(32.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(58.dp).clip(RoundedCornerShape(18.dp)).background(categoryColor(snapshot.group.category).copy(alpha = .12f)).border(1.dp, categoryColor(snapshot.group.category).copy(alpha = .25f), RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) {
+                Icon(categoryIcon(snapshot.group.category), null, tint = categoryColor(snapshot.group.category), modifier = Modifier.size(30.dp))
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(snapshot.group.name.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(5.dp))
+                Text("${snapshot.group.category.uppercase()}  •  ${snapshot.group.members.size} MEMBERS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+            }
+            IconButton(onClick = onAddMember, modifier = Modifier.border(1.dp, Hairline, CircleShape)) { Icon(Icons.Default.PersonAdd, "Add member", tint = MutedText) }
+            IconButton(onClick = onMenu) { Icon(Icons.Default.MoreVert, "Group menu", tint = MutedText) }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GroupMetric("TOTAL SPENT", Money.format(total), Icons.Default.TrendingUp, Modifier.weight(1f))
-            GroupMetric("ACTIVE MEMBERS", "${snapshot.group.members.size} People", Icons.Default.People, Modifier.weight(1f))
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            PrimaryAction("RECORD", onRecord, Modifier.weight(1f), icon = { Icon(Icons.Default.Add, null) })
+            SecondaryAction("SETTLE", onSettle, Modifier.weight(1f), icon = { Icon(Icons.Default.AccountBalanceWallet, null) })
         }
     }
 }
@@ -172,9 +190,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.overviewItems(snapsho
     items(active, key = { it.id }) { expense -> ExpenseRow(expense, snapshot, { nav.navigate("expense/${snapshot.group.id}?expenseId=${expense.id}") }, { vm.archiveExpense(expense) }) }
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.expenseItems(snapshot: GroupSnapshot, vm: PayMatrixViewModel, nav: NavHostController) {
-    item { SectionTitle("Expenses", "${snapshot.expenses.count { it.status != "deleted" }} active") }
-    val active = snapshot.expenses.filter { it.status != "deleted" && it.status != "archived" }
+private fun androidx.compose.foundation.lazy.LazyListScope.expenseItems(snapshot: GroupSnapshot, uid: String, mineOnly: Boolean, onToggleMine: () -> Unit, vm: PayMatrixViewModel, nav: NavHostController) {
+    item { SectionTitle("CHRONICLE") { SecondaryAction(if (mineOnly) "VIEW ALL" else "VIEW YOURS", onToggleMine, icon = { Icon(Icons.Default.PersonOutline, null, Modifier.size(15.dp)) }) } }
+    val active = snapshot.expenses.filter { it.status != "deleted" && it.status != "archived" && (!mineOnly || it.paidBy == uid || it.participants.contains(uid)) }
     if (active.isEmpty()) item { EmptyState("No expenses", "Tap + to record the first one.") }
     items(active, key = { it.id }) { expense -> ExpenseRow(expense, snapshot, { nav.navigate("expense/${snapshot.group.id}?expenseId=${expense.id}") }, { vm.archiveExpense(expense) }) }
 }
@@ -183,9 +201,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.expenseItems(snapshot
     var menu by remember { mutableStateOf(false) }
     ObsidianCard {
         Row(verticalAlignment = Alignment.Top) {
-            Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = .06f)), contentAlignment = Alignment.Center) { Icon(categoryIcon(expense.category), null, tint = MutedText, modifier = Modifier.size(18.dp)) }
+            Box(Modifier.size(48.dp).clip(CircleShape).background(categoryColor(expense.category).copy(alpha = .12f)), contentAlignment = Alignment.Center) { Icon(categoryIcon(expense.category), null, tint = categoryColor(expense.category), modifier = Modifier.size(22.dp)) }
             Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(expense.title, color = Color.White, fontWeight = FontWeight.Bold); Text(shortDate(expense.date.ifBlank { expense.createdAt }), color = QuietText, fontSize = 10.sp); Spacer(Modifier.height(8.dp)); Text("Paid by ${snapshot.profiles[expense.paidBy]?.name ?: expense.paidByName}", color = MutedText, fontSize = 11.sp) }
-            Column(horizontalAlignment = Alignment.End) { Text(Money.format(expense.amountPaise), color = Color.White, fontWeight = FontWeight.Bold); Text(expense.category.uppercase(), color = QuietText, fontSize = 8.sp, fontWeight = FontWeight.Bold); Box { IconButton(onClick = { menu = true }, Modifier.size(32.dp)) { Icon(Icons.Default.MoreHoriz, "Expense menu", tint = MutedText) }; DropdownMenu(menu, { menu = false }) { DropdownMenuItem({ Text("Edit") }, { menu = false; onEdit() }, leadingIcon = { Icon(Icons.Default.Edit, null) }); DropdownMenuItem({ Text("Delete", color = Negative) }, { menu = false; onDelete() }, leadingIcon = { Icon(Icons.Default.DeleteOutline, null, tint = Negative) }) } } }
+            Column(horizontalAlignment = Alignment.End) { Text(Money.format(expense.amountPaise), color = Color.White, fontWeight = FontWeight.Black, fontSize = 17.sp); Box { IconButton(onClick = { menu = true }, Modifier.size(32.dp)) { Icon(Icons.Default.MoreHoriz, "Expense menu", tint = MutedText) }; DropdownMenu(menu, { menu = false }, containerColor = ModalSurface) { DropdownMenuItem({ Text("Edit") }, { menu = false; onEdit() }, leadingIcon = { Icon(Icons.Default.Edit, null) }); DropdownMenuItem({ Text("Delete", color = Negative) }, { menu = false; onDelete() }, leadingIcon = { Icon(Icons.Default.DeleteOutline, null, tint = Negative) }) } } }
         }
     }
 }
@@ -231,7 +249,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.activityItems(snapsho
 @Composable
 private fun CreateGroupDialog(state: PayMatrixState, onDismiss: () -> Unit, onConfirm: (String, String, String, List<String>) -> Unit) {
     var name by remember { mutableStateOf("") }; var description by remember { mutableStateOf("") }; var category by remember { mutableStateOf("General") }; val selected = remember { mutableStateMapOf<String, Boolean>() }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Establish group") }, text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Establish group") }, text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         FormField(name, { name = it }, "Cohort name"); FormField(description, { description = it }, "Description", singleLine = false)
         Text("CATEGORY", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) { items(categories) { value -> FilterChip(category == value, { category = value }, { Text(value) }, leadingIcon = { Icon(categoryIcon(value), null, Modifier.size(15.dp)) }) } }
@@ -242,13 +260,13 @@ private fun CreateGroupDialog(state: PayMatrixState, onDismiss: () -> Unit, onCo
 @Composable
 private fun EditGroupDialog(group: Group, onDismiss: () -> Unit, onConfirm: (String, String, String) -> Unit) {
     var name by remember { mutableStateOf(group.name) }; var description by remember { mutableStateOf(group.description) }; var category by remember { mutableStateOf(group.category) }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Edit group") }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { FormField(name, { name = it }, "Cohort name"); FormField(description, { description = it }, "Description", singleLine = false); Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) { categories.forEach { value -> FilterChip(category == value, { category = value }, { Text(value) }) } } } }, confirmButton = { Button(onClick = { onConfirm(name, description, category) }, enabled = name.isNotBlank()) { Text("Save changes") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Edit group") }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { FormField(name, { name = it }, "Cohort name"); FormField(description, { description = it }, "Description", singleLine = false); Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) { categories.forEach { value -> FilterChip(category == value, { category = value }, { Text(value) }) } } } }, confirmButton = { Button(onClick = { onConfirm(name, description, category) }, enabled = name.isNotBlank()) { Text("Save changes") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }
 
 @Composable
 private fun AddMemberDialog(snapshot: GroupSnapshot, friends: List<UserProfile>, onDismiss: () -> Unit, onAdd: (String) -> Unit) {
     val available = friends.filter { it.uid !in snapshot.group.members }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Add member") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { Text("SELECT FROM FRIENDS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); if (available.isEmpty()) Text("No available friends. Connect on the Friends page first.", color = MutedText) else available.forEach { friend -> Row(Modifier.fillMaxWidth().clickable { onAdd(friend.uid) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { UserAvatar(friend, 38); Spacer(Modifier.width(10.dp)); Text(friend.name, Modifier.weight(1f)); Icon(Icons.Default.Add, null) } }; HorizontalDivider(color = Hairline); Text("Invite code", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); Text(snapshot.group.inviteCode.chunked(4).joinToString(" "), color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 2.sp) } }, confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text("Done") } })
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Add member") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { Text("SELECT FROM FRIENDS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); if (available.isEmpty()) Text("No available friends. Connect on the Friends page first.", color = MutedText) else available.forEach { friend -> Row(Modifier.fillMaxWidth().clickable { onAdd(friend.uid) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { UserAvatar(friend, 38); Spacer(Modifier.width(10.dp)); Text(friend.name, Modifier.weight(1f)); Icon(Icons.Default.Add, null) } }; HorizontalDivider(color = Hairline); Text("Invite code", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); Text(snapshot.group.inviteCode.chunked(4).joinToString(" "), color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 2.sp) } }, confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text("Done") } })
 }
 
 @Composable
@@ -258,7 +276,7 @@ private fun SettlementDialog(snapshot: GroupSnapshot, currentUid: String, onDism
     var amount by remember(suggested) { mutableStateOf(suggested?.let { "%.2f".format(it / 100.0) }.orEmpty()) }
     var note by remember { mutableStateOf("Settled up") }
     val context = LocalContext.current
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Settle up") }, text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Settle up") }, text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Choose who you paid", color = MutedText)
         snapshot.group.members.filter { it != currentUid }.forEach { uid -> Row(Modifier.fillMaxWidth().clickable { payee = uid }, verticalAlignment = Alignment.CenterVertically) { RadioButton(payee == uid, { payee = uid }); UserAvatar(snapshot.profiles[uid], 30); Spacer(Modifier.width(8.dp)); Text(snapshot.profiles[uid]?.name ?: "Member") } }
         FormField(amount, { amount = it }, "Amount in ₹"); FormField(note, { note = it }, "Note")
@@ -271,10 +289,10 @@ private fun SettlementDialog(snapshot: GroupSnapshot, currentUid: String, onDism
 @Composable
 fun TextEntryDialog(title: String, label: String, confirm: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var value by remember { mutableStateOf("") }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { FormField(value, { value = it }, label) }, confirmButton = { Button(onClick = { onConfirm(value) }, enabled = value.isNotBlank()) { Text(confirm) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text(title) }, text = { FormField(value, { value = it }, label) }, confirmButton = { Button(onClick = { onConfirm(value) }, enabled = value.isNotBlank()) { Text(confirm) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }
 
 @Composable
 fun ConfirmDialog(title: String, message: String, confirm: String, onDismiss: () -> Unit, destructive: Boolean = false, onConfirm: () -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Text(message, color = MutedText) }, confirmButton = { Button(onClick = onConfirm, colors = if (destructive) ButtonDefaults.buttonColors(containerColor = Negative, contentColor = Color.Black) else ButtonDefaults.buttonColors()) { Text(confirm) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text(title) }, text = { Text(message, color = MutedText) }, confirmButton = { Button(onClick = onConfirm, colors = if (destructive) ButtonDefaults.buttonColors(containerColor = Negative, contentColor = Color.Black) else ButtonDefaults.buttonColors()) { Text(confirm) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }

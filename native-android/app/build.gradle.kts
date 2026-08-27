@@ -23,13 +23,12 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        // A separate package keeps the beta installed beside the live
-        // Capacitor application (com.paymatrix.app) until parity is proven.
-        applicationId = "com.paymatrix.app.native.beta"
+        // Retain the production package so Android upgrades v1.2.5 in place.
+        applicationId = "com.paymatrix.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 20000
-        versionName = "2.0.0-beta"
+        versionCode = 20100
+        versionName = "2.0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         buildConfigField("String", "SCAN_API_URL", "\"https://pay-matrix.vercel.app/api/scan-bill\"")
@@ -101,7 +100,6 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.17.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
-    implementation("com.google.firebase:firebase-functions")
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-storage")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")

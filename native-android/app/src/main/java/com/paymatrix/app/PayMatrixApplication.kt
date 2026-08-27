@@ -7,8 +7,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.paymatrix.app.data.AuthRepository
 import com.paymatrix.app.data.FirebaseRepository
-import com.paymatrix.app.data.AdminRepository
-import com.google.firebase.functions.FirebaseFunctions
 
 class PayMatrixApplication : Application() {
     lateinit var container: AppContainer
@@ -23,12 +21,11 @@ class PayMatrixApplication : Application() {
                 .build()
         }
         val auth = AuthRepository(FirebaseAuth.getInstance(), firestore)
-        container = AppContainer(auth, FirebaseRepository(firestore, auth), AdminRepository(firestore, FirebaseFunctions.getInstance(), auth))
+        container = AppContainer(auth, FirebaseRepository(firestore, auth))
     }
 }
 
 data class AppContainer(
     val auth: AuthRepository,
     val repository: FirebaseRepository,
-    val admin: AdminRepository,
 )

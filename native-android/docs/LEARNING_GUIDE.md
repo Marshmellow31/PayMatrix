@@ -1,76 +1,33 @@
-# How the native paymatrix app works
+# How the native migration works
 
-## 1. Android starts the process
+## 1. What was kept
 
-`PayMatrixApplication` initializes Firebase once and creates an `AppContainer`. The container owns repositories, so screens do not construct database objects themselves.
+Firebase is the shared backend. Both the older Capacitor client and this native client read and write the same authenticated users, groups, expenses, settlements, logs, and feature configuration. The financial rules and Firestore field meanings therefore stay compatible.
 
-`MainActivity` creates the Compose UI, enables edge-to-edge drawing and requests the fastest display mode with the device's current resolution.
+## 2. What was replaced
 
-## 2. Compose describes the screen
+The old APK displayed React inside Android's WebView through Capacitor. The new APK renders each screen with Jetpack Compose. Navigation, lists, dialogs, camera access, notifications, Google credentials, image loading, caching, and lifecycle handling now use Android APIs directly.
 
-A composable function describes what should appear for the current state. It does not manually find and mutate views. When `PayMatrixState` changes, Compose recalculates affected functions and updates only changed UI nodes.
+## 3. Data flow
 
-Stable list keys use Firestore document IDs. This lets Compose reuse rows rather than recreate every item during scrolling.
+`Compose screen → PayMatrixViewModel → FirebaseRepository/AuthRepository → Firebase`
 
-## 3. The ViewModel survives configuration changes
+Repository results are converted into Kotlin models. The ViewModel exposes one observable screen state. Compose redraws only the UI affected by a state change. Firestore listeners refresh home/group state, while Coil loads and caches Google avatar URLs.
 
-`PayMatrixViewModel` holds one immutable `PayMatrixState` in a `StateFlow`. Screens collect it with lifecycle awareness. A rotation recreates the Activity but retains the ViewModel and its current state.
+## 4. Why the upgrade works
 
-The ViewModel translates user intent—"create group", "save expense", "accept friend"—into repository calls. It also turns exceptions into one user-visible error surface.
+Android accepts an update only when:
 
-## 4. Domain code owns financial correctness
+1. The package name is unchanged: `com.paymatrix.app`.
+2. The new APK is signed by the same release certificate as v1.2.5.
+3. The version code increases: v2.0.1 uses `20100`.
 
-Money is converted to integer paise at the form boundary. `₹100.00` becomes `10000`. Addition and allocation happen on integers, avoiding floating-point accumulation.
+Because those conditions hold, `adb install -r` and normal Android installation can replace v1.2.5 without creating a second app entry.
 
-The allocation algorithm floors every proportional share, ranks fractional remainders, then distributes leftover paise deterministically. This guarantees that all splits add back to the exact bill total.
+## 5. Why it should feel faster
 
-`BalanceEngine` then:
+There is no JavaScript bundle startup or WebView layout pass. Compose uses lazy lists, state-driven recomposition, native image caching, and Android lifecycle integration. Real performance still depends on device hardware, network latency, Firestore query cost, and image servers, so profiling on the intended phones remains valuable.
 
-1. Credits the payer for every other participant's split.
-2. Debits each participant by that split.
-3. Applies only confirmed, non-deleted settlements.
-4. Matches the largest debtor and creditor until balances are simplified.
+## 6. Release safety
 
-These rules mirror `frontend/src/utils/balanceEngine.js` and are covered by Kotlin unit tests.
-
-## 5. Repositories isolate Firebase
-
-The UI knows about `Group`, `Expense` and `Settlement`; it does not know collection paths. `FirebaseRepository` owns paths and document compatibility.
-
-For an expense, the current Firestore rules require an audit document to exist after the write and require matching mutation IDs/types. The repository pre-generates both IDs and commits both documents with `runBatch`.
-
-Firestore's Android SDK provides a persistent local cache. Reads can be served locally, and eligible writes queue until connectivity returns. Confirmed settlements deliberately perform a server read first because the user must not finalize payment state from an unverified offline session.
-
-## 6. Google authentication
-
-Credential Manager displays accounts already present on Android. It returns a Google ID token. Firebase Auth verifies that token and creates the same Firebase session/user UID used by the web app.
-
-Two live Android registrations exist in the same Firebase project:
-
-- `com.paymatrix.app`: current Capacitor client
-- `com.paymatrix.app.native.beta`: native 2.0.0 beta client
-
-Each package and signing SHA must be registered. A package/SHA mismatch commonly appears as Google sign-in error 10.
-
-## 7. Push, camera and UPI are native
-
-- `FirebaseMessagingService` receives background messages without JavaScript.
-- Camera permission is requested only when the user taps the scanner.
-- The captured bitmap is compressed before upload and authorized with a Firebase ID token.
-- UPI uses an Android `ACTION_VIEW` intent. Intent completion is never treated as payment confirmation.
-
-## 8. Building and releasing
-
-Gradle compiles Kotlin, Compose resources and Firebase dependencies into DEX bytecode and packages them into an APK.
-
-The project intentionally uses the April 2026 stable Compose BOM because the August line requires API 37/AGP 9.1 while the established paymatrix toolchain currently compiles against API 36. AGP 8.13.2 is used because it includes the R8 version required for Kotlin 2.3 metadata.
-
-Debug and release both use the beta package so every native build stays separate from Capacitor. Debug adds `-dev` to the displayed version. Release enables R8/resource shrinking and uses the configured paymatrix release key.
-
-For side-by-side installation Android checks that the package differs. When the native client eventually replaces Capacitor, a deliberate production migration must restore the production package and satisfy Android's three update checks:
-
-1. package name matches;
-2. signing certificate matches;
-3. new version code is higher.
-
-Firebase CLI participates only around the app: registrations/config, emulator/rules verification, and optional App Distribution upload.
+The GitHub release is published as a prerelease named `paymatrix 2.0.1`, not as beta-branded software. Its notes explicitly say it may contain bugs and link users to report them. The v1.2.5 release is not deleted or overwritten.

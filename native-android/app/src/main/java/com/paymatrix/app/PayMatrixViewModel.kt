@@ -32,13 +32,6 @@ data class PayMatrixState(
     val expenseShares: List<ExpenseShare> = emptyList(),
     val flags: FeatureFlags = FeatureFlags(),
     val billScan: BillScanResult? = null,
-    val isAdmin: Boolean = false,
-    val adminStats: AdminStats = AdminStats(),
-    val adminUsers: List<AdminUser> = emptyList(),
-    val adminGroups: List<AdminGroup> = emptyList(),
-    val adminNotifications: List<AdminRecord> = emptyList(),
-    val adminSecurity: List<AdminRecord> = emptyList(),
-    val adminAiRequests: List<AdminRecord> = emptyList(),
     val loading: Boolean = false,
     val loadingLabel: String = "",
     val message: String? = null,
@@ -88,8 +81,7 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
         val summary = async { container.repository.dashboardSummary(groups) }
         val notifications = async { container.repository.notifications() }
         val flags = async { runCatching { container.repository.featureFlags() }.getOrDefault(FeatureFlags()) }
-        val admin = async { runCatching { container.auth.isAdmin() }.getOrDefault(false) }
-        _state.value = _state.value.copy(groups = groups, summary = summary.await(), notifications = notifications.await(), flags = flags.await(), isAdmin = admin.await())
+        _state.value = _state.value.copy(groups = groups, summary = summary.await(), notifications = notifications.await(), flags = flags.await())
     }
 
     fun loadGroups() = action("Loading groups") {
@@ -183,19 +175,6 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setBillScan(result: BillScanResult?) { _state.value = _state.value.copy(billScan = result) }
     fun exportData(done: (String) -> Unit) = action("Preparing your export") { done(container.repository.exportMyData()) }
-
-    fun loadAdmin() = action("Loading admin console") {
-        require(_state.value.isAdmin) { "Admin access required." }
-        coroutineScope {
-            val stats = async { container.admin.stats() }; val users = async { container.admin.users() }; val groups = async { container.admin.groups() }
-            val notifications = async { container.admin.notificationHistory() }; val security = async { container.admin.securityLogs() }; val ai = async { container.admin.aiRequests() }
-            _state.value = _state.value.copy(adminStats = stats.await(), adminUsers = users.await(), adminGroups = groups.await(), adminNotifications = notifications.await(), adminSecurity = security.await(), adminAiRequests = ai.await())
-        }
-    }
-    fun adminManageUser(uid: String, operation: String) = action("Updating user") { container.admin.manageUser(uid, operation); _state.value = _state.value.copy(adminUsers = container.admin.users(), message = "User action completed") }
-    fun adminManageGroup(id: String, delete: Boolean) = action(if (delete) "Deleting group" else "Archiving group") { container.admin.manageGroup(id, delete); _state.value = _state.value.copy(adminGroups = container.admin.groups(), message = "Group action completed") }
-    fun adminSetFlag(key: String, value: Boolean) = action("Updating feature flag") { container.admin.setFeatureFlag(key, value); _state.value = _state.value.copy(flags = container.repository.featureFlags(), message = "$key ${if (value) "enabled" else "disabled"}") }
-    fun adminBroadcast(title: String, body: String, url: String, targetUid: String, done: () -> Unit) = action("Sending notification") { container.admin.broadcast(title, body, url, targetUid); _state.value = _state.value.copy(adminNotifications = container.admin.notificationHistory(), message = "Notification sent"); done() }
 
     private fun startHomeRealtime() {
         homeRealtimeJob?.cancel()

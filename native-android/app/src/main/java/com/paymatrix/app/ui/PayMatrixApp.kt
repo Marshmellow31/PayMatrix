@@ -83,7 +83,7 @@ fun PayMatrixApp(viewModel: PayMatrixViewModel, deepLink: Uri?) {
                 composable("activity") { MainShell("", state, nav) { ActivityScreen(state, viewModel, nav) } }
                 composable("analytics") { MainShell("", state, nav) { if (state.flags.analytics) AnalyticsScreen(state, viewModel, nav) else FeatureUnavailableScreen("Analytics") } }
                 composable("notifications") { MainShell("", state, nav) { NotificationsScreen(state, viewModel, nav) } }
-                composable("group/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { GroupScreen(it.arguments?.getString("id").orEmpty(), state, viewModel, nav) }
+                composable("group/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry -> MainShell("groups", state, nav) { GroupScreen(entry.arguments?.getString("id").orEmpty(), state, viewModel, nav) } }
                 composable("expense/{groupId}?expenseId={expenseId}", arguments = listOf(navArgument("groupId") { type = NavType.StringType }, navArgument("expenseId") { type = NavType.StringType; defaultValue = "" })) {
                     ExpenseFormScreen(it.arguments?.getString("groupId").orEmpty(), it.arguments?.getString("expenseId").orEmpty(), state, viewModel, nav)
                 }
@@ -92,7 +92,6 @@ fun PayMatrixApp(viewModel: PayMatrixViewModel, deepLink: Uri?) {
                 composable("scanner") { if (state.flags.billScanning) ScannerScreen(state, viewModel, nav) else Scaffold(topBar = { BackBar("Receipt scanner", nav) }) { FeatureUnavailableScreen("Receipt scanning", Modifier.padding(it)) } }
                 composable("privacy") { PrivacyScreen(nav) }
                 composable("delete-account") { DeleteAccountScreen(state, viewModel, nav) }
-                composable("admin") { AdminScreen(state, viewModel, nav) }
             }
             BusyOverlay(state.loading, state.loadingLabel)
         }
@@ -116,8 +115,6 @@ private fun LoginScreen(state: PayMatrixState, vm: PayMatrixViewModel) {
             Image(painterResource(R.drawable.logo), "paymatrix logo", Modifier.size(34.dp))
             Spacer(Modifier.width(10.dp))
             Text("PAYMATRIX", color = Color.White, fontWeight = FontWeight.Black, letterSpacing = 2.sp, fontSize = 13.sp)
-            Spacer(Modifier.width(7.dp))
-            Text("BETA", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 7.sp, letterSpacing = .8.sp, modifier = Modifier.background(Color.White, RoundedCornerShape(4.dp)).padding(horizontal = 5.dp, vertical = 3.dp))
             Spacer(Modifier.weight(1f))
             Icon(Icons.Default.VerifiedUser, null, tint = Positive, modifier = Modifier.size(14.dp))
             Spacer(Modifier.width(5.dp)); Text("Secured by Firebase", color = Positive.copy(alpha = .8f), fontWeight = FontWeight.Bold, fontSize = 10.sp)
@@ -161,7 +158,15 @@ private fun MainShell(route: String, state: PayMatrixState, nav: NavHostControll
                     val selected = route == item.route
                     NavigationBarItem(
                         selected = selected,
-                        onClick = { if (!selected) nav.navigate(item.route) { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true } },
+                        onClick = {
+                            if (!selected) {
+                                if (item.route == "dashboard") {
+                                    nav.navigate("dashboard") { popUpTo("dashboard") { inclusive = true }; launchSingleTop = true }
+                                } else {
+                                    nav.navigate(item.route) { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true }
+                                }
+                            }
+                        },
                         icon = { Icon(if (selected) item.selected else item.idle, item.label, modifier = Modifier.size(19.dp)) },
                         label = { Text(item.label, fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White, selectedTextColor = Color.White, unselectedIconColor = Color.White.copy(alpha = .35f), unselectedTextColor = Color.White.copy(alpha = .35f), indicatorColor = Color.Transparent),
@@ -194,7 +199,7 @@ private fun FeatureUnavailableScreen(name: String, modifier: Modifier = Modifier
         ObsidianCard(Modifier.padding(24.dp)) {
             Icon(Icons.Default.ToggleOff, null, tint = MutedText)
             Text("$name is paused", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text("An administrator disabled this beta feature. Your existing data has not been removed.", color = MutedText, lineHeight = 18.sp)
+            Text("This feature is temporarily unavailable. Your existing data has not been removed.", color = MutedText, lineHeight = 18.sp)
         }
     }
 }

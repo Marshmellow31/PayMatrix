@@ -1,35 +1,20 @@
-# ADR-001: Replace the Android WebView client with Kotlin and Jetpack Compose
+# ADR-001: Native Android client
 
-**Status:** Accepted for an isolated beta
-**Date:** 2026-08-26
-**Decider:** PayMatrix owner
-
-## Context
-
-The released Android APK embeds the React/Vite app through Capacitor. The backend is already Firebase and is independently usable by Android SDK clients. The goal is maximum Android UI performance without migrating user data or breaking the web PWA.
+**Status:** Accepted for production migration in v2.0.1
 
 ## Decision
 
-Build an isolated Kotlin/Jetpack Compose app in `native-android/`. Retain the Firebase project, Firestore contract and Cloud Functions, but use the dedicated package `com.paymatrix.app.native.beta` and its own Firebase Android registration. Keep `com.paymatrix.app` on Capacitor until native parity is proven.
+Use Kotlin and Jetpack Compose for the Android presentation and device integration layers while preserving the existing Firebase project, Firestore contract, authentication accounts, Cloud/API behavior, and financial calculations.
 
-## Options considered
+The native client uses the production package `com.paymatrix.app`, version code `20100`, and the v1.2.5 release key. This makes v2.0.1 an in-place Android upgrade instead of a second side-by-side application.
 
-| Option | UI performance | Existing React UI reuse | Backend reuse | Migration cost |
-|---|---:|---:|---:|---:|
-| Optimize Capacitor | Medium | Complete | Complete | Low |
-| React Native | High | Logic only | Complete | Medium-high |
-| Flutter | High | None | Complete | High |
-| Kotlin + Compose | Highest Android integration | None | Complete | High |
+## Why
+
+Compose removes the browser/WebView layer, gives direct lifecycle and navigation control, improves list rendering and startup behavior, and provides first-class Android camera, notification, deep-link, and credential APIs.
 
 ## Consequences
 
-- Native startup, scrolling, back gestures, camera, notifications and UPI intents no longer pass through a WebView bridge.
-- React components, Redux and browser-only libraries are not reusable.
-- Pure financial algorithms are ported to Kotlin and checked with parity tests.
-- The web PWA and Capacitor APK remain available until physical-device feature parity is proven.
-- Claim-protected admin operations are also available natively for parity; their Cloud Functions and authorization model remain unchanged.
-- The beta does not qualify as an in-place update. That is intentional: both APKs can remain installed and live during validation.
-
-## Release gate
-
-Do not retire the public Capacitor APK until Google sign-in, existing-account data, Firestore rules, offline recovery, FCM, camera, UPI confirmation, notch handling and 60/90/120 Hz journeys pass on physical devices.
+- The React/Capacitor source remains in the repository and the v1.2.5 GitHub release remains downloadable.
+- Installing v2.0.1 replaces an installed v1.2.5 because Android sees the same signed application with a higher version code.
+- A rollback to v1.2.5 requires uninstalling v2.0.1, which can clear local-only app data; cloud data remains in Firebase.
+- Device/account testing is still required before describing the build as bug-free.

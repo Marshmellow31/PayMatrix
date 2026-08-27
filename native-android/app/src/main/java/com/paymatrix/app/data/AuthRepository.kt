@@ -72,8 +72,6 @@ class AuthRepository(
         )
     }
 
-    suspend fun isAdmin(): Boolean = currentUser?.getIdToken(true)?.await()?.claims?.get("admin") == true
-
     suspend fun updateProfile(name: String, upiId: String, phone: String) {
         val user = currentUser ?: error("Authentication required")
         require(name.trim().isNotEmpty() && name.length <= 50) { "Name must be 1–50 characters." }

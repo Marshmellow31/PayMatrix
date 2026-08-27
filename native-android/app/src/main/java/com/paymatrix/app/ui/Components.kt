@@ -36,6 +36,23 @@ val QuietText = Color.White.copy(alpha = .38f)
 val MutedText = Color.White.copy(alpha = .58f)
 val Positive = Color(0xFF91D9B5)
 val Negative = Color(0xFFF0A5A5)
+val PrimaryBlue = Color(0xFF6C63FF)
+val ElectricBlue = Color(0xFF38BDF8)
+val AccentOrange = Color(0xFFFF7A1A)
+val AccentPink = Color(0xFFF0449A)
+val AccentPurple = Color(0xFF9B6CFF)
+val AccentEmerald = Color(0xFF35D6A0)
+val ModalSurface = Color(0xFF202020)
+
+fun categoryColor(category: String): Color = when (category.lowercase()) {
+    "travel", "trip" -> PrimaryBlue
+    "food", "dining" -> AccentOrange
+    "entertainment" -> AccentPink
+    "household", "home" -> AccentPurple
+    "sports" -> ElectricBlue
+    "shopping" -> AccentEmerald
+    else -> Color(0xFF8B8B92)
+}
 
 @Composable
 fun PageTitle(title: String, subtitle: String? = null, action: (@Composable () -> Unit)? = null) {
@@ -125,11 +142,13 @@ fun FormField(value: String, onValueChange: (String) -> Unit, label: String, mod
 
 @Composable
 fun UserAvatar(profile: UserProfile?, size: Int = 42, onClick: (() -> Unit)? = null) {
-    val modifier = Modifier.size(size.dp).clip(CircleShape).background(Color.White.copy(alpha = .08f)).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+    val colorIndex = ((((profile?.uid?.hashCode() ?: 0).toLong()) and 0x7fffffffL) % 5).toInt()
+    val fallback = listOf(PrimaryBlue, AccentOrange, AccentPink, AccentPurple, ElectricBlue)[colorIndex]
+    val modifier = Modifier.size(size.dp).border(1.dp, Color.White.copy(alpha = .18f), CircleShape).padding(1.dp).clip(CircleShape).background(fallback.copy(alpha = .8f)).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
     val avatar = profile?.avatar?.trim().orEmpty()
     val context = LocalContext.current
     Box(modifier, contentAlignment = Alignment.Center) {
-        Text(profile?.name?.trim()?.firstOrNull()?.uppercase() ?: "P", color = Color.White, fontWeight = FontWeight.Bold)
+        Text(profile?.name?.trim()?.firstOrNull()?.uppercase() ?: "P", color = Color.White, fontWeight = FontWeight.Black)
         if (avatar.isNotBlank()) AsyncImage(
             model = ImageRequest.Builder(context).data(avatar).memoryCacheKey("avatar:${profile?.uid}:$avatar").diskCacheKey("avatar:${profile?.uid}:$avatar").crossfade(true).build(),
             contentDescription = "${profile?.name ?: "User"} profile photo",
@@ -140,12 +159,20 @@ fun UserAvatar(profile: UserProfile?, size: Int = 42, onClick: (() -> Unit)? = n
 }
 
 @Composable
+fun AvatarStack(ids: List<String>, profiles: Map<String, UserProfile>, size: Int = 34, max: Int = 3) {
+    val shown = ids.distinct().take(max)
+    val overlap = (size * .64f).dp
+    Row(horizontalArrangement = Arrangement.spacedBy((-overlap.value).dp), verticalAlignment = Alignment.CenterVertically) {
+        shown.forEach { id -> UserAvatar(profiles[id] ?: UserProfile(uid = id), size) }
+        if (ids.distinct().size > max) Box(Modifier.size(size.dp).border(1.dp, Color.Black.copy(alpha = .7f), CircleShape).clip(CircleShape).background(RaisedSurface), contentAlignment = Alignment.Center) { Text("+${ids.distinct().size - max}", color = Color.White, fontWeight = FontWeight.Black, fontSize = 9.sp) }
+    }
+}
+
+@Composable
 fun PayMatrixHeader(user: UserProfile?, unread: Int, onActivity: () -> Unit, onProfile: () -> Unit) {
     Surface(color = ObsidianSurface.copy(alpha = .98f), modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("paymatrix", color = Color.White, fontWeight = FontWeight.Black, fontSize = 19.sp)
-            Spacer(Modifier.width(8.dp))
-            Text("BETA", color = Color.White.copy(alpha = .58f), fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.border(1.dp, Hairline, CircleShape).padding(horizontal = 7.dp, vertical = 3.dp))
             Spacer(Modifier.weight(1f))
             Box {
                 IconButton(onClick = onActivity) { Icon(Icons.Default.NotificationsNone, "Activity", tint = Color.White.copy(alpha = .72f)) }

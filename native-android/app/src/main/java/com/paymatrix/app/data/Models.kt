@@ -23,6 +23,7 @@ data class Group(
     val status: String = "active",
     val createdAt: String = "",
     val updatedAt: String = "",
+    val memberProfiles: Map<String, UserProfile> = emptyMap(),
 )
 
 data class Split(
@@ -174,41 +175,6 @@ data class ExpenseDraft(
     val splitType: String = "equal",
     val splitValues: Map<String, Double> = emptyMap(),
     val date: String = "",
-)
-
-data class AdminStats(
-    val totalUsers: Long = 0,
-    val totalGroups: Long = 0,
-    val activeGroups: Long = 0,
-    val totalNotifications: Long = 0,
-    val totalSecurityEvents: Long = 0,
-    val totalAiRequests: Long = 0,
-)
-
-data class AdminUser(
-    val uid: String,
-    val name: String,
-    val email: String,
-    val createdAt: String,
-    val disabled: Boolean = false,
-    val isAdmin: Boolean = false,
-)
-
-data class AdminGroup(
-    val id: String,
-    val name: String,
-    val members: Int,
-    val status: String,
-    val createdAt: String,
-)
-
-data class AdminRecord(
-    val id: String,
-    val title: String,
-    val body: String,
-    val status: String,
-    val timestamp: String,
-    val detail: String = "",
 )
 
 data class BillScanResult(

@@ -127,7 +127,7 @@ fun ProfileScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) vm.enablePush(context) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp, 18.dp, 16.dp, 30.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { UserAvatar(state.user, 92); Spacer(Modifier.height(13.dp)); Text(state.user?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Black, fontSize = 28.sp); Text(state.user?.email.orEmpty(), color = MutedText, fontSize = 12.sp); Spacer(Modifier.height(8.dp)); Text("paymatrix 2.0.0 beta", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp) }
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { UserAvatar(state.user, 92); Spacer(Modifier.height(13.dp)); Text(state.user?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Black, fontSize = 28.sp); Text(state.user?.email.orEmpty(), color = MutedText, fontSize = 12.sp); Spacer(Modifier.height(8.dp)); Text("paymatrix 2.0.1", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp) }
         }
         item { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { MetricTileProfile("TOTAL SHARED", Money.format(state.summary.totalSharedPaise), Modifier.weight(1f)); MetricTileProfile("ACTIVE GROUPS", state.groups.size.toString(), Modifier.weight(1f)) } }
         item { SectionTitle("Account settings") }
@@ -146,9 +146,8 @@ fun ProfileScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
                 HorizontalDivider(color = Hairline); SettingsRow(Icons.Default.DeleteForever, "Delete account", "Anonymize now; scheduled backend cleanup", Negative) { nav.navigate("delete-account") }
             }
         }
-        if (state.isAdmin) item { SecondaryAction("Open admin console", { nav.navigate("admin") }, Modifier.fillMaxWidth(), icon = { Icon(Icons.Default.AdminPanelSettings, null) }) }
         item { SecondaryAction("Sign out", { signOut = true }, Modifier.fillMaxWidth(), icon = { Icon(Icons.Default.Logout, null) }) }
-        item { Text("PAYMATRIX V 2.0.0 (NATIVE BETA)", modifier = Modifier.fillMaxWidth(), color = Color.White.copy(alpha = .2f), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp) }
+        item { Text("PAYMATRIX V 2.0.1 (NATIVE)", modifier = Modifier.fillMaxWidth(), color = Color.White.copy(alpha = .2f), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp) }
     }
     if (edit) ProfileEditDialog(state.user, { edit = false }) { name, upi, phone -> vm.updateProfile(name, upi, phone); edit = false }
     if (signOut) ConfirmDialog("Sign out?", "Your Firebase session and this device's push token will be cleared.", "Sign out", { signOut = false }) { vm.signOut(context) { signOut = false; nav.navigate("login") { popUpTo(0) } } }
@@ -204,7 +203,7 @@ fun PrivacyScreen(nav: NavHostController) {
         "Retention and deletion" to "Account deletion immediately anonymizes your profile and creates a delayed-deletion request so shared financial history remains intelligible to other group members.",
         "Security and choices" to "Firestore rules enforce membership and ownership. Export your data or request deletion from Profile at any time.",
     )
-    Scaffold(containerColor = CanvasBlack, topBar = { BackBar("Privacy", nav) }) { padding -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 30.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { PageTitle("Privacy policy", "Native beta · same Firebase backend") }; items(sections) { (title, body) -> ObsidianCard { Text(title, color = Color.White, fontWeight = FontWeight.Bold); Text(body, color = MutedText, lineHeight = 20.sp) } } } }
+    Scaffold(containerColor = CanvasBlack, topBar = { BackBar("Privacy", nav) }) { padding -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 30.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { PageTitle("Privacy policy", "Native Android · same Firebase backend") }; items(sections) { (title, body) -> ObsidianCard { Text(title, color = Color.White, fontWeight = FontWeight.Bold); Text(body, color = MutedText, lineHeight = 20.sp) } } } }
 }
 
 @Composable
