@@ -8,6 +8,8 @@ data class UserProfile(
     val upiId: String = "",
     val phone: String = "",
     val friends: List<String> = emptyList(),
+    val friendCode: String = "",
+    val createdAt: String = "",
 )
 
 data class Group(
@@ -20,6 +22,7 @@ data class Group(
     val inviteCode: String = "",
     val status: String = "active",
     val createdAt: String = "",
+    val updatedAt: String = "",
 )
 
 data class Split(
@@ -103,6 +106,16 @@ data class LogEntry(
     val type: String,
 )
 
+data class ExpenseShare(
+    val sourceGroupId: String,
+    val sourceGroupName: String,
+    val sourceExpenseId: String,
+    val title: String,
+    val amountPaise: Long,
+    val category: String,
+    val date: String,
+)
+
 data class GroupSnapshot(
     val group: Group,
     val profiles: Map<String, UserProfile>,
@@ -110,6 +123,92 @@ data class GroupSnapshot(
     val settlements: List<Settlement>,
     val balances: Map<String, Long>,
     val debts: List<Debt>,
+    val activity: List<ActivityItem> = emptyList(),
+)
+
+data class CategoryTotal(val name: String, val amountPaise: Long)
+
+data class DashboardSummary(
+    val totalOwedPaise: Long = 0,
+    val totalOwePaise: Long = 0,
+    val netBalancePaise: Long = 0,
+    val totalSharedPaise: Long = 0,
+    val categories: List<CategoryTotal> = emptyList(),
+    val groupBalances: Map<String, Long> = emptyMap(),
+)
+
+data class ActivityItem(
+    val id: String,
+    val type: String,
+    val message: String,
+    val actorId: String,
+    val actorName: String,
+    val relatedId: String,
+    val groupId: String,
+    val createdAt: String,
+)
+
+data class SpendingPoint(val label: String, val amountPaise: Long)
+
+data class AnalyticsSnapshot(
+    val summary: DashboardSummary = DashboardSummary(),
+    val trends: List<SpendingPoint> = emptyList(),
+    val expenseCount: Int = 0,
+    val settlementCount: Int = 0,
+)
+
+data class FeatureFlags(
+    val billScanning: Boolean = true,
+    val analytics: Boolean = true,
+    val settlements: Boolean = true,
+    val logs: Boolean = true,
+    val maintenanceMode: Boolean = false,
+)
+
+data class ExpenseDraft(
+    val title: String,
+    val amount: String,
+    val category: String,
+    val notes: String,
+    val participants: List<String>,
+    val splitType: String = "equal",
+    val splitValues: Map<String, Double> = emptyMap(),
+    val date: String = "",
+)
+
+data class AdminStats(
+    val totalUsers: Long = 0,
+    val totalGroups: Long = 0,
+    val activeGroups: Long = 0,
+    val totalNotifications: Long = 0,
+    val totalSecurityEvents: Long = 0,
+    val totalAiRequests: Long = 0,
+)
+
+data class AdminUser(
+    val uid: String,
+    val name: String,
+    val email: String,
+    val createdAt: String,
+    val disabled: Boolean = false,
+    val isAdmin: Boolean = false,
+)
+
+data class AdminGroup(
+    val id: String,
+    val name: String,
+    val members: Int,
+    val status: String,
+    val createdAt: String,
+)
+
+data class AdminRecord(
+    val id: String,
+    val title: String,
+    val body: String,
+    val status: String,
+    val timestamp: String,
+    val detail: String = "",
 )
 
 data class BillScanResult(

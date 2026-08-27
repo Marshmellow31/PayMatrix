@@ -1,53 +1,184 @@
 package com.paymatrix.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import androidx.compose.ui.platform.LocalContext
+import com.paymatrix.app.data.UserProfile
 import com.paymatrix.app.domain.Money
 
-@Composable fun PageTitle(title: String, subtitle: String? = null, action: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+val CanvasBlack = Color(0xFF0E0E0E)
+val ObsidianSurface = Color(0xFF1A1A1A)
+val RaisedSurface = Color(0xFF202020)
+val Hairline = Color.White.copy(alpha = .075f)
+val QuietText = Color.White.copy(alpha = .38f)
+val MutedText = Color.White.copy(alpha = .58f)
+val Positive = Color(0xFF91D9B5)
+val Negative = Color(0xFFF0A5A5)
+
+@Composable
+fun PageTitle(title: String, subtitle: String? = null, action: (@Composable () -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            if (subtitle != null) Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.headlineLarge, color = Color.White)
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(Modifier.height(5.dp))
+                Text(subtitle, color = MutedText, style = MaterialTheme.typography.bodyMedium)
+            }
         }
         action?.invoke()
     }
 }
 
-@Composable fun ObsidianCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
+@Composable
+fun SectionTitle(title: String, subtitle: String? = null, action: (@Composable () -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = Color.White)
+            if (!subtitle.isNullOrBlank()) Text(subtitle, color = QuietText, fontSize = 12.sp)
+        }
+        action?.invoke()
     }
 }
 
-@Composable fun MoneyText(paise: Long, positiveGood: Boolean = true) {
+@Composable
+fun ObsidianCard(modifier: Modifier = Modifier, contentPadding: PaddingValues = PaddingValues(18.dp), content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = modifier.fillMaxWidth().border(1.dp, Hairline, RoundedCornerShape(22.dp)),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = ObsidianSurface),
+    ) { Column(Modifier.padding(contentPadding), verticalArrangement = Arrangement.spacedBy(10.dp), content = content) }
+}
+
+@Composable
+fun MoneyText(paise: Long, positiveGood: Boolean = true, large: Boolean = false, absolute: Boolean = true) {
     val color = when {
-        paise == 0L -> MaterialTheme.colorScheme.onSurfaceVariant
-        (paise > 0) == positiveGood -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.error
+        paise == 0L -> Color.White
+        (paise > 0) == positiveGood -> Positive
+        else -> Negative
     }
-    Text(Money.format(kotlin.math.abs(paise)), color = color, fontWeight = FontWeight.Bold)
+    val value = if (absolute) kotlin.math.abs(paise) else paise
+    Text(Money.format(value), color = color, fontWeight = FontWeight.Bold, fontSize = if (large) 30.sp else 16.sp)
 }
 
-@Composable fun BusyOverlay(show: Boolean) {
-    if (show) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-}
-
-@Composable fun EmptyState(title: String, body: String) {
-    Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(6.dp)); Text(body, color = MaterialTheme.colorScheme.onSurfaceVariant)
+@Composable
+fun BusyOverlay(show: Boolean, label: String = "") {
+    if (!show) return
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .58f)), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(30.dp))
+            if (label.isNotBlank()) Text(label, color = MutedText, fontSize = 12.sp)
         }
     }
 }
 
-@Composable fun FormField(value: String, onValueChange: (String) -> Unit, label: String, modifier: Modifier = Modifier, singleLine: Boolean = true) {
-    OutlinedTextField(value, onValueChange, label = { Text(label) }, singleLine = singleLine, modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
+@Composable
+fun EmptyState(title: String, body: String, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth().padding(vertical = 42.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = Color.White)
+            Spacer(Modifier.height(6.dp))
+            Text(body, color = QuietText, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+fun FormField(value: String, onValueChange: (String) -> Unit, label: String, modifier: Modifier = Modifier, singleLine: Boolean = true, leading: (@Composable (() -> Unit))? = null) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = singleLine,
+        leadingIcon = leading,
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = RaisedSurface,
+            unfocusedContainerColor = RaisedSurface.copy(alpha = .72f),
+            focusedBorderColor = Color.White.copy(alpha = .3f),
+            unfocusedBorderColor = Hairline,
+        ),
+    )
+}
+
+@Composable
+fun UserAvatar(profile: UserProfile?, size: Int = 42, onClick: (() -> Unit)? = null) {
+    val modifier = Modifier.size(size.dp).clip(CircleShape).background(Color.White.copy(alpha = .08f)).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+    val avatar = profile?.avatar?.trim().orEmpty()
+    val context = LocalContext.current
+    Box(modifier, contentAlignment = Alignment.Center) {
+        Text(profile?.name?.trim()?.firstOrNull()?.uppercase() ?: "P", color = Color.White, fontWeight = FontWeight.Bold)
+        if (avatar.isNotBlank()) AsyncImage(
+            model = ImageRequest.Builder(context).data(avatar).memoryCacheKey("avatar:${profile?.uid}:$avatar").diskCacheKey("avatar:${profile?.uid}:$avatar").crossfade(true).build(),
+            contentDescription = "${profile?.name ?: "User"} profile photo",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+    }
+}
+
+@Composable
+fun PayMatrixHeader(user: UserProfile?, unread: Int, onActivity: () -> Unit, onProfile: () -> Unit) {
+    Surface(color = ObsidianSurface.copy(alpha = .98f), modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("paymatrix", color = Color.White, fontWeight = FontWeight.Black, fontSize = 19.sp)
+            Spacer(Modifier.width(8.dp))
+            Text("BETA", color = Color.White.copy(alpha = .58f), fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.border(1.dp, Hairline, CircleShape).padding(horizontal = 7.dp, vertical = 3.dp))
+            Spacer(Modifier.weight(1f))
+            Box {
+                IconButton(onClick = onActivity) { Icon(Icons.Default.NotificationsNone, "Activity", tint = Color.White.copy(alpha = .72f)) }
+                if (unread > 0) Box(Modifier.size(7.dp).clip(CircleShape).background(Color.White).align(Alignment.TopEnd).offset((-9).dp, 9.dp))
+            }
+            Spacer(Modifier.width(3.dp))
+            UserAvatar(user, 34, onProfile)
+        }
+    }
+}
+
+@Composable
+fun BalanceCard(title: String, amount: Long, positive: Boolean, modifier: Modifier = Modifier) {
+    ObsidianCard(modifier) {
+        Text(title, color = QuietText, fontSize = 12.sp)
+        MoneyText(amount, positiveGood = positive, large = true)
+    }
+}
+
+@Composable
+fun PrimaryAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: (@Composable (() -> Unit))? = null) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = 54.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black, disabledContainerColor = Color.White.copy(alpha = .2f)),
+    ) { if (icon != null) { icon(); Spacer(Modifier.width(8.dp)) }; Text(label, fontWeight = FontWeight.Bold) }
+}
+
+@Composable
+fun SecondaryAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: (@Composable (() -> Unit))? = null) {
+    OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier.heightIn(min = 52.dp), shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Hairline)) {
+        if (icon != null) { icon(); Spacer(Modifier.width(8.dp)) }; Text(label, fontWeight = FontWeight.SemiBold)
+    }
 }

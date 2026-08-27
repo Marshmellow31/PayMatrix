@@ -23,11 +23,13 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.paymatrix.app"
+        // A separate package keeps the beta installed beside the live
+        // Capacitor application (com.paymatrix.app) until parity is proven.
+        applicationId = "com.paymatrix.app.native.beta"
         minSdk = 24
         targetSdk = 36
-        versionCode = 10300
-        versionName = "2.0.0-native-preview"
+        versionCode = 20000
+        versionName = "2.0.0-beta"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         buildConfigField("String", "SCAN_API_URL", "\"https://pay-matrix.vercel.app/api/scan-bill\"")
@@ -47,7 +49,6 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".native.dev"
             versionNameSuffix = "-dev"
             isMinifyEnabled = false
         }

@@ -1,14 +1,16 @@
 param(
     [Parameter(Mandatory = $true)][string]$Groups,
-    [string]$ReleaseNotes = 'paymatrix native Android preview'
+    [ValidateSet('Debug', 'Release')][string]$Variant = 'Release',
+    [string]$ReleaseNotes = 'paymatrix native Android 2.0.0 beta'
 )
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$apk = Join-Path $projectRoot 'app\build\outputs\apk\debug\app-debug.apk'
-if (-not (Test-Path -LiteralPath $apk)) { throw "Build the debug APK first: $apk" }
+$variantFolder = $Variant.ToLowerInvariant()
+$apk = Join-Path $projectRoot "app\build\outputs\apk\$variantFolder\app-$variantFolder.apk"
+if (-not (Test-Path -LiteralPath $apk)) { throw "Build the $Variant APK first: $apk" }
 firebase appdistribution:distribute $apk `
-    --app '1:344969363066:android:3709eb27bcfa07fb3305c3' `
+    --app '1:344969363066:android:c5e102849412117c3305c3' `
     --groups $Groups `
     --release-notes $ReleaseNotes `
     --project paymatrix-174b5

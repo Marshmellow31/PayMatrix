@@ -45,10 +45,10 @@ Firestore's Android SDK provides a persistent local cache. Reads can be served l
 
 Credential Manager displays accounts already present on Android. It returns a Google ID token. Firebase Auth verifies that token and creates the same Firebase session/user UID used by the web app.
 
-Two Android registrations exist in the same Firebase project:
+Two live Android registrations exist in the same Firebase project:
 
-- `com.paymatrix.app`: release/update client
-- `com.paymatrix.app.native.dev`: side-by-side development client
+- `com.paymatrix.app`: current Capacitor client
+- `com.paymatrix.app.native.beta`: native 2.0.0 beta client
 
 Each package and signing SHA must be registered. A package/SHA mismatch commonly appears as Google sign-in error 10.
 
@@ -65,9 +65,9 @@ Gradle compiles Kotlin, Compose resources and Firebase dependencies into DEX byt
 
 The project intentionally uses the April 2026 stable Compose BOM because the August line requires API 37/AGP 9.1 while the established paymatrix toolchain currently compiles against API 36. AGP 8.13.2 is used because it includes the R8 version required for Kotlin 2.3 metadata.
 
-Debug uses the standard debug key and `.native.dev` suffix. Release removes the suffix, enables R8/resource shrinking and must use the established paymatrix release key.
+Debug and release both use the beta package so every native build stays separate from Capacitor. Debug adds `-dev` to the displayed version. Release enables R8/resource shrinking and uses the configured paymatrix release key.
 
-For update compatibility Android checks:
+For side-by-side installation Android checks that the package differs. When the native client eventually replaces Capacitor, a deliberate production migration must restore the production package and satisfy Android's three update checks:
 
 1. package name matches;
 2. signing certificate matches;

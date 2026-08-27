@@ -9,9 +9,11 @@ import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import java.time.Instant
 
 class AuthRepository(
     private val auth: FirebaseAuth,
@@ -20,16 +22,8 @@ class AuthRepository(
     val currentUser get() = auth.currentUser
 
     suspend fun signInWithGoogle(context: Context, webClientId: String): UserProfile {
-        val option = GetSignInWithGoogleOption.Builder(webClientId).build()
-        val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
-        val response = CredentialManager.create(context).getCredential(context, request)
-        val custom = response.credential as? CustomCredential
-            ?: error("Google did not return an identity credential.")
-        require(custom.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-            "Unexpected credential type."
-        }
-        val google = GoogleIdTokenCredential.createFrom(custom.data)
-        val result = auth.signInWithCredential(GoogleAuthProvider.getCredential(google.idToken, null)).await()
+        val credential = googleCredential(context, webClientId)
+        val result = auth.signInWithCredential(credential).await()
         val firebaseUser = result.user ?: error("Firebase authentication did not return a user.")
         val userRef = db.collection("users").document(firebaseUser.uid)
         val existing = userRef.get().await()
@@ -54,6 +48,7 @@ class AuthRepository(
             mapOf("name" to (firebaseUser.displayName ?: "Member"), "avatar" to (firebaseUser.photoUrl?.toString() ?: ""), "updatedAt" to now),
             com.google.firebase.firestore.SetOptions.merge(),
         ).await()
+        ensureFriendCode(firebaseUser)
         return profile(firebaseUser.uid)
     }
 
@@ -64,12 +59,20 @@ class AuthRepository(
             uid = uid,
             name = doc.getString("name") ?: doc.getString("displayName") ?: authUser?.displayName ?: "Member",
             email = doc.getString("email") ?: authUser?.email.orEmpty(),
-            avatar = doc.getString("avatar") ?: doc.getString("photoURL") ?: authUser?.photoUrl?.toString().orEmpty(),
+            avatar = firstNonBlank(doc.getString("avatar"), doc.getString("photoURL"), authUser?.photoUrl?.toString()),
             upiId = doc.getString("upiId").orEmpty(),
             phone = doc.getString("phone").orEmpty(),
             friends = (doc.get("friends") as? List<*>)?.mapNotNull { it as? String }.orEmpty(),
+            friendCode = doc.getString("friendCode").orEmpty(),
+            createdAt = when (val value = doc.get("createdAt")) {
+                is String -> value
+                is com.google.firebase.Timestamp -> value.toDate().toInstant().toString()
+                else -> ""
+            },
         )
     }
+
+    suspend fun isAdmin(): Boolean = currentUser?.getIdToken(true)?.await()?.claims?.get("admin") == true
 
     suspend fun updateProfile(name: String, upiId: String, phone: String) {
         val user = currentUser ?: error("Authentication required")
@@ -97,10 +100,62 @@ class AuthRepository(
         ).await()
     }
 
+    suspend fun deleteAccount(context: Context, webClientId: String) {
+        val user = currentUser ?: error("Sign in before deleting your account.")
+        user.reauthenticate(googleCredential(context, webClientId)).await()
+        runCatching { db.collection("users").document(user.uid).collection("pushTokens").document(installationId(context)).delete().await() }
+        val userRef = db.collection("users").document(user.uid)
+        val profile = userRef.get().await()
+        val deletionRef = db.collection("accountDeletionRequests").document(user.uid)
+        if (!deletionRef.get().await().exists()) {
+            val stamp = FieldValue.serverTimestamp()
+            db.runBatch { batch ->
+                batch.set(userRef, mapOf("uid" to user.uid, "name" to "Deleted user", "displayName" to "Deleted user", "nameLowerCase" to "deleted user", "avatar" to "", "photoURL" to "", "friends" to emptyList<String>(), "deletedAt" to stamp, "deletionStatus" to "anonymized"))
+                batch.set(db.collection("publicProfiles").document(user.uid), mapOf("name" to "Deleted user", "avatar" to "", "updatedAt" to stamp, "deleted" to true))
+                batch.set(deletionRef, mapOf("uidHashVersion" to 1, "status" to "anonymized", "requestedAt" to stamp, "deleteAfter" to com.google.firebase.Timestamp(java.util.Date.from(Instant.now().plusSeconds(30L * 24L * 60L * 60L)))))
+                profile.getString("friendCode")?.takeIf { it.isNotBlank() }?.let { batch.delete(db.collection("friendCodes").document(it)) }
+            }.await()
+        }
+        user.delete().await()
+        runCatching { CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest()) }
+    }
+
+    private suspend fun googleCredential(context: Context, webClientId: String): com.google.firebase.auth.AuthCredential {
+        val option = GetSignInWithGoogleOption.Builder(webClientId).build()
+        val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
+        val response = CredentialManager.create(context).getCredential(context, request)
+        val custom = response.credential as? CustomCredential ?: error("Google did not return an identity credential.")
+        require(custom.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) { "Unexpected credential type." }
+        val google = GoogleIdTokenCredential.createFrom(custom.data)
+        return GoogleAuthProvider.getCredential(google.idToken, null)
+    }
+
+    private suspend fun ensureFriendCode(user: FirebaseUser) {
+        val userRef = db.collection("users").document(user.uid)
+        val existing = userRef.get().await().getString("friendCode")
+        if (!existing.isNullOrBlank()) return
+        val alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        repeat(12) {
+            val code = (1..8).map { alphabet.random() }.joinToString("")
+            val codeRef = db.collection("friendCodes").document(code)
+            if (!codeRef.get().await().exists()) {
+                val stamp = Instant.now().toString()
+                db.runBatch { batch ->
+                    batch.set(codeRef, mapOf("uid" to user.uid, "name" to (user.displayName ?: "Member").take(50), "avatar" to (user.photoUrl?.toString() ?: ""), "createdAt" to stamp))
+                    batch.update(userRef, "friendCode", code)
+                }.await()
+                return
+            }
+        }
+        error("Could not allocate a friend code. Try again.")
+    }
+
     private fun installationId(context: Context): String {
         val prefs = context.getSharedPreferences("paymatrix_native", Context.MODE_PRIVATE)
         return prefs.getString("installation_id", null) ?: java.util.UUID.randomUUID().toString().also {
             prefs.edit().putString("installation_id", it).apply()
         }
     }
+
+    private fun firstNonBlank(vararg values: String?): String = values.firstOrNull { !it.isNullOrBlank() }.orEmpty()
 }
