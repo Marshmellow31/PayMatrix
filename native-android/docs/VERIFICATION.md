@@ -17,7 +17,7 @@ Completed on 2026-08-27:
 - APK signing: passed; signer SHA-256 `77bc53c8e4c6eeb17449750b0bd1d83901682030219e8a363963428e9820659f`
 - v1.2.5 signer comparison: exact certificate match
 - Package inspection: `com.paymatrix.app`, `2.0.1`, code `20100`
-- SHA-256: `5446994f377951ffbd11111264022187d497c35fddaec1a5d59d2b13905b407c`
+- SHA-256: `d2605a0724ebaee089e061a44478e603f6634e538e0520c1047f487605eb83ba`
 - Firestore emulator authorization suite: 16 passed, 0 failed
 - Emulator upgrade: `adb install -r` returned `Success`; version changed from `1.2.5` (`10205`) to `2.0.1` (`20100`) while `firstInstallTime` remained unchanged
 - Cold launch after upgrade: process started without a fatal Android exception

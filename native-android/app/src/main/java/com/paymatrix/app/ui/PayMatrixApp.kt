@@ -153,7 +153,8 @@ private fun MainShell(route: String, state: PayMatrixState, nav: NavHostControll
         containerColor = CanvasBlack,
         topBar = { PayMatrixHeader(state.user, state.notifications.count { !it.isRead }, { nav.navigate("activity") }, { if (route != "profile") nav.navigate("profile") }) },
         bottomBar = {
-            NavigationBar(containerColor = ObsidianSurface, tonalElevation = 0.dp) {
+            Surface(color = ObsidianSurface, tonalElevation = 0.dp) {
+                Row(Modifier.fillMaxWidth().height(62.dp)) {
                 visibleNavItems.forEach { item ->
                     val selected = route == item.route
                     NavigationBarItem(
@@ -167,10 +168,11 @@ private fun MainShell(route: String, state: PayMatrixState, nav: NavHostControll
                                 }
                             }
                         },
-                        icon = { Icon(if (selected) item.selected else item.idle, item.label, modifier = Modifier.size(19.dp)) },
-                        label = { Text(item.label, fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium) },
+                        icon = { Icon(if (selected) item.selected else item.idle, item.label, modifier = Modifier.size(18.dp)) },
+                        label = { Text(item.label, fontSize = 9.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White, selectedTextColor = Color.White, unselectedIconColor = Color.White.copy(alpha = .35f), unselectedTextColor = Color.White.copy(alpha = .35f), indicatorColor = Color.Transparent),
                     )
+                }
                 }
             }
         },

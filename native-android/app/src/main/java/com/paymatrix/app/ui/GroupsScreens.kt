@@ -44,13 +44,14 @@ fun GroupsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCont
     LaunchedEffect(Unit) { vm.loadGroups(); vm.loadFriends() }
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp, 22.dp, 20.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            item { PageTitle("Groups", "Manage shared expenses and collective balances") }
             item {
-                PageTitle("Groups", "Manage shared expenses and collective balances") {
-                    SecondaryAction("NEW COHORT", { create = true }, icon = { Icon(Icons.Default.Add, null, Modifier.size(17.dp)) })
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PrimaryAction("Create group", { create = true }, Modifier.weight(1f), icon = { Icon(Icons.Default.Add, null, Modifier.size(17.dp)) })
+                    SecondaryAction("Join", { join = true }, icon = { Icon(Icons.Default.Link, null, Modifier.size(17.dp)) })
                 }
             }
-            item { TextButton(onClick = { join = true }) { Icon(Icons.Default.Link, null, Modifier.size(16.dp)); Spacer(Modifier.width(7.dp)); Text("JOIN WITH INVITE CODE", fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) } }
-            if (state.groups.isEmpty()) item { EmptyState("No active groups", "Create a cohort or join one using an invite code.") }
+            if (state.groups.isEmpty()) item { EmptyState("No active groups", "Create a group or join one using an invite code.") }
             items(state.groups, key = { it.id }) { group -> GroupListCard(group, state.summary.groupBalances[group.id] ?: 0L) { nav.navigate("group/${group.id}") } }
         }
         FloatingActionButton(onClick = { create = true }, containerColor = Color.White, contentColor = Color.Black, modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)) { Icon(Icons.Default.GroupAdd, "Create group") }
@@ -145,7 +146,7 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
     if (settle && snapshot != null) SettlementDialog(snapshot, state.user?.uid.orEmpty(), { settle = false }) { payee, amount, note -> vm.settle(id, payee, amount, note) { settle = false } }
     if (editGroup && snapshot != null) EditGroupDialog(snapshot.group, { editGroup = false }) { name, description, category -> vm.updateGroup(id, name, description, category) { editGroup = false } }
     if (addMember && snapshot != null) AddMemberDialog(snapshot, state.friends, { addMember = false }) { uid -> vm.addGroupMember(id, uid) { addMember = false } }
-    if (leaveConfirm) ConfirmDialog("Exit cohort?", "You can leave only when your balance is ₹0.00. This does not erase historical records.", "Leave", { leaveConfirm = false }) { vm.leaveGroup(id) { leaveConfirm = false; nav.navigate("groups") { popUpTo("groups") { inclusive = true } } } }
+    if (leaveConfirm) ConfirmDialog("Exit group?", "You can leave only when your balance is ₹0.00. This does not erase historical records.", "Leave", { leaveConfirm = false }) { vm.leaveGroup(id) { leaveConfirm = false; nav.navigate("groups") { popUpTo("groups") { inclusive = true } } } }
     if (deleteConfirm) ConfirmDialog("Delete group?", "All balances must be reconciled. The group is archived so members can retain historical records.", "Delete", { deleteConfirm = false }, destructive = true) { vm.deleteGroup(id) { deleteConfirm = false; nav.navigate("groups") { popUpTo("groups") { inclusive = true } } } }
 }
 
@@ -249,8 +250,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.activityItems(snapsho
 @Composable
 private fun CreateGroupDialog(state: PayMatrixState, onDismiss: () -> Unit, onConfirm: (String, String, String, List<String>) -> Unit) {
     var name by remember { mutableStateOf("") }; var description by remember { mutableStateOf("") }; var category by remember { mutableStateOf("General") }; val selected = remember { mutableStateMapOf<String, Boolean>() }
-    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Establish group") }, text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        FormField(name, { name = it }, "Cohort name"); FormField(description, { description = it }, "Description", singleLine = false)
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Create group") }, text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        FormField(name, { name = it }, "Group name"); FormField(description, { description = it }, "Description", singleLine = false)
         Text("CATEGORY", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) { items(categories) { value -> FilterChip(category == value, { category = value }, { Text(value) }, leadingIcon = { Icon(categoryIcon(value), null, Modifier.size(15.dp)) }) } }
         if (state.friends.isNotEmpty()) { Text("ADD FRIENDS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp); state.friends.forEach { friend -> Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(selected[friend.uid] == true, { selected[friend.uid] = it }); UserAvatar(friend, 30); Spacer(Modifier.width(8.dp)); Text(friend.name) } } }
@@ -260,7 +261,7 @@ private fun CreateGroupDialog(state: PayMatrixState, onDismiss: () -> Unit, onCo
 @Composable
 private fun EditGroupDialog(group: Group, onDismiss: () -> Unit, onConfirm: (String, String, String) -> Unit) {
     var name by remember { mutableStateOf(group.name) }; var description by remember { mutableStateOf(group.description) }; var category by remember { mutableStateOf(group.category) }
-    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Edit group") }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { FormField(name, { name = it }, "Cohort name"); FormField(description, { description = it }, "Description", singleLine = false); Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) { categories.forEach { value -> FilterChip(category == value, { category = value }, { Text(value) }) } } } }, confirmButton = { Button(onClick = { onConfirm(name, description, category) }, enabled = name.isNotBlank()) { Text("Save changes") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Edit group") }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { FormField(name, { name = it }, "Group name"); FormField(description, { description = it }, "Description", singleLine = false); Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) { categories.forEach { value -> FilterChip(category == value, { category = value }, { Text(value) }) } } } }, confirmButton = { Button(onClick = { onConfirm(name, description, category) }, enabled = name.isNotBlank()) { Text("Save changes") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }
 
 @Composable

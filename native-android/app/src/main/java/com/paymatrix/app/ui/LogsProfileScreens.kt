@@ -190,7 +190,7 @@ private fun createBillPhotoUri(context: Context): Uri { val directory = File(con
 @Composable
 fun JoinGroupScreen(code: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
     var joining by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) { ObsidianCard { Icon(Icons.Default.GroupAdd, null, tint = Color.White, modifier = Modifier.size(34.dp)); Text("Join this group?", color = Color.White, fontWeight = FontWeight.Black, fontSize = 26.sp); Text("Invite code ${code.chunked(4).joinToString(" ")}", color = MutedText); PrimaryAction("Join cohort", { joining = true; vm.joinGroup(code) { id -> nav.navigate("group/$id") { popUpTo("join/$code") { inclusive = true } } } }, Modifier.fillMaxWidth(), enabled = !joining); SecondaryAction("Not now", { nav.navigate(if (state.user == null) "login" else "dashboard") }, Modifier.fillMaxWidth()) } }
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) { ObsidianCard { Icon(Icons.Default.GroupAdd, null, tint = Color.White, modifier = Modifier.size(34.dp)); Text("Join this group?", color = Color.White, fontWeight = FontWeight.Black, fontSize = 26.sp); Text("Invite code ${code.chunked(4).joinToString(" ")}", color = MutedText); PrimaryAction("Join group", { joining = true; vm.joinGroup(code) { id -> nav.navigate("group/$id") { popUpTo("join/$code") { inclusive = true } } } }, Modifier.fillMaxWidth(), enabled = !joining); SecondaryAction("Not now", { nav.navigate(if (state.user == null) "login" else "dashboard") }, Modifier.fillMaxWidth()) } }
 }
 
 @Composable

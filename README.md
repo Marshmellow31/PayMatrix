@@ -28,7 +28,7 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 - Version: **2.0.1** (`versionCode 20100`)
 - Package: `com.paymatrix.app`
 - Signed APK: [`paymatrix-native-2.0.1.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.0.1/paymatrix-native-2.0.1.apk)
-- SHA-256: `5446994f377951ffbd11111264022187d497c35fddaec1a5d59d2b13905b407c`
+- SHA-256: `d2605a0724ebaee089e061a44478e603f6634e538e0520c1047f487605eb83ba`
 
 This is a direct-install device-testing release, not a Play Store publication. Android may ask you
 to allow installation from the browser or file manager used to open the APK.

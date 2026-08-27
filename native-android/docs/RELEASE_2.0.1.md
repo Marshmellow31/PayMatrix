@@ -10,6 +10,7 @@ This is the native Kotlin/Jetpack Compose Android release. It upgrades the exist
 - Fixed Home navigation after switching tabs
 - Production package, Firebase configuration, signing identity, and v1.2.5 launcher artwork
 - Administrator panel and privileged client operations removed
+- Compact bottom navigation and restored Create group / Join controls
 
 ## Please note
 
