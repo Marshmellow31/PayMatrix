@@ -463,7 +463,7 @@ class FirebaseRepository(
             uid = userId,
             name = privateProfile?.getString("name") ?: privateProfile?.getString("displayName") ?: public.getString("name") ?: public.getString("displayName") ?: "Member",
             email = privateProfile?.getString("email").orEmpty(),
-            avatar = firstNonBlank(privateProfile?.getString("avatar"), privateProfile?.getString("photoURL"), public.getString("avatar"), public.getString("photoURL")),
+            avatar = allowedAvatar(privateProfile?.getString("avatar"), privateProfile?.getString("photoURL"), public.getString("avatar"), public.getString("photoURL")),
             upiId = privateProfile?.getString("upiId").orEmpty(),
             phone = privateProfile?.getString("phone").orEmpty(),
             friends = strings(privateProfile?.get("friends")),
@@ -485,7 +485,9 @@ class FirebaseRepository(
 
     private fun settlementFrom(doc: DocumentSnapshot, groupId: String) = Settlement(doc.id, groupId, idValue(doc.get("payer") ?: doc.get("createdBy")), idValue(doc.get("payee") ?: doc.get("recipient") ?: doc.get("to")), paise(doc, "amountPaise", "amount"), doc.getString("confirmationStatus") ?: "confirmed", doc.getString("status") ?: "active", doc.getString("notes").orEmpty(), timestamp(doc.get("createdAt")))
 
-    private fun firstNonBlank(vararg values: String?): String = values.firstOrNull { !it.isNullOrBlank() }.orEmpty()
+    private fun allowedAvatar(vararg values: String?): String = values.firstOrNull { value ->
+        value?.startsWith("https://lh3.googleusercontent.com/") == true || value?.startsWith("https://firebasestorage.googleapis.com/") == true
+    }.orEmpty()
 
     private fun strings(value: Any?) = (value as? List<*>)?.mapNotNull { when (it) { is String -> it; is Map<*, *> -> idValue(it); else -> null } }.orEmpty()
     private fun idValue(value: Any?): String = when (value) { is String -> value; is Map<*, *> -> (value["uid"] ?: value["_id"] ?: value["id"])?.toString().orEmpty(); else -> "" }

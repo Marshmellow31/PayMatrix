@@ -36,6 +36,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,14 +56,37 @@ import java.io.File
 fun LogGroupsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
     var create by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { vm.loadLogGroups(); vm.loadFriends() }
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 100.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            item { PageTitle("Logs", "Shared personal spending timelines") }
-            item { Text("Keep lightweight records with family or friends, and optionally pull in your share from a real paymatrix transaction.", color = MutedText, lineHeight = 20.sp) }
-            if (state.logGroups.isEmpty()) item { EmptyState("No log groups", "Create a private timeline such as Parents, Roommates, or Personal.") }
-            items(state.logGroups, key = { it.id }) { group -> ObsidianCard(Modifier.clickable { nav.navigate("logs/${group.id}") }) { Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = .06f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.ReceiptLong, null, tint = MutedText) }; Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(group.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp); Text("${group.members.size} member${if (group.members.size == 1) "" else "s"}", color = QuietText, fontSize = 10.sp) }; Icon(Icons.Default.ChevronRight, null, tint = Color.White.copy(alpha = .25f)) } } }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(22.dp, 24.dp, 22.dp, 36.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("Logs", color = Color.White, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 32.sp, letterSpacing = (-1).sp)
+                Text("SHARED SPENDING TIMELINES", color = Color.White.copy(alpha = .4f), fontWeight = FontWeight.Black, fontSize = 10.sp, letterSpacing = 3.sp)
+            }
         }
-        FloatingActionButton(onClick = { create = true }, containerColor = Color.White, contentColor = Color.Black, modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)) { Icon(Icons.Default.Add, "Create log") }
+        item { PrimaryAction("Create Group", { create = true }, Modifier.fillMaxWidth(), icon = { Icon(Icons.Default.Add, null, Modifier.size(18.dp)) }) }
+        item { HorizontalDivider(color = Color.White.copy(alpha = .1f)) }
+        if (state.logGroups.isEmpty()) item {
+            ObsidianCard(contentPadding = PaddingValues(horizontal = 24.dp, vertical = 46.dp)) {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.ReceiptLong, null, tint = Color.White.copy(alpha = .1f), modifier = Modifier.size(34.dp))
+                    Text("No log groups yet", color = Color.White.copy(alpha = .42f), fontWeight = FontWeight.SemiBold)
+                    Text("Create one for family or friends to share a simple spending timeline.", color = QuietText, fontSize = 11.sp, lineHeight = 16.sp)
+                }
+            }
+        }
+        items(state.logGroups, key = { it.id }) { group ->
+            ObsidianCard(Modifier.clickable { nav.navigate("logs/${group.id}") }, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = .1f)).border(1.dp, Color.White.copy(alpha = .1f), CircleShape), contentAlignment = Alignment.Center) { Text(group.name.firstOrNull()?.uppercase() ?: "?", color = Color.White.copy(alpha = .62f), fontWeight = FontWeight.Black) }
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(group.name, color = Color.White, fontWeight = FontWeight.Black, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${group.members.size} MEMBER${if (group.members.size == 1) "" else "S"}", color = Color.White.copy(alpha = .2f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
+                    }
+                    Icon(Icons.Default.ChevronRight, "Open ${group.name}", tint = Color.White.copy(alpha = .12f), modifier = Modifier.size(18.dp))
+                }
+            }
+        }
     }
     if (create) CreateLogDialog(state.friends, { create = false }) { name, members -> vm.createLogGroup(name, members) { id -> create = false; nav.navigate("logs/$id") } }
 }
@@ -127,7 +151,7 @@ fun ProfileScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) vm.enablePush(context) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp, 18.dp, 16.dp, 30.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { UserAvatar(state.user, 92); Spacer(Modifier.height(13.dp)); Text(state.user?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Black, fontSize = 28.sp); Text(state.user?.email.orEmpty(), color = MutedText, fontSize = 12.sp); Spacer(Modifier.height(8.dp)); Text("paymatrix 2.0.1", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp) }
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { UserAvatar(state.user, 92); Spacer(Modifier.height(13.dp)); Text(state.user?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Black, fontSize = 28.sp); Text(state.user?.email.orEmpty(), color = MutedText, fontSize = 12.sp); Spacer(Modifier.height(8.dp)); Text("paymatrix 2.0.2", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp) }
         }
         item { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { MetricTileProfile("TOTAL SHARED", Money.format(state.summary.totalSharedPaise), Modifier.weight(1f)); MetricTileProfile("ACTIVE GROUPS", state.groups.size.toString(), Modifier.weight(1f)) } }
         item { SectionTitle("Account settings") }
@@ -147,7 +171,7 @@ fun ProfileScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
             }
         }
         item { SecondaryAction("Sign out", { signOut = true }, Modifier.fillMaxWidth(), icon = { Icon(Icons.Default.Logout, null) }) }
-        item { Text("PAYMATRIX V 2.0.1 (NATIVE)", modifier = Modifier.fillMaxWidth(), color = Color.White.copy(alpha = .2f), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp) }
+        item { Text("PAYMATRIX V 2.0.2 (NATIVE)", modifier = Modifier.fillMaxWidth(), color = Color.White.copy(alpha = .2f), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp) }
     }
     if (edit) ProfileEditDialog(state.user, { edit = false }) { name, upi, phone -> vm.updateProfile(name, upi, phone); edit = false }
     if (signOut) ConfirmDialog("Sign out?", "Your Firebase session and this device's push token will be cleared.", "Sign out", { signOut = false }) { vm.signOut(context) { signOut = false; nav.navigate("login") { popUpTo(0) } } }

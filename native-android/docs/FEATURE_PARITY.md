@@ -1,4 +1,4 @@
-# Native 2.0.1 feature parity
+# Native 2.0.2 feature parity
 
 Implemented native flows:
 
@@ -11,6 +11,6 @@ Implemented native flows:
 - Logs, analytics, notifications, receipt scanning, profile editing, export, privacy, and account deletion
 - Offline Firestore cache, live refresh listeners, deep links, and native camera permission
 
-Visual parity work in 2.0.1 includes the light account card, colored debt/credit accents, screenshot-inspired group cards and group detail hero, colored expense category chips, dark themed menus/dialogs, aligned dashboard summaries, and real cached Google avatars with deterministic colored fallbacks.
+Visual parity work in 2.0.2 uses the exact web Digital Obsidian surface hierarchy (`#1A1A1A`, `#151515`, `#1B1B1B`, and `#242424`), web-inspired Friends and Logs layouts, and real cached Google avatars with deterministic colored fallbacks. Coil's OkHttp network transport is included so remote Google and Firebase Storage photos can actually load.
 
 The administrator console was intentionally removed from the Android client. Administration belongs in a separately secured operational tool, not a consumer APK.

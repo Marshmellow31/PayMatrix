@@ -19,16 +19,16 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 > **Device-testing release: native Android app.** The Kotlin/Compose app lives in
 > [`native-android/`](./native-android/). The previous Capacitor client remains in
 > [`android app/`](./android%20app/) and its signed v1.2.5 GitHub release remains available.
-> Version 2.0.1 may contain bugs; please report them through GitHub Issues.
+> Version 2.0.2 may contain bugs; please report them through GitHub Issues.
 
-[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 2.0.1**](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.0.1/paymatrix-native-2.0.1.apk) · [**Keep/download v1.2.5**](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5)
+[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 2.0.2**](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.0.2/paymatrix-native-2.0.2.apk) · [**Keep/download v1.2.5**](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5)
 
 ### Latest Android release
 
-- Version: **2.0.1** (`versionCode 20100`)
+- Version: **2.0.2** (`versionCode 20200`)
 - Package: `com.paymatrix.app`
-- Signed APK: [`paymatrix-native-2.0.1.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.0.1/paymatrix-native-2.0.1.apk)
-- SHA-256: `d2605a0724ebaee089e061a44478e603f6634e538e0520c1047f487605eb83ba`
+- Signed APK: [`paymatrix-native-2.0.2.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.0.2/paymatrix-native-2.0.2.apk)
+- SHA-256: `41d79818a1f0add16df08f7476556d7bf918e753d0adb7d3933bf99c15bae0d1`
 
 This is a direct-install device-testing release, not a Play Store publication. Android may ask you
 to allow installation from the browser or file manager used to open the APK.
@@ -416,7 +416,7 @@ $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 .\gradlew.bat testDebugUnitTest assembleRelease
 ```
 
-The signed v2.0.1 APK upgrades v1.2.5 in place because package, release certificate, and Firebase
+The signed v2.0.2 APK upgrades v1.2.5 and v2.0.1 in place because package, release certificate, and Firebase
 identity are compatible and its version code is higher. The old
 [`v1.2.5` release](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5) remains available.
 Follow [`native-android/README.md`](./native-android/README.md) and its learning/verification docs.

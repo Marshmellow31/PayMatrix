@@ -28,9 +28,11 @@ import androidx.compose.ui.platform.LocalContext
 import com.paymatrix.app.data.UserProfile
 import com.paymatrix.app.domain.Money
 
-val CanvasBlack = Color(0xFF0E0E0E)
-val ObsidianSurface = Color(0xFF1A1A1A)
-val RaisedSurface = Color(0xFF202020)
+// Exact Digital Obsidian surface hierarchy from frontend/tailwind.config.js.
+val CanvasBlack = Color(0xFF1A1A1A)
+val ObsidianSurface = Color(0xFF151515)
+val CardSurface = Color(0xFF1B1B1B)
+val RaisedSurface = Color(0xFF242424)
 val Hairline = Color.White.copy(alpha = .075f)
 val QuietText = Color.White.copy(alpha = .38f)
 val MutedText = Color.White.copy(alpha = .58f)
@@ -42,7 +44,7 @@ val AccentOrange = Color(0xFFFF7A1A)
 val AccentPink = Color(0xFFF0449A)
 val AccentPurple = Color(0xFF9B6CFF)
 val AccentEmerald = Color(0xFF35D6A0)
-val ModalSurface = Color(0xFF202020)
+val ModalSurface = Color(0xFF242424)
 
 fun categoryColor(category: String): Color = when (category.lowercase()) {
     "travel", "trip" -> PrimaryBlue
@@ -84,7 +86,7 @@ fun ObsidianCard(modifier: Modifier = Modifier, contentPadding: PaddingValues = 
     Card(
         modifier = modifier.fillMaxWidth().border(1.dp, Hairline, RoundedCornerShape(22.dp)),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = ObsidianSurface),
+        colors = CardDefaults.cardColors(containerColor = CardSurface),
     ) { Column(Modifier.padding(contentPadding), verticalArrangement = Arrangement.spacedBy(10.dp), content = content) }
 }
 

@@ -1,11 +1,11 @@
-# Native 2.0.1 verification record
+# Native 2.0.2 verification record
 
 ## Release identity
 
-- Artifact: `releases/paymatrix-native-2.0.1.apk`
+- Artifact: `releases/paymatrix-native-2.0.2.apk`
 - App label: `paymatrix`
 - Package: `com.paymatrix.app`
-- Version: `2.0.1` (`20100`)
+- Version: `2.0.2` (`20200`)
 - Firebase app ID: `1:344969363066:android:f200bee5cbcf086a3305c3`
 
 ## Automated checks
@@ -16,10 +16,11 @@ Completed on 2026-08-27:
 - Signed release compilation with R8/resource shrinking and release lint: passed
 - APK signing: passed; signer SHA-256 `77bc53c8e4c6eeb17449750b0bd1d83901682030219e8a363963428e9820659f`
 - v1.2.5 signer comparison: exact certificate match
-- Package inspection: `com.paymatrix.app`, `2.0.1`, code `20100`
-- SHA-256: `d2605a0724ebaee089e061a44478e603f6634e538e0520c1047f487605eb83ba`
+- Package inspection: `com.paymatrix.app`, `2.0.2`, code `20200`
+- SHA-256: `41d79818a1f0add16df08f7476556d7bf918e753d0adb7d3933bf99c15bae0d1`
 - Firestore emulator authorization suite: 16 passed, 0 failed
-- Emulator upgrade: `adb install -r` returned `Success`; version changed from `1.2.5` (`10205`) to `2.0.1` (`20100`) while `firstInstallTime` remained unchanged
+- Release dependency graph: `coil-network-okhttp:3.3.0` and `coil-network-core:3.3.0` present with OkHttp 5.1.0
+- Emulator upgrade: `adb install -r` returned `Success`; version changed from `2.0.1` (`20100`) to `2.0.2` (`20200`) while `firstInstallTime` remained `2026-08-26 21:39:01`
 - Cold launch after upgrade: process started without a fatal Android exception
 
 ## Human device checks still recommended

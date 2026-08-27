@@ -152,7 +152,7 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
 
 @Composable
 private fun GroupHero(snapshot: GroupSnapshot, onRecord: () -> Unit, onSettle: () -> Unit, onAddMember: () -> Unit, onMenu: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(32.dp)).background(Color(0xFF121212)).border(1.dp, Hairline, RoundedCornerShape(32.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(32.dp)).background(Color(0xFF131313)).border(1.dp, Hairline, RoundedCornerShape(32.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(58.dp).clip(RoundedCornerShape(18.dp)).background(categoryColor(snapshot.group.category).copy(alpha = .12f)).border(1.dp, categoryColor(snapshot.group.category).copy(alpha = .25f), RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) {
                 Icon(categoryIcon(snapshot.group.category), null, tint = categoryColor(snapshot.group.category), modifier = Modifier.size(30.dp))

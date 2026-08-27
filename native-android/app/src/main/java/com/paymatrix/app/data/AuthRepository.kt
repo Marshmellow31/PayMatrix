@@ -59,7 +59,7 @@ class AuthRepository(
             uid = uid,
             name = doc.getString("name") ?: doc.getString("displayName") ?: authUser?.displayName ?: "Member",
             email = doc.getString("email") ?: authUser?.email.orEmpty(),
-            avatar = firstNonBlank(doc.getString("avatar"), doc.getString("photoURL"), authUser?.photoUrl?.toString()),
+            avatar = allowedAvatar(doc.getString("avatar"), doc.getString("photoURL"), authUser?.photoUrl?.toString()),
             upiId = doc.getString("upiId").orEmpty(),
             phone = doc.getString("phone").orEmpty(),
             friends = (doc.get("friends") as? List<*>)?.mapNotNull { it as? String }.orEmpty(),
@@ -155,5 +155,7 @@ class AuthRepository(
         }
     }
 
-    private fun firstNonBlank(vararg values: String?): String = values.firstOrNull { !it.isNullOrBlank() }.orEmpty()
+    private fun allowedAvatar(vararg values: String?): String = values.firstOrNull { value ->
+        value?.startsWith("https://lh3.googleusercontent.com/") == true || value?.startsWith("https://firebasestorage.googleapis.com/") == true
+    }.orEmpty()
 }

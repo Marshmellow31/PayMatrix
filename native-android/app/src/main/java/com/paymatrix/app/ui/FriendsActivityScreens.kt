@@ -43,50 +43,84 @@ import com.paymatrix.app.domain.Money
 fun FriendsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
     var code by remember { mutableStateOf("") }
     var remove by remember { mutableStateOf<UserProfile?>(null) }
+    var inviteOpen by remember { mutableStateOf(false) }
+    var tab by remember { mutableIntStateOf(0) }
     val clipboard = LocalClipboardManager.current
     LaunchedEffect(Unit) { vm.loadFriends() }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 30.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { PageTitle("Friends", "Your private paymatrix network") }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(22.dp, 24.dp, 22.dp, 34.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            ObsidianCard {
-                Text("YOUR FRIEND CODE", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(state.user?.friendCode?.chunked(4)?.joinToString(" ")?.ifBlank { "GENERATING" } ?: "GENERATING", Modifier.weight(1f), color = Color.White, fontWeight = FontWeight.Black, fontSize = 24.sp, letterSpacing = 2.sp)
-                    IconButton(onClick = { clipboard.setText(AnnotatedString(state.user?.friendCode.orEmpty())) }) { Icon(Icons.Default.ContentCopy, "Copy code") }
-                }
-                Text("Share this code with someone you trust. Codes are exact-match and cannot be browsed.", color = QuietText, fontSize = 10.sp)
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("FRIENDS", color = Color.White, fontWeight = FontWeight.Black, fontSize = 26.sp, letterSpacing = (-.6).sp)
+                Text("SOCIAL MATRIX V3.1", color = Color.White.copy(alpha = .2f), fontWeight = FontWeight.Black, fontSize = 10.sp, letterSpacing = 3.2.sp)
             }
         }
         item {
-            ObsidianCard {
-                Text("CONNECT A FRIEND", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
-                FormField(code, { code = it.uppercase().filter { ch -> ch.isLetterOrDigit() }.take(8) }, "8-character code", leading = { Icon(Icons.Default.Tag, null) })
-                PrimaryAction("Send request", { vm.sendFriendRequest(code); code = "" }, Modifier.fillMaxWidth(), enabled = code.length == 8, icon = { Icon(Icons.Default.PersonAdd, null, Modifier.size(17.dp)) })
-            }
+            SecondaryAction("INVITE FRIEND", { inviteOpen = !inviteOpen }, Modifier.fillMaxWidth(), icon = { Icon(if (inviteOpen) Icons.Default.Close else Icons.Default.PersonAdd, null, Modifier.size(17.dp)) })
         }
-        if (state.friendRequests.isNotEmpty()) item { SectionTitle("Signals", "Pending friend requests") }
-        items(state.friendRequests, key = { it.id }) { request ->
-            ObsidianCard {
+        if (inviteOpen) item {
+            ObsidianCard(contentPadding = PaddingValues(18.dp)) {
+                Text("YOUR FRIEND CODE", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    UserAvatar(request.profile, 44); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(request.profile?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Bold); Text(if (request.to == state.user?.uid) "Wants to connect" else "Request pending", color = QuietText, fontSize = 11.sp) }
+                    Text(state.user?.friendCode?.chunked(4)?.joinToString(" ")?.ifBlank { "GENERATING" } ?: "GENERATING", Modifier.weight(1f), color = Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp, letterSpacing = 2.sp)
+                    IconButton(onClick = { clipboard.setText(AnnotatedString(state.user?.friendCode.orEmpty())) }) { Icon(Icons.Default.ContentCopy, "Copy code", tint = MutedText) }
                 }
-                if (request.to == state.user?.uid) Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) { PrimaryAction("Accept", { vm.respond(request, true) }, Modifier.weight(1f)); SecondaryAction("Reject", { vm.respond(request, false) }, Modifier.weight(1f)) }
+                HorizontalDivider(color = Hairline)
+                FormField(code, { code = it.uppercase().filter { ch -> ch.isLetterOrDigit() }.take(8) }, "Enter their 8-character code", leading = { Icon(Icons.Default.Tag, null) })
+                PrimaryAction("Send request", { vm.sendFriendRequest(code); code = "" }, Modifier.fillMaxWidth(), enabled = code.length == 8, icon = { Icon(Icons.Default.Send, null, Modifier.size(17.dp)) })
             }
         }
-        item { SectionTitle("Your friends", "${state.friends.size} connected") }
-        if (state.friends.isEmpty()) item { EmptyState("No friends yet", "Use a friend code to create your private network.") }
-        items(state.friends, key = { it.uid }) { friend ->
-            ObsidianCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    UserAvatar(friend, 48); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(friend.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp); Text(friend.email.ifBlank { "paymatrix member" }, color = QuietText, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                    val shared = state.groups.firstOrNull { friend.uid in it.members }
-                    if (shared != null) IconButton(onClick = { nav.navigate("group/${shared.id}") }) { Icon(Icons.Default.Payments, "Settle in ${shared.name}", tint = MutedText) }
-                    IconButton(onClick = { remove = friend }) { Icon(Icons.Default.PersonRemove, "Remove friend", tint = Negative) }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.Bottom) {
+                FriendTab("NODES", state.friends.size, tab == 0) { tab = 0 }
+                FriendTab("SIGNALS", state.friendRequests.size, tab == 1) { tab = 1 }
+                Spacer(Modifier.weight(1f))
+            }
+            HorizontalDivider(color = Hairline)
+        }
+        if (tab == 1) {
+            if (state.friendRequests.isEmpty()) item { EmptyState("No signals", "Pending friend requests will appear here.") }
+            items(state.friendRequests, key = { it.id }) { request ->
+                ObsidianCard(contentPadding = PaddingValues(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        UserAvatar(request.profile, 48)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) { Text(request.profile?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Black); Text(if (request.to == state.user?.uid) "WANTS TO CONNECT" else "REQUEST PENDING", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp) }
+                    }
+                    if (request.to == state.user?.uid) Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) { PrimaryAction("Accept", { vm.respond(request, true) }, Modifier.weight(1f)); SecondaryAction("Reject", { vm.respond(request, false) }, Modifier.weight(1f)) }
+                }
+            }
+        } else {
+            if (state.friends.isEmpty()) item { EmptyState("No friends yet", "Use Invite friend to connect with someone you trust.") }
+            items(state.friends, key = { it.uid }) { friend ->
+                val sharedGroups = state.groups.filter { friend.uid in it.members }
+                ObsidianCard(contentPadding = PaddingValues(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        UserAvatar(friend, 54)
+                        Spacer(Modifier.width(13.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(friend.name, color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${sharedGroups.size} MUTUAL GROUP${if (sharedGroups.size == 1) "" else "S"}", color = Color.White.copy(alpha = .2f), fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                        }
+                        if (sharedGroups.isNotEmpty()) IconButton(onClick = { nav.navigate("group/${sharedGroups.first().id}") }, modifier = Modifier.border(1.dp, Hairline, RoundedCornerShape(14.dp))) { Icon(Icons.Default.ChevronRight, "Open shared group", tint = MutedText) }
+                        IconButton(onClick = { remove = friend }) { Icon(Icons.Default.PersonRemove, "Remove friend", tint = Color.White.copy(alpha = .2f), modifier = Modifier.size(18.dp)) }
+                    }
                 }
             }
         }
     }
     remove?.let { friend -> ConfirmDialog("Sever connection?", "Remove ${friend.name} from your friend network? Shared group history remains intact.", "Remove", { remove = null }, destructive = true) { vm.removeFriend(friend.uid) { remove = null } } }
+}
+
+@Composable
+private fun FriendTab(label: String, count: Int, selected: Boolean, onClick: () -> Unit) {
+    Column(Modifier.widthIn(min = 96.dp).clickable(onClick = onClick).padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = if (selected) Color.White else Color.White.copy(alpha = .2f), fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 2.6.sp)
+            Box(Modifier.clip(RoundedCornerShape(9.dp)).background(if (selected) Color.White.copy(alpha = .1f) else Color.Transparent).border(1.dp, Hairline, RoundedCornerShape(9.dp)).padding(horizontal = 8.dp, vertical = 3.dp)) { Text(count.toString(), color = if (selected) Color.White else QuietText, fontSize = 8.sp, fontWeight = FontWeight.Black) }
+        }
+        Spacer(Modifier.height(12.dp))
+        Box(Modifier.fillMaxWidth().height(2.dp).clip(CircleShape).background(if (selected) Color.White else Color.Transparent))
+    }
 }
 
 @Composable
