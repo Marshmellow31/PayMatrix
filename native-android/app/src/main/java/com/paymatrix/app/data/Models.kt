@@ -94,6 +94,7 @@ data class LogGroup(
     val ownerId: String,
     val members: List<String>,
     val updatedAt: String,
+    val status: String = "active",
 )
 
 data class LogEntry(
@@ -105,6 +106,19 @@ data class LogEntry(
     val note: String,
     val date: String,
     val type: String,
+    val addedBy: String = "",
+    val addedByName: String = "Member",
+)
+
+data class LogActivity(
+    val id: String,
+    val type: String,
+    val message: String,
+    val actorId: String,
+    val actorName: String,
+    val relatedId: String,
+    val groupId: String,
+    val createdAt: String,
 )
 
 data class ExpenseShare(
@@ -136,6 +150,8 @@ data class DashboardSummary(
     val totalSharedPaise: Long = 0,
     val categories: List<CategoryTotal> = emptyList(),
     val groupBalances: Map<String, Long> = emptyMap(),
+    val thisMonthPaise: Long = 0,
+    val previousMonthPaise: Long = 0,
 )
 
 data class ActivityItem(
@@ -164,6 +180,16 @@ data class FeatureFlags(
     val settlements: Boolean = true,
     val logs: Boolean = true,
     val maintenanceMode: Boolean = false,
+)
+
+data class MutationResult(
+    val id: String = "",
+    val queued: Boolean = false,
+)
+
+data class SyncStatus(
+    val pendingWrites: Int = 0,
+    val lastError: String = "",
 )
 
 data class ExpenseDraft(

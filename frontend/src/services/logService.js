@@ -5,14 +5,14 @@ import {
   getDoc,
   getDocs,
   addDoc,
-  setDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   arrayUnion,
   arrayRemove,
   getDocsFromCache,
+  writeBatch,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { withRetry } from '../utils/retryOperation.js';
 import validationService, { LogEntrySchema } from './validationService.js';
@@ -21,8 +21,19 @@ import validationService, { LogEntrySchema } from './validationService.js';
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
 
 const entriesCol = (groupId) => collection(db, 'logGroups', groupId, 'entries');
+const activityCol = (groupId) => collection(db, 'logGroups', groupId, 'activity');
 
 const myName = () => auth.currentUser?.displayName || auth.currentUser?.email || 'Member';
+
+const activityPayload = (groupId, type, message, relatedId) => ({
+  type,
+  message: message.slice(0, 500),
+  actorId: auth.currentUser?.uid,
+  actorName: myName(),
+  relatedId,
+  groupId,
+  createdAt: serverTimestamp(),
+});
 
 const logService = {
   createLogGroup: async (name, memberUids = []) => {
@@ -34,6 +45,7 @@ const logService = {
       name: name.trim().slice(0, 100),
       ownerId: uid,
       members: Array.from(new Set([uid, ...memberUids])),
+      status: 'active',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -57,6 +69,7 @@ const logService = {
 
     const groups = snap.docs
       .map((d) => ({ _id: d.id, ...d.data() }))
+      .filter((group) => group.status !== 'deleted')
       .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
 
     return wrap({ groups });
@@ -108,7 +121,13 @@ const logService = {
   },
 
   deleteLogGroup: async (groupId) => {
-    await withRetry(() => deleteDoc(doc(db, 'logGroups', groupId)));
+    await withRetry(() =>
+      updateDoc(doc(db, 'logGroups', groupId), {
+        status: 'deleted',
+        deletedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      })
+    );
     return wrap({ message: 'Group deleted' });
   },
 
@@ -132,11 +151,34 @@ const logService = {
 
     validationService.validate(LogEntrySchema, payload);
 
-    const docRef = await withRetry(() => addDoc(entriesCol(groupId), payload));
-    return wrap({ entry: { _id: docRef.id, ...payload } }, 'Entry added');
+    const docRef = doc(entriesCol(groupId));
+    const eventRef = doc(activityCol(groupId));
+    const stamp = serverTimestamp();
+    const auditedPayload = {
+      ...payload,
+      status: 'active',
+      lastMutationId: eventRef.id,
+      lastMutationType: 'entry_added',
+      lastMutationAt: stamp,
+      lastEditedBy: uid,
+    };
+    await withRetry(() => {
+      const batch = writeBatch(db);
+      batch.set(docRef, auditedPayload);
+      batch.set(
+        eventRef,
+        activityPayload(groupId, 'entry_added', `${myName()} added "${payload.title}"`, docRef.id)
+      );
+      batch.update(doc(db, 'logGroups', groupId), { updatedAt: stamp });
+      return batch.commit();
+    });
+    return wrap({ entry: { _id: docRef.id, ...auditedPayload } }, 'Entry added');
   },
 
   updateManualEntry: async (groupId, entryId, data) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error('Authentication required');
+
     const payload = {
       title: data.title,
       amount: parseFloat(data.amount),
@@ -147,12 +189,57 @@ const logService = {
       updatedAt: new Date().toISOString(),
     };
 
-    await withRetry(() => updateDoc(doc(db, 'logGroups', groupId, 'entries', entryId), payload));
+    validationService.validate(LogEntrySchema.partial(), payload);
+
+    await withRetry(() => {
+      const batch = writeBatch(db);
+      const eventRef = doc(activityCol(groupId));
+      const stamp = serverTimestamp();
+      batch.update(doc(db, 'logGroups', groupId, 'entries', entryId), {
+        ...payload,
+        updatedAt: stamp,
+        lastMutationId: eventRef.id,
+        lastMutationType: 'entry_updated',
+        lastMutationAt: stamp,
+        lastEditedBy: uid,
+      });
+      batch.set(
+        eventRef,
+        activityPayload(groupId, 'entry_updated', `${myName()} edited "${payload.title}"`, entryId)
+      );
+      batch.update(doc(db, 'logGroups', groupId), { updatedAt: stamp });
+      return batch.commit();
+    });
     return wrap({ message: 'Entry updated' });
   },
 
   deleteEntry: async (groupId, entryId) => {
-    await withRetry(() => deleteDoc(doc(db, 'logGroups', groupId, 'entries', entryId)));
+    const entryRef = doc(db, 'logGroups', groupId, 'entries', entryId);
+    const existing = await getDoc(entryRef);
+    if (!existing.exists() || existing.data().status === 'deleted') {
+      return wrap({ message: 'Entry already deleted' });
+    }
+    const title = existing.data().title || 'Entry';
+    await withRetry(() => {
+      const batch = writeBatch(db);
+      const eventRef = doc(activityCol(groupId));
+      const stamp = serverTimestamp();
+      batch.update(entryRef, {
+        status: 'deleted',
+        deletedAt: stamp,
+        updatedAt: stamp,
+        lastMutationId: eventRef.id,
+        lastMutationType: 'entry_deleted',
+        lastMutationAt: stamp,
+        lastEditedBy: auth.currentUser?.uid,
+      });
+      batch.set(
+        eventRef,
+        activityPayload(groupId, 'entry_deleted', `${myName()} deleted "${title}"`, entryId)
+      );
+      batch.update(doc(db, 'logGroups', groupId), { updatedAt: stamp });
+      return batch.commit();
+    });
     return wrap({ message: 'Entry deleted' });
   },
 
@@ -167,9 +254,28 @@ const logService = {
 
     const entries = snap.docs
       .map((d) => ({ _id: d.id, ...d.data() }))
+      .filter((entry) => entry.status !== 'deleted')
       .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
     return wrap({ entries });
+  },
+
+  getActivity: async (groupId) => {
+    let snap;
+    try {
+      snap = await getDocs(activityCol(groupId));
+    } catch (err) {
+      console.warn('[OFFLINE_FALLBACK] getActivity: fetching from cache');
+      snap = await getDocsFromCache(activityCol(groupId)).catch(() => ({ docs: [] }));
+    }
+    const activity = snap.docs
+      .map((item) => ({ _id: item.id, ...item.data() }))
+      .sort((a, b) => {
+        const time = (value) => value?.toMillis?.() || new Date(value || 0).getTime();
+        return time(b.createdAt) - time(a.createdAt);
+      })
+      .slice(0, 50);
+    return wrap({ activity });
   },
 
   /** Reads the current user's share across their real expense groups, for the transaction picker. */
@@ -243,7 +349,30 @@ const logService = {
 
     validationService.validate(LogEntrySchema, payload);
 
-    await withRetry(() => setDoc(doc(db, 'logGroups', groupId, 'entries', entryId), payload));
+    await withRetry(() => {
+      const batch = writeBatch(db);
+      const eventRef = doc(activityCol(groupId));
+      const stamp = serverTimestamp();
+      batch.set(doc(db, 'logGroups', groupId, 'entries', entryId), {
+        ...payload,
+        status: 'active',
+        lastMutationId: eventRef.id,
+        lastMutationType: 'expense_entry_added',
+        lastMutationAt: stamp,
+        lastEditedBy: uid,
+      });
+      batch.set(
+        eventRef,
+        activityPayload(
+          groupId,
+          'expense_entry_added',
+          `${myName()} added "${payload.title}" from ${payload.sourceGroupName}`,
+          entryId
+        )
+      );
+      batch.update(doc(db, 'logGroups', groupId), { updatedAt: stamp });
+      return batch.commit();
+    });
     return wrap({ entry: { _id: entryId, ...payload } }, 'Entry added');
   },
 };

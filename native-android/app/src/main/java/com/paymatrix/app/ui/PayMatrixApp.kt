@@ -12,6 +12,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -20,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -75,7 +79,7 @@ fun PayMatrixApp(viewModel: PayMatrixViewModel, deepLink: Uri?) {
             NavHost(navController = nav, startDestination = "gate") {
                 composable("gate") { GateScreen(state, nav) }
                 composable("login") { LoginScreen(state, viewModel) }
-                composable("dashboard") { MainShell("dashboard", state, nav) { DashboardScreen(state, viewModel, nav) } }
+                composable("dashboard") { MainShell("dashboard", state, nav) { DashboardScreen(state, nav) } }
                 composable("friends") { MainShell("friends", state, nav) { FriendsScreen(state, viewModel, nav) } }
                 composable("groups") { MainShell("groups", state, nav) { GroupsScreen(state, viewModel, nav) } }
                 composable("logs") { MainShell("logs", state, nav) { if (state.flags.logs) LogGroupsScreen(state, viewModel, nav) else FeatureUnavailableScreen("Spending logs") } }
@@ -110,35 +114,44 @@ private fun GateScreen(state: PayMatrixState, nav: NavHostController) {
 private fun LoginScreen(state: PayMatrixState, vm: PayMatrixViewModel) {
     val context = LocalContext.current
     val clientId = stringResource(R.string.default_web_client_id)
-    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 18.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(top = 18.dp, bottom = 22.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Image(painterResource(R.drawable.logo), "paymatrix logo", Modifier.size(34.dp))
-            Spacer(Modifier.width(10.dp))
-            Text("PAYMATRIX", color = Color.White, fontWeight = FontWeight.Black, letterSpacing = 2.sp, fontSize = 13.sp)
+            Image(painterResource(R.drawable.logo), "paymatrix logo", Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)))
+            Spacer(Modifier.width(11.dp))
+            Text("paymatrix", color = Color.White, fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = (-.3).sp)
             Spacer(Modifier.weight(1f))
-            Icon(Icons.Default.VerifiedUser, null, tint = Positive, modifier = Modifier.size(14.dp))
-            Spacer(Modifier.width(5.dp)); Text("Secured by Firebase", color = Positive.copy(alpha = .8f), fontWeight = FontWeight.Bold, fontSize = 10.sp)
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            Text("Your shared money,", color = Color.White, fontWeight = FontWeight.Black, fontSize = 34.sp, lineHeight = 35.sp)
-            Text("clear at a glance.", color = Color.White.copy(alpha = .45f), fontWeight = FontWeight.Black, fontSize = 34.sp, lineHeight = 38.sp)
-            Spacer(Modifier.height(14.dp))
-            Text("Choose a Google account on this phone to securely open your groups, balances, and activity.", color = Color.White.copy(alpha = .5f), lineHeight = 20.sp, fontSize = 13.sp)
-            Spacer(Modifier.height(22.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                LoginFeature(Icons.Default.Groups, "One shared view", "Live groups and balances.", Modifier.weight(1f))
-                LoginFeature(Icons.Default.Lock, "Private access", "Device-native account sign-in.", Modifier.weight(1f))
+            Row(Modifier.clip(CircleShape).background(Positive.copy(alpha = .08f)).padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.VerifiedUser, null, tint = Positive, modifier = Modifier.size(13.dp))
+                Spacer(Modifier.width(5.dp)); Text("Private by design", color = Positive.copy(alpha = .86f), fontWeight = FontWeight.SemiBold, fontSize = 9.sp)
             }
         }
+        Spacer(Modifier.height(42.dp))
+        Text("Split a bill.", color = Color.White, fontWeight = FontWeight.Black, fontSize = 40.sp, lineHeight = 41.sp, letterSpacing = (-1.5).sp)
+        Text("See what’s fair.", color = Color.White.copy(alpha = .42f), fontWeight = FontWeight.Black, fontSize = 40.sp, lineHeight = 43.sp, letterSpacing = (-1.5).sp)
+        Spacer(Modifier.height(14.dp))
+        Text("Shared expenses, clear balances, and user-confirmed settlements—without the awkward maths.", color = MutedText, lineHeight = 20.sp, fontSize = 13.sp)
+        Spacer(Modifier.height(26.dp))
+        ObsidianCard(contentPadding = PaddingValues(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(48.dp).clip(RoundedCornerShape(16.dp)).background(PrimaryBlue.copy(alpha = .13f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.FlightTakeoff, null, tint = PrimaryBlue, modifier = Modifier.size(22.dp)) }
+                Spacer(Modifier.width(13.dp))
+                Column(Modifier.weight(1f)) { Text("Goa weekend", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp); Text("4 friends · 8 expenses", color = QuietText, fontSize = 10.sp) }
+                AvatarStack(listOf("a", "b", "c", "d"), emptyMap(), size = 23, max = 3)
+            }
+            HorizontalDivider(color = Hairline)
+            Row(verticalAlignment = Alignment.Bottom) { Column(Modifier.weight(1f)) { Text("YOUR POSITION", color = QuietText, fontWeight = FontWeight.Bold, fontSize = 8.sp, letterSpacing = 1.3.sp); Text("You are owed", color = MutedText, fontSize = 11.sp) }; Text("₹1,240.00", color = Positive, fontWeight = FontWeight.Black, fontSize = 24.sp, letterSpacing = (-.5).sp) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { LoginFeature(Icons.Default.ReceiptLong, "Add expense", "Split in seconds", Modifier.weight(1f)); LoginFeature(Icons.Default.DoneAll, "Settle clearly", "You confirm every payment", Modifier.weight(1f)) }
+        }
+        Spacer(Modifier.height(28.dp))
         PrimaryAction(if (state.loading) "Opening accounts..." else "Continue with Google", { vm.signIn(context, clientId) }, Modifier.fillMaxWidth(), enabled = !state.loading, icon = { Text("G", color = Color(0xFF4285F4), fontWeight = FontWeight.Black, fontSize = 20.sp) })
-        Spacer(Modifier.height(9.dp))
-        Text("Android will show the Google accounts already available on this device. paymatrix never sees your Google password.", color = Color.White.copy(alpha = .28f), fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Spacer(Modifier.height(11.dp))
+        Text("Android opens the secure Google account chooser. paymatrix never sees your Google password.", color = Color.White.copy(alpha = .32f), fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }
 
 @Composable
 private fun LoginFeature(icon: ImageVector, title: String, body: String, modifier: Modifier) {
-    Column(modifier.border(1.dp, Hairline, RoundedCornerShape(13.dp)).background(Color.White.copy(alpha = .025f), RoundedCornerShape(13.dp)).padding(13.dp)) {
+    Column(modifier.heightIn(min = 84.dp).border(1.dp, Hairline, RoundedCornerShape(15.dp)).background(Color.White.copy(alpha = .025f), RoundedCornerShape(15.dp)).padding(12.dp)) {
         Icon(icon, null, tint = Color.White.copy(alpha = .72f), modifier = Modifier.size(17.dp))
         Spacer(Modifier.height(9.dp)); Text(title, color = Color.White.copy(alpha = .82f), fontWeight = FontWeight.Bold, fontSize = 12.sp)
         Spacer(Modifier.height(3.dp)); Text(body, color = QuietText, fontSize = 10.sp, lineHeight = 14.sp)
@@ -178,7 +191,11 @@ private fun MainShell(route: String, state: PayMatrixState, nav: NavHostControll
         },
         content = { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
-                if (!online) StatusBanner("Offline · cached data remains available and changes sync when connected", Negative)
+                if (state.syncStatus.pendingWrites > 0) StatusBanner(
+                    "${state.syncStatus.pendingWrites} change${if (state.syncStatus.pendingWrites == 1) "" else "s"} pending secure sync",
+                    Color(0xFFF6C85F),
+                ) else if (!online) StatusBanner("Offline · cached data is available; payments and account changes require a connection", Color(0xFFF6C85F))
+                if (state.syncStatus.lastError.isNotBlank()) StatusBanner("Sync needs attention · ${state.syncStatus.lastError}", Negative)
                 if (state.flags.maintenanceMode) StatusBanner("Maintenance mode · some cloud actions may be temporarily unavailable", Color(0xFFF6C85F))
                 Box(Modifier.weight(1f)) { content(PaddingValues(0.dp)) }
             }
@@ -211,13 +228,19 @@ private fun rememberNetworkAvailable(): Boolean {
     val context = LocalContext.current
     val manager = remember(context) { context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager }
     var connected by remember {
-        mutableStateOf(manager.activeNetwork?.let { manager.getNetworkCapabilities(it)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } == true)
+        mutableStateOf(manager.activeNetwork?.let { network ->
+            manager.getNetworkCapabilities(network)?.let { capabilities ->
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            }
+        } == true)
     }
     DisposableEffect(manager) {
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) { connected = true }
             override fun onLost(network: Network) { connected = manager.activeNetwork != null }
-            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) { connected = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) }
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                connected = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            }
         }
         manager.registerNetworkCallback(NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(), callback)
         onDispose { manager.unregisterNetworkCallback(callback) }

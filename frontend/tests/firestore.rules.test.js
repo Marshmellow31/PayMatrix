@@ -10,6 +10,7 @@ import {
 import {
   arrayUnion,
   doc,
+  deleteDoc,
   getDoc,
   serverTimestamp,
   setDoc,
@@ -79,6 +80,26 @@ beforeEach(async () => {
       setDoc(doc(db, 'publicProfiles', 'owner'), { name: 'Owner', avatar: '', updatedAt: 'now' }),
       setDoc(doc(db, 'groups', 'group-1'), group),
       setDoc(doc(db, 'groups', 'group-1', 'expenses', 'expense-1'), expense),
+      setDoc(doc(db, 'logGroups', 'log-group-1'), {
+        name: 'Parents',
+        ownerId: 'owner',
+        members: ['owner', 'member'],
+        createdAt: 'now',
+        updatedAt: 'now',
+      }),
+      setDoc(doc(db, 'logGroups', 'log-group-1', 'entries', 'entry-1'), {
+        type: 'manual',
+        title: 'Groceries',
+        amount: 125,
+        addedBy: 'member',
+        addedByName: 'Member',
+        category: 'Food',
+        place: '',
+        note: '',
+        date: '2026-08-30T00:00:00.000Z',
+        createdAt: 'now',
+        updatedAt: 'now',
+      }),
       setDoc(doc(db, 'groupInvites', 'JOIN1234'), {
         groupId: 'group-1',
         createdBy: 'owner',
@@ -239,6 +260,127 @@ describe('PayMatrix Firestore authorization', () => {
       createdAt: serverTimestamp(),
     });
     await assertSucceeds(batch.commit());
+  });
+
+  test('keeps an immutable audit event when a log entry is deleted', async () => {
+    const db = environment.authenticatedContext('member').firestore();
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'logGroups', 'log-group-1', 'entries', 'entry-1'), {
+      status: 'deleted',
+      deletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      lastEditedBy: 'member',
+      lastMutationId: 'delete-entry-1',
+      lastMutationType: 'entry_deleted',
+      lastMutationAt: serverTimestamp(),
+    });
+    batch.set(doc(db, 'logGroups', 'log-group-1', 'activity', 'delete-entry-1'), {
+      type: 'entry_deleted',
+      message: 'Member deleted "Groceries"',
+      actorId: 'member',
+      actorName: 'Member',
+      relatedId: 'entry-1',
+      groupId: 'log-group-1',
+      createdAt: serverTimestamp(),
+    });
+    await assertSucceeds(batch.commit());
+    await assertSucceeds(getDoc(doc(db, 'logGroups', 'log-group-1', 'activity', 'delete-entry-1')));
+  });
+
+  test('requires an atomic activity event when a member creates a log entry', async () => {
+    const db = environment.authenticatedContext('member').firestore();
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'logGroups', 'log-group-1', 'entries', 'entry-2'), {
+      type: 'manual',
+      title: 'Fuel',
+      amount: 250,
+      addedBy: 'member',
+      addedByName: 'Member',
+      category: 'Travel',
+      place: '',
+      note: '',
+      date: '2026-08-31T00:00:00.000Z',
+      status: 'active',
+      createdAt: 'now',
+      updatedAt: 'now',
+      lastEditedBy: 'member',
+      lastMutationId: 'add-entry-2',
+      lastMutationType: 'entry_added',
+      lastMutationAt: serverTimestamp(),
+    });
+    batch.set(doc(db, 'logGroups', 'log-group-1', 'activity', 'add-entry-2'), {
+      type: 'entry_added',
+      message: 'Member added "Fuel"',
+      actorId: 'member',
+      actorName: 'Member',
+      relatedId: 'entry-2',
+      groupId: 'log-group-1',
+      createdAt: serverTimestamp(),
+    });
+    await assertSucceeds(batch.commit());
+
+    await assertFails(
+      setDoc(doc(db, 'logGroups', 'log-group-1', 'entries', 'entry-without-audit'), {
+        type: 'manual',
+        title: 'Parking',
+        amount: 50,
+        addedBy: 'member',
+        addedByName: 'Member',
+        category: 'Travel',
+        place: '',
+        note: '',
+        date: '2026-08-31T00:00:00.000Z',
+        status: 'active',
+        createdAt: 'now',
+        updatedAt: 'now',
+        lastEditedBy: 'member',
+        lastMutationId: 'missing-audit',
+        lastMutationType: 'entry_added',
+        lastMutationAt: serverTimestamp(),
+      })
+    );
+  });
+
+  test('rejects forged log activity from a nonmember', async () => {
+    const db = environment.authenticatedContext('attacker').firestore();
+    await assertFails(
+      setDoc(doc(db, 'logGroups', 'log-group-1', 'activity', 'forged'), {
+        type: 'entry_deleted',
+        message: 'Attacker deleted an entry',
+        actorId: 'attacker',
+        actorName: 'Attacker',
+        relatedId: 'entry-1',
+        groupId: 'log-group-1',
+        createdAt: serverTimestamp(),
+      })
+    );
+  });
+
+  test("rejects a member's standalone log activity without the matching entry mutation", async () => {
+    const db = environment.authenticatedContext('member').firestore();
+    await assertFails(
+      setDoc(doc(db, 'logGroups', 'log-group-1', 'activity', 'member-forged'), {
+        type: 'entry_deleted',
+        message: 'Member claimed an entry was deleted',
+        actorId: 'member',
+        actorName: 'Member',
+        relatedId: 'entry-1',
+        groupId: 'log-group-1',
+        createdAt: serverTimestamp(),
+      })
+    );
+  });
+
+  test('soft-deletes a log group and rejects an orphaning hard delete', async () => {
+    const db = environment.authenticatedContext('owner').firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'logGroups', 'log-group-1'), {
+        status: 'deleted',
+        deletedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      })
+    );
+    await assertFails(deleteDoc(doc(db, 'logGroups', 'log-group-1')));
   });
 
   test('binds confirmed settlement payer to the authenticated user', async () => {

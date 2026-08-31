@@ -14,15 +14,16 @@ const Privacy = () => (
         <p className="text-xs font-bold uppercase tracking-widest text-primary">
           Privacy &amp; Data
         </p>
-        <h1 className="mt-2 text-3xl font-black">PayMatrix Privacy Policy</h1>
-        <p className="mt-2 text-sm text-white/40">Effective 23 August 2026</p>
+        <h1 className="mt-2 text-3xl font-black">paymatrix Privacy Policy</h1>
+        <p className="mt-2 text-sm text-white/40">Effective 31 August 2026</p>
       </header>
 
-      <Section title="What PayMatrix is">
+      <Section title="What paymatrix is">
         <p>
-          PayMatrix coordinates shared expenses and records user-confirmed settlements. It is not a
+          paymatrix coordinates shared expenses and records user-confirmed settlements. It is not a
           bank, wallet, payment processor, or proof that a bank transfer occurred.
         </p>
+        <p>paymatrix is developed and operated by the project owner Marshmellow31.</p>
       </Section>
       <Section title="Data we store">
         <p>
@@ -43,18 +44,24 @@ const Privacy = () => (
       </Section>
       <Section title="Receipt scanning and AI">
         <p>
-          When you choose Scan Bill, the selected receipt image is sent through PayMatrix server
+          When you choose Scan Bill, the selected receipt image is sent through paymatrix server
           code to Google Gemini for extraction. AI output is untrusted and must be reviewed before
-          saving. PayMatrix does not intentionally persist the original receipt image in Firestore,
+          saving. paymatrix does not intentionally persist the original receipt image in Firestore,
           but Google&apos;s processing is governed by the applicable Google service terms.
         </p>
       </Section>
       <Section title="Service providers and sharing">
         <p>
-          PayMatrix uses Google Firebase for authentication, database storage and optional
-          notifications; Google Gemini for user-requested receipt extraction; and the configured web
-          hosting/serverless provider for the web application. Data is not sold and the app contains
-          no advertising SDK.
+          paymatrix uses Google Firebase for authentication, database storage, App Check, diagnostic
+          crash reporting, performance monitoring, and optional notifications; Google Gemini for
+          user-requested receipt extraction; and the configured web hosting/serverless provider for
+          the web application. Data is not sold and the app contains no advertising SDK.
+        </p>
+        <p>
+          Diagnostic data can include app version, device and operating-system information, crash
+          traces, screen rendering measurements, and network timing. We do not intentionally attach
+          expense titles, notes, UPI IDs, receipt images, or authentication credentials to
+          diagnostic events.
         </p>
         <p>
           Your safe display name and profile photo are visible to authenticated users who share a
@@ -81,6 +88,12 @@ const Privacy = () => (
           Push notifications are optional and requested only after you enable them. You may also
           revoke notification permission in Android settings.
         </p>
+        <p>
+          The Android app keeps a platform-protected local Firebase cache so previously loaded data
+          can remain available offline. Supported expense and spending-log edits can remain pending
+          on the device until Firebase confirms synchronization. Sign-in, invitations, receipt AI,
+          and settlement confirmation require a connection.
+        </p>
       </Section>
       <Section title="Contact">
         <p>
@@ -92,7 +105,7 @@ const Privacy = () => (
             target="_blank"
             rel="noreferrer"
           >
-            PayMatrix support issue tracker
+            paymatrix support issue tracker
           </a>
           . Do not include financial or authentication secrets in a public issue.
         </p>

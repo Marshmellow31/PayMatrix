@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { Plus, Settings, ChevronLeft } from 'lucide-react';
+import { Plus, Settings, ChevronLeft, History, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import logService from '../services/logService.js';
 import Button from '../components/common/Button.jsx';
@@ -21,6 +21,7 @@ const LogGroupDetail = () => {
 
   const [group, setGroup] = useState(null);
   const [entries, setEntries] = useState([]);
+  const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [recordModalOpen, setRecordModalOpen] = useState(false);
@@ -29,12 +30,14 @@ const LogGroupDetail = () => {
 
   const load = useCallback(async () => {
     try {
-      const [groupRes, entriesRes] = await Promise.all([
+      const [groupRes, entriesRes, activityRes] = await Promise.all([
         logService.getLogGroup(groupId),
         logService.getEntries(groupId),
+        logService.getActivity(groupId),
       ]);
       setGroup(groupRes.data.data.group);
       setEntries(entriesRes.data.data.entries || []);
+      setActivity(activityRes.data.data.activity || []);
     } catch (err) {
       console.error('Failed to load log group:', err);
       setNotFound(true);
@@ -52,6 +55,8 @@ const LogGroupDetail = () => {
       await logService.deleteEntry(groupId, entry._id);
       toast.success('Entry deleted');
       setEntries((prev) => prev.filter((e) => e._id !== entry._id));
+      const activityRes = await logService.getActivity(groupId);
+      setActivity(activityRes.data.data.activity || []);
     } catch (err) {
       toast.error(err.message || 'Failed to delete entry');
     }
@@ -151,6 +156,48 @@ const LogGroupDetail = () => {
         onEdit={(entry) => setEditingEntry(entry)}
         onDelete={handleDelete}
       />
+
+      {activity.length > 0 && (
+        <section className="space-y-3 pt-2" aria-labelledby="log-activity-title">
+          <div>
+            <h2 id="log-activity-title" className="text-base font-black text-white">
+              Activity
+            </h2>
+            <p className="text-xs text-white/35">Immutable changes in this log</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.025] divide-y divide-white/[0.07]">
+            {activity.map((event) => {
+              const rawDate = event.createdAt?.toDate?.() || new Date(event.createdAt || 0);
+              return (
+                <div key={event._id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center shrink-0">
+                    {event.type === 'entry_deleted' ? (
+                      <Trash2 size={15} className="text-red-300/80" />
+                    ) : (
+                      <History size={15} className="text-white/45" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-white/80 break-words">
+                      {event.message}
+                    </p>
+                    <p className="text-[10px] text-white/30 mt-0.5">
+                      {Number.isNaN(rawDate.getTime())
+                        ? 'Pending sync'
+                        : rawDate.toLocaleString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <RecordEntryModal
         isOpen={recordModalOpen}

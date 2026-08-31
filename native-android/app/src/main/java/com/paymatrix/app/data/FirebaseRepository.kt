@@ -1,5 +1,9 @@
 package com.paymatrix.app.data
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import com.google.android.gms.tasks.Task
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -12,6 +16,12 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
+import java.util.concurrent.atomic.AtomicInteger
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -22,28 +32,100 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class FirebaseRepository(
+    context: Context,
     private val db: FirebaseFirestore,
     private val auth: AuthRepository,
 ) {
+    private val connectivity = context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    private val pendingWrites = AtomicInteger(0)
+    private val _syncStatus = MutableStateFlow(SyncStatus())
+    val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
     private val uid get() = auth.currentUser?.uid ?: error("Authentication required")
     private fun now() = Instant.now().toString()
 
-    fun homeChanges(): Flow<Unit> = callbackFlow {
-        val registrations = listOf(
-            db.collection("groups").whereArrayContains("members", uid).addSnapshotListener { _, error -> if (error == null) trySend(Unit) },
-            db.collection("notifications").whereEqualTo("to", uid).addSnapshotListener { _, error -> if (error == null) trySend(Unit) },
-            db.collection("config").document("features").addSnapshotListener { _, error -> if (error == null) trySend(Unit) },
-        )
-        awaitClose { registrations.forEach { it.remove() } }
+    fun isOnline(): Boolean {
+        val network = connectivity.activeNetwork ?: return false
+        val capabilities = connectivity.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    fun watchPendingWrites() {
+        if (auth.currentUser == null) return
+        val task = db.waitForPendingWrites()
+        if (task.isComplete) return
+        trackPending(task)
+    }
+
+    private suspend fun finishWrite(task: Task<Void>): Boolean {
+        if (!isOnline()) {
+            trackPending(task)
+            return true
+        }
+        return try {
+            withTimeout(12_000) { task.await() }
+            false
+        } catch (_: TimeoutCancellationException) {
+            trackPending(task)
+            true
+        }
+    }
+
+    private fun trackPending(task: Task<*>) {
+        val count = pendingWrites.incrementAndGet()
+        _syncStatus.value = SyncStatus(pendingWrites = count)
+        task.addOnCompleteListener { completed ->
+            val remaining = pendingWrites.updateAndGet { current -> (current - 1).coerceAtLeast(0) }
+            _syncStatus.value = SyncStatus(
+                pendingWrites = remaining,
+                lastError = completed.exception?.message.orEmpty(),
+            )
+        }
+    }
+
+    fun groupListChanges(): Flow<Unit> = callbackFlow {
+        var initialized = false
+        val registration = db.collection("groups").whereArrayContains("members", uid).addSnapshotListener { _, error ->
+            if (error == null && initialized) trySend(Unit) else if (error == null) initialized = true
+        }
+        awaitClose { registration.remove() }
+    }
+
+    fun notificationChanges(): Flow<Unit> = callbackFlow {
+        var initialized = false
+        val registration = db.collection("notifications").whereEqualTo("to", uid).addSnapshotListener { _, error ->
+            if (error == null && initialized) trySend(Unit) else if (error == null) initialized = true
+        }
+        awaitClose { registration.remove() }
+    }
+
+    fun featureFlagChanges(): Flow<Unit> = callbackFlow {
+        var initialized = false
+        val registration = db.collection("config").document("featureFlags").addSnapshotListener { _, error ->
+            if (error == null && initialized) trySend(Unit) else if (error == null) initialized = true
+        }
+        awaitClose { registration.remove() }
     }
 
     fun groupChanges(groupId: String): Flow<Unit> = callbackFlow {
         val group = db.collection("groups").document(groupId)
+        var groupInitialized = false
+        var expensesInitialized = false
+        var settlementsInitialized = false
+        var logsInitialized = false
         val registrations = listOf(
-            group.addSnapshotListener { _, error -> if (error == null) trySend(Unit) },
-            group.collection("expenses").addSnapshotListener { _, error -> if (error == null) trySend(Unit) },
-            group.collection("settlements").addSnapshotListener { _, error -> if (error == null) trySend(Unit) },
-            group.collection("logs").addSnapshotListener { _, error -> if (error == null) trySend(Unit) },
+            group.addSnapshotListener { _, error ->
+                if (error == null && groupInitialized) trySend(Unit) else if (error == null) groupInitialized = true
+            },
+            group.collection("expenses").addSnapshotListener { _, error ->
+                if (error == null && expensesInitialized) trySend(Unit) else if (error == null) expensesInitialized = true
+            },
+            group.collection("settlements").addSnapshotListener { _, error ->
+                if (error == null && settlementsInitialized) trySend(Unit) else if (error == null) settlementsInitialized = true
+            },
+            group.collection("logs").addSnapshotListener { _, error ->
+                if (error == null && logsInitialized) trySend(Unit) else if (error == null) logsInitialized = true
+            },
         )
         awaitClose { registrations.forEach { it.remove() } }
     }
@@ -134,7 +216,55 @@ class FirebaseRepository(
 
     suspend fun dashboardSummary(sourceGroups: List<Group>? = null): DashboardSummary {
         val resolvedGroups = sourceGroups ?: groups()
-        return dashboardFromSnapshots(groupSnapshots(resolvedGroups))
+        val rows = coroutineScope {
+            resolvedGroups.map { group ->
+                async {
+                    val expenses = async {
+                        db.collection("groups").document(group.id).collection("expenses")
+                            .get().await().documents.map { expenseFrom(it, group.id) }
+                    }
+                    val settlements = async {
+                        db.collection("groups").document(group.id).collection("settlements")
+                            .get().await().documents.map { settlementFrom(it, group.id) }
+                    }
+                    Triple(group, expenses.await(), settlements.await())
+                }
+            }.awaitAll()
+        }
+        var owed = 0L
+        var owe = 0L
+        var shared = 0L
+        var thisMonth = 0L
+        var previousMonth = 0L
+        val categories = linkedMapOf<String, Long>()
+        val groupBalances = linkedMapOf<String, Long>()
+        val currentMonth = java.time.YearMonth.now()
+        for ((group, expenses, settlements) in rows) {
+            val activeExpenses = expenses.filter { it.status != "deleted" && it.status != "archived" }
+            val balances = BalanceEngine.computeBalances(activeExpenses, settlements, group.members)
+            val mine = balances[uid] ?: 0L
+            groupBalances[group.id] = mine
+            if (mine > 0) owed += mine else owe += -mine
+            activeExpenses.forEach { expense ->
+                val share = expense.splits.firstOrNull { it.user == uid }?.amountPaise ?: 0L
+                shared += share
+                if (share > 0) categories[expense.category] = (categories[expense.category] ?: 0L) + share
+                val instant = runCatching { Instant.parse(expense.date.ifBlank { expense.createdAt }) }.getOrNull()
+                val month = instant?.atZone(ZoneId.systemDefault())?.let { java.time.YearMonth.from(it) }
+                if (month == currentMonth) thisMonth += share
+                if (month == currentMonth.minusMonths(1)) previousMonth += share
+            }
+        }
+        return DashboardSummary(
+            totalOwedPaise = owed,
+            totalOwePaise = owe,
+            netBalancePaise = owed - owe,
+            totalSharedPaise = shared,
+            categories = categories.map { CategoryTotal(it.key, it.value) }.sortedByDescending { it.amountPaise },
+            groupBalances = groupBalances,
+            thisMonthPaise = thisMonth,
+            previousMonthPaise = previousMonth,
+        )
     }
 
     private fun dashboardFromSnapshots(snapshots: List<GroupSnapshot>): DashboardSummary {
@@ -180,14 +310,14 @@ class FirebaseRepository(
         groups.map { group -> async { groupSnapshot(group.id) } }.awaitAll()
     }
 
-    suspend fun groupActivity(groupId: String): List<ActivityItem> = db.collection("groups").document(groupId)
-        .collection("logs").orderBy("createdAt", Query.Direction.DESCENDING).limit(100).get().await().documents.map {
+    suspend fun groupActivity(groupId: String, limit: Long = 100): List<ActivityItem> = db.collection("groups").document(groupId)
+        .collection("logs").orderBy("createdAt", Query.Direction.DESCENDING).limit(limit).get().await().documents.map {
             ActivityItem(it.id, it.getString("type").orEmpty(), it.getString("message").orEmpty(), it.getString("actorId").orEmpty(), it.getString("actorName") ?: "Member", it.getString("relatedId").orEmpty(), groupId, timestamp(it.get("createdAt")))
         }
 
     suspend fun allActivity(sourceGroups: List<Group>? = null): List<ActivityItem> = coroutineScope {
         val resolvedGroups = sourceGroups ?: groups()
-        resolvedGroups.map { group -> async { groupActivity(group.id) } }.awaitAll().flatten().sortedByDescending { it.createdAt }
+        resolvedGroups.map { group -> async { groupActivity(group.id, 20) } }.awaitAll().flatten().sortedByDescending { it.createdAt }.take(50)
     }
 
     suspend fun addExpense(
@@ -200,7 +330,7 @@ class FirebaseRepository(
         splitType: String = "equal",
         splitValues: Map<String, Double> = emptyMap(),
         date: String = "",
-    ): String {
+    ): MutationResult {
         val totalPaise = com.paymatrix.app.domain.Money.toPaise(amountText)
         require(totalPaise in 1..100_000_000) { "Amount must be between ₹0.01 and ₹10,00,000." }
         require(title.trim().isNotEmpty() && title.length <= 100) { "Title is required." }
@@ -208,6 +338,7 @@ class FirebaseRepository(
         val splits = BalanceEngine.calculateSplits(totalPaise, splitType, splitValues, participants)
         val expenseRef = db.collection("groups").document(groupId).collection("expenses").document()
         val logRef = db.collection("groups").document(groupId).collection("logs").document()
+        val groupRef = db.collection("groups").document(groupId)
         val actor = publicProfile(uid).name
         val stamp = FieldValue.serverTimestamp()
         val payload = mapOf(
@@ -221,14 +352,15 @@ class FirebaseRepository(
             "lastMutationAt" to stamp, "lastMutationId" to logRef.id, "lastMutationType" to "expense_added",
             "lastEditedBy" to uid, "version" to 1,
         )
-        db.runBatch { batch ->
+        val queued = finishWrite(db.runBatch { batch ->
             batch.set(expenseRef, payload)
             batch.set(logRef, audit("expense_added", "$actor added \"${title.trim()}\" (${com.paymatrix.app.domain.Money.format(totalPaise)})", expenseRef.id, groupId, actor, stamp))
-        }.await()
-        return expenseRef.id
+            batch.update(groupRef, "updatedAt", stamp)
+        })
+        return MutationResult(expenseRef.id, queued)
     }
 
-    suspend fun updateExpense(expense: Expense, draft: ExpenseDraft) {
+    suspend fun updateExpense(expense: Expense, draft: ExpenseDraft): MutationResult {
         val totalPaise = com.paymatrix.app.domain.Money.toPaise(draft.amount)
         require(totalPaise in 1..100_000_000) { "Amount must be between ₹0.01 and ₹10,00,000." }
         require(draft.title.trim().isNotEmpty() && draft.participants.isNotEmpty()) { "Title and participants are required." }
@@ -236,6 +368,7 @@ class FirebaseRepository(
         val record = db.collection("groups").document(expense.groupId).collection("expenses").document(expense.id)
         val current = record.get().await()
         val log = db.collection("groups").document(expense.groupId).collection("logs").document()
+        val groupRef = db.collection("groups").document(expense.groupId)
         val actor = publicProfile(uid).name
         val stamp = FieldValue.serverTimestamp()
         val changes = mapOf(
@@ -246,15 +379,15 @@ class FirebaseRepository(
             "version" to ((current.getLong("version") ?: 1L) + 1L), "lastMutationAt" to stamp,
             "lastMutationId" to log.id, "lastMutationType" to "expense_updated", "lastEditedBy" to uid,
         )
-        db.runBatch { batch ->
+        val queued = finishWrite(db.runBatch { batch ->
             batch.update(record, changes)
             batch.set(log, audit("expense_updated", "$actor edited \"${draft.title.trim()}\"", expense.id, expense.groupId, actor, stamp))
-        }.await()
+            batch.update(groupRef, "updatedAt", stamp)
+        })
+        return MutationResult(expense.id, queued)
     }
 
-    suspend fun archiveExpense(groupId: String, expense: Expense) {
-        mutateFinancial(groupId, "expenses", expense.id, "expense_deleted", "Deleted ${expense.title}", "deleted")
-    }
+    suspend fun archiveExpense(groupId: String, expense: Expense) = mutateFinancial(groupId, "expenses", expense.id, "expense_deleted", "Deleted ${expense.title}", "deleted")
 
     suspend fun restoreExpense(groupId: String, expense: Expense) = mutateFinancial(groupId, "expenses", expense.id, "expense_restored", "Restored ${expense.title}", "active")
 
@@ -263,6 +396,7 @@ class FirebaseRepository(
     suspend fun restoreSettlement(groupId: String, settlement: Settlement) = mutateFinancial(groupId, "settlements", settlement.id, "settlement_restored", "Restored settlement", "active")
 
     suspend fun settle(groupId: String, payee: String, amountText: String, note: String): String {
+        require(isOnline()) { "Connect to the internet before confirming a settlement." }
         require(payee.isNotBlank() && payee != uid) { "Choose another group member." }
         val amountPaise = com.paymatrix.app.domain.Money.toPaise(amountText)
         require(amountPaise in 1..100_000_000) { "Enter a valid settlement amount." }
@@ -270,6 +404,7 @@ class FirebaseRepository(
         val operationId = "native_${UUID.randomUUID()}".replace("-", "_")
         val settlementRef = db.collection("groups").document(groupId).collection("settlements").document(operationId)
         val logRef = db.collection("groups").document(groupId).collection("logs").document()
+        val groupRef = db.collection("groups").document(groupId)
         val actor = publicProfile(uid).name
         val payeeName = publicProfile(payee).name
         val stamp = FieldValue.serverTimestamp()
@@ -284,6 +419,7 @@ class FirebaseRepository(
         db.runBatch { batch ->
             batch.set(settlementRef, data)
             batch.set(logRef, audit("settlement_added", "$actor recorded ${com.paymatrix.app.domain.Money.format(amountPaise)} to $payeeName", settlementRef.id, groupId, actor, stamp))
+            batch.update(groupRef, "updatedAt", stamp)
         }.await()
         return operationId
     }
@@ -329,7 +465,7 @@ class FirebaseRepository(
     }
 
     suspend fun notifications(): List<AppNotification> = db.collection("notifications").whereEqualTo("to", uid)
-        .get().await().documents.map { AppNotification(it.id, it.getString("title") ?: "paymatrix", it.getString("message").orEmpty(), it.getString("type").orEmpty(), it.getBoolean("read") ?: it.getBoolean("isRead") ?: false, timestamp(it.get("createdAt"))) }
+        .limit(30).get().await().documents.map { AppNotification(it.id, it.getString("title") ?: "paymatrix", it.getString("message").orEmpty(), it.getString("type").orEmpty(), it.getBoolean("read") ?: it.getBoolean("isRead") ?: false, timestamp(it.get("createdAt"))) }
         .sortedByDescending { it.createdAt }
 
     suspend fun markNotificationRead(id: String) = db.collection("notifications").document(id).update("read", true).await()
@@ -341,12 +477,12 @@ class FirebaseRepository(
     }
 
     suspend fun logGroups(): List<LogGroup> = db.collection("logGroups").whereArrayContains("members", uid).get().await().documents.map {
-        LogGroup(it.id, it.getString("name") ?: "Log", it.getString("ownerId").orEmpty(), strings(it.get("members")), it.getString("updatedAt").orEmpty())
-    }.sortedByDescending { it.updatedAt }
+        LogGroup(it.id, it.getString("name") ?: "Log", it.getString("ownerId").orEmpty(), strings(it.get("members")), it.getString("updatedAt").orEmpty(), it.getString("status") ?: "active")
+    }.filter { it.status != "deleted" }.sortedByDescending { it.updatedAt }
 
     suspend fun createLogGroup(name: String): String {
         require(name.trim().isNotEmpty()) { "Log name is required." }
-        val data = mapOf("name" to name.trim().take(100), "ownerId" to uid, "members" to listOf(uid), "createdAt" to now(), "updatedAt" to now())
+        val data = mapOf("name" to name.trim().take(100), "ownerId" to uid, "members" to listOf(uid), "status" to "active", "createdAt" to now(), "updatedAt" to now())
         return db.collection("logGroups").add(data).await().id
     }
 
@@ -364,31 +500,100 @@ class FirebaseRepository(
         db.collection("logGroups").document(groupId).update(mapOf("members" to FieldValue.arrayRemove(memberUid), "updatedAt" to now())).await()
     }
 
-    suspend fun deleteLogGroup(groupId: String) = db.collection("logGroups").document(groupId).delete().await()
+    suspend fun deleteLogGroup(groupId: String) = db.collection("logGroups").document(groupId).update(mapOf("status" to "deleted", "deletedAt" to FieldValue.serverTimestamp(), "updatedAt" to FieldValue.serverTimestamp())).await()
 
-    suspend fun logEntries(groupId: String): List<LogEntry> = db.collection("logGroups").document(groupId).collection("entries").get().await().documents.map {
-        LogEntry(it.id, it.getString("title") ?: "Entry", paise(it, "amountPaise", "amount"), it.getString("category") ?: "Other", it.getString("place").orEmpty(), it.getString("note").orEmpty(), it.getString("date").orEmpty(), it.getString("type") ?: "manual")
+    suspend fun logEntries(groupId: String): List<LogEntry> = db.collection("logGroups").document(groupId).collection("entries").get().await().documents
+        .filter { it.getString("status") != "deleted" }
+        .map {
+        LogEntry(
+            id = it.id,
+            title = it.getString("title") ?: "Entry",
+            amountPaise = paise(it, "amountPaise", "amount"),
+            category = it.getString("category") ?: "Other",
+            place = it.getString("place").orEmpty(),
+            note = it.getString("note").orEmpty(),
+            date = it.getString("date").orEmpty(),
+            type = it.getString("type") ?: "manual",
+            addedBy = it.getString("addedBy").orEmpty(),
+            addedByName = it.getString("addedByName") ?: "Member",
+        )
     }.sortedByDescending { it.date }
 
-    suspend fun addLogEntry(groupId: String, title: String, amountText: String, category: String, place: String, note: String) {
+    suspend fun logActivity(groupId: String): List<LogActivity> = db.collection("logGroups").document(groupId)
+        .collection("activity").orderBy("createdAt", Query.Direction.DESCENDING).limit(50).get().await().documents.map {
+            LogActivity(
+                id = it.id,
+                type = it.getString("type").orEmpty(),
+                message = it.getString("message").orEmpty(),
+                actorId = it.getString("actorId").orEmpty(),
+                actorName = it.getString("actorName") ?: "Member",
+                relatedId = it.getString("relatedId").orEmpty(),
+                groupId = groupId,
+                createdAt = timestamp(it.get("createdAt")),
+            )
+        }
+
+    suspend fun addLogEntry(groupId: String, title: String, amountText: String, category: String, place: String, note: String): MutationResult {
         val amount = com.paymatrix.app.domain.Money.toPaise(amountText)
         require(title.trim().isNotEmpty() && amount > 0) { "Title and positive amount are required." }
-        db.collection("logGroups").document(groupId).collection("entries").add(mapOf(
+        val entry = db.collection("logGroups").document(groupId).collection("entries").document()
+        val event = db.collection("logGroups").document(groupId).collection("activity").document()
+        val logGroup = db.collection("logGroups").document(groupId)
+        val actor = publicProfile(uid).name
+        val stamp = FieldValue.serverTimestamp()
+        val payload = mapOf(
             "type" to "manual", "title" to title.trim().take(100), "amount" to amount / 100.0,
             "category" to category.take(50), "place" to place.take(100), "note" to note.take(500), "date" to now(),
-            "addedBy" to uid, "addedByName" to publicProfile(uid).name, "createdAt" to now(), "updatedAt" to now(),
-        )).await()
+            "addedBy" to uid, "addedByName" to actor, "createdAt" to now(), "updatedAt" to now(),
+            "status" to "active", "lastMutationId" to event.id, "lastMutationType" to "entry_added",
+            "lastMutationAt" to stamp, "lastEditedBy" to uid,
+        )
+        val queued = finishWrite(db.runBatch { batch ->
+            batch.set(entry, payload)
+            batch.set(event, logEntryAudit("entry_added", "$actor added \"${title.trim()}\"", entry.id, groupId, actor, stamp))
+            batch.update(logGroup, "updatedAt", stamp)
+        })
+        return MutationResult(entry.id, queued)
     }
 
-    suspend fun updateLogEntry(groupId: String, entryId: String, title: String, amountText: String, category: String, place: String, note: String) {
+    suspend fun updateLogEntry(groupId: String, entryId: String, title: String, amountText: String, category: String, place: String, note: String): MutationResult {
         val amount = com.paymatrix.app.domain.Money.toPaise(amountText)
         require(title.trim().isNotEmpty() && amount > 0) { "Title and positive amount are required." }
-        db.collection("logGroups").document(groupId).collection("entries").document(entryId).update(
-            mapOf("title" to title.trim().take(100), "amount" to amount / 100.0, "category" to category.take(50), "place" to place.take(100), "note" to note.take(500), "updatedAt" to now()),
-        ).await()
+        val entry = db.collection("logGroups").document(groupId).collection("entries").document(entryId)
+        val event = db.collection("logGroups").document(groupId).collection("activity").document()
+        val logGroup = db.collection("logGroups").document(groupId)
+        val actor = publicProfile(uid).name
+        val stamp = FieldValue.serverTimestamp()
+        val queued = finishWrite(db.runBatch { batch ->
+            batch.update(entry, mapOf(
+                "title" to title.trim().take(100), "amount" to amount / 100.0,
+                "category" to category.take(50), "place" to place.take(100), "note" to note.take(500),
+                "updatedAt" to stamp, "lastMutationId" to event.id, "lastMutationType" to "entry_updated",
+                "lastMutationAt" to stamp, "lastEditedBy" to uid,
+            ))
+            batch.set(event, logEntryAudit("entry_updated", "$actor edited \"${title.trim()}\"", entryId, groupId, actor, stamp))
+            batch.update(logGroup, "updatedAt", stamp)
+        })
+        return MutationResult(entryId, queued)
     }
 
-    suspend fun deleteLogEntry(groupId: String, entryId: String) = db.collection("logGroups").document(groupId).collection("entries").document(entryId).delete().await()
+    suspend fun deleteLogEntry(groupId: String, entry: LogEntry): MutationResult {
+        val record = db.collection("logGroups").document(groupId).collection("entries").document(entry.id)
+        val event = db.collection("logGroups").document(groupId).collection("activity").document()
+        val logGroup = db.collection("logGroups").document(groupId)
+        val actor = publicProfile(uid).name
+        val stamp = FieldValue.serverTimestamp()
+        val queued = finishWrite(db.runBatch { batch ->
+            batch.update(record, mapOf(
+                "status" to "deleted", "deletedAt" to stamp, "updatedAt" to stamp,
+                "lastMutationId" to event.id, "lastMutationType" to "entry_deleted",
+                "lastMutationAt" to stamp, "lastEditedBy" to uid,
+            ))
+            batch.set(event, logEntryAudit("entry_deleted", "$actor deleted \"${entry.title}\"", entry.id, groupId, actor, stamp))
+            batch.update(logGroup, "updatedAt", stamp)
+        })
+        return MutationResult(entry.id, queued)
+    }
 
     suspend fun myExpenseShares(sourceGroups: List<Group>? = null): List<ExpenseShare> {
         val resolvedGroups = sourceGroups ?: groups()
@@ -402,15 +607,28 @@ class FirebaseRepository(
         return result.sortedByDescending { it.date }
     }
 
-    suspend fun addExpenseShareToLog(logGroupId: String, share: ExpenseShare) {
+    suspend fun addExpenseShareToLog(logGroupId: String, share: ExpenseShare): MutationResult {
         val entryId = "exp_${uid}_${share.sourceGroupId}_${share.sourceExpenseId}"
-        db.collection("logGroups").document(logGroupId).collection("entries").document(entryId).set(mapOf(
+        val entry = db.collection("logGroups").document(logGroupId).collection("entries").document(entryId)
+        val event = db.collection("logGroups").document(logGroupId).collection("activity").document()
+        val logGroup = db.collection("logGroups").document(logGroupId)
+        val actor = publicProfile(uid).name
+        val stamp = FieldValue.serverTimestamp()
+        val payload = mapOf(
             "type" to "expense", "title" to share.title, "amount" to share.amountPaise / 100.0,
             "category" to share.category, "place" to "", "note" to "", "date" to share.date,
-            "addedBy" to uid, "addedByName" to publicProfile(uid).name, "sourceGroupId" to share.sourceGroupId,
+            "addedBy" to uid, "addedByName" to actor, "sourceGroupId" to share.sourceGroupId,
             "sourceGroupName" to share.sourceGroupName, "sourceExpenseId" to share.sourceExpenseId,
             "createdAt" to now(), "updatedAt" to now(),
-        )).await()
+            "status" to "active", "lastMutationId" to event.id, "lastMutationType" to "expense_entry_added",
+            "lastMutationAt" to stamp, "lastEditedBy" to uid,
+        )
+        val queued = finishWrite(db.runBatch { batch ->
+            batch.set(entry, payload)
+            batch.set(event, logEntryAudit("expense_entry_added", "$actor added \"${share.title}\" from ${share.sourceGroupName}", entryId, logGroupId, actor, stamp))
+            batch.update(logGroup, "updatedAt", stamp)
+        })
+        return MutationResult(entryId, queued)
     }
 
     suspend fun featureFlags(): FeatureFlags {
@@ -428,6 +646,7 @@ class FirebaseRepository(
         val profile = db.collection("users").document(uid).get().await()
         val publicProfile = db.collection("publicProfiles").document(uid).get().await()
         val history = db.collection("groups").whereArrayContains("historicalMembers", uid).get().await().documents
+        val logHistory = db.collection("logGroups").whereArrayContains("members", uid).get().await().documents
         val groupsJson = JSONArray()
         for (group in history) {
             val value = JSONObject(jsonSafe(group.data) as Map<*, *>).put("id", group.id)
@@ -436,19 +655,29 @@ class FirebaseRepository(
             value.put("auditLog", JSONArray(group.reference.collection("logs").get().await().documents.map { JSONObject(jsonSafe(it.data) as Map<*, *>).put("id", it.id) }))
             groupsJson.put(value)
         }
-        return JSONObject().put("exportedAt", now()).put("profile", JSONObject(jsonSafe(profile.data.orEmpty()) as Map<*, *>)).put("publicProfile", JSONObject(jsonSafe(publicProfile.data.orEmpty()) as Map<*, *>)).put("groups", groupsJson).toString(2)
+        val logsJson = JSONArray()
+        for (logGroup in logHistory) {
+            val value = JSONObject(jsonSafe(logGroup.data) as Map<*, *>).put("id", logGroup.id)
+            value.put("entries", JSONArray(logGroup.reference.collection("entries").get().await().documents.map { JSONObject(jsonSafe(it.data) as Map<*, *>).put("id", it.id) }))
+            value.put("activity", JSONArray(logGroup.reference.collection("activity").get().await().documents.map { JSONObject(jsonSafe(it.data) as Map<*, *>).put("id", it.id) }))
+            logsJson.put(value)
+        }
+        return JSONObject().put("exportedAt", now()).put("profile", JSONObject(jsonSafe(profile.data.orEmpty()) as Map<*, *>)).put("publicProfile", JSONObject(jsonSafe(publicProfile.data.orEmpty()) as Map<*, *>)).put("groups", groupsJson).put("spendingLogs", logsJson).toString(2)
     }
 
-    private suspend fun mutateFinancial(groupId: String, collection: String, id: String, type: String, message: String, status: String) {
+    private suspend fun mutateFinancial(groupId: String, collection: String, id: String, type: String, message: String, status: String): MutationResult {
         val record = db.collection("groups").document(groupId).collection(collection).document(id)
         val current = record.get().await()
         val log = db.collection("groups").document(groupId).collection("logs").document()
+        val groupRef = db.collection("groups").document(groupId)
         val actor = publicProfile(uid).name
         val stamp = FieldValue.serverTimestamp()
-        db.runBatch { batch ->
+        val queued = finishWrite(db.runBatch { batch ->
             batch.update(record, mapOf("status" to status, "updatedAt" to stamp, "version" to ((current.getLong("version") ?: 1) + 1), "lastMutationAt" to stamp, "lastMutationId" to log.id, "lastMutationType" to type, "lastEditedBy" to uid))
             batch.set(log, audit(type, message, id, groupId, actor, stamp))
-        }.await()
+            batch.update(groupRef, "updatedAt", stamp)
+        })
+        return MutationResult(id, queued)
     }
 
     private fun audit(type: String, message: String, relatedId: String, groupId: String, actor: String, stamp: Any) = mapOf(
@@ -456,9 +685,19 @@ class FirebaseRepository(
         "relatedId" to relatedId.take(128), "groupId" to groupId, "createdAt" to stamp,
     )
 
+    private fun logEntryAudit(type: String, message: String, relatedId: String, groupId: String, actor: String, stamp: Any) = mapOf(
+        "type" to type,
+        "message" to message.take(500),
+        "actorId" to uid,
+        "actorName" to actor,
+        "relatedId" to relatedId.take(128),
+        "groupId" to groupId,
+        "createdAt" to stamp,
+    )
+
     private suspend fun publicProfile(userId: String): UserProfile {
         val public = db.collection("publicProfiles").document(userId).get().await()
-        val privateProfile = runCatching { db.collection("users").document(userId).get().await() }.getOrNull()
+        val privateProfile = if (userId == uid) runCatching { db.collection("users").document(userId).get().await() }.getOrNull() else null
         return UserProfile(
             uid = userId,
             name = privateProfile?.getString("name") ?: privateProfile?.getString("displayName") ?: public.getString("name") ?: public.getString("displayName") ?: "Member",

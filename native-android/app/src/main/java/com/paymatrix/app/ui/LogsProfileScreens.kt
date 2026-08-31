@@ -36,7 +36,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,14 +55,9 @@ import java.io.File
 fun LogGroupsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
     var create by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { vm.loadLogGroups(); vm.loadFriends() }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(22.dp, 24.dp, 22.dp, 36.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("Logs", color = Color.White, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 32.sp, letterSpacing = (-1).sp)
-                Text("SHARED SPENDING TIMELINES", color = Color.White.copy(alpha = .4f), fontWeight = FontWeight.Black, fontSize = 10.sp, letterSpacing = 3.sp)
-            }
-        }
-        item { PrimaryAction("Create Group", { create = true }, Modifier.fillMaxWidth(), icon = { Icon(Icons.Default.Add, null, Modifier.size(18.dp)) }) }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp, 20.dp, 20.dp, 36.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        item { PageTitle("Spending logs", "Simple timelines for personal or shared spending") }
+        item { PrimaryAction("Create log", { create = true }, Modifier.fillMaxWidth(), icon = { Icon(Icons.Default.Add, null, Modifier.size(18.dp)) }) }
         item { HorizontalDivider(color = Color.White.copy(alpha = .1f)) }
         if (state.logGroups.isEmpty()) item {
             ObsidianCard(contentPadding = PaddingValues(horizontal = 24.dp, vertical = 46.dp)) {
@@ -100,20 +94,29 @@ fun LogEntriesScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, 
     var remove by remember { mutableStateOf<LogEntry?>(null) }
     var manage by remember { mutableStateOf(false) }
     LaunchedEffect(id) { vm.loadLogEntries(id) }
-    Scaffold(containerColor = CanvasBlack, topBar = { BackBar(group?.name ?: "Log", nav) { IconButton(onClick = { manage = true }) { Icon(Icons.Default.Settings, "Manage log") } } }, floatingActionButton = { ExtendedFloatingActionButton(onClick = { add = true }, containerColor = Color.White, contentColor = Color.Black, icon = { Icon(Icons.Default.Add, null) }, text = { Text("Record") }) }) { padding ->
+    Scaffold(containerColor = CanvasBlack, topBar = { BackBar(group?.name ?: "Log", nav) { IconButton(onClick = { manage = true }) { Icon(Icons.Default.Settings, "Manage log") } } }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 100.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { PrimaryAction("Record manually", { add = true }, Modifier.weight(1f)); SecondaryAction("From transaction", { vm.loadExpenseShares(); pick = true }, Modifier.weight(1f)) } }
             if (state.logEntries.isEmpty()) item { EmptyState("No entries yet", "Record an amount or pull in one of your expense shares.") }
             items(state.logEntries, key = { it.id }) { entry ->
+                val canChange = entry.addedBy == state.user?.uid || group?.ownerId == state.user?.uid
                 ObsidianCard {
-                    Row(verticalAlignment = Alignment.Top) { Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = .06f)), contentAlignment = Alignment.Center) { Icon(categoryIcon(entry.category), null, tint = MutedText, modifier = Modifier.size(18.dp)) }; Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(entry.title, color = Color.White, fontWeight = FontWeight.Bold); Text(listOf(entry.category, entry.place).filter { it.isNotBlank() }.joinToString(" · "), color = QuietText, fontSize = 10.sp); if (entry.note.isNotBlank()) Text(entry.note, color = MutedText, fontSize = 11.sp, maxLines = 2); Text(shortDate(entry.date), color = QuietText, fontSize = 9.sp) }; Column(horizontalAlignment = Alignment.End) { Text(Money.format(entry.amountPaise), color = Color.White, fontWeight = FontWeight.Bold); Row { IconButton(onClick = { edit = entry }, Modifier.size(34.dp)) { Icon(Icons.Default.Edit, "Edit", tint = MutedText, modifier = Modifier.size(16.dp)) }; IconButton(onClick = { remove = entry }, Modifier.size(34.dp)) { Icon(Icons.Default.DeleteOutline, "Delete", tint = Negative, modifier = Modifier.size(16.dp)) } } } }
+                    Row(verticalAlignment = Alignment.Top) { Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = .06f)), contentAlignment = Alignment.Center) { Icon(categoryIcon(entry.category), null, tint = MutedText, modifier = Modifier.size(18.dp)) }; Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(entry.title, color = Color.White, fontWeight = FontWeight.Bold); Text(listOf(entry.category, entry.place).filter { it.isNotBlank() }.joinToString(" · "), color = QuietText, fontSize = 10.sp); if (entry.note.isNotBlank()) Text(entry.note, color = MutedText, fontSize = 11.sp, maxLines = 2); Text(listOf(shortDate(entry.date), entry.addedByName.takeIf { it.isNotBlank() }).filterNotNull().joinToString(" · "), color = QuietText, fontSize = 9.sp) }; Column(horizontalAlignment = Alignment.End) { Text(Money.format(entry.amountPaise), color = Color.White, fontWeight = FontWeight.Bold); if (canChange) Row { if (entry.type != "expense") IconButton(onClick = { edit = entry }, Modifier.size(40.dp)) { Icon(Icons.Default.Edit, "Edit", tint = MutedText, modifier = Modifier.size(17.dp)) }; IconButton(onClick = { remove = entry }, Modifier.size(40.dp)) { Icon(Icons.Default.DeleteOutline, "Delete", tint = Negative, modifier = Modifier.size(17.dp)) } } } }
+                }
+            }
+            if (state.logActivity.isNotEmpty()) item { SectionTitle("Activity", "Immutable changes in this log") }
+            items(state.logActivity, key = { "log_activity_${it.id}" }) { event ->
+                Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White.copy(alpha = .05f)), contentAlignment = Alignment.Center) { Icon(if (event.type == "entry_deleted") Icons.Default.DeleteOutline else Icons.Default.History, null, tint = if (event.type == "entry_deleted") Negative else MutedText, modifier = Modifier.size(16.dp)) }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) { Text(event.message, color = Color.White.copy(alpha = .78f), fontWeight = FontWeight.Medium, fontSize = 12.sp); Text(shortDate(event.createdAt), color = QuietText, fontSize = 9.sp) }
                 }
             }
         }
     }
     if (add || edit != null) LogEntryDialog(edit, { add = false; edit = null }) { title, amount, category, place, note -> vm.saveLogEntry(id, title, amount, category, place, note, edit); add = false; edit = null }
     if (pick) ExpenseShareDialog(state.expenseShares, { pick = false }) { share -> vm.addExpenseShareToLog(id, share); pick = false }
-    remove?.let { entry -> ConfirmDialog("Delete entry?", "This removes ${entry.title} from this log timeline.", "Delete", { remove = null }, destructive = true) { vm.deleteLogEntry(id, entry.id); remove = null } }
+    remove?.let { entry -> ConfirmDialog("Delete entry?", "This removes ${entry.title} from the timeline and keeps an immutable audit event.", "Delete", { remove = null }, destructive = true) { vm.deleteLogEntry(id, entry); remove = null } }
     if (manage && group != null) ManageLogDialog(group, state, vm, nav) { manage = false }
 }
 
@@ -140,7 +143,7 @@ private fun ExpenseShareDialog(shares: List<ExpenseShare>, onDismiss: () -> Unit
 private fun ManageLogDialog(group: LogGroup, state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController, onDismiss: () -> Unit) {
     var rename by remember { mutableStateOf(group.name) }; var delete by remember { mutableStateOf(false) }
     AlertDialog(onDismissRequest = onDismiss, title = { Text("Manage group") }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { FormField(rename, { rename = it }, "Group name"); if (group.ownerId == state.user?.uid) PrimaryAction("Save name", { vm.renameLogGroup(group.id, rename) }, Modifier.fillMaxWidth()); Text("${group.members.size} members", color = QuietText); if (group.ownerId == state.user?.uid) SecondaryAction("Delete log group", { delete = true }, Modifier.fillMaxWidth()) else SecondaryAction("Leave log group", { vm.leaveLogGroup(group.id) { onDismiss(); nav.popBackStack() } }, Modifier.fillMaxWidth()) } }, confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text("Done") } })
-    if (delete) ConfirmDialog("Delete log group?", "This permanently deletes the group container. Delete entries first if required by your backend policy.", "Delete", { delete = false }, destructive = true) { vm.deleteLogGroup(group.id) { delete = false; onDismiss(); nav.popBackStack() } }
+    if (delete) ConfirmDialog("Delete log group?", "This removes the log from active views while retaining entries and immutable activity for audit and data export.", "Delete", { delete = false }, destructive = true) { vm.deleteLogGroup(group.id) { delete = false; onDismiss(); nav.popBackStack() } }
 }
 
 @Composable
@@ -151,7 +154,7 @@ fun ProfileScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) vm.enablePush(context) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp, 18.dp, 16.dp, 30.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { UserAvatar(state.user, 92); Spacer(Modifier.height(13.dp)); Text(state.user?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Black, fontSize = 28.sp); Text(state.user?.email.orEmpty(), color = MutedText, fontSize = 12.sp); Spacer(Modifier.height(8.dp)); Text("paymatrix 2.0.2", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp) }
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { UserAvatar(state.user, 92); Spacer(Modifier.height(13.dp)); Text(state.user?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Black, fontSize = 28.sp); Text(state.user?.email.orEmpty(), color = MutedText, fontSize = 12.sp); Spacer(Modifier.height(8.dp)); Text("paymatrix ${BuildConfig.VERSION_NAME}", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp) }
         }
         item { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { MetricTileProfile("TOTAL SHARED", Money.format(state.summary.totalSharedPaise), Modifier.weight(1f)); MetricTileProfile("ACTIVE GROUPS", state.groups.size.toString(), Modifier.weight(1f)) } }
         item { SectionTitle("Account settings") }
@@ -171,7 +174,7 @@ fun ProfileScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
             }
         }
         item { SecondaryAction("Sign out", { signOut = true }, Modifier.fillMaxWidth(), icon = { Icon(Icons.Default.Logout, null) }) }
-        item { Text("PAYMATRIX V 2.0.2 (NATIVE)", modifier = Modifier.fillMaxWidth(), color = Color.White.copy(alpha = .2f), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp) }
+        item { Text("paymatrix ${BuildConfig.VERSION_NAME} · native Android", modifier = Modifier.fillMaxWidth(), color = Color.White.copy(alpha = .24f), fontSize = 9.sp, fontWeight = FontWeight.SemiBold) }
     }
     if (edit) ProfileEditDialog(state.user, { edit = false }) { name, upi, phone -> vm.updateProfile(name, upi, phone); edit = false }
     if (signOut) ConfirmDialog("Sign out?", "Your Firebase session and this device's push token will be cleared.", "Sign out", { signOut = false }) { vm.signOut(context) { signOut = false; nav.navigate("login") { popUpTo(0) } } }
@@ -225,7 +228,9 @@ fun PrivacyScreen(nav: NavHostController) {
         "Receipt scanning and AI" to "A selected receipt image is sent to the protected scanner endpoint for extraction. Review the returned merchant, amount, date, and items before saving.",
         "Payments" to "paymatrix can open an installed UPI app, but it cannot prove a transfer completed. A settlement enters the ledger only after you explicitly confirm it.",
         "Retention and deletion" to "Account deletion immediately anonymizes your profile and creates a delayed-deletion request so shared financial history remains intelligible to other group members.",
-        "Security and choices" to "Firestore rules enforce membership and ownership. Export your data or request deletion from Profile at any time.",
+        "Diagnostics" to "Firebase Crashlytics and Performance Monitoring can collect app version, device and OS details, crash traces, screen rendering, and network timing. Financial text, UPI IDs, receipt images, and credentials are not intentionally attached to diagnostics.",
+        "Offline data" to "Previously loaded Firebase data can remain cached on this device. Supported expense and spending-log edits may remain pending until Firebase confirms synchronization. Settlement confirmation, invitations, sign-in, and receipt AI require a connection.",
+        "Security and choices" to "Firestore rules and App Check protect backend access. Export your data or request deletion from Profile at any time. The project is operated by Marshmellow31; privacy requests can be opened through the GitHub support tracker.",
     )
     Scaffold(containerColor = CanvasBlack, topBar = { BackBar("Privacy", nav) }) { padding -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 30.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { PageTitle("Privacy policy", "Native Android · same Firebase backend") }; items(sections) { (title, body) -> ObsidianCard { Text(title, color = Color.White, fontWeight = FontWeight.Bold); Text(body, color = MutedText, lineHeight = 20.sp) } } } }
 }

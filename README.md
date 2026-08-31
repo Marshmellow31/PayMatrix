@@ -1,4 +1,4 @@
-# PayMatrix 💎
+# paymatrix 💎
 
 [![React 19](https://img.shields.io/badge/React-19.1-61DAFB?logo=react)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-6.3-646CFF?logo=vite)](https://vitejs.dev/)
@@ -16,22 +16,23 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 > This README is intentionally exhaustive: it documents every feature, how it works internally, the data model, the security model, and how to run the project. If you are evaluating the code, also read [`SECURITY_AND_CODE_REVIEW.md`](./SECURITY_AND_CODE_REVIEW.md) — it lists known security issues and a prioritised improvement plan.
 
 > [!WARNING]
-> **Device-testing release: native Android app.** The Kotlin/Compose app lives in
+> **Native Android app.** The Kotlin/Compose app lives in
 > [`native-android/`](./native-android/). The previous Capacitor client remains in
 > [`android app/`](./android%20app/) and its signed v1.2.5 GitHub release remains available.
-> Version 2.0.2 may contain bugs; please report them through GitHub Issues.
+> Version 2.1.0 is the current release candidate for Google Play. Console declarations,
+> physical-device checks, and any required closed test remain publication gates.
 
-[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 2.0.2**](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.0.2/paymatrix-native-2.0.2.apk) · [**Keep/download v1.2.5**](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5)
+[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 2.1.0**](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.1.0/paymatrix-native-2.1.0.apk) · [**Keep/download v1.2.5**](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5)
 
 ### Latest Android release
 
-- Version: **2.0.2** (`versionCode 20200`)
+- Version: **2.1.0** (`versionCode 21000`)
 - Package: `com.paymatrix.app`
-- Signed APK: [`paymatrix-native-2.0.2.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.0.2/paymatrix-native-2.0.2.apk)
-- SHA-256: `41d79818a1f0add16df08f7476556d7bf918e753d0adb7d3933bf99c15bae0d1`
+- Signed APK: [`paymatrix-native-2.1.0.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.1.0/paymatrix-native-2.1.0.apk)
+- SHA-256: `c50cb13909469406d9068b236cc2b269bcbacbb15c8e01385c00003e6a3c0317`
 
-This is a direct-install device-testing release, not a Play Store publication. Android may ask you
-to allow installation from the browser or file manager used to open the APK.
+The GitHub APK is a direct-install build. The Play Console must receive the signed AAB and all
+required declarations before the app is publicly listed.
 
 ---
 
@@ -413,20 +414,21 @@ camera permission, notifications, lazy lists, and lifecycle handling without a W
 cd native-android
 $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
-.\gradlew.bat testDebugUnitTest assembleRelease
+.\gradlew.bat testDebugUnitTest lintRelease assembleRelease bundleRelease
 ```
 
-The signed v2.0.2 APK upgrades v1.2.5 and v2.0.1 in place because package, release certificate, and Firebase
+The signed v2.1.0 APK upgrades earlier releases in place because package, release certificate, and Firebase
 identity are compatible and its version code is higher. The old
 [`v1.2.5` release](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5) remains available.
 Follow [`native-android/README.md`](./native-android/README.md) and its learning/verification docs.
 
-**Firebase Spark-plan status:** native Google sign-in and Firestore work with the existing Firebase
-project. Cloud Functions cannot be newly deployed on the Spark plan, so Android native push delivery
-remains a future release item. The bill scanner uses the existing Vercel endpoint. Its Android CORS
-and Firebase-token checks are committed in this branch, but the endpoint must be deployed through
-the existing Vercel project before bill scanning works from the APK. This branch does not modify
-`frontend/vercel.json` or deploy Vercel production.
+**Firebase capacity boundary:** confirm the live billing plan in Firebase Console before launch; the
+CLI does not expose it here. If the project is still on Spark, it is suitable for a controlled launch,
+not mass adoption: Firestore's free tier is 50,000 reads/day, 20,000 writes/day, 20,000 deletes/day,
+1 GiB stored data, and 10 GiB/month outbound transfer. Version 2.1.0 removes duplicate Home refreshes
+and separates notification refreshes from balance recomputation, but exact dashboard balances still
+scale with retained ledger size. See
+[`SCALING_AND_OFFLINE.md`](./native-android/docs/SCALING_AND_OFFLINE.md) before marketing broadly.
 
 ### Granting yourself admin
 

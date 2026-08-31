@@ -54,7 +54,6 @@ fun GroupsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCont
             if (state.groups.isEmpty()) item { EmptyState("No active groups", "Create a group or join one using an invite code.") }
             items(state.groups, key = { it.id }) { group -> GroupListCard(group, state.summary.groupBalances[group.id] ?: 0L) { nav.navigate("group/${group.id}") } }
         }
-        FloatingActionButton(onClick = { create = true }, containerColor = Color.White, contentColor = Color.Black, modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)) { Icon(Icons.Default.GroupAdd, "Create group") }
     }
     if (create) CreateGroupDialog(state, { create = false }) { name, description, category, members -> vm.createGroup(name, description, category, members) { id -> create = false; nav.navigate("group/$id") } }
     if (join) TextEntryDialog("Join a group", "Invite code", "Join", { join = false }) { code -> vm.joinGroup(code) { id -> join = false; nav.navigate("group/$id") } }
@@ -99,7 +98,7 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
 
     Box(Modifier.fillMaxSize()) {
         if (snapshot == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
-        else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp, 22.dp, 20.dp, 120.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp, 16.dp, 20.dp, 120.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
             item {
                 GroupHero(
                     snapshot = snapshot,
@@ -136,7 +135,7 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
         if (state.flags.billScanning && snapshot != null) ExtendedFloatingActionButton(
             onClick = { nav.navigate("scanner") },
             icon = { Icon(Icons.Default.DocumentScanner, null) },
-            text = { Text("SCAN BILL", fontWeight = FontWeight.Bold, letterSpacing = 1.sp) },
+            text = { Text("Scan receipt", fontWeight = FontWeight.Bold) },
             containerColor = ObsidianSurface,
             contentColor = Color.White,
             modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
@@ -159,16 +158,16 @@ private fun GroupHero(snapshot: GroupSnapshot, onRecord: () -> Unit, onSettle: (
             }
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text(snapshot.group.name.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(snapshot.group.name, color = Color.White, fontWeight = FontWeight.Black, fontSize = 21.sp, letterSpacing = (-.35).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(5.dp))
-                Text("${snapshot.group.category.uppercase()}  •  ${snapshot.group.members.size} MEMBERS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                Text("${snapshot.group.category} · ${snapshot.group.members.size} member${if (snapshot.group.members.size == 1) "" else "s"}", color = QuietText, fontSize = 10.sp, fontWeight = FontWeight.Medium)
             }
             IconButton(onClick = onAddMember, modifier = Modifier.border(1.dp, Hairline, CircleShape)) { Icon(Icons.Default.PersonAdd, "Add member", tint = MutedText) }
             IconButton(onClick = onMenu) { Icon(Icons.Default.MoreVert, "Group menu", tint = MutedText) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            PrimaryAction("RECORD", onRecord, Modifier.weight(1f), icon = { Icon(Icons.Default.Add, null) })
-            SecondaryAction("SETTLE", onSettle, Modifier.weight(1f), icon = { Icon(Icons.Default.AccountBalanceWallet, null) })
+            PrimaryAction("Add expense", onRecord, Modifier.weight(1f), icon = { Icon(Icons.Default.Add, null) })
+            SecondaryAction("Settle up", onSettle, Modifier.weight(1f), icon = { Icon(Icons.Default.AccountBalanceWallet, null) })
         }
     }
 }
@@ -192,7 +191,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.overviewItems(snapsho
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.expenseItems(snapshot: GroupSnapshot, uid: String, mineOnly: Boolean, onToggleMine: () -> Unit, vm: PayMatrixViewModel, nav: NavHostController) {
-    item { SectionTitle("CHRONICLE") { SecondaryAction(if (mineOnly) "VIEW ALL" else "VIEW YOURS", onToggleMine, icon = { Icon(Icons.Default.PersonOutline, null, Modifier.size(15.dp)) }) } }
+    item { SectionTitle("Expenses", if (mineOnly) "Showing your expenses" else "Recent first") { TextButton(onClick = onToggleMine) { Text(if (mineOnly) "Show all" else "Show yours", color = MutedText, fontSize = 11.sp) } } }
     val active = snapshot.expenses.filter { it.status != "deleted" && it.status != "archived" && (!mineOnly || it.paidBy == uid || it.participants.contains(uid)) }
     if (active.isEmpty()) item { EmptyState("No expenses", "Tap + to record the first one.") }
     items(active, key = { it.id }) { expense -> ExpenseRow(expense, snapshot, { nav.navigate("expense/${snapshot.group.id}?expenseId=${expense.id}") }, { vm.archiveExpense(expense) }) }
@@ -200,13 +199,15 @@ private fun androidx.compose.foundation.lazy.LazyListScope.expenseItems(snapshot
 
 @Composable private fun ExpenseRow(expense: Expense, snapshot: GroupSnapshot, onEdit: () -> Unit, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     ObsidianCard {
         Row(verticalAlignment = Alignment.Top) {
             Box(Modifier.size(48.dp).clip(CircleShape).background(categoryColor(expense.category).copy(alpha = .12f)), contentAlignment = Alignment.Center) { Icon(categoryIcon(expense.category), null, tint = categoryColor(expense.category), modifier = Modifier.size(22.dp)) }
             Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(expense.title, color = Color.White, fontWeight = FontWeight.Bold); Text(shortDate(expense.date.ifBlank { expense.createdAt }), color = QuietText, fontSize = 10.sp); Spacer(Modifier.height(8.dp)); Text("Paid by ${snapshot.profiles[expense.paidBy]?.name ?: expense.paidByName}", color = MutedText, fontSize = 11.sp) }
-            Column(horizontalAlignment = Alignment.End) { Text(Money.format(expense.amountPaise), color = Color.White, fontWeight = FontWeight.Black, fontSize = 17.sp); Box { IconButton(onClick = { menu = true }, Modifier.size(32.dp)) { Icon(Icons.Default.MoreHoriz, "Expense menu", tint = MutedText) }; DropdownMenu(menu, { menu = false }, containerColor = ModalSurface) { DropdownMenuItem({ Text("Edit") }, { menu = false; onEdit() }, leadingIcon = { Icon(Icons.Default.Edit, null) }); DropdownMenuItem({ Text("Delete", color = Negative) }, { menu = false; onDelete() }, leadingIcon = { Icon(Icons.Default.DeleteOutline, null, tint = Negative) }) } } }
+            Column(horizontalAlignment = Alignment.End) { Text(Money.format(expense.amountPaise), color = Color.White, fontWeight = FontWeight.Black, fontSize = 17.sp); Box { IconButton(onClick = { menu = true }, Modifier.size(40.dp)) { Icon(Icons.Default.MoreHoriz, "Expense menu", tint = MutedText) }; DropdownMenu(menu, { menu = false }, containerColor = ModalSurface) { DropdownMenuItem({ Text("Edit") }, { menu = false; onEdit() }, leadingIcon = { Icon(Icons.Default.Edit, null) }); DropdownMenuItem({ Text("Delete", color = Negative) }, { menu = false; confirmDelete = true }, leadingIcon = { Icon(Icons.Default.DeleteOutline, null, tint = Negative) }) } } }
         }
     }
+    if (confirmDelete) ConfirmDialog("Delete expense?", "${expense.title} will be removed from balances. An immutable Activity record lets the group restore it.", "Delete", { confirmDelete = false }, destructive = true) { confirmDelete = false; onDelete() }
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.memberItems(snapshot: GroupSnapshot, state: PayMatrixState, vm: PayMatrixViewModel, onAdd: () -> Unit) {
@@ -235,16 +236,21 @@ private fun androidx.compose.foundation.lazy.LazyListScope.insightItems(snapshot
 private fun androidx.compose.foundation.lazy.LazyListScope.activityItems(snapshot: GroupSnapshot, vm: PayMatrixViewModel) {
     item { SectionTitle("Activity", "Audited changes in this group") }
     if (snapshot.activity.isEmpty()) item { EmptyState("No activity yet", "Changes will appear here.") }
-    items(snapshot.activity, key = { it.id }) { item ->
-        ObsidianCard {
-            Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White.copy(alpha = .06f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.History, null, tint = MutedText, modifier = Modifier.size(17.dp)) }; Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(item.message, color = Color.White, fontWeight = FontWeight.Medium); Text(shortDate(item.createdAt), color = QuietText, fontSize = 10.sp) } }
-            when (item.type) {
-                "expense_deleted" -> snapshot.expenses.firstOrNull { it.id == item.relatedId }?.let { TextButton(onClick = { vm.restoreExpense(it) }) { Text("Restore") } }
-                "settlement_deleted" -> snapshot.settlements.firstOrNull { it.id == item.relatedId }?.let { TextButton(onClick = { vm.restoreSettlement(it) }) { Text("Restore") } }
-                "settlement_added" -> snapshot.settlements.firstOrNull { it.id == item.relatedId && it.status != "deleted" }?.let { TextButton(onClick = { vm.archiveSettlement(it) }) { Text("Delete", color = Negative) } }
-            }
+    items(snapshot.activity, key = { it.id }) { item -> GroupActivityCard(item, snapshot, vm) }
+}
+
+@Composable
+private fun GroupActivityCard(item: ActivityItem, snapshot: GroupSnapshot, vm: PayMatrixViewModel) {
+    var confirmDelete by remember { mutableStateOf<Settlement?>(null) }
+    ObsidianCard {
+        Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White.copy(alpha = .06f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.History, null, tint = MutedText, modifier = Modifier.size(17.dp)) }; Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(item.message, color = Color.White, fontWeight = FontWeight.Medium); Text(shortDate(item.createdAt), color = QuietText, fontSize = 10.sp) } }
+        when (item.type) {
+            "expense_deleted" -> snapshot.expenses.firstOrNull { it.id == item.relatedId }?.let { TextButton(onClick = { vm.restoreExpense(it) }) { Text("Restore") } }
+            "settlement_deleted" -> snapshot.settlements.firstOrNull { it.id == item.relatedId }?.let { TextButton(onClick = { vm.restoreSettlement(it) }) { Text("Restore") } }
+            "settlement_added" -> snapshot.settlements.firstOrNull { it.id == item.relatedId && it.status != "deleted" }?.let { settlement -> TextButton(onClick = { confirmDelete = settlement }) { Text("Delete", color = Negative) } }
         }
     }
+    confirmDelete?.let { settlement -> ConfirmDialog("Delete settlement record?", "This changes group balances but does not affect a bank or UPI payment. The audit event remains restorable.", "Delete", { confirmDelete = null }, destructive = true) { confirmDelete = null; vm.archiveSettlement(settlement) } }
 }
 
 @Composable

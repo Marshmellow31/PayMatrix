@@ -50,12 +50,13 @@ const accountService = {
     const user = auth.currentUser;
     if (!user) throw new Error('Sign in before exporting your data.');
 
-    const [profile, publicProfile, groupsSnapshot] = await Promise.all([
+    const [profile, publicProfile, groupsSnapshot, logGroupsSnapshot] = await Promise.all([
       getDoc(doc(db, 'users', user.uid)),
       getDoc(doc(db, 'publicProfiles', user.uid)),
       getDocs(
         query(collection(db, 'groups'), where('historicalMembers', 'array-contains', user.uid))
       ),
+      getDocs(query(collection(db, 'logGroups'), where('members', 'array-contains', user.uid))),
     ]);
 
     const groups = await Promise.all(
@@ -76,12 +77,29 @@ const accountService = {
       })
     );
 
+    const spendingLogs = await Promise.all(
+      logGroupsSnapshot.docs.map(async (logGroupDocument) => {
+        const logGroupId = logGroupDocument.id;
+        const [entries, activity] = await Promise.all([
+          getDocs(collection(db, 'logGroups', logGroupId, 'entries')),
+          getDocs(collection(db, 'logGroups', logGroupId, 'activity')),
+        ]);
+        return {
+          id: logGroupId,
+          ...logGroupDocument.data(),
+          entries: entries.docs.map((item) => ({ id: item.id, ...item.data() })),
+          activity: activity.docs.map((item) => ({ id: item.id, ...item.data() })),
+        };
+      })
+    );
+
     downloadJson(
       {
         exportedAt: new Date().toISOString(),
         profile: profile.exists() ? profile.data() : null,
         publicProfile: publicProfile.exists() ? publicProfile.data() : null,
         groups,
+        spendingLogs,
       },
       `paymatrix-data-${new Date().toISOString().slice(0, 10)}.json`
     );

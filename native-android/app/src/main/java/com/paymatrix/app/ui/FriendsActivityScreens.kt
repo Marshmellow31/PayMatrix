@@ -47,19 +47,14 @@ fun FriendsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
     var tab by remember { mutableIntStateOf(0) }
     val clipboard = LocalClipboardManager.current
     LaunchedEffect(Unit) { vm.loadFriends() }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(22.dp, 24.dp, 22.dp, 34.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp, 20.dp, 20.dp, 36.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        item { PageTitle("Friends", "People you trust to share expenses with") }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("FRIENDS", color = Color.White, fontWeight = FontWeight.Black, fontSize = 26.sp, letterSpacing = (-.6).sp)
-                Text("SOCIAL MATRIX V3.1", color = Color.White.copy(alpha = .2f), fontWeight = FontWeight.Black, fontSize = 10.sp, letterSpacing = 3.2.sp)
-            }
-        }
-        item {
-            SecondaryAction("INVITE FRIEND", { inviteOpen = !inviteOpen }, Modifier.fillMaxWidth(), icon = { Icon(if (inviteOpen) Icons.Default.Close else Icons.Default.PersonAdd, null, Modifier.size(17.dp)) })
+            SecondaryAction(if (inviteOpen) "Close invite" else "Invite friend", { inviteOpen = !inviteOpen }, Modifier.fillMaxWidth(), icon = { Icon(if (inviteOpen) Icons.Default.Close else Icons.Default.PersonAdd, null, Modifier.size(17.dp)) })
         }
         if (inviteOpen) item {
             ObsidianCard(contentPadding = PaddingValues(18.dp)) {
-                Text("YOUR FRIEND CODE", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
+                Text("YOUR FRIEND CODE", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(state.user?.friendCode?.chunked(4)?.joinToString(" ")?.ifBlank { "GENERATING" } ?: "GENERATING", Modifier.weight(1f), color = Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp, letterSpacing = 2.sp)
                     IconButton(onClick = { clipboard.setText(AnnotatedString(state.user?.friendCode.orEmpty())) }) { Icon(Icons.Default.ContentCopy, "Copy code", tint = MutedText) }
@@ -71,20 +66,20 @@ fun FriendsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
         }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.Bottom) {
-                FriendTab("NODES", state.friends.size, tab == 0) { tab = 0 }
-                FriendTab("SIGNALS", state.friendRequests.size, tab == 1) { tab = 1 }
+                FriendTab("FRIENDS", state.friends.size, tab == 0) { tab = 0 }
+                FriendTab("REQUESTS", state.friendRequests.size, tab == 1) { tab = 1 }
                 Spacer(Modifier.weight(1f))
             }
             HorizontalDivider(color = Hairline)
         }
         if (tab == 1) {
-            if (state.friendRequests.isEmpty()) item { EmptyState("No signals", "Pending friend requests will appear here.") }
+            if (state.friendRequests.isEmpty()) item { EmptyState("No requests", "Pending friend requests will appear here.") }
             items(state.friendRequests, key = { it.id }) { request ->
                 ObsidianCard(contentPadding = PaddingValues(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         UserAvatar(request.profile, 48)
                         Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) { Text(request.profile?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Black); Text(if (request.to == state.user?.uid) "WANTS TO CONNECT" else "REQUEST PENDING", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp) }
+                        Column(Modifier.weight(1f)) { Text(request.profile?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Black); Text(if (request.to == state.user?.uid) "Wants to connect" else "Request pending", color = QuietText, fontSize = 10.sp, fontWeight = FontWeight.Medium) }
                     }
                     if (request.to == state.user?.uid) Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) { PrimaryAction("Accept", { vm.respond(request, true) }, Modifier.weight(1f)); SecondaryAction("Reject", { vm.respond(request, false) }, Modifier.weight(1f)) }
                 }
@@ -99,7 +94,7 @@ fun FriendsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
                         Spacer(Modifier.width(13.dp))
                         Column(Modifier.weight(1f)) {
                             Text(friend.name, color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${sharedGroups.size} MUTUAL GROUP${if (sharedGroups.size == 1) "" else "S"}", color = Color.White.copy(alpha = .2f), fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                            Text("${sharedGroups.size} shared group${if (sharedGroups.size == 1) "" else "s"}", color = QuietText, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                         }
                         if (sharedGroups.isNotEmpty()) IconButton(onClick = { nav.navigate("group/${sharedGroups.first().id}") }, modifier = Modifier.border(1.dp, Hairline, RoundedCornerShape(14.dp))) { Icon(Icons.Default.ChevronRight, "Open shared group", tint = MutedText) }
                         IconButton(onClick = { remove = friend }) { Icon(Icons.Default.PersonRemove, "Remove friend", tint = Color.White.copy(alpha = .2f), modifier = Modifier.size(18.dp)) }
@@ -108,7 +103,7 @@ fun FriendsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
             }
         }
     }
-    remove?.let { friend -> ConfirmDialog("Sever connection?", "Remove ${friend.name} from your friend network? Shared group history remains intact.", "Remove", { remove = null }, destructive = true) { vm.removeFriend(friend.uid) { remove = null } } }
+    remove?.let { friend -> ConfirmDialog("Remove friend?", "Remove ${friend.name} from your friends? Shared group history remains intact.", "Remove", { remove = null }, destructive = true) { vm.removeFriend(friend.uid) { remove = null } } }
 }
 
 @Composable

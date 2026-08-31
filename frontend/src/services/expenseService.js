@@ -81,6 +81,7 @@ const commitAuditedMutation = async ({
     const batch = writeBatch(db);
     if (create) batch.set(recordRef, auditedMutation);
     else batch.update(recordRef, auditedMutation);
+    batch.update(doc(db, 'groups', groupId), { updatedAt: serverTimestamp() });
     batch.set(logRef, {
       type,
       message,

@@ -11,7 +11,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ─── Frontend ──────────────────────────────────────────────────────────────
+  native-android:
+    name: Native Android — unit tests, lint, debug APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native-android
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Verify native client
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
+
+  # ─── Frontend ────────────────────────────────────────────────────────────
   frontend:
     name: Frontend — lint, test, build
     runs-on: ubuntu-latest

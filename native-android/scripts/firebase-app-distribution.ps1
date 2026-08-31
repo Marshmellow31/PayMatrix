@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Groups,
     [ValidateSet('Debug', 'Release')][string]$Variant = 'Release',
-    [string]$ReleaseNotes = 'paymatrix native Android 2.0.2 - web theme parity, friend photos, and improved logs; may contain bugs'
+    [string]$ReleaseNotes = 'paymatrix native Android 2.1.0 - redesigned Home, offline pending writes, and immutable spending-log activity'
 )
 
 $ErrorActionPreference = 'Stop'

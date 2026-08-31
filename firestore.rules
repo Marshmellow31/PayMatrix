@@ -154,41 +154,138 @@ service cloud.firestore {
     // ─── Log Groups (shared spending timelines — e.g. "Parents") ───────────────
 
     match /logGroups/{groupId} {
+      function isLogGroupMember() {
+        return request.auth.uid in get(/databases/$(database)/documents/logGroups/$(groupId)).data.get('members', []);
+      }
+
+      function isLogGroupOwner() {
+        return request.auth.uid == get(/databases/$(database)/documents/logGroups/$(groupId)).data.get('ownerId', '');
+      }
+
       allow read: if isGlobalAdmin() || (isSignedIn() && request.auth.uid in resource.data.get('members', []));
       allow create: if isSignedIn() &&
-                    request.resource.data.get('ownerId', '') == request.auth.uid &&
-                    request.resource.data.get('members', []).hasAny([request.auth.uid]) &&
-                    isValidString(request.resource.data.get('name', ''), 100);
+                     request.resource.data.get('ownerId', '') == request.auth.uid &&
+                     request.resource.data.get('members', []).hasAny([request.auth.uid]) &&
+                     request.resource.data.get('status', 'active') == 'active' &&
+                     isValidString(request.resource.data.get('name', ''), 100);
       allow update: if isGlobalAdmin() || (isSignedIn() && (
         // Owner: rename / add / remove other members — owner must stay in members, ownerId immutable
-        (request.auth.uid == resource.data.ownerId &&
-         request.resource.data.get('ownerId', '') == resource.data.ownerId &&
-         request.resource.data.get('members', []).hasAny([resource.data.ownerId]) &&
-         isValidString(request.resource.data.get('name', ''), 100)) ||
+         (request.auth.uid == resource.data.ownerId &&
+          request.resource.data.get('ownerId', '') == resource.data.ownerId &&
+          request.resource.data.get('members', []).hasAny([resource.data.ownerId]) &&
+          request.resource.data.get('status', 'active') in ['active', 'deleted'] &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'members', 'status', 'deletedAt', 'updatedAt'
+          ]) &&
+          isValidString(request.resource.data.get('name', ''), 100)) ||
         // Any member: self-removal only (leave)
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'updatedAt']) &&
          resource.data.get('members', []).removeAll(request.resource.data.get('members', [])) == [request.auth.uid] &&
          request.resource.data.get('members', []).removeAll(resource.data.get('members', [])).size() == 0 &&
-         request.resource.data.get('ownerId', '') == resource.data.ownerId)
+         request.resource.data.get('ownerId', '') == resource.data.ownerId) ||
+        // Entry mutations update recency without granting broader group edits.
+        (request.auth.uid in resource.data.get('members', []) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']) &&
+         request.resource.data.get('updatedAt', null) == request.time)
       ));
-      allow delete: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == resource.data.ownerId);
+      // Firestore does not cascade subcollections. Owners soft-delete the
+      // parent so entries and immutable activity never become orphaned.
+      allow delete: if isGlobalAdmin();
 
       match /entries/{entryId} {
-        function inGroup() {
-          return request.auth.uid in get(/databases/$(database)/documents/logGroups/$(groupId)).data.get('members', []);
+        function matchingActivityExists() {
+          let activityId = request.resource.data.get('lastMutationId', '');
+          let activityPath = /databases/$(database)/documents/logGroups/$(groupId)/activity/$(activityId);
+          return isValidString(activityId, 128) &&
+                 existsAfter(activityPath) &&
+                 getAfter(activityPath).data.get('type', '') == request.resource.data.get('lastMutationType', '') &&
+                 getAfter(activityPath).data.get('relatedId', '') == entryId &&
+                 getAfter(activityPath).data.get('actorId', '') == request.auth.uid;
         }
-        function isLogGroupOwner() {
-          return request.auth.uid == get(/databases/$(database)/documents/logGroups/$(groupId)).data.get('ownerId', '');
-        }
-        allow read: if isGlobalAdmin() || (isSignedIn() && inGroup());
-        allow create: if isSignedIn() && inGroup() &&
+
+        allow read: if isGlobalAdmin() || (isSignedIn() && isLogGroupMember());
+        allow create: if isSignedIn() && isLogGroupMember() &&
                       request.resource.data.get('addedBy', '') == request.auth.uid &&
                       request.resource.data.get('type', '') in ['manual', 'expense'] &&
+                      request.resource.data.get('status', '') == 'active' &&
                       isValidString(request.resource.data.get('title', ''), 100) &&
                       isValidAmount(request.resource.data.amount) &&
                       isValidString(request.resource.data.get('place', ''), 100) &&
-                      isValidString(request.resource.data.get('note', ''), 500);
-        allow update, delete: if isGlobalAdmin() || (isSignedIn() && (resource.data.addedBy == request.auth.uid || isLogGroupOwner()));
+                      isValidString(request.resource.data.get('note', ''), 500) &&
+                      request.resource.data.get('lastEditedBy', '') == request.auth.uid &&
+                      request.resource.data.get('lastMutationType', '') in ['entry_added', 'expense_entry_added'] &&
+                      request.resource.data.get('lastMutationAt', null) == request.time &&
+                      matchingActivityExists();
+        allow update: if isGlobalAdmin() || (isSignedIn() &&
+                      (resource.data.get('addedBy', '') == request.auth.uid || isLogGroupOwner()) &&
+                      resource.data.get('status', 'active') == 'active' &&
+                      request.resource.data.get('lastEditedBy', '') == request.auth.uid &&
+                      request.resource.data.get('lastMutationAt', null) == request.time &&
+                      matchingActivityExists() &&
+                      (
+                        (request.resource.data.get('lastMutationType', '') == 'entry_updated' &&
+                         resource.data.get('type', '') == 'manual' &&
+                         request.resource.data.get('status', 'active') == 'active' &&
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                           'title', 'amount', 'category', 'place', 'note', 'date', 'updatedAt',
+                           'lastMutationId', 'lastMutationType', 'lastMutationAt', 'lastEditedBy'
+                         ]) &&
+                         isValidString(request.resource.data.get('title', ''), 100) &&
+                         isValidAmount(request.resource.data.amount) &&
+                         isValidString(request.resource.data.get('place', ''), 100) &&
+                         isValidString(request.resource.data.get('note', ''), 500)) ||
+                        (request.resource.data.get('lastMutationType', '') == 'entry_deleted' &&
+                         request.resource.data.get('status', '') == 'deleted' &&
+                         request.resource.data.get('deletedAt', null) == request.time &&
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                           'status', 'deletedAt', 'updatedAt', 'lastMutationId',
+                           'lastMutationType', 'lastMutationAt', 'lastEditedBy'
+                         ]))
+                      ));
+        // Hard deletion would erase the source record that the audit describes.
+        allow delete: if isGlobalAdmin();
+      }
+
+      // Immutable entry history. Clients commit the entry mutation and this
+      // record in the same batch so a deleted entry never disappears silently.
+      match /activity/{activityId} {
+        function relatedEntryPath() {
+          return /databases/$(database)/documents/logGroups/$(groupId)/entries/$(request.resource.data.get('relatedId', ''));
+        }
+
+        allow read: if isGlobalAdmin() || (isSignedIn() && isLogGroupMember());
+        allow create: if isSignedIn() && isLogGroupMember() &&
+                      request.resource.data.get('actorId', '') == request.auth.uid &&
+                      request.resource.data.get('type', '') in [
+                        'entry_added', 'entry_updated', 'entry_deleted', 'expense_entry_added'
+                      ] &&
+                      isValidString(request.resource.data.get('message', ''), 500) &&
+                      isValidString(request.resource.data.get('relatedId', ''), 128) &&
+                      request.resource.data.get('groupId', '') == groupId &&
+                      request.resource.data.get('createdAt', null) == request.time &&
+                      request.resource.data.keys().hasOnly([
+                        'type', 'message', 'actorId', 'actorName', 'relatedId', 'groupId', 'createdAt'
+                      ]) &&
+                      (
+                        (request.resource.data.get('type', '') in ['entry_added', 'expense_entry_added'] &&
+                         !exists(relatedEntryPath()) &&
+                         existsAfter(relatedEntryPath()) &&
+                         getAfter(relatedEntryPath()).data.get('addedBy', '') == request.auth.uid &&
+                         getAfter(relatedEntryPath()).data.get('lastMutationId', '') == activityId &&
+                         getAfter(relatedEntryPath()).data.get('lastMutationType', '') == request.resource.data.get('type', '')) ||
+                        (request.resource.data.get('type', '') == 'entry_updated' &&
+                         exists(relatedEntryPath()) &&
+                         existsAfter(relatedEntryPath()) &&
+                         getAfter(relatedEntryPath()).data.get('lastMutationId', '') == activityId &&
+                         getAfter(relatedEntryPath()).data.get('lastMutationType', '') == 'entry_updated') ||
+                        (request.resource.data.get('type', '') == 'entry_deleted' &&
+                         exists(relatedEntryPath()) &&
+                         existsAfter(relatedEntryPath()) &&
+                         getAfter(relatedEntryPath()).data.get('status', '') == 'deleted' &&
+                         getAfter(relatedEntryPath()).data.get('lastMutationId', '') == activityId &&
+                         getAfter(relatedEntryPath()).data.get('lastMutationType', '') == 'entry_deleted')
+                      );
+        allow update, delete: if false;
       }
     }
 
@@ -252,10 +349,13 @@ service cloud.firestore {
            exists(/databases/$(database)/documents/groupInvites/$(resource.data.get('inviteCode', ''))) &&
            get(/databases/$(database)/documents/groupInvites/$(resource.data.get('inviteCode', ''))).data.get('groupId', '') == groupId &&
            get(/databases/$(database)/documents/groupInvites/$(resource.data.get('inviteCode', ''))).data.get('active', false) == true) ||
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'updatedAt']) &&
-           resource.data.get('members', []).removeAll(request.resource.data.get('members', [])) == [request.auth.uid] &&
-           request.resource.data.get('members', []).removeAll(resource.data.get('members', [])).size() == 0)
-        ));
+           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'updatedAt']) &&
+            resource.data.get('members', []).removeAll(request.resource.data.get('members', [])) == [request.auth.uid] &&
+            request.resource.data.get('members', []).removeAll(resource.data.get('members', [])).size() == 0) ||
+           (isMember(groupId) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']) &&
+            request.resource.data.get('updatedAt', null) == request.time)
+         ));
       allow delete: if isGlobalAdmin() || isAdmin(groupId);
 
       match /expenses/{expenseId} {

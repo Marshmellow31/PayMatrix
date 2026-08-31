@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,9 +13,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -84,8 +93,8 @@ fun SectionTitle(title: String, subtitle: String? = null, action: (@Composable (
 @Composable
 fun ObsidianCard(modifier: Modifier = Modifier, contentPadding: PaddingValues = PaddingValues(18.dp), content: @Composable ColumnScope.() -> Unit) {
     Card(
-        modifier = modifier.fillMaxWidth().border(1.dp, Hairline, RoundedCornerShape(22.dp)),
-        shape = RoundedCornerShape(22.dp),
+        modifier = modifier.fillMaxWidth().animateContentSize(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)).border(1.dp, Hairline, RoundedCornerShape(24.dp)),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = CardSurface),
     ) { Column(Modifier.padding(contentPadding), verticalArrangement = Arrangement.spacedBy(10.dp), content = content) }
 }
@@ -196,18 +205,25 @@ fun BalanceCard(title: String, amount: Long, positive: Boolean, modifier: Modifi
 
 @Composable
 fun PrimaryAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: (@Composable (() -> Unit))? = null) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed && enabled) .975f else 1f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium), label = "primaryPress")
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = 54.dp),
-        shape = RoundedCornerShape(18.dp),
+        interactionSource = interaction,
+        modifier = modifier.heightIn(min = 56.dp).graphicsLayer { scaleX = scale; scaleY = scale },
+        shape = RoundedCornerShape(19.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black, disabledContainerColor = Color.White.copy(alpha = .2f)),
     ) { if (icon != null) { icon(); Spacer(Modifier.width(8.dp)) }; Text(label, fontWeight = FontWeight.Bold) }
 }
 
 @Composable
 fun SecondaryAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: (@Composable (() -> Unit))? = null) {
-    OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier.heightIn(min = 52.dp), shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Hairline)) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed && enabled) .978f else 1f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium), label = "secondaryPress")
+    OutlinedButton(onClick = onClick, enabled = enabled, interactionSource = interaction, modifier = modifier.heightIn(min = 54.dp).graphicsLayer { scaleX = scale; scaleY = scale }, shape = RoundedCornerShape(19.dp), border = BorderStroke(1.dp, Hairline)) {
         if (icon != null) { icon(); Spacer(Modifier.width(8.dp)) }; Text(label, fontWeight = FontWeight.SemiBold)
     }
 }
