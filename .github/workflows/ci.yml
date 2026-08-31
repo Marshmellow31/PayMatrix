@@ -35,7 +35,9 @@ jobs:
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Verify native client
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest lintDebug assembleDebug
 
   # ─── Frontend ────────────────────────────────────────────────────────────
   frontend:
