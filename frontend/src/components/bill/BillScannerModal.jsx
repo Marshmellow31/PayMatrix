@@ -172,7 +172,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center sm:p-4">
+        <div className="bill-scanner-modal-shell fixed inset-0 z-[110] flex items-end sm:items-center justify-center sm:p-4 overflow-hidden">
           {/* Backdrop */}
           <motion.div
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -190,11 +190,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
             exit={{ opacity: 0, y: 60 }}
             transition={{ type: 'spring', damping: 26, stiffness: 300 }}
           >
-            <motion.div
-              layout
-              className="bg-[#141414] rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_-20px_80px_-10px_rgba(0,0,0,0.9)] border border-white/[0.07] border-b-0 sm:border-b flex flex-col overflow-hidden max-h-[92vh]"
-              transition={{ layout: { type: 'spring', damping: 26, stiffness: 220 } }}
-            >
+            <div className="bill-scanner-modal-panel bg-[#141414] rounded-t-[2rem] sm:rounded-[2.5rem] shadow-[0_-20px_80px_-10px_rgba(0,0,0,0.9)] border border-white/[0.07] border-b-0 sm:border-b flex flex-col overflow-hidden min-h-0">
               {/* Drag handle (mobile) */}
               <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
                 <div className="w-10 h-1 rounded-full bg-white/15" />
@@ -219,7 +215,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
               </div>
 
               {/* Body */}
-              <div className="px-6 pb-8 sm:pb-10 pt-1 overflow-y-auto flex-1">
+              <div className="bill-scanner-modal-body px-6 pb-8 sm:pb-10 pt-1 overflow-y-auto overscroll-contain flex-1 min-h-0">
                 <AnimatePresence mode="wait">
                   {/* ── CAPTURE ─────────────────────────────────── */}
                   {stage === STAGE.CAPTURE && (
@@ -631,7 +627,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                   )}
                 </AnimatePresence>
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         </div>
       )}

@@ -391,6 +391,37 @@ body.native-runtime {
   padding-left: max(16px, env(safe-area-inset-left));
 }
 
+/* The receipt scanner changes from a short progress view to a tall review
+   form. Bound it to the visual viewport and let only its body scroll so the
+   header and close control cannot be pushed below the screen on mobile. */
+.bill-scanner-modal-shell {
+  height: 100vh;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.bill-scanner-modal-panel {
+  max-height: 92vh;
+  max-height: min(
+    92dvh,
+    calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))
+  );
+}
+
+.bill-scanner-modal-body {
+  padding-bottom: max(2rem, env(safe-area-inset-bottom, 0px));
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 640px) {
+  .bill-scanner-modal-panel {
+    max-height: 90vh;
+    max-height: 90dvh;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
