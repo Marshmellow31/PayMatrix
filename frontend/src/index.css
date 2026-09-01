@@ -411,6 +411,7 @@ body.native-runtime {
 }
 
 .bill-scanner-modal-body {
+  flex: 1 1 auto;
   padding-bottom: max(2rem, env(safe-area-inset-bottom, 0px));
   -webkit-overflow-scrolling: touch;
 }

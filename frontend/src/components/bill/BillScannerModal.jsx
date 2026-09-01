@@ -215,7 +215,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
               </div>
 
               {/* Body */}
-              <div className="bill-scanner-modal-body px-6 pb-8 sm:pb-10 pt-1 overflow-y-auto overscroll-contain flex-1 min-h-0">
+              <div className="bill-scanner-modal-body px-6 pb-8 sm:pb-10 pt-1 overflow-y-auto overscroll-contain flex-auto min-h-0">
                 <AnimatePresence mode="wait">
                   {/* ── CAPTURE ─────────────────────────────────── */}
                   {stage === STAGE.CAPTURE && (
