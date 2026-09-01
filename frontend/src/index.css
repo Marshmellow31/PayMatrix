@@ -328,6 +328,54 @@
   }
 }
 
+:root {
+  --paymatrix-top-safe: env(safe-area-inset-top, 0px);
+  --paymatrix-header-height: 3.5rem;
+  --paymatrix-maintenance-height: 3rem;
+}
+
+.paymatrix-app-header {
+  padding-top: var(--paymatrix-top-safe);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.paymatrix-app-header > div {
+  height: var(--paymatrix-header-height);
+}
+
+.paymatrix-app-body {
+  padding-top: calc(var(--paymatrix-header-height) + var(--paymatrix-top-safe));
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.paymatrix-app-body--maintenance {
+  padding-top: calc(
+    var(--paymatrix-header-height) + var(--paymatrix-maintenance-height) + var(--paymatrix-top-safe)
+  );
+}
+
+.paymatrix-maintenance-banner {
+  top: calc(var(--paymatrix-header-height) + var(--paymatrix-top-safe));
+  min-height: var(--paymatrix-maintenance-height);
+}
+
+.paymatrix-sidebar {
+  top: calc(var(--paymatrix-header-height) + var(--paymatrix-top-safe));
+  height: calc(100vh - var(--paymatrix-header-height) - var(--paymatrix-top-safe));
+}
+
+.paymatrix-sidebar--maintenance {
+  top: calc(
+    var(--paymatrix-header-height) + var(--paymatrix-maintenance-height) + var(--paymatrix-top-safe)
+  );
+  height: calc(
+    100vh - var(--paymatrix-header-height) - var(--paymatrix-maintenance-height) -
+      var(--paymatrix-top-safe)
+  );
+}
+
 html.native-runtime {
   scroll-behavior: auto;
   background: #0e0e0e;
@@ -351,16 +399,6 @@ body.native-runtime {
 
 /* Keep all signed-in navigation controls below Android status bars, camera
    cutouts, and notches while retaining the edge-to-edge background. */
-.native-runtime .paymatrix-app-header {
-  padding-top: var(--paymatrix-top-safe);
-  padding-right: env(safe-area-inset-right);
-  padding-left: env(safe-area-inset-left);
-}
-
-.native-runtime .paymatrix-app-header > div {
-  height: 4rem;
-}
-
 .native-runtime .paymatrix-app-header,
 .native-runtime .paymatrix-bottom-nav {
   -webkit-backdrop-filter: none;
@@ -369,17 +407,16 @@ body.native-runtime {
 }
 
 .native-runtime .paymatrix-app-body {
-  padding-top: calc(4rem + var(--paymatrix-top-safe)) !important;
-  padding-right: env(safe-area-inset-right);
-  padding-left: env(safe-area-inset-left);
+  padding-top: calc(var(--paymatrix-header-height) + var(--paymatrix-top-safe));
 }
 
 .native-runtime .paymatrix-app-body--maintenance {
-  padding-top: calc(7rem + var(--paymatrix-top-safe)) !important;
+  padding-top: calc(
+    var(--paymatrix-header-height) + var(--paymatrix-maintenance-height) + var(--paymatrix-top-safe)
+  );
 }
 
 .native-runtime .paymatrix-maintenance-banner {
-  top: calc(4rem + var(--paymatrix-top-safe)) !important;
   padding-right: max(1rem, env(safe-area-inset-right));
   padding-left: max(1rem, env(safe-area-inset-left));
 }

@@ -25,7 +25,7 @@ const Header = ({ onToggleSidebar }) => {
 
   return (
     <header className="paymatrix-app-header fixed inset-x-0 top-0 z-50 border-b border-white/[0.07] bg-[#1A1A1A]/95 backdrop-blur-xl">
-      <div className="flex h-20 items-center justify-between px-4 sm:px-6 lg:px-10">
+      <div className="flex items-center justify-between px-4 sm:px-6 lg:px-10">
         <div className="flex items-center gap-3">
           <motion.button
             type="button"

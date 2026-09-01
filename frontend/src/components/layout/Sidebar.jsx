@@ -13,8 +13,8 @@ const navItems = [
 
 const Sidebar = ({ isOpen, onClose, maintenanceMode }) => {
   const topOffset = maintenanceMode
-    ? 'top-32 h-[calc(100vh-128px)]'
-    : 'top-20 h-[calc(100vh-80px)]';
+    ? 'paymatrix-sidebar paymatrix-sidebar--maintenance'
+    : 'paymatrix-sidebar';
   return (
     <>
       {/* Desktop sidebar */}

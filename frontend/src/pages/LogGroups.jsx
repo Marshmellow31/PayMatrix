@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus, ChevronRight, ScrollText } from 'lucide-react';
 import logService from '../services/logService.js';
 import Button from '../components/common/Button.jsx';
 import Loader from '../components/common/Loader.jsx';
 import CreateLogGroupModal from '../components/logs/CreateLogGroupModal.jsx';
+import LiveUpdate from '../components/common/LiveUpdate.jsx';
 
 const LogGroups = () => {
+  const location = useLocation();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -24,8 +26,8 @@ const LogGroups = () => {
   }, []);
 
   useEffect(() => {
-    loadGroups();
-  }, [loadGroups]);
+    if (location.pathname === '/logs') loadGroups();
+  }, [loadGroups, location.pathname]);
 
   if (loading) return <Loader className="py-20" />;
 
@@ -66,37 +68,41 @@ const LogGroups = () => {
       ) : (
         <div className="space-y-2">
           {groups.map((group, idx) => (
-            <motion.div
+            <LiveUpdate
               key={group._id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.03 }}
+              value={`${group.updatedAt || ''}:${group.name}:${group.members?.length || 0}`}
             >
-              <Link
-                to={`/logs/${group._id}`}
-                className="group px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.07] hover:border-white/20 flex items-center justify-between transition-all duration-300 shadow-xl"
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.03 }}
               >
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black font-manrope text-sm border shrink-0 bg-white/10 text-white/60 border-white/10">
-                    {(group.name || '?')[0].toUpperCase()}
+                <Link
+                  to={`/logs/${group._id}`}
+                  className="group px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.07] hover:border-white/20 flex items-center justify-between transition-all duration-300 shadow-xl"
+                >
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black font-manrope text-sm border shrink-0 bg-white/10 text-white/60 border-white/10">
+                      {(group.name || '?')[0].toUpperCase()}
+                    </div>
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <p className="text-base font-black text-white font-manrope truncate group-hover:text-white">
+                        {group.name}
+                      </p>
+                      <p className="text-[9px] font-black tracking-[0.2em] truncate text-white/20">
+                        {(group.members || []).length} MEMBER
+                        {(group.members || []).length !== 1 ? 'S' : ''}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <p className="text-base font-black text-white font-manrope truncate group-hover:text-white">
-                      {group.name}
-                    </p>
-                    <p className="text-[9px] font-black tracking-[0.2em] truncate text-white/20">
-                      {(group.members || []).length} MEMBER
-                      {(group.members || []).length !== 1 ? 'S' : ''}
-                    </p>
-                  </div>
-                </div>
 
-                <ChevronRight
-                  size={16}
-                  className="text-white/10 group-hover:text-white/50 transition-colors shrink-0 ml-4"
-                />
-              </Link>
-            </motion.div>
+                  <ChevronRight
+                    size={16}
+                    className="text-white/10 group-hover:text-white/50 transition-colors shrink-0 ml-4"
+                  />
+                </Link>
+              </motion.div>
+            </LiveUpdate>
           ))}
         </div>
       )}

@@ -25,6 +25,7 @@ import toast from 'react-hot-toast';
 import Modal from '../components/common/Modal';
 
 import { useFeatureFlags } from '../hooks/useFeatureFlags.js';
+import LiveUpdate from '../components/common/LiveUpdate.jsx';
 
 const successToastStyle = {
   borderRadius: '1rem',
@@ -483,71 +484,75 @@ const Friends = () => {
                 const hasBalance = balance !== 0;
 
                 return (
-                  <motion.div
+                  <LiveUpdate
                     key={friendNode.friend._id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.03 }}
-                    className="group relative bg-surface-container-high/40 border border-white/5 p-3 sm:p-4 rounded-2xl hover:bg-surface-container-high hover:border-white/10 transition-all duration-300 flex items-center justify-between gap-2 sm:gap-4 overflow-hidden"
+                    value={`${friendNode.netBalance}:${friendNode.mutualGroupsCount}:${friendNode.friend.name || ''}`}
                   >
-                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                      {/* Avatar */}
-                      <Avatar
-                        name={friendNode.friend.name}
-                        src={friendNode.friend.avatar}
-                        size="md"
-                        className="rounded-xl"
-                      />
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                      className="group relative bg-surface-container-high/40 border border-white/5 p-3 sm:p-4 rounded-2xl hover:bg-surface-container-high hover:border-white/10 transition-all duration-300 flex items-center justify-between gap-2 sm:gap-4 overflow-hidden"
+                    >
+                      <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                        {/* Avatar */}
+                        <Avatar
+                          name={friendNode.friend.name}
+                          src={friendNode.friend.avatar}
+                          size="md"
+                          className="rounded-xl"
+                        />
 
-                      {/* Name & Cohorts */}
-                      <div className="min-w-0">
-                        <Link
-                          to={`/friends/${friendNode.friend._id}`}
-                          className="text-xs sm:text-sm font-black text-white tracking-tight hover:text-primary transition-colors block truncate"
-                        >
-                          {friendNode.friend.name}
-                        </Link>
-                        <p className="text-[8px] sm:text-[9px] text-white/20 font-black uppercase tracking-widest mt-0.5 truncate">
-                          {friendNode.mutualGroupsCount} Mutual Cohorts
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Balance and Actions */}
-                    <div className="flex items-center gap-3 sm:gap-6 shrink-0">
-                      <div className="text-right">
-                        <p
-                          className={`text-[11px] sm:text-sm font-black font-manrope tracking-tight ${isPositive ? 'text-white' : isNegative ? 'text-white/40' : 'text-white/10'}`}
-                        >
-                          {hasBalance ? `₹${Math.abs(balance).toLocaleString()}` : 'Settled'}
-                        </p>
-                        {hasBalance && (
-                          <p
-                            className={`text-[7px] sm:text-[8px] font-black uppercase tracking-widest mt-0.5 ${isPositive ? 'text-white/40' : 'text-white/10'}`}
+                        {/* Name & Cohorts */}
+                        <div className="min-w-0">
+                          <Link
+                            to={`/friends/${friendNode.friend._id}`}
+                            className="text-xs sm:text-sm font-black text-white tracking-tight hover:text-primary transition-colors block truncate"
                           >
-                            {isPositive ? 'Receivable' : 'Payable'}
+                            {friendNode.friend.name}
+                          </Link>
+                          <p className="text-[8px] sm:text-[9px] text-white/20 font-black uppercase tracking-widest mt-0.5 truncate">
+                            {friendNode.mutualGroupsCount} Mutual Cohorts
                           </p>
-                        )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        {isNegative && (
-                          <button
-                            onClick={() => handleQuickSettle(friendNode)}
-                            className="bg-white/5 text-white hover:bg-white hover:text-black h-8 sm:h-9 px-2 sm:px-4 rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 border border-white/10"
+                      {/* Balance and Actions */}
+                      <div className="flex items-center gap-3 sm:gap-6 shrink-0">
+                        <div className="text-right">
+                          <p
+                            className={`text-[11px] sm:text-sm font-black font-manrope tracking-tight ${isPositive ? 'text-white' : isNegative ? 'text-white/40' : 'text-white/10'}`}
                           >
-                            Settle
-                          </button>
-                        )}
-                        <Link
-                          to={`/friends/${friendNode.friend._id}`}
-                          className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-white/20 hover:text-white hover:bg-white/10 transition-all shrink-0"
-                        >
-                          <ChevronRight size={14} />
-                        </Link>
+                            {hasBalance ? `₹${Math.abs(balance).toLocaleString()}` : 'Settled'}
+                          </p>
+                          {hasBalance && (
+                            <p
+                              className={`text-[7px] sm:text-[8px] font-black uppercase tracking-widest mt-0.5 ${isPositive ? 'text-white/40' : 'text-white/10'}`}
+                            >
+                              {isPositive ? 'Receivable' : 'Payable'}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          {isNegative && (
+                            <button
+                              onClick={() => handleQuickSettle(friendNode)}
+                              className="bg-white/5 text-white hover:bg-white hover:text-black h-8 sm:h-9 px-2 sm:px-4 rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 border border-white/10"
+                            >
+                              Settle
+                            </button>
+                          )}
+                          <Link
+                            to={`/friends/${friendNode.friend._id}`}
+                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-white/20 hover:text-white hover:bg-white/10 transition-all shrink-0"
+                          >
+                            <ChevronRight size={14} />
+                          </Link>
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
+                    </motion.div>
+                  </LiveUpdate>
                 );
               })
             )}

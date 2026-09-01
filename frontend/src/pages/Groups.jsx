@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { Hash, Loader2, Plus } from 'lucide-react';
 import { getLucideIcon } from '../utils/iconMap.js';
-import { createGroup, setGroups } from '../redux/groupSlice.js';
+import { createGroup } from '../redux/groupSlice.js';
 import GroupCard from '../components/group/GroupCard.jsx';
 import Modal from '../components/common/Modal.jsx';
 
@@ -14,11 +14,9 @@ import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 import { useFeatureFlags } from '../hooks/useFeatureFlags.js';
 import friendService from '../services/friendService.js';
-import groupService from '../services/groupService.js';
 import expenseService from '../services/expenseService.js';
-import { db } from '../config/firebase.js';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { getInitials } from '../utils/nameUtils.js';
+import LiveUpdate from '../components/common/LiveUpdate.jsx';
 
 const Groups = () => {
   const dispatch = useDispatch();
@@ -48,48 +46,16 @@ const Groups = () => {
   );
 
   useEffect(() => {
-    if (!user?._id && !user?.uid) return;
-    const userId = user._id || user.uid;
+    if ((!user?._id && !user?.uid) || location.pathname !== '/groups') return;
 
     fetchFriends();
-
-    // Real-time listener for groups
-    const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      try {
-        // Step 1: Instant load of basic group data (names, IDs)
-        const basicGroups = snapshot.docs.map((doc) => groupService.getBasicGroup(doc));
-        const activeBasicGroups = basicGroups.filter((g) => g?.status !== 'deleted');
-        dispatch(setGroups(activeBasicGroups));
-
-        // Step 2: Background resolution of member profiles (names, avatars)
-        const expandedGroupsPromise = Promise.all(
-          snapshot.docs.map(async (doc) => {
-            const basic = groupService.getBasicGroup(doc);
-            if (basic.status === 'deleted') return null;
-            const profiles = await groupService.resolveMemberProfiles(basic._id, basic.members);
-            return { ...basic, members: profiles, isBasic: false };
-          })
-        );
-
-        expandedGroupsPromise.then((expanded) => {
-          const finalGroups = expanded.filter(Boolean);
-          dispatch(setGroups(finalGroups));
-        });
-      } catch (err) {
-        console.error('Error expanding group snapshot in Groups page:', err);
-      }
-    });
 
     // Check if we should open the modal (from nav links)
     const params = new URLSearchParams(location.search);
     if (params.get('add') === 'true') {
       setShowModal(true);
     }
-
-    return () => unsubscribe();
-  }, [dispatch, location.search, user?._id, user?.uid]);
+  }, [location.pathname, location.search, user?._id, user?.uid]);
 
   // Reactive summary for real-time balances on individual cards
   useEffect(() => {
@@ -200,13 +166,17 @@ const Groups = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
-          {groups.map((group) => (
-            <GroupCard
-              key={group._id}
-              group={group}
-              balance={summary?.groupBalances?.[group._id] || 0}
-            />
-          ))}
+          {groups.map((group) => {
+            const balance = summary?.groupBalances?.[group._id] || 0;
+            return (
+              <LiveUpdate
+                key={group._id}
+                value={`${group.updatedAt || ''}:${balance}:${group.members?.length || 0}`}
+              >
+                <GroupCard group={group} balance={balance} />
+              </LiveUpdate>
+            );
+          })}
         </div>
       )}
 
