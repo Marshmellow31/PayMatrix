@@ -10,10 +10,11 @@ import {
   limit,
   getDocFromCache,
   getDocFromServer,
+  getDocsFromCache,
   serverTimestamp,
   writeBatch,
 } from 'firebase/firestore';
-import { calculateSplits } from '../utils/balanceEngine.js';
+import { calculateSplits, computeGroupBalances } from '../utils/balanceEngine.js';
 import { createNotification } from '../utils/notificationHelper.js';
 import { withRetry } from '../utils/retryOperation.js';
 import loggingService from './loggingService.js';
@@ -22,6 +23,7 @@ import sanitizationService from './sanitizationService.js';
 import { fromPaise, toPaise } from '../utils/money.js';
 import syncTracker from './syncTracker.js';
 import { serializeFirestoreData } from '../utils/firestoreSerialization.js';
+import { buildAnalyticsSnapshot } from '../utils/analyticsEngine.js';
 
 // Helper to mimic Axios response structure expected by Redux Thunks
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -93,6 +95,7 @@ const commitAuditedMutation = async ({
     });
     return batch.commit();
   });
+  invalidateFinancialCaches();
   syncTracker.trackPendingWrites();
 
   return auditedMutation;
@@ -104,12 +107,21 @@ let summaryCache = {
   timestamp: 0,
   hash: '',
 };
+const analyticsCache = new Map();
+const analyticsRequests = new Map();
+const ANALYTICS_CACHE_TTL = 30000;
 
-/** Called by authSlice logout reducer to purge stale cross-user data after sign-out. */
-export const clearSummaryCache = () => {
+const invalidateFinancialCaches = () => {
   summaryCache.data = null;
   summaryCache.timestamp = 0;
   summaryCache.hash = '';
+  analyticsCache.clear();
+};
+
+/** Called by authSlice logout reducer to purge stale cross-user data after sign-out. */
+export const clearSummaryCache = () => {
+  invalidateFinancialCaches();
+  analyticsRequests.clear();
 };
 
 const expenseService = {
@@ -704,53 +716,130 @@ const expenseService = {
     return wrap({ activity });
   },
 
-  getSpendingTrends: async (days = 30) => {
+  getAnalyticsSnapshot: (days = 30, { force = false } = {}) => {
     const userId = auth.currentUser?.uid;
-    if (!userId) return wrap({ trends: [] });
+    const periodDays = [7, 30, 90].includes(Number(days)) ? Number(days) : 30;
+    const emptySnapshot = {
+      ...buildAnalyticsSnapshot({ expenses: [], userId: userId || '', days: periodDays }),
+      balances: { totalOwedPaise: 0, totalOwePaise: 0, netBalancePaise: 0, groups: [] },
+      generatedAt: new Date().toISOString(),
+      source: 'empty',
+    };
+    if (!userId) return wrap(emptySnapshot);
 
-    try {
-      const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
-      const groupSnap = await getDocs(q);
-      const groupIds = groupSnap.docs
-        .filter((d) => d.data()?.status !== 'deleted')
-        .map((d) => d.id);
-
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-      const startDateStr = startDate.toISOString();
-
-      const allExpenseData = [];
-
-      for (const groupId of groupIds) {
-        const expQ = query(
-          collection(db, 'groups', groupId, 'expenses'),
-          where('createdAt', '>=', startDateStr),
-          orderBy('createdAt', 'asc')
-        );
-        const expSnap = await getDocs(expQ); // eslint-disable-line no-await-in-loop
-        expSnap.forEach((d) => allExpenseData.push(d.data()));
-      }
-
-      // Group by date - SKIP DELETED
-      const trendsMap = {};
-      allExpenseData.forEach((exp) => {
-        if (exp.status === 'deleted') return;
-        const date = exp.createdAt.split('T')[0];
-        trendsMap[date] = (trendsMap[date] || 0) + parseFloat(exp.amount || 0);
-      });
-
-      const trends = Object.keys(trendsMap)
-        .map((date) => ({
-          date,
-          amount: trendsMap[date],
-        }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-
-      return wrap({ trends });
-    } catch (error) {
-      console.error('Trends calc error:', error);
-      return wrap({ trends: [] });
+    const cacheKey = `${userId}:${periodDays}`;
+    const cached = analyticsCache.get(cacheKey);
+    if (!force && cached && Date.now() - cached.timestamp < ANALYTICS_CACHE_TTL) {
+      return wrap({ ...cached.data, source: 'memory' });
     }
+    if (!force && analyticsRequests.has(cacheKey)) return analyticsRequests.get(cacheKey);
+
+    const request = (async () => {
+      try {
+        const groupsQuery = query(
+          collection(db, 'groups'),
+          where('members', 'array-contains', userId)
+        );
+        let groupSnap;
+        try {
+          groupSnap = await getDocs(groupsQuery);
+        } catch {
+          groupSnap = await getDocsFromCache(groupsQuery);
+        }
+
+        const activeGroups = groupSnap.docs
+          .map((groupDoc) => ({ id: groupDoc.id, ...groupDoc.data() }))
+          .filter((group) => group.status !== 'deleted');
+
+        const groupData = await Promise.all(
+          activeGroups.map(async (group) => {
+            const expenseQuery = query(collection(db, 'groups', group.id, 'expenses'));
+            const settlementQuery = query(collection(db, 'groups', group.id, 'settlements'));
+            let expenseSnap;
+            let settlementSnap;
+            try {
+              [expenseSnap, settlementSnap] = await Promise.all([
+                getDocs(expenseQuery),
+                getDocs(settlementQuery),
+              ]);
+            } catch {
+              [expenseSnap, settlementSnap] = await Promise.all([
+                getDocsFromCache(expenseQuery).catch(() => ({ docs: [] })),
+                getDocsFromCache(settlementQuery).catch(() => ({ docs: [] })),
+              ]);
+            }
+
+            return {
+              group,
+              expenses: expenseSnap.docs.map((expenseDoc) =>
+                serializeFirestoreData({
+                  _id: expenseDoc.id,
+                  groupId: group.id,
+                  groupName: group.name || group.title || 'Shared group',
+                  ...expenseDoc.data(),
+                })
+              ),
+              settlements: settlementSnap.docs.map((settlementDoc) =>
+                serializeFirestoreData({ _id: settlementDoc.id, ...settlementDoc.data() })
+              ),
+            };
+          })
+        );
+
+        const allExpenses = groupData.flatMap((entry) => entry.expenses);
+        const insights = buildAnalyticsSnapshot({
+          expenses: allExpenses,
+          userId,
+          days: periodDays,
+        });
+
+        let totalOwedPaise = 0;
+        let totalOwePaise = 0;
+        const balanceGroups = groupData
+          .map(({ group, expenses, settlements }) => {
+            const balances = computeGroupBalances(
+              expenses.filter((expense) => expense.status !== 'deleted'),
+              settlements.filter((settlement) => settlement.status !== 'deleted'),
+              (group.members || []).map((uid) => ({ uid }))
+            );
+            const balancePaise = toPaise(balances[userId] || 0);
+            if (balancePaise > 0) totalOwedPaise += balancePaise;
+            if (balancePaise < 0) totalOwePaise += Math.abs(balancePaise);
+            return {
+              id: group.id,
+              name: group.name || group.title || 'Shared group',
+              balancePaise,
+            };
+          })
+          .filter((group) => group.balancePaise !== 0)
+          .sort((a, b) => Math.abs(b.balancePaise) - Math.abs(a.balancePaise));
+
+        const data = {
+          ...insights,
+          balances: {
+            totalOwedPaise,
+            totalOwePaise,
+            netBalancePaise: totalOwedPaise - totalOwePaise,
+            groups: balanceGroups,
+          },
+          generatedAt: new Date().toISOString(),
+          source:
+            typeof navigator === 'undefined' || navigator.onLine ? 'network' : 'offline-cache',
+        };
+
+        analyticsCache.set(cacheKey, { data, timestamp: Date.now() });
+        return wrap(data);
+      } catch (error) {
+        console.error('Analytics snapshot error:', error);
+        if (cached) return wrap({ ...cached.data, source: 'stale-cache' });
+        return wrap(emptySnapshot);
+      } finally {
+        analyticsRequests.delete(cacheKey);
+      }
+    })();
+
+    analyticsRequests.set(cacheKey, request);
+    return request;
   },
 };
 

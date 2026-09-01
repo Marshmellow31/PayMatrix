@@ -1,361 +1,402 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-  TrendingUp,
-  TrendingDown,
-  PieChart as PieIcon,
-  ArrowUpRight,
-  ArrowDownRight,
-  Wallet,
-  BarChart3,
-  Users,
-} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { ChevronRight, RefreshCw, TrendingDown, TrendingUp, WifiOff } from 'lucide-react';
+
 import expenseService from '../services/expenseService.js';
-import friendService from '../services/friendService.js';
-import CategoryPieChart from '../components/charts/CategoryPieChart';
-import TrendAreaChart from '../components/charts/TrendAreaChart';
-import FriendLedger from '../components/charts/FriendLedger';
-import Loader from '../components/common/Loader';
-
-import { useNavigate } from 'react-router-dom';
 import { useFeatureFlags } from '../hooks/useFeatureFlags.js';
+import Loader from '../components/common/Loader.jsx';
+import LiveUpdate from '../components/common/LiveUpdate.jsx';
+import SpendingBars from '../components/charts/SpendingBars.jsx';
 
-const fmt = (n) => {
-  const abs = Math.abs(n);
-  if (abs >= 100000) return `₹${(abs / 100000).toFixed(1)}L`;
-  if (abs >= 1000) return `₹${(abs / 1000).toFixed(1)}k`;
-  return `₹${abs.toFixed(0)}`;
+const periods = [
+  { days: 7, label: '7 days' },
+  { days: 30, label: '30 days' },
+  { days: 90, label: '90 days' },
+];
+const spring = { type: 'spring', stiffness: 360, damping: 36, mass: 0.8 };
+
+const money = (paise, { compact = false, sign = false } = {}) => {
+  const amount = (paise || 0) / 100;
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    notation: compact && Math.abs(amount) >= 10000 ? 'compact' : 'standard',
+    maximumFractionDigits: compact ? 1 : paise % 100 === 0 ? 0 : 2,
+    signDisplay: sign ? 'exceptZero' : 'auto',
+  }).format(amount);
 };
 
-const BalanceCard = ({ label, value, icon: Icon, accent, delay = 0, prefix = '' }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay, duration: 0.4, ease: 'easeOut' }}
-    className="relative overflow-hidden flex flex-col gap-3 p-4 sm:p-5 rounded-[1.75rem] border"
-    style={{
-      background: `${accent}06`,
-      borderColor: `${accent}18`,
-    }}
-  >
-    {/* Ambient glow */}
-    <div
-      className="absolute -top-8 -right-8 w-24 h-24 rounded-full blur-2xl pointer-events-none"
-      style={{ background: `${accent}20` }}
-    />
-    <div
-      className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-      style={{ background: `${accent}15`, border: `1px solid ${accent}25` }}
-    >
-      <Icon size={15} style={{ color: accent }} strokeWidth={2.5} />
-    </div>
-    <div>
-      <p
-        className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.22em] font-manrope mb-1.5"
-        style={{ color: `${accent}80` }}
-      >
-        {label}
-      </p>
-      <p
-        className="text-xl sm:text-2xl font-black font-manrope leading-none tracking-tight"
-        style={{ color: accent }}
-      >
-        {prefix}
-        {fmt(value)}
-      </p>
-    </div>
-  </motion.div>
-);
+const shortDate = (dateString) => {
+  if (!dateString) return '';
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('en-IN', {
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
+const comparisonCopy = (period) => {
+  if (!period) return '';
+  if (period.previousTotalPaise === 0) {
+    return period.totalPaise > 0
+      ? 'First spending in the compared period'
+      : 'No spending in either period';
+  }
+  if (period.direction === 'flat') return `The same as the previous ${period.days} days`;
+  return `${money(Math.abs(period.deltaPaise))} ${period.direction === 'up' ? 'more' : 'less'} than the previous ${period.days} days`;
+};
 
 const Analytics = () => {
   const flags = useFeatureFlags();
   const navigate = useNavigate();
-
-  const [summary, setSummary] = useState(null);
-  const [trends, setTrends] = useState([]);
-  const [networkStats, setNetworkStats] = useState([]);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const location = useLocation();
+  const reduceMotion = useReducedMotion();
   const [days, setDays] = useState(30);
+  const [snapshots, setSnapshots] = useState({});
+  const [loadingPeriod, setLoadingPeriod] = useState(30);
+  const [refreshing, setRefreshing] = useState(false);
+  const snapshot = snapshots[days];
 
   useEffect(() => {
-    if (flags && flags.analyticsPage === false) {
-      navigate('/dashboard', { replace: true });
-    }
+    if (flags && flags.analyticsPage === false) navigate('/dashboard', { replace: true });
   }, [flags, navigate]);
 
+  const loadSnapshot = useCallback(async (periodDays, force = false) => {
+    setLoadingPeriod((current) => (current == null && !force ? periodDays : current));
+    if (force) setRefreshing(true);
+    try {
+      const response = await expenseService.getAnalyticsSnapshot(periodDays, { force });
+      setSnapshots((current) => ({ ...current, [periodDays]: response.data.data }));
+    } catch (error) {
+      console.error('Analytics refresh failed:', error);
+    } finally {
+      setLoadingPeriod((current) => (current === periodDays ? null : current));
+      if (force) setRefreshing(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        if (!isInitialLoading) setIsUpdating(true);
-        const [summaryRes, networkRes, trendsRes] = await Promise.all([
-          expenseService.getSummary(),
-          friendService.getNetworkAnalytics(),
-          expenseService.getSpendingTrends(days),
-        ]);
-        setSummary(summaryRes.data.data || {});
-        setNetworkStats(networkRes.data.data.networkAnalytics || []);
-        setTrends(trendsRes.data.data.trends || []);
-      } catch (error) {
-        console.error('Error fetching analytics:', error);
-      } finally {
-        setIsInitialLoading(false);
-        setIsUpdating(false);
-      }
-    };
+    if (location.pathname === '/analytics') loadSnapshot(days);
+  }, [days, loadSnapshot, location.pathname]);
 
-    fetchAnalytics();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [days]);
+  const periodLabel = snapshot
+    ? `${shortDate(snapshot.period.start)}–${shortDate(snapshot.period.end)}`
+    : `Last ${days} days`;
+  const categories = snapshot?.categories || [];
+  const groups = snapshot?.groups || [];
+  const largestExpenses = snapshot?.largestExpenses || [];
+  const balances = snapshot?.balances || {};
+  const topCategory = categories[0];
+  const sourceLabel = useMemo(() => {
+    if (!snapshot) return '';
+    if (snapshot.source === 'offline-cache' || snapshot.source === 'stale-cache') {
+      return 'Saved offline';
+    }
+    return 'Updated just now';
+  }, [snapshot]);
 
-  if (isInitialLoading && !summary)
+  const hasLoadedSnapshot = Object.keys(snapshots).length > 0;
+
+  if (!hasLoadedSnapshot && !snapshot && loadingPeriod === days) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <Loader className="scale-150" />
+      <div className="flex min-h-[65vh] items-center justify-center">
+        <Loader />
       </div>
     );
-
-  const { totalOwed = 0, totalOwe = 0, netBalance = 0, categories = [] } = summary || {};
-
-  // Period stats derived from trends
-  const periodTotal = trends.reduce((s, t) => s + (t.amount || 0), 0);
-  const halfLen = Math.floor(trends.length / 2);
-  const firstHalf = trends.slice(0, halfLen).reduce((s, t) => s + (t.amount || 0), 0);
-  const secondHalf = trends.slice(halfLen).reduce((s, t) => s + (t.amount || 0), 0);
-  const trendPct =
-    firstHalf > 0 ? Math.round(Math.abs(((secondHalf - firstHalf) / firstHalf) * 100)) : 0;
-  const isTrendUp = secondHalf > firstHalf;
-  const categoryTotal = categories.reduce((s, c) => s + (c.value || 0), 0);
-
-  const netAccent = netBalance > 0 ? '#34d399' : netBalance < 0 ? '#f87171' : '#ffffff';
+  }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 sm:py-10 pb-28 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl sm:text-4xl font-black font-manrope tracking-tighter text-white">
-            Financial Analytics
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: reduceMotion ? 0.12 : 0.24 }}
+      className="mx-auto w-full max-w-md pb-32 pt-3 lg:max-w-6xl"
+    >
+      <header className="mb-7 flex items-start justify-between gap-4 lg:mb-9">
+        <div>
+          <p className="text-xs font-medium text-white/35">Your money, clearly</p>
+          <h1 className="mt-1 font-manrope text-[1.9rem] font-black tracking-[-0.05em] text-white sm:text-4xl">
+            Insights
           </h1>
-          <p className="text-xs sm:text-sm text-white/30 font-inter uppercase tracking-[0.1em]">
-            Spending patterns &amp; balances
-          </p>
+          <p className="mt-1 text-xs text-white/30">{periodLabel}</p>
         </div>
+        <button
+          type="button"
+          aria-label="Refresh insights"
+          onClick={() => loadSnapshot(days, true)}
+          disabled={refreshing}
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.035] text-white/45 hover:text-white disabled:opacity-40"
+        >
+          <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+        </button>
+      </header>
 
-        {/* Compact Range Toggle */}
-        <div className="flex items-center gap-1 bg-white/[0.03] p-1 rounded-2xl border border-white/5 backdrop-blur-xl self-start sm:self-auto">
-          {[7, 30, 90].map((d) => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              className={`relative px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all z-10 ${
-                days === d ? 'text-black' : 'text-white/40 hover:text-white'
-              }`}
+      <div className="mb-6 flex w-full rounded-2xl border border-white/[0.07] bg-white/[0.025] p-1 sm:w-fit">
+        {periods.map((period) => (
+          <button
+            key={period.days}
+            type="button"
+            onClick={() => {
+              if (!snapshots[period.days]) setLoadingPeriod(period.days);
+              setDays(period.days);
+            }}
+            className={`relative min-h-10 flex-1 rounded-xl px-4 text-xs font-semibold sm:flex-none ${
+              days === period.days ? 'text-black' : 'text-white/35 hover:text-white/70'
+            }`}
+          >
+            {days === period.days && (
+              <motion.span
+                layoutId="analytics-period"
+                className="absolute inset-0 rounded-xl bg-white"
+                transition={reduceMotion ? { duration: 0.12 } : spring}
+              />
+            )}
+            <span className="relative z-10">{period.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <AnimatePresence mode="popLayout" initial={false}>
+        {snapshot && (
+          <motion.div
+            key={days}
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={reduceMotion ? { duration: 0.12 } : spring}
+            className="grid grid-cols-1 gap-6 lg:grid-cols-12"
+          >
+            <LiveUpdate
+              value={`${snapshot.period.totalPaise}:${snapshot.period.deltaPaise}`}
+              className="rounded-[1.75rem] border border-white/[0.09] bg-[#191919] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] lg:col-span-7 lg:p-8"
             >
-              <span className="relative z-10">{d === 7 ? '1W' : d === 30 ? '1M' : '3M'}</span>
-              {days === d && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute inset-0 bg-white shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                  style={{ borderRadius: 'inherit' }}
-                  transition={{ type: 'spring', bounce: 0.1, duration: 0.5 }}
-                />
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Balance Overview */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <BalanceCard
-          label="Owed to you"
-          value={totalOwed}
-          icon={ArrowDownRight}
-          accent="#34d399"
-          delay={0.05}
-        />
-        <BalanceCard
-          label="You owe"
-          value={totalOwe}
-          icon={ArrowUpRight}
-          accent="#f97316"
-          delay={0.1}
-        />
-        <BalanceCard
-          label="Net balance"
-          value={Math.abs(netBalance)}
-          icon={Wallet}
-          accent={netAccent}
-          delay={0.15}
-          prefix={netBalance < 0 ? '−' : ''}
-        />
-      </div>
-
-      {/* Spending Velocity Trend */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.18 }}
-        className="bg-white/[0.03] p-6 sm:p-8 rounded-[2.5rem] border border-white/5 overflow-hidden"
-      >
-        <div className="flex items-start justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-orange-500/15 text-orange-400 rounded-xl flex items-center justify-center border border-orange-500/20">
-              <TrendingUp size={16} />
-            </div>
-            <div>
-              <h3 className="font-black font-manrope text-xs uppercase tracking-widest text-white/90">
-                Spending Velocity
-              </h3>
-              <p className="text-[10px] text-white/20 font-black uppercase tracking-widest mt-0.5">
-                {days === 7 ? 'Last 7 days' : days === 30 ? 'Last 30 days' : 'Last 90 days'}
-              </p>
-            </div>
-          </div>
-
-          {/* Period total + trend direction */}
-          {periodTotal > 0 && (
-            <div className="flex flex-col items-end gap-1.5">
-              <span className="text-white font-black font-manrope text-lg sm:text-2xl tracking-tight leading-none">
-                {fmt(periodTotal)}
-              </span>
-              {trends.length > 3 && (
-                <div
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-widest ${
-                    isTrendUp
-                      ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                  }`}
-                >
-                  {isTrendUp ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
-                  {trendPct}% vs prior half
-                </div>
-              )}
-              <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest">
-                period total
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div
-          className={`transition-opacity duration-500 h-[220px] sm:h-[280px] ${isUpdating ? 'opacity-40' : 'opacity-100'}`}
-        >
-          {trends?.length > 0 ? (
-            <TrendAreaChart data={trends} />
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center gap-4 border border-dashed border-white/5 rounded-3xl bg-white/[0.01]">
-              <BarChart3 size={28} className="text-white/10" />
-              <p className="text-[10px] text-white/10 font-black uppercase tracking-[0.3em]">
-                No trend data for this period
-              </p>
-            </div>
-          )}
-        </div>
-      </motion.div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Spend Distribution */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.22 }}
-          className="bg-white/[0.015] p-6 sm:p-8 rounded-[2.5rem] border border-white/5"
-        >
-          <div className="flex items-start justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
-                <PieIcon size={16} className="text-white/50" />
-              </div>
-              <div>
-                <h3 className="font-black font-manrope text-xs uppercase tracking-widest text-white/80">
-                  Spend Distribution
-                </h3>
-                {categories.length > 0 && (
-                  <p className="text-[9px] text-white/20 font-black uppercase tracking-widest mt-0.5">
-                    {categories.length} categories
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-white/45">Your spending</p>
+                  <p className="mt-4 font-manrope text-[2.9rem] font-black leading-none tracking-[-0.065em] text-white tabular-nums sm:text-6xl">
+                    {money(snapshot.period.totalPaise)}
                   </p>
+                </div>
+                {snapshot.period.direction !== 'flat' && snapshot.period.previousTotalPaise > 0 && (
+                  <span
+                    className={`mt-1 flex h-9 w-9 items-center justify-center rounded-full ${
+                      snapshot.period.direction === 'up'
+                        ? 'bg-red-300/10 text-red-300'
+                        : 'bg-emerald-300/10 text-emerald-300'
+                    }`}
+                  >
+                    {snapshot.period.direction === 'up' ? (
+                      <TrendingUp size={17} />
+                    ) : (
+                      <TrendingDown size={17} />
+                    )}
+                  </span>
                 )}
               </div>
-            </div>
-            {categoryTotal > 0 && (
-              <div className="text-right">
-                <p className="text-sm font-black text-white/60 font-manrope tracking-tight">
-                  {fmt(categoryTotal)}
-                </p>
-                <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest mt-0.5">
-                  your share
-                </p>
+              <p className="mt-4 text-sm leading-relaxed text-white/38">
+                {comparisonCopy(snapshot.period)}
+                {snapshot.period.percentChange != null && (
+                  <span className="text-white/55"> · {snapshot.period.percentChange}%</span>
+                )}
+              </p>
+              <div className="mt-8 grid grid-cols-3 gap-4 border-t border-white/[0.07] pt-5">
+                <Metric
+                  label="Daily average"
+                  value={money(snapshot.period.dailyAveragePaise, { compact: true })}
+                />
+                <Metric label="Transactions" value={snapshot.period.transactionCount} />
+                <Metric
+                  label="Top category"
+                  value={topCategory?.name || 'None'}
+                  supporting={topCategory ? `${Math.round(topCategory.share * 100)}%` : ''}
+                />
               </div>
-            )}
-          </div>
-          <div
-            className={`w-full min-h-[300px] transition-opacity duration-300 ${isUpdating ? 'opacity-40' : 'opacity-100'}`}
-          >
-            {categories?.length > 0 ? (
-              <CategoryPieChart data={categories} />
-            ) : (
-              <div className="h-[300px] flex flex-col items-center justify-center gap-4">
-                <PieIcon size={28} className="text-white/10" />
-                <p className="text-white/10 text-[10px] font-bold uppercase tracking-[0.2em]">
-                  No categorical data
-                </p>
-              </div>
-            )}
-          </div>
-        </motion.div>
+            </LiveUpdate>
 
-        {/* Friend Ledger */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.25 }}
-          className="bg-white/[0.015] p-6 sm:p-8 rounded-[2.5rem] border border-white/5"
-        >
-          <div className="flex items-start justify-between gap-3 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
-                <Users size={16} className="text-white/50" />
+            <section className="rounded-[1.75rem] border border-white/[0.08] bg-[#171717] p-5 lg:col-span-5 lg:p-6">
+              <SectionHeading title="Balances today" body="Not affected by the date range" />
+              <div className="mt-6 space-y-4">
+                <BalanceLine label="You are owed" value={balances.totalOwedPaise} tone="positive" />
+                <BalanceLine label="You owe" value={balances.totalOwePaise} tone="negative" />
+                <div className="h-px bg-white/[0.07]" />
+                <BalanceLine label="Net position" value={balances.netBalancePaise} signed />
               </div>
-              <div>
-                <h3 className="font-black font-manrope text-xs uppercase tracking-widest text-white/80">
-                  Friend Ledger
-                </h3>
-                <p className="text-[9px] text-white/20 font-black uppercase tracking-widest mt-0.5">
-                  Top {Math.min(4, networkStats.length)} by balance
-                </p>
+              {balances.groups?.length > 0 && (
+                <div className="mt-6 space-y-1 border-t border-white/[0.07] pt-4">
+                  {balances.groups.slice(0, 3).map((group) => (
+                    <Link
+                      key={group.id}
+                      to={`/groups/${group.id}`}
+                      className="flex min-h-11 items-center justify-between rounded-xl px-2 text-sm hover:bg-white/[0.035]"
+                    >
+                      <span className="truncate text-white/55">{group.name}</span>
+                      <span className="ml-3 font-semibold tabular-nums text-white/80">
+                        {money(group.balancePaise, { sign: true })}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[1.75rem] border border-white/[0.08] bg-[#171717] p-5 lg:col-span-7 lg:p-7">
+              <SectionHeading
+                title="Spending over time"
+                body={days === 90 ? 'Weekly totals' : 'Daily totals'}
+              />
+              <div className="mt-5">
+                <SpendingBars data={snapshot.trend} />
               </div>
-            </div>
-            <div className="flex flex-col items-end gap-1.5 text-[8px] font-black uppercase tracking-widest shrink-0">
-              <span className="flex items-center gap-1.5 text-emerald-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                Owes You
-              </span>
-              <span className="flex items-center gap-1.5 text-orange-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-                You Owe
-              </span>
-            </div>
-          </div>
-          <div
-            className={`w-full transition-opacity duration-300 ${isUpdating ? 'opacity-40' : 'opacity-100'}`}
-          >
-            {networkStats?.length > 0 ? (
-              <FriendLedger networkData={networkStats} />
-            ) : (
-              <div className="py-16 flex flex-col items-center justify-center gap-4">
-                <Users size={28} className="text-white/10" />
-                <p className="text-white/10 text-[10px] font-bold uppercase tracking-[0.2em]">
-                  No friend data available
-                </p>
+            </section>
+
+            <section className="rounded-[1.75rem] border border-white/[0.08] bg-[#171717] p-5 lg:col-span-5 lg:p-7">
+              <SectionHeading title="Where it went" body="Your share by category" />
+              <div className="mt-6 space-y-5">
+                {categories.slice(0, 6).map((category) => (
+                  <BreakdownRow
+                    key={category.name}
+                    label={category.name}
+                    amountPaise={category.amountPaise}
+                    share={category.share}
+                  />
+                ))}
+                {!categories.length && (
+                  <QuietEmpty>No category spending in this period.</QuietEmpty>
+                )}
               </div>
-            )}
-          </div>
-        </motion.div>
-      </div>
-    </div>
+            </section>
+
+            <section className="space-y-4 lg:col-span-5">
+              <SectionHeading title="Groups driving spending" body="Ordered by your contribution" />
+              <div className="overflow-hidden rounded-[1.5rem] border border-white/[0.08] bg-[#171717]">
+                {groups.slice(0, 5).map((group) => (
+                  <Link
+                    key={group.id}
+                    to={`/groups/${group.id}`}
+                    className="flex min-h-[4.6rem] items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-3 last:border-b-0 hover:bg-white/[0.025]"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-white/80">{group.name}</p>
+                      <p className="mt-1 text-[10px] text-white/28">
+                        {group.expenseCount} expense{group.expenseCount === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold tabular-nums text-white/75">
+                        {money(group.amountPaise)}
+                      </span>
+                      <ChevronRight size={14} className="text-white/18" />
+                    </div>
+                  </Link>
+                ))}
+                {!groups.length && <QuietEmpty>No group spending in this period.</QuietEmpty>}
+              </div>
+            </section>
+
+            <section className="space-y-4 lg:col-span-7">
+              <SectionHeading title="Largest expenses" body="Your biggest shares in this period" />
+              <div className="overflow-hidden rounded-[1.5rem] border border-white/[0.08] bg-[#171717]">
+                {largestExpenses.map((expense) => (
+                  <Link
+                    key={`${expense.groupId}:${expense.id}`}
+                    to={`/groups/${expense.groupId}`}
+                    className="flex min-h-[4.6rem] items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-3 last:border-b-0 hover:bg-white/[0.025]"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-white/80">
+                        {expense.title}
+                      </p>
+                      <p className="mt-1 truncate text-[10px] text-white/28">
+                        {expense.groupName} · {shortDate(expense.date)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 font-semibold tabular-nums text-white/75">
+                      {money(expense.amountPaise)}
+                    </span>
+                  </Link>
+                ))}
+                {!largestExpenses.length && <QuietEmpty>No expenses in this period.</QuietEmpty>}
+              </div>
+            </section>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {!snapshot && loadingPeriod === days && (
+        <div className="flex min-h-[24rem] items-center justify-center">
+          <Loader />
+        </div>
+      )}
+
+      {snapshot && (
+        <div className="mt-7 flex items-center justify-center gap-2 text-[10px] text-white/22">
+          {(snapshot.source === 'offline-cache' || snapshot.source === 'stale-cache') && (
+            <WifiOff size={11} />
+          )}
+          {sourceLabel}
+        </div>
+      )}
+    </motion.div>
   );
 };
+
+const SectionHeading = ({ title, body }) => (
+  <div>
+    <h2 className="font-manrope text-base font-semibold tracking-[-0.02em] text-white">{title}</h2>
+    <p className="mt-1 text-xs text-white/30">{body}</p>
+  </div>
+);
+
+const Metric = ({ label, value, supporting }) => (
+  <div className="min-w-0">
+    <p className="text-[9px] leading-snug text-white/28">{label}</p>
+    <p className="mt-2 truncate font-manrope text-sm font-semibold text-white/80 sm:text-base">
+      {value}
+    </p>
+    {supporting && <p className="mt-0.5 text-[9px] text-white/25">{supporting}</p>}
+  </div>
+);
+
+const BalanceLine = ({ label, value = 0, tone, signed = false }) => (
+  <LiveUpdate value={value} className="flex items-center justify-between gap-4">
+    <span className="text-sm text-white/42">{label}</span>
+    <span
+      className={`font-manrope text-lg font-semibold tabular-nums ${
+        tone === 'positive'
+          ? 'text-emerald-300/90'
+          : tone === 'negative'
+            ? 'text-red-300/90'
+            : 'text-white/85'
+      }`}
+    >
+      {money(value, { sign: signed })}
+    </span>
+  </LiveUpdate>
+);
+
+const BreakdownRow = ({ label, amountPaise, share }) => (
+  <LiveUpdate value={`${amountPaise}:${share}`}>
+    <div className="flex items-baseline justify-between gap-4">
+      <span className="truncate text-sm font-medium text-white/65">{label}</span>
+      <span className="shrink-0 text-sm font-semibold tabular-nums text-white/80">
+        {money(amountPaise)}
+      </span>
+    </div>
+    <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+      <motion.div
+        initial={false}
+        animate={{ width: `${Math.max(share * 100, 2)}%` }}
+        transition={spring}
+        className="h-full rounded-full bg-white/65"
+      />
+    </div>
+    <p className="mt-1.5 text-[9px] text-white/23">{Math.round(share * 100)}% of the period</p>
+  </LiveUpdate>
+);
+
+const QuietEmpty = ({ children }) => (
+  <div className="px-5 py-10 text-center text-xs leading-relaxed text-white/28">{children}</div>
+);
 
 export default Analytics;

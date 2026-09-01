@@ -2,7 +2,14 @@ import { useLayoutEffect, useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useLocation, useOutlet } from 'react-router-dom';
 
-const PRIMARY_TABS = new Set(['/dashboard', '/friends', '/groups', '/logs', '/profile']);
+const PRIMARY_TABS = new Set([
+  '/dashboard',
+  '/friends',
+  '/groups',
+  '/logs',
+  '/profile',
+  '/analytics',
+]);
 const tabSpring = { type: 'spring', stiffness: 380, damping: 38, mass: 0.8 };
 
 /**
