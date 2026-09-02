@@ -39,6 +39,18 @@ if (typeof window !== 'undefined') {
     },
     { passive: true }
   );
+
+  // Auto-recover from outdated deployment chunk misses
+  window.addEventListener('vite:preloadError', (event) => {
+    event.preventDefault();
+    const reloadKey = 'pm_chunk_reload';
+    const lastReload = sessionStorage.getItem(reloadKey);
+    const now = Date.now();
+    if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+      sessionStorage.setItem(reloadKey, String(now));
+      window.location.reload();
+    }
+  });
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(

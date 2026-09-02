@@ -146,7 +146,11 @@ export const getGroupCategoryMeta = (category, groupName = '') => {
     const lowerName = (groupName || '').toLowerCase();
     if (/(trip|tour|trek|pass|goa|manali|camp|flight|travel|hike)/i.test(lowerName)) {
       targetCategory = 'Trip';
-    } else if (/(chicken|mcdonalds|burger|pizza|food|cafe|dine|dinner|lunch|biryani|chai|tea|snack|bar)/i.test(lowerName)) {
+    } else if (
+      /(chicken|mcdonalds|burger|pizza|food|cafe|dine|dinner|lunch|biryani|chai|tea|snack|bar)/i.test(
+        lowerName
+      )
+    ) {
       targetCategory = 'Food';
     } else if (/(work|office|icd|project|corp|team|startup|client|desk)/i.test(lowerName)) {
       targetCategory = 'Work';
@@ -154,7 +158,9 @@ export const getGroupCategoryMeta = (category, groupName = '') => {
       targetCategory = 'Roommates';
     } else if (/(gang|buddies|bros|friends|party|boys|girls|squad)/i.test(lowerName)) {
       targetCategory = 'Friends';
-    } else if (/(movie|cinema|netflix|game|gaming|match|turf|sport|cricket|football)/i.test(lowerName)) {
+    } else if (
+      /(movie|cinema|netflix|game|gaming|match|turf|sport|cricket|football)/i.test(lowerName)
+    ) {
       targetCategory = 'Entertainment';
     }
   }
