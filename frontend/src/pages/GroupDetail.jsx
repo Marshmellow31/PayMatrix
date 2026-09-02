@@ -261,7 +261,9 @@ const GroupDetail = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
         <p className="text-lg font-bold text-white">Group not found</p>
-        <p className="text-sm text-white/40">This group may have been deleted or you may not be a member.</p>
+        <p className="text-sm text-white/40">
+          This group may have been deleted or you may not be a member.
+        </p>
         <button
           onClick={() => navigate('/groups')}
           className="px-6 py-2.5 rounded-xl bg-white text-black font-bold text-xs uppercase"
@@ -321,7 +323,8 @@ const GroupDetail = () => {
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between px-1">
                 <span className="text-[10px] font-black font-manrope text-white/30 uppercase tracking-[0.2em]">
-                  {scopedExpenses.length} {scopedExpenses.length === 1 ? 'Transaction' : 'Transactions'}
+                  {scopedExpenses.length}{' '}
+                  {scopedExpenses.length === 1 ? 'Transaction' : 'Transactions'}
                 </span>
                 <button
                   onClick={() => setShowOnlyMe(!showOnlyMe)}

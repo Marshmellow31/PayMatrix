@@ -51,7 +51,10 @@ const ChangelogModal = ({ isOpen, onClose }) => {
 
             <ul className="space-y-2 pt-1">
               {rel.highlights.map((item, idx) => (
-                <li key={idx} className="flex items-start gap-2.5 text-xs text-white/70 font-inter leading-relaxed">
+                <li
+                  key={idx}
+                  className="flex items-start gap-2.5 text-xs text-white/70 font-inter leading-relaxed"
+                >
                   <CheckCircle2 size={13} className="text-primary shrink-0 mt-0.5" />
                   <span>{item}</span>
                 </li>

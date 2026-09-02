@@ -390,7 +390,9 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                       <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 flex items-start gap-3">
                         <AlertCircle size={15} className="text-primary/70 shrink-0 mt-0.5" />
                         <p className="text-[11px] text-white/50 leading-relaxed font-inter">
-                          PayMatrix is an informational calculation ledger. Recording a settlement here updates your shared balance, but does not execute or verify a bank transfer. Confirm only after checking your bank or UPI app.
+                          PayMatrix is an informational calculation ledger. Recording a settlement
+                          here updates your shared balance, but does not execute or verify a bank
+                          transfer. Confirm only after checking your bank or UPI app.
                         </p>
                       </div>
 

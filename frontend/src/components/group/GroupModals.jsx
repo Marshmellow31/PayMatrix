@@ -75,9 +75,7 @@ export const AddMemberModal = ({
                       <p className="text-xs text-white/40">{friend.email}</p>
                     </div>
                   </div>
-                  {isSelected && (
-                    <span className="text-xs font-bold text-primary">Selected</span>
-                  )}
+                  {isSelected && <span className="text-xs font-bold text-primary">Selected</span>}
                 </div>
               );
             })
@@ -162,13 +160,7 @@ export const EditGroupModal = ({
   );
 };
 
-export const ConfirmLeaveGroupModal = ({
-  isOpen,
-  onClose,
-  onLeave,
-  leaving,
-  myBalance,
-}) => {
+export const ConfirmLeaveGroupModal = ({ isOpen, onClose, onLeave, leaving, myBalance }) => {
   const hasOutstandingBalance = Math.abs(myBalance) > 0.01;
 
   return (
@@ -179,11 +171,13 @@ export const ConfirmLeaveGroupModal = ({
           <div className="text-xs text-red-300 font-inter leading-relaxed">
             {hasOutstandingBalance ? (
               <p>
-                You have an unsettled balance of ₹{Math.abs(myBalance).toFixed(2)}. You must settle up with group members before exiting.
+                You have an unsettled balance of ₹{Math.abs(myBalance).toFixed(2)}. You must settle
+                up with group members before exiting.
               </p>
             ) : (
               <p>
-                Are you sure you want to exit this group? You will lose access to shared expenses and settlements.
+                Are you sure you want to exit this group? You will lose access to shared expenses
+                and settlements.
               </p>
             )}
           </div>
@@ -206,13 +200,7 @@ export const ConfirmLeaveGroupModal = ({
   );
 };
 
-export const ConfirmDeleteGroupModal = ({
-  isOpen,
-  onClose,
-  onDelete,
-  deleting,
-  hasPending,
-}) => {
+export const ConfirmDeleteGroupModal = ({ isOpen, onClose, onDelete, deleting, hasPending }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Delete Group">
       <div className="space-y-4">
@@ -221,11 +209,13 @@ export const ConfirmDeleteGroupModal = ({
           <div className="text-xs text-red-300 font-inter leading-relaxed">
             {hasPending ? (
               <p>
-                This group has unsettled debts. All members must settle up before the group can be permanently deleted.
+                This group has unsettled debts. All members must settle up before the group can be
+                permanently deleted.
               </p>
             ) : (
               <p>
-                Are you sure you want to delete this group? All recorded expenses and settlement histories will be permanently removed.
+                Are you sure you want to delete this group? All recorded expenses and settlement
+                histories will be permanently removed.
               </p>
             )}
           </div>

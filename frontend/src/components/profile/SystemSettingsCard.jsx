@@ -20,8 +20,7 @@ const SystemSettingsCard = ({
       const token = await fcmService.setExplicitlyEnabled(next);
       const enabled =
         next &&
-        (token ||
-          (typeof Notification !== 'undefined' && Notification.permission === 'granted'));
+        (token || (typeof Notification !== 'undefined' && Notification.permission === 'granted'));
       setPushEnabled(Boolean(enabled));
       if (next && !enabled) {
         toast.error('Notification permission was not granted.');
@@ -91,9 +90,7 @@ const SystemSettingsCard = ({
               <KeyRound size={16} className="text-white/40" />
               <div>
                 <p className="text-sm font-bold text-white/80">Your Friend Code</p>
-                <p className="text-xs font-mono text-primary font-bold">
-                  {currentUser.friendCode}
-                </p>
+                <p className="text-xs font-mono text-primary font-bold">{currentUser.friendCode}</p>
               </div>
             </div>
             <button

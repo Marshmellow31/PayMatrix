@@ -5,13 +5,7 @@ import Button from '../common/Button.jsx';
 import { validateUPIId, hasPaymentMethod } from '../../utils/upiUtils.js';
 import toast from 'react-hot-toast';
 
-const PaymentSettingsCard = ({
-  isOwnProfile,
-  currentUser,
-  targetUser,
-  isOnline,
-  onUpdateUPI,
-}) => {
+const PaymentSettingsCard = ({ isOwnProfile, currentUser, targetUser, isOnline, onUpdateUPI }) => {
   const displayUser = isOwnProfile ? currentUser : targetUser;
   const [upiId, setUpiId] = useState(currentUser?.upiId || '');
   const [paymentError, setPaymentError] = useState('');

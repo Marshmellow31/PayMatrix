@@ -57,8 +57,7 @@ const GroupHeader = ({
               )}
             </div>
             <p className="text-xs text-white/40 font-inter mt-0.5">
-              {activeGroup?.members?.length || 0} members · Created by{' '}
-              {isAdmin ? 'You' : 'Admin'}
+              {activeGroup?.members?.length || 0} members · Created by {isAdmin ? 'You' : 'Admin'}
             </p>
           </div>
         </div>
@@ -138,18 +137,14 @@ const GroupHeader = ({
                 <p className="text-2xl sm:text-3xl font-black font-manrope text-amber-400">
                   -{formatCurrency(Math.abs(myBalance))}
                 </p>
-                <p className="text-xs text-amber-400/70 font-inter mt-0.5">
-                  You owe in this group
-                </p>
+                <p className="text-xs text-amber-400/70 font-inter mt-0.5">You owe in this group</p>
               </div>
             ) : (
               <div>
                 <p className="text-2xl sm:text-3xl font-black font-manrope text-white/90">
                   {formatCurrency(0)}
                 </p>
-                <p className="text-xs text-white/40 font-inter mt-0.5">
-                  You are all settled up
-                </p>
+                <p className="text-xs text-white/40 font-inter mt-0.5">You are all settled up</p>
               </div>
             )}
           </div>

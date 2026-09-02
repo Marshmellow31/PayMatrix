@@ -10,13 +10,7 @@ import Modal from '../components/common/Modal.jsx';
 import PaymentSettingsCard from '../components/profile/PaymentSettingsCard.jsx';
 import SystemSettingsCard from '../components/profile/SystemSettingsCard.jsx';
 import ChangelogModal from '../components/profile/ChangelogModal.jsx';
-import {
-  Mail,
-  CheckCircle2,
-  X,
-  AlertTriangle,
-  UserX,
-} from 'lucide-react';
+import { Mail, CheckCircle2, X, AlertTriangle, UserX } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
 import { exportToPDF } from '../utils/exportUtils.js';
@@ -286,7 +280,8 @@ const Profile = () => {
       >
         <div className="space-y-4">
           <p className="text-sm text-white/70 font-inter">
-            Are you sure you want to remove <strong className="text-white">{targetUser?.name}</strong> from your friends list?
+            Are you sure you want to remove{' '}
+            <strong className="text-white">{targetUser?.name}</strong> from your friends list?
           </p>
           <div className="flex gap-3 pt-2">
             <Button

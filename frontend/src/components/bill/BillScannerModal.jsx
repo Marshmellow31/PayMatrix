@@ -249,7 +249,8 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                             : 'Amount, merchant, date and items are detected automatically. Long bill? Scan multiple photos — duplicates are merged.'}
                         </p>
                         <p className="text-[11px] text-primary/70 font-bold font-inter tracking-wide">
-                          Powered by Google Gemini AI · Receipt images are processed ephemerally for OCR itemization and are never stored.
+                          Powered by Google Gemini AI · Receipt images are processed ephemerally for
+                          OCR itemization and are never stored.
                         </p>
                       </div>
 
