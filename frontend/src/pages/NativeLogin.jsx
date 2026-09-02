@@ -79,6 +79,19 @@ const NativeLogin = ({ loading, onGoogleLogin }) => (
           Android will show the Google accounts already available on this device. PayMatrix never
           sees your Google password.
         </p>
+        <div className="mt-2 text-center">
+          <p className="text-[9px] text-white/40">
+            By continuing, you agree to our{' '}
+            <a href="/terms" className="underline hover:text-white text-white/60">
+              Terms
+            </a>{' '}
+            and{' '}
+            <a href="/privacy" className="underline hover:text-white text-white/60">
+              Privacy Policy
+            </a>
+            .
+          </p>
+        </div>
       </footer>
     </div>
   </main>

@@ -15,7 +15,7 @@ import { isNativeRuntime } from '#paymatrix-runtime';
 import { useNativeAppBridge } from './platform/useNativeAppBridge.js';
 import { serializeFirestoreData } from './utils/firestoreSerialization.js';
 
-// Layout
+// Layout & Pages
 const AppLayout = lazy(() => import('./components/layout/AppLayout.jsx'));
 const Onboarding = lazy(() => import('./pages/Onboarding.jsx'));
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout.jsx'));
@@ -43,6 +43,7 @@ const LogGroupDetail = lazy(() => import('./pages/LogGroupDetail.jsx'));
 const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 const DeleteAccount = lazy(() => import('./pages/DeleteAccount.jsx'));
 const Privacy = lazy(() => import('./pages/Privacy.jsx'));
+const Terms = lazy(() => import('./pages/Terms.jsx'));
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
@@ -64,8 +65,6 @@ const RootRoute = () => {
   const { user } = useSelector((state) => state.auth);
   const location = useLocation();
 
-  // Authenticated users and existing persisted sessions always bypass the
-  // marketing journey and land in the product they already know.
   if (user) return <Navigate to="/dashboard" replace />;
   if (isNativeRuntime()) return <Navigate to="/login" replace />;
   if (new URLSearchParams(location.search).get('preview') === '1') return <Onboarding />;
@@ -75,10 +74,6 @@ const RootRoute = () => {
 
 const AdminRoute = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
-  // Admin access is gated SOLELY by the Firebase `admin` custom claim (verified
-  // again server-side by Firestore rules and every admin Cloud Function). The
-  // previous VITE_ADMIN_PASSWORD fallback was removed — a bundled password is
-  // public and offered no real protection.
   const [isAdmin, setIsAdmin] = useState(false);
   const [claimsChecked, setClaimsChecked] = useState(false);
 
@@ -99,21 +94,24 @@ const AdminRoute = ({ children }) => {
           setIsAdmin(result.claims.admin === true);
           setClaimsChecked(true);
         })
-        .catch(() => setClaimsChecked(true));
+        .catch(() => {
+          setIsAdmin(false);
+          setClaimsChecked(true);
+        });
     });
   }, [user]);
 
   if (!user) return <Navigate to="/login" replace />;
-  if (!claimsChecked) return null; // Wait for claims check
+  if (!claimsChecked) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader size="lg" />
+      </div>
+    );
+  }
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
-
   return children;
 };
-
-// FIX SEC-11: module-level refs replace window._unsubscribe* globals.
-// Stored here rather than on window so external scripts cannot terminate listeners.
-let _unsubscribeProfile = null;
-let _unsubscribeNotifs = null;
 
 function App() {
   const dispatch = useDispatch();
@@ -121,75 +119,57 @@ function App() {
   const [initializing, setInitializing] = useState(true);
   const nativeRuntime = isNativeRuntime();
 
+  usePushNotifications();
   useNativeAppBridge();
 
-  // Silently registers for FCM push notifications after login.
-  // Saves the device token to Firestore so Cloud Functions can target it.
-  usePushNotifications();
-
   useEffect(() => {
+    let _unsubscribeProfile = null;
+    let _unsubscribeNotifs = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        let firstSnapshotReceived = false;
-
-        const unsubscribeProfile = onSnapshot(
-          userDocRef,
-          (docSnap) => {
-            if (docSnap.exists()) {
-              const profileData = serializeFirestoreData(docSnap.data());
-              dispatch(setUser({ _id: docSnap.id, ...profileData }));
-              if (!firstSnapshotReceived) {
-                import('./services/authService.js').then(({ ensurePublicProfile }) =>
-                  ensurePublicProfile(firebaseUser, profileData).catch(() => {})
-                );
-              }
-              if (!profileData.friendCode) {
-                import('./services/friendCodeService.js').then(({ default: friendCodeService }) =>
-                  friendCodeService.ensureFriendCode({ uid: firebaseUser.uid, ...profileData })
-                );
-              }
-            } else {
-              dispatch(
-                setUser({
-                  _id: firebaseUser.uid,
-                  uid: firebaseUser.uid,
-                  email: firebaseUser.email,
-                  name: firebaseUser.displayName,
-                })
-              );
-            }
-            if (!firstSnapshotReceived) {
-              firstSnapshotReceived = true;
-              setInitializing(false);
-            }
-          },
-          () => {
-            if (!firstSnapshotReceived) setInitializing(false);
+        _unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
+          if (docSnap.exists()) {
+            const userData = serializeFirestoreData({
+              _id: docSnap.id,
+              uid: docSnap.id,
+              ...docSnap.data(),
+            });
+            dispatch(setUser(userData));
+          } else {
+            dispatch(
+              setUser({
+                _id: firebaseUser.uid,
+                uid: firebaseUser.uid,
+                name: firebaseUser.displayName || 'Anonymous',
+                email: firebaseUser.email,
+                avatar: firebaseUser.photoURL,
+              })
+            );
           }
-        );
+          setInitializing(false);
+        });
 
         const qNotifs = query(
           collection(db, 'notifications'),
-          where('to', '==', firebaseUser.uid),
-          where('read', '==', false)
+          where('recipient', '==', firebaseUser.uid)
         );
-        const unsubscribeNotifs = onSnapshot(
+        _unsubscribeNotifs = onSnapshot(
           qNotifs,
           (snapshot) => {
             const liveNotifs = snapshot.docs
-              .map((d) => serializeFirestoreData({ _id: d.id, ...d.data() }))
+              .map((docSnap) =>
+                serializeFirestoreData({
+                  _id: docSnap.id,
+                  ...docSnap.data(),
+                })
+              )
               .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
             dispatch(setNotifications(liveNotifs));
           },
-          () => {}
+          (err) => console.error('Notification snapshot error:', err)
         );
-
-        // Store in module-level refs, not window
-        _unsubscribeProfile = unsubscribeProfile;
-        _unsubscribeNotifs = unsubscribeNotifs;
       } else {
-        // User logged out — tear down listeners
         if (_unsubscribeProfile) {
           _unsubscribeProfile();
           _unsubscribeProfile = null;
@@ -227,7 +207,6 @@ function App() {
 
   return (
     <>
-      {/* Let the first-run journey earn attention before offering installation. */}
       {!nativeRuntime && location.pathname !== '/' && <InstallPrompt />}
       {!nativeRuntime && <PwaUpdatePrompt />}
       <Suspense
@@ -258,6 +237,7 @@ function App() {
 
           <Route path="/join/:code" element={<JoinGroup />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
           <Route path="/delete-account" element={<DeleteAccount />} />
 
           {/* Protected Routes — inside AppLayout */}
@@ -303,7 +283,7 @@ function App() {
             <Route path="flags" element={<AdminFeatureFlags />} />
           </Route>
 
-          {/* New visitors see onboarding; returning/authenticated users bypass it. */}
+          {/* Root Route */}
           <Route path="/" element={<RootRoute />} />
 
           {/* 404 */}

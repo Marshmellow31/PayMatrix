@@ -216,7 +216,7 @@ const Friends = () => {
       <div className="min-h-[80vh] flex flex-col items-center justify-center gap-4 text-white/20">
         <Loader2 className="w-12 h-12 animate-spin" strokeWidth={1.5} />
         <p className="text-[10px] font-black uppercase tracking-[0.4em]">
-          Optimizing Network Nodes
+          Loading Friends
         </p>
       </div>
     );
@@ -380,8 +380,8 @@ const Friends = () => {
       {/* Tabs Menu */}
       <div className="flex gap-4 sm:gap-8 border-b border-white/5 px-1 sm:px-2 overflow-x-auto no-scrollbar whitespace-nowrap">
         {[
-          { id: 'all', label: 'Nodes', count: friends.length },
-          { id: 'pending', label: 'Signals', count: requests.incoming.length },
+          { id: 'all', label: 'Friends', count: friends.length },
+          { id: 'pending', label: 'Requests', count: requests.incoming.length },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -425,7 +425,7 @@ const Friends = () => {
               <div className="py-24 text-center border border-dashed border-white/10 rounded-[2.5rem] bg-white/[0.01]">
                 <Clock size={32} className="mx-auto mb-4 text-white/5" />
                 <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.4em]">
-                  No external bridge requests
+                  No incoming friend requests
                 </p>
               </div>
             )}
@@ -441,7 +441,7 @@ const Friends = () => {
                   <Avatar name={req.from?.name} src={req.from?.avatar} size="sm" />
                   <div>
                     <p className="text-sm font-bold text-white font-manrope">
-                      {req.from?.name || 'Inbound User'}
+                      {req.from?.name || 'User'}
                     </p>
                     <p className="text-[10px] text-white/20 font-medium uppercase tracking-widest">
                       Wants to connect
@@ -473,7 +473,7 @@ const Friends = () => {
               <div className="col-span-full py-32 text-center border border-dashed border-white/5 rounded-[3rem] bg-white/[0.01]">
                 <Users size={48} className="mx-auto mb-6 text-white/5" />
                 <p className="text-white/20 font-black uppercase tracking-[0.5em] text-[10px]">
-                  Zero connection nodes found
+                  No friends added yet
                 </p>
               </div>
             ) : (
@@ -512,7 +512,7 @@ const Friends = () => {
                             {friendNode.friend.name}
                           </Link>
                           <p className="text-[8px] sm:text-[9px] text-white/20 font-black uppercase tracking-widest mt-0.5 truncate">
-                            {friendNode.mutualGroupsCount} Mutual Cohorts
+                            {friendNode.mutualGroupsCount} Shared Groups
                           </p>
                         </div>
                       </div>
@@ -590,8 +590,8 @@ const Friends = () => {
           </div>
 
           <div className="space-y-3">
-            <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] px-2 italic">
-              Select Active Cohort
+            <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] px-2">
+              Select Group to Settle
             </p>
             <div className="space-y-2">
               {selectedFriendForSettle?.mutualGroups

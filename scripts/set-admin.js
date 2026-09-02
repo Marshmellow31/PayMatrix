@@ -1,9 +1,22 @@
 const admin = require('firebase-admin');
-const serviceAccount = require('./serviceAccountKey.json');
+const fs = require('fs');
+const path = require('path');
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+const projectId = process.env.FIREBASE_PROJECT_ID || 'paymatrix-174b5';
+const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.SERVICE_ACCOUNT_KEY_PATH;
+
+if (keyPath && fs.existsSync(keyPath)) {
+  admin.initializeApp({
+    credential: admin.credential.cert(require(path.resolve(keyPath))),
+    projectId,
+  });
+} else {
+  // Use Application Default Credentials (gcloud auth application-default login)
+  admin.initializeApp({
+    credential: admin.credential.applicationDefault(),
+    projectId,
+  });
+}
 
 // Usage: node set-admin.js <email>
 const email = process.argv[2];

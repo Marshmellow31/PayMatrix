@@ -11,6 +11,7 @@ import android.net.NetworkRequest
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -78,7 +79,7 @@ fun PayMatrixApp(viewModel: PayMatrixViewModel, deepLink: Uri?) {
         Box(Modifier.fillMaxSize().padding(outer).background(CanvasBlack)) {
             NavHost(navController = nav, startDestination = "gate") {
                 composable("gate") { GateScreen(state, nav) }
-                composable("login") { LoginScreen(state, viewModel) }
+                composable("login") { LoginScreen(state, viewModel, nav) }
                 composable("dashboard") { MainShell("dashboard", state, nav) { DashboardScreen(state, nav) } }
                 composable("friends") { MainShell("friends", state, nav) { FriendsScreen(state, viewModel, nav) } }
                 composable("groups") { MainShell("groups", state, nav) { GroupsScreen(state, viewModel, nav) } }
@@ -87,13 +88,16 @@ fun PayMatrixApp(viewModel: PayMatrixViewModel, deepLink: Uri?) {
                 composable("activity") { MainShell("", state, nav) { ActivityScreen(state, viewModel, nav) } }
                 composable("analytics") { MainShell("", state, nav) { if (state.flags.analytics) AnalyticsScreen(state, viewModel, nav) else FeatureUnavailableScreen("Analytics") } }
                 composable("notifications") { MainShell("", state, nav) { NotificationsScreen(state, viewModel, nav) } }
-                composable("group/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry -> MainShell("groups", state, nav) { GroupScreen(entry.arguments?.getString("id").orEmpty(), state, viewModel, nav) } }
+                composable("group/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->
+                    GroupScreen(entry.arguments?.getString("id").orEmpty(), state, viewModel, nav)
+                }
                 composable("expense/{groupId}?expenseId={expenseId}", arguments = listOf(navArgument("groupId") { type = NavType.StringType }, navArgument("expenseId") { type = NavType.StringType; defaultValue = "" })) {
                     ExpenseFormScreen(it.arguments?.getString("groupId").orEmpty(), it.arguments?.getString("expenseId").orEmpty(), state, viewModel, nav)
                 }
                 composable("join/{code}", arguments = listOf(navArgument("code") { type = NavType.StringType })) { JoinGroupScreen(it.arguments?.getString("code").orEmpty(), state, viewModel, nav) }
                 composable("logs/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) { LogEntriesScreen(it.arguments?.getString("id").orEmpty(), state, viewModel, nav) }
                 composable("scanner") { if (state.flags.billScanning) ScannerScreen(state, viewModel, nav) else Scaffold(topBar = { BackBar("Receipt scanner", nav) }) { FeatureUnavailableScreen("Receipt scanning", Modifier.padding(it)) } }
+                composable("terms") { TermsScreen(nav) }
                 composable("privacy") { PrivacyScreen(nav) }
                 composable("delete-account") { DeleteAccountScreen(state, viewModel, nav) }
             }
@@ -111,7 +115,7 @@ private fun GateScreen(state: PayMatrixState, nav: NavHostController) {
 }
 
 @Composable
-private fun LoginScreen(state: PayMatrixState, vm: PayMatrixViewModel) {
+private fun LoginScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
     val context = LocalContext.current
     val clientId = stringResource(R.string.default_web_client_id)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(top = 18.dp, bottom = 22.dp)) {
@@ -146,6 +150,15 @@ private fun LoginScreen(state: PayMatrixState, vm: PayMatrixViewModel) {
         PrimaryAction(if (state.loading) "Opening accounts..." else "Continue with Google", { vm.signIn(context, clientId) }, Modifier.fillMaxWidth(), enabled = !state.loading, icon = { Text("G", color = Color(0xFF4285F4), fontWeight = FontWeight.Black, fontSize = 20.sp) })
         Spacer(Modifier.height(11.dp))
         Text("Android opens the secure Google account chooser. paymatrix never sees your Google password.", color = Color.White.copy(alpha = .32f), fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Spacer(Modifier.height(14.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Text("By continuing, you agree to our ", color = Color.White.copy(alpha = .38f), fontSize = 10.sp)
+            Text("Terms", color = Color.White.copy(alpha = .85f), fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.clickable { nav.navigate("terms") })
+            Text(" and ", color = Color.White.copy(alpha = .38f), fontSize = 10.sp)
+            Text("Privacy Policy", color = Color.White.copy(alpha = .85f), fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.clickable { nav.navigate("privacy") })
+        }
+        Spacer(Modifier.height(5.dp))
+        Text("Non-custodial calculation ledger · We do not hold or move money", color = Color.White.copy(alpha = .22f), fontSize = 8.5.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }
 
@@ -164,10 +177,14 @@ private fun MainShell(route: String, state: PayMatrixState, nav: NavHostControll
     val visibleNavItems = mainNavItems.filter { it.route != "logs" || state.flags.logs }
     Scaffold(
         containerColor = CanvasBlack,
-        topBar = { PayMatrixHeader(state.user, state.notifications.count { !it.isRead }, { nav.navigate("activity") }, { if (route != "profile") nav.navigate("profile") }) },
+        topBar = { PayMatrixHeader(state.user, state.notifications.count { !it.isRead }, syncPending = state.syncStatus.pendingWrites > 0, { nav.navigate("activity") }, { if (route != "profile") nav.navigate("profile") }) },
         bottomBar = {
-            Surface(color = ObsidianSurface, tonalElevation = 0.dp) {
-                Row(Modifier.fillMaxWidth().height(62.dp)) {
+            NavigationBar(
+                containerColor = ObsidianSurface,
+                tonalElevation = 0.dp,
+                windowInsets = NavigationBarDefaults.windowInsets,
+                modifier = Modifier.fillMaxWidth().height(66.dp),
+            ) {
                 visibleNavItems.forEach { item ->
                     val selected = route == item.route
                     NavigationBarItem(
@@ -181,11 +198,23 @@ private fun MainShell(route: String, state: PayMatrixState, nav: NavHostControll
                                 }
                             }
                         },
-                        icon = { Icon(if (selected) item.selected else item.idle, item.label, modifier = Modifier.size(18.dp)) },
-                        label = { Text(item.label, fontSize = 9.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White, selectedTextColor = Color.White, unselectedIconColor = Color.White.copy(alpha = .35f), unselectedTextColor = Color.White.copy(alpha = .35f), indicatorColor = Color.Transparent),
+                        icon = {
+                            Box(
+                                modifier = if (selected) Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = .12f)).padding(horizontal = 12.dp, vertical = 3.dp) else Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(if (selected) item.selected else item.idle, item.label, modifier = Modifier.size(19.dp))
+                            }
+                        },
+                        label = { Text(item.label, fontSize = 9.5.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Color.White,
+                            selectedTextColor = Color.White,
+                            unselectedIconColor = Color.White.copy(alpha = .38f),
+                            unselectedTextColor = Color.White.copy(alpha = .38f),
+                            indicatorColor = Color.Transparent,
+                        ),
                     )
-                }
                 }
             }
         },
@@ -249,9 +278,16 @@ private fun rememberNetworkAvailable(): Boolean {
 }
 
 @Composable
-fun BackBar(title: String, nav: NavHostController, actions: @Composable RowScope.() -> Unit = {}) = TopAppBar(
-    title = { Text(title, fontWeight = FontWeight.Bold, color = Color.White) },
-    navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.Default.ArrowBack, "Back") } },
+fun BackBar(title: String, nav: NavHostController, subtitle: String? = null, actions: @Composable RowScope.() -> Unit = {}) = TopAppBar(
+    title = {
+        Column {
+            Text(title, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 17.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            if (!subtitle.isNullOrBlank()) {
+                Text(subtitle, color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+    },
+    navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.Default.ArrowBack, "Back", tint = Color.White) } },
     actions = actions,
     colors = TopAppBarDefaults.topAppBarColors(containerColor = ObsidianSurface),
 )

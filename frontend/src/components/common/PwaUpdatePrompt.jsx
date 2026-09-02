@@ -72,8 +72,8 @@ const PwaUpdatePrompt = () => {
               <span className="font-bold text-white/90 mb-0.5">What&apos;s New:</span>
               <ul className="list-disc pl-4 space-y-1 text-white/60">
                 <li>Upgraded AI Engine: Faster chat (Gemini 3.5) & scanner (Gemini 3.1)</li>
-                <li>Serverless OCR Vault: Secure receipt scanning via Vercel Functions</li>
-                <li>Node-to-Node Alerts: Direct, instant notifications via Firestore</li>
+                <li>Serverless OCR: Secure receipt scanning with ephemeral processing</li>
+                <li>Real-Time Alerts: Direct, instant notifications via Firestore</li>
                 <li>Group Details Drawer: Interactive click-to-open group cards in admin</li>
               </ul>
             </div>

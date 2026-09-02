@@ -405,7 +405,7 @@ const MemberList = ({
               <span className="text-red-400 font-semibold font-manrope uppercase text-[10px] tracking-widest">
                 instantly lose access
               </span>{' '}
-              to this cohort&apos;s data.
+              to this group&apos;s data.
               <span className="text-white font-bold italic"> This action is permanent.</span>
             </p>
           </div>

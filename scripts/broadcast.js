@@ -2,20 +2,21 @@ const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
 
-const serviceAccountPath = path.join(__dirname, 'serviceAccountKey.json');
+const projectId = process.env.FIREBASE_PROJECT_ID || 'paymatrix-174b5';
+const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.SERVICE_ACCOUNT_KEY_PATH;
 
-if (!fs.existsSync(serviceAccountPath)) {
-  console.error("ERROR: Missing 'serviceAccountKey.json' in the scripts directory.");
-  console.error("Please download it from Firebase Console -> Project Settings -> Service Accounts -> Generate new private key.");
-  console.error("Save it as 'scripts/serviceAccountKey.json' and run this script again.");
-  process.exit(1);
+if (keyPath && fs.existsSync(keyPath)) {
+  admin.initializeApp({
+    credential: admin.credential.cert(require(path.resolve(keyPath))),
+    projectId,
+  });
+} else {
+  // Use Application Default Credentials (gcloud auth application-default login)
+  admin.initializeApp({
+    credential: admin.credential.applicationDefault(),
+    projectId,
+  });
 }
-
-const serviceAccount = require(serviceAccountPath);
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
 
 const db = admin.firestore();
 

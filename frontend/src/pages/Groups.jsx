@@ -93,7 +93,7 @@ const Groups = () => {
     // Prepare data: self is added automatically by backend, but we send selected friends
     const result = await dispatch(createGroup(form));
     if (result.meta.requestStatus === 'fulfilled') {
-      toast.success('Cohort Established!');
+      toast.success('Group Created!');
       setShowModal(false);
       setForm({ name: '', category: 'Other', members: [] });
     } else {
@@ -126,7 +126,7 @@ const Groups = () => {
             >
               <Plus size={16} />
               <span className="text-[10px] uppercase tracking-widest font-bold">
-                {isOnline ? 'New Cohort' : 'Offline'}
+                {isOnline ? 'New Group' : 'Offline'}
               </span>
             </button>
           )}
@@ -160,7 +160,7 @@ const Groups = () => {
             </Button>
           ) : (
             <p className="text-[10px] uppercase tracking-widest text-white/20 font-black">
-              Cohort creation is disabled by admin
+              Group creation is disabled by admin
             </p>
           )}
         </div>
@@ -191,12 +191,12 @@ const Groups = () => {
       </div>
 
       {/* Create Group Modal */}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Establish Group">
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Create Group">
         <form onSubmit={handleCreate} className="flex flex-col gap-8">
           <div className="text-center py-4">
             <input
               className="bg-transparent border-none text-center font-headline text-3xl font-bold text-white focus:ring-0 placeholder:text-neutral-700 w-full tracking-tighter sm:text-4xl"
-              placeholder="Cohort Name"
+              placeholder="Group Name"
               value={form.name || ''}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
@@ -237,7 +237,7 @@ const Groups = () => {
             <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto no-scrollbar pr-1">
               {friends.length === 0 ? (
                 <p className="col-span-2 text-[10px] text-white/10 font-bold uppercase tracking-widest py-4 bg-white/[0.01] rounded-xl text-center border border-dashed border-white/5">
-                  No friends identified
+                  No friends added yet
                 </p>
               ) : (
                 friends.map((friend) => (
@@ -276,9 +276,9 @@ const Groups = () => {
             {loading ? (
               <Loader2 className="animate-spin" />
             ) : isOnline ? (
-              'Launch Cohort'
+              'Create Group'
             ) : (
-              'Connect to Launch'
+              'Connect to Create'
             )}
           </Button>
         </form>

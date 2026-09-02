@@ -88,12 +88,12 @@ const Register = () => {
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight">
                 Create Account
               </h2>
-              <p className="text-white/40 font-inter text-sm leading-relaxed max-w-[280px] mx-auto md:mx-0">
-                Join the secure financial orchestration network with Google.
+              <p className="text-white/50 font-inter text-sm leading-relaxed max-w-[280px] mx-auto md:mx-0">
+                Split expenses, track balances, and settle up with friends.
               </p>
             </motion.div>
 
-            <motion.div className="space-y-8" variants={itemVariants}>
+            <motion.div className="space-y-6" variants={itemVariants}>
               <button
                 onClick={handleGoogleSignup}
                 disabled={loading}
@@ -107,23 +107,26 @@ const Register = () => {
                 </span>
               </button>
 
-              <div className="pt-4 md:pt-6 space-y-5">
-                <p className="text-[11px] md:text-[12px] text-center text-white/20 font-inter leading-relaxed max-w-[300px] mx-auto px-4">
-                  By starting, you agree to our{' '}
-                  <a
-                    href="#"
-                    className="underline underline-offset-4 text-white/40 hover:text-white transition-colors"
+              <div className="pt-2 space-y-2 text-center">
+                <p className="text-[11px] md:text-[12px] text-white/40 font-inter leading-relaxed max-w-[320px] mx-auto px-2">
+                  By continuing with Google, you agree to our{' '}
+                  <Link
+                    to="/terms"
+                    className="underline underline-offset-4 text-white/80 hover:text-primary transition-colors font-semibold"
                   >
-                    Terms
-                  </a>{' '}
+                    Terms of Service
+                  </Link>{' '}
                   and{' '}
-                  <a
-                    href="#"
-                    className="underline underline-offset-4 text-white/40 hover:text-white transition-colors"
+                  <Link
+                    to="/privacy"
+                    className="underline underline-offset-4 text-white/80 hover:text-primary transition-colors font-semibold"
                   >
-                    Policies
-                  </a>
+                    Privacy Policy
+                  </Link>
                   .
+                </p>
+                <p className="text-[10px] text-white/25 font-inter">
+                  Non-custodial calculation ledger · We do not hold or move money
                 </p>
               </div>
             </motion.div>

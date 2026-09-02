@@ -1,4 +1,4 @@
-# paymatrix native Android 2.1.0
+# paymatrix native Android 2.1.1
 
 This folder contains the fully native Kotlin and Jetpack Compose Android client. It does not embed the React site, Capacitor, or a WebView. It keeps the existing Firebase project, Firestore documents, sign-in accounts, group balances, expenses, settlements, logs, notifications, and scanner API.
 
@@ -6,7 +6,7 @@ This folder contains the fully native Kotlin and Jetpack Compose Android client.
 
 - App name: `paymatrix`
 - Package: `com.paymatrix.app`
-- Version: `2.1.0` (`21000`)
+- Version: `2.1.1` (`21001`)
 - Firebase Android app: `1:344969363066:android:f200bee5cbcf086a3305c3`
 - Release signing: the same release keystore used by v1.2.5
 

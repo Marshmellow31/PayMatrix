@@ -442,7 +442,7 @@ const ExpenseForm = ({
           {!initialGroupId && (
             <div className="space-y-4">
               <label className="block text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter px-1 opacity-60">
-                Pick a Cohort
+                Select Group
               </label>
               <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
                 {groups.map((group) => (

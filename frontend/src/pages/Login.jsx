@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { ArrowRight, Fingerprint, ShieldCheck, Sparkles, Users, Zap } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import useAuth from '../hooks/useAuth.js';
 import toast from 'react-hot-toast';
 import NativeLogin from './NativeLogin.jsx';
@@ -148,7 +148,31 @@ const Login = () => {
                 <ShieldCheck size={14} className="shrink-0 text-emerald-300" /> Secure sign-in. Your
                 shared data stays private.
               </div>
-              <div className="mt-3 border-t border-white/[0.08] pt-3 text-center min-[390px]:mt-4 min-[390px]:pt-4 sm:mt-6 sm:pt-5">
+
+              <div className="mt-4 pt-3 border-t border-white/[0.06] text-center">
+                <p className="text-[10.5px] text-white/40 font-inter leading-relaxed max-w-sm mx-auto">
+                  By continuing with Google, you agree to our{' '}
+                  <Link
+                    to="/terms"
+                    className="text-white/80 underline decoration-white/30 underline-offset-4 hover:text-primary hover:decoration-primary transition-all font-semibold"
+                  >
+                    Terms of Service
+                  </Link>{' '}
+                  and acknowledge our{' '}
+                  <Link
+                    to="/privacy"
+                    className="text-white/80 underline decoration-white/30 underline-offset-4 hover:text-primary hover:decoration-primary transition-all font-semibold"
+                  >
+                    Privacy Policy
+                  </Link>
+                  .
+                </p>
+                <p className="mt-1.5 text-[9.5px] text-white/25 font-inter">
+                  Non-custodial calculation ledger · We do not hold or move money
+                </p>
+              </div>
+
+              <div className="mt-3 border-t border-white/[0.08] pt-3 text-center min-[390px]:mt-4 min-[390px]:pt-4 sm:mt-5 sm:pt-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/25">
                   Not ready to sign in yet?
                 </p>

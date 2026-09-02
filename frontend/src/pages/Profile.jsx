@@ -1,40 +1,29 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase.js';
 import useAuth from '../hooks/useAuth.js';
 import Avatar from '../components/common/Avatar.jsx';
 import Button from '../components/common/Button.jsx';
 import Input from '../components/common/Input.jsx';
+import Modal from '../components/common/Modal.jsx';
+import PaymentSettingsCard from '../components/profile/PaymentSettingsCard.jsx';
+import SystemSettingsCard from '../components/profile/SystemSettingsCard.jsx';
+import ChangelogModal from '../components/profile/ChangelogModal.jsx';
 import {
-  Download,
   Mail,
-  Settings,
-  Archive,
-  Flame,
-  CreditCard,
-  AtSign,
-  AlertTriangle,
   CheckCircle2,
   X,
-  Smartphone,
-  KeyRound,
-  Copy,
-  Bell,
-  Trash2,
-  Shield,
+  AlertTriangle,
+  UserX,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.js';
-import groupService from '../services/groupService.js';
-import expenseService from '../services/expenseService.js';
-import { computeGroupBalances } from '../utils/balanceEngine.js';
 import { exportToPDF } from '../utils/exportUtils.js';
-import { validateUPIId, hasPaymentMethod } from '../utils/upiUtils.js';
+import { hasPaymentMethod } from '../utils/upiUtils.js';
 import friendService from '../services/friendService.js';
-import { formatFriendCode } from '../services/friendCodeService.js';
-import fcmService from '../services/fcmService.js';
+import groupService from '../services/groupService.js';
+import Loader from '../components/common/Loader.jsx';
 
 const Profile = () => {
   const { id } = useParams();
@@ -46,20 +35,10 @@ const Profile = () => {
   const [name, setName] = useState('');
   const isOnline = useOnlineStatus();
 
-  // Payment details state
-  const [upiId, setUpiId] = useState('');
-  const [paymentError, setPaymentError] = useState('');
-  const [savingPayment, setSavingPayment] = useState(false);
   const [showPaymentWarningBanner, setShowPaymentWarningBanner] = useState(true);
-
-  // Remove friend state
   const [isRemoving, setIsRemoving] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
-
-  // Changelog modal state
   const [showChangelog, setShowChangelog] = useState(false);
-  const [pushEnabled, setPushEnabled] = useState(fcmService.isExplicitlyEnabled());
-  const [savingPush, setSavingPush] = useState(false);
 
   const isOwnProfile = !id || id === currentUser?._id || id === currentUser?.uid;
 
@@ -68,7 +47,6 @@ const Profile = () => {
       if (isOwnProfile) {
         setTargetUser(currentUser);
         setName(currentUser?.name || '');
-        setUpiId(currentUser?.upiId || '');
         setLoading(false);
         return;
       }
@@ -94,55 +72,25 @@ const Profile = () => {
     fetchTargetUser();
   }, [id, currentUser, isOwnProfile, navigate]);
 
-  const handleSave = async () => {
+  const handleSaveName = async () => {
+    if (!name.trim()) return;
     try {
-      const result = await updateProfile({ name });
+      const result = await updateProfile({ name: name.trim() });
       if (result.meta.requestStatus === 'fulfilled') {
-        toast.success('Profile updated');
+        toast.success('Profile name updated');
         setEditing(false);
       } else {
         toast.error(result.payload || 'Update failed');
       }
-    } catch (err) {
+    } catch {
       toast.error('An unexpected error occurred');
     }
   };
 
-  const handleOpenChangelog = () => {
-    setShowChangelog(true);
-  };
-
-  const handleSavePaymentDetails = async () => {
-    setPaymentError('');
-
-    const trimmedUpi = upiId.trim();
-
-    // Validate: must not be empty
-    if (!trimmedUpi) {
-      setPaymentError('Please enter a valid UPI ID (example@bank).');
-      return;
-    }
-
-    // Validate UPI ID format
-    if (!validateUPIId(trimmedUpi)) {
-      setPaymentError('Invalid UPI ID format. Standard IDs include "@" (e.g., name@okhdfc).');
-      return;
-    }
-
-    setSavingPayment(true);
-    try {
-      const result = await updateProfile({
-        upiId: trimmedUpi,
-      });
-      if (result.meta.requestStatus === 'fulfilled') {
-        toast.success('UPI ID updated!');
-      } else {
-        toast.error(result.payload || 'Failed to update UPI ID');
-      }
-    } catch (err) {
-      toast.error('An unexpected error occurred');
-    } finally {
-      setSavingPayment(false);
+  const handleUpdateUPI = async (newUpiId) => {
+    const result = await updateProfile({ upiId: newUpiId });
+    if (result.meta.requestStatus !== 'fulfilled') {
+      throw new Error(result.payload || 'Update failed');
     }
   };
 
@@ -151,878 +99,213 @@ const Profile = () => {
     setIsRemoving(true);
     try {
       await friendService.removeFriend(id);
-      toast.success('Connection Severed');
+      toast.success('Connection removed');
       navigate('/friends');
     } catch (err) {
       console.error('Removal failed:', err);
-      toast.error('Failed to remove node');
+      toast.error('Failed to remove friend');
     } finally {
       setIsRemoving(false);
       setShowRemoveConfirm(false);
     }
   };
 
-  if (loading)
+  const handleExportData = async () => {
+    toast.loading('Generating ledger export...', { id: 'export' });
+    try {
+      const groupsRes = await groupService.getGroups();
+      const groups = groupsRes.data.data.groups || [];
+      exportToPDF({ groups, user: currentUser });
+      toast.success('Export downloaded!', { id: 'export' });
+    } catch (err) {
+      console.error('Export error:', err);
+      toast.error('Failed to generate export', { id: 'export' });
+    }
+  };
+
+  if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <Loader size="lg" />
       </div>
     );
+  }
 
   const displayUser = isOwnProfile ? currentUser : targetUser;
-
-  const userHasPayment = hasPaymentMethod(currentUser);
+  const userHasPayment = hasPaymentMethod(displayUser);
 
   return (
-    <div className="max-w-6xl mx-auto animate-fade-in pb-24 px-4 sm:px-6 lg:px-8">
-      <div className="mb-6 pt-6">
-        <h1 className="text-3xl font-black font-manrope text-white tracking-[-0.05em] mb-1">
-          {isOwnProfile ? 'Identity & Security' : 'Network Profile'}
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-black font-manrope text-white tracking-tight">
+          {isOwnProfile ? 'Account & Profile' : 'Member Profile'}
         </h1>
-        <div className="flex items-center gap-3 mt-2">
-          <div
-            className={`w-2 h-2 rounded-full animate-pulse ${isOnline ? 'bg-emerald-500 shadow-[0_0_10px_2px_rgba(16,185,129,0.3)]' : 'bg-red-500'}`}
-          />
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
-            {isOnline ? 'System Operational' : 'Node Offline'}
-          </span>
-          {!isOwnProfile && (
-            <>
-              <span className="text-white/10 text-[8px]">•</span>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">
-                Verified Connection
-              </span>
-            </>
-          )}
-        </div>
+        <p className="text-xs text-white/40 font-inter mt-1">
+          {isOwnProfile
+            ? 'Manage your personal identity, payment methods, and system preferences.'
+            : 'Public ledger details for this connected member.'}
+        </p>
       </div>
 
-      {/* ── Payment Warning Banner (own profile, no UPI ID) ── */}
+      {/* Payment Missing Warning (if own profile) */}
       {isOwnProfile && !userHasPayment && showPaymentWarningBanner && (
-        <div className="mb-8 flex items-center gap-4 p-5 rounded-3xl bg-amber-500/5 border border-amber-500/10">
-          <div className="shrink-0">
-            <AlertTriangle size={20} className="text-amber-500/70" />
-          </div>
-          <div className="flex-1">
-            <p className="text-[11px] font-black text-amber-500/80 uppercase tracking-widest mb-0.5">
-              Missing Payment Vector
-            </p>
-            <p className="text-xs text-white/30 font-inter">
-              Add your UPI ID to ensure seamless arrivals of settlements into your account.
-            </p>
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <AlertTriangle size={18} className="text-amber-400 shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-amber-300 font-inter">
+                Missing UPI Payment Method
+              </p>
+              <p className="text-[11px] text-amber-200/60 font-inter mt-0.5">
+                Add your UPI ID below to enable one-tap QR settlements from friends.
+              </p>
+            </div>
           </div>
           <button
             onClick={() => setShowPaymentWarningBanner(false)}
-            className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-white/20 transition-all shrink-0"
+            className="text-white/40 hover:text-white transition-all"
           >
-            <X size={14} />
+            <X size={16} />
           </button>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 lg:gap-8 items-start">
-        {/* ── LEFT COLUMN: Identity + System ── */}
-        <div className="flex flex-col gap-6">
-          <div className="glass-card overflow-hidden border border-white/5 relative">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50 opacity-20" />
-
-            <div className="p-6 sm:p-8">
-              <div className="w-full">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-                  <div className="relative group shrink-0">
-                    <div className="absolute -inset-2 bg-primary/20 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-700" />
-                    <Avatar
-                      name={displayUser?.name}
-                      src={displayUser?.avatar || displayUser?.photoURL}
-                      size="xl"
-                      className="relative w-20 h-20 sm:w-24 sm:h-24 text-2xl border-4 border-white/5 shadow-2xl"
-                    />
-                  </div>
-
-                  <div className="flex-1 min-w-0 space-y-3">
-                    {editing ? (
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-1">
-                          Identity Name
-                        </label>
-                        <Input
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          id="profile-name"
-                          className="h-11 bg-white/[0.03] text-lg font-bold border-white/10 rounded-[1.25rem] px-5"
-                          disabled={!isOnline}
-                        />
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        <h2 className="text-3xl sm:text-4xl font-black font-manrope text-white tracking-[-0.03em] truncate">
-                          {displayUser?.name}
-                        </h2>
-                        <div className="flex items-center gap-3 text-white/40">
-                          <Mail size={14} className="shrink-0" />
-                          <span className="text-sm font-medium font-inter truncate tracking-tight">
-                            {displayUser?.email}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {!editing && (
-                      <div className="flex flex-wrap items-center gap-2 pt-2">
-                        {isOwnProfile ? (
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setEditing(true)}
-                              className="h-10 px-6 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest text-white/60 transition-all active:scale-95"
-                            >
-                              Configure Profile
-                            </button>
-                            <button
-                              onClick={logout}
-                              className="h-10 px-6 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/10 text-[10px] font-black uppercase tracking-widest text-red-500 transition-all active:scale-95"
-                            >
-                              Logout
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            {hasPaymentMethod(targetUser) ? (
-                              <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
-                                <CheckCircle2 size={12} /> UPI Verified
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400/80 text-[10px] font-black uppercase tracking-widest">
-                                <AlertTriangle size={12} /> Pending UPI
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+      {/* Profile Card */}
+      <div className="glass-card p-6 sm:p-8 border border-white/5 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <Avatar user={displayUser} size={64} className="border-2 border-white/10" />
+            <div className="space-y-1 min-w-0">
+              {editing ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your display name"
+                    className="h-10 text-sm font-bold bg-white/[0.04]"
+                    autoFocus
+                  />
+                  <Button
+                    onClick={handleSaveName}
+                    disabled={!name.trim()}
+                    className="h-10 px-4 text-xs font-bold bg-white text-black"
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setEditing(false)}
+                    className="h-10 px-3 text-xs border border-white/10"
+                  >
+                    Cancel
+                  </Button>
                 </div>
-
-                {editing && isOwnProfile && (
-                  <div className="flex gap-3 pt-6">
-                    <Button
-                      onClick={handleSave}
-                      className="flex-1 h-10 font-black uppercase text-[9px] tracking-[0.2em] rounded-xl flex items-center justify-center gap-2 whitespace-nowrap bg-white text-black hover:bg-neutral-200 transition-colors"
-                      disabled={!isOnline || !name.trim()}
-                    >
-                      {isOnline ? (
-                        <>
-                          <CheckCircle2 size={12} strokeWidth={3} />
-                          <span>Confirm</span>
-                        </>
-                      ) : (
-                        'OFFLINE'
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setEditing(false)}
-                      className="flex-1 h-10 font-black uppercase text-[9px] tracking-[0.2em] bg-white/[0.08] text-white/80 border border-white/10 hover:bg-white/[0.12] rounded-xl flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 transition-all"
-                    >
-                      <X size={14} strokeWidth={3} />
-                      <span>Cancel</span>
-                    </Button>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-xl font-black font-manrope text-white">
+                      {displayUser?.name || 'Member'}
+                    </h2>
+                    {userHasPayment && (
+                      <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
+                        <CheckCircle2 size={10} /> UPI Ready
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
+                  {displayUser?.email && (
+                    <div className="flex items-center gap-2 text-xs text-white/40 font-inter">
+                      <Mail size={13} />
+                      <span>{displayUser.email}</span>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
+
+          {/* Action buttons */}
+          {isOwnProfile && !editing && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => setEditing(true)}
+                className="h-9 px-4 text-xs font-bold border border-white/10"
+              >
+                Edit Name
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={logout}
+                className="h-9 px-4 text-xs font-bold text-red-400 border border-red-500/20 hover:bg-red-500/10"
+              >
+                Logout
+              </Button>
+            </div>
+          )}
 
           {!isOwnProfile && (
-            <div className="glass-card p-6 sm:p-8 border-red-500/10 bg-red-500/[0.01] relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                <AlertTriangle size={80} className="text-red-500" />
-              </div>
-
-              <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                <div className="space-y-1">
-                  <h3 className="text-xs font-black text-red-500/60 uppercase tracking-[0.2em] font-manrope">
-                    Security Zone
-                  </h3>
-                  <p className="text-[11px] text-white/30 font-inter leading-relaxed max-w-sm">
-                    Sever the network connection with this node. This operation is bidirectional and
-                    cannot be undone.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => setShowRemoveConfirm(true)}
-                  className="h-12 px-8 rounded-2xl bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 transition-all active:scale-95 text-[10px] font-black uppercase tracking-widest shadow-lg shrink-0"
-                >
-                  Terminate Connection
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* System Settings Card */}
-          <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01]">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                <div className="w-7 h-7 flex items-center justify-center">
-                  <Settings size={16} />
-                </div>
-              </div>
-              <h3 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] font-manrope">
-                System
-              </h3>
-            </div>
-
-            <div className="space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-white/5">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-white/60 font-inter">Currency</span>
-                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">
-                    (coming soon)
-                  </span>
-                </div>
-                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">
-                  {currentUser?.preferences?.currency || 'INR'}
-                </span>
-              </div>
-              {isOwnProfile && (
-                <div className="flex items-center justify-between pb-4 border-b border-white/5">
-                  <div className="flex items-center gap-3">
-                    <Bell size={16} className="text-white/40" />
-                    <div>
-                      <p className="text-sm font-bold text-white/60">Push notifications</p>
-                      <p className="text-[10px] text-white/25">
-                        Permission is requested only when enabled
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={savingPush}
-                    onClick={async () => {
-                      const next = !pushEnabled;
-                      setSavingPush(true);
-                      try {
-                        const token = await fcmService.setExplicitlyEnabled(next);
-                        const enabled =
-                          next &&
-                          (token ||
-                            (typeof Notification !== 'undefined' &&
-                              Notification.permission === 'granted'));
-                        setPushEnabled(Boolean(enabled));
-                        if (next && !enabled)
-                          toast.error('Notification permission was not granted.');
-                      } finally {
-                        setSavingPush(false);
-                      }
-                    }}
-                    className={`h-8 rounded-full px-4 text-[10px] font-black uppercase tracking-widest ${pushEnabled ? 'bg-emerald-500/15 text-emerald-400' : 'bg-white/5 text-white/35'}`}
-                  >
-                    {savingPush ? 'Saving…' : pushEnabled ? 'Enabled' : 'Off'}
-                  </button>
-                </div>
-              )}
-              <div className="flex items-center justify-between pb-4 border-b border-white/5">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-white/60 font-inter">Interface</span>
-                  <span className="text-[10px] text-white/20 font-black uppercase tracking-widest">
-                    (coming soon)
-                  </span>
-                </div>
-                <span className="text-xs font-black text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">
-                  {currentUser?.preferences?.theme || 'dark'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold text-white/60 font-inter">App Version</span>
-                    <span className="text-[10px] text-white/30 font-inter">
-                      v1.2.2 (Build 10202)
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleOpenChangelog}
-                    className="text-[10px] font-black text-primary uppercase tracking-widest text-left hover:underline w-fit"
-                  >
-                    View Changelog
-                  </button>
-                </div>
-                <button
-                  onClick={() => {
-                    toast.loading('Checking for updates...', { duration: 1000 });
-                    if ('serviceWorker' in navigator) {
-                      navigator.serviceWorker.getRegistrations().then((registrations) => {
-                        registrations.forEach((registration) => registration.update());
-                      });
-                    }
-                    setTimeout(() => {
-                      if (window.location) {
-                        window.location.reload(true);
-                      }
-                    }, 1200);
-                  }}
-                  className="h-8 px-4 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
-                >
-                  Force Update
-                </button>
-              </div>
-              {isOwnProfile && (
-                <button
-                  type="button"
-                  onClick={() => navigate('/privacy')}
-                  className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-left transition-colors hover:bg-white/5"
-                >
-                  <span>
-                    <span className="block text-sm font-bold text-white/65">
-                      Privacy &amp; Data
-                    </span>
-                    <span className="text-[10px] text-white/30">
-                      Stored data, AI processing, exports and retention
-                    </span>
-                  </span>
-                  <Shield size={16} className="text-primary" />
-                </button>
-              )}
-              {isOwnProfile && (
-                <button
-                  type="button"
-                  onClick={() => navigate('/delete-account')}
-                  className="flex w-full items-center justify-between rounded-2xl border border-red-500/15 bg-red-500/5 p-4 text-left transition-colors hover:bg-red-500/10"
-                >
-                  <span>
-                    <span className="block text-sm font-bold text-red-400">Delete account</span>
-                    <span className="text-[10px] text-white/30">
-                      Export data, anonymize profile, and remove sign-in
-                    </span>
-                  </span>
-                  <Trash2 size={16} className="text-red-400" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-        {/* end left column */}
-
-        {/* ── RIGHT COLUMN: Payments + App + History ── */}
-        <div className="flex flex-col gap-6">
-          {/* Friend Code */}
-          {isOwnProfile && (
-            <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01]">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0 border border-primary/20">
-                  <KeyRound size={20} className="text-primary" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-black text-white/60 uppercase tracking-[0.2em] font-manrope">
-                    Friend Code
-                  </h3>
-                  <p className="text-xs text-white/30 font-inter mt-0.5">
-                    Share so others can add you
-                  </p>
-                </div>
-              </div>
-              {currentUser?.friendCode ? (
-                <button
-                  onClick={() => {
-                    navigator.clipboard
-                      .writeText(formatFriendCode(currentUser.friendCode))
-                      .then(() => toast.success('Code copied to clipboard'))
-                      .catch(() => toast.error('Failed to copy code'));
-                  }}
-                  className="w-full flex items-center justify-between gap-4 px-6 py-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all active:scale-[0.99]"
-                >
-                  <span className="text-lg font-black font-manrope text-white tracking-[0.2em]">
-                    {formatFriendCode(currentUser.friendCode)}
-                  </span>
-                  <Copy size={16} className="text-white/40 shrink-0" />
-                </button>
-              ) : (
-                <div className="w-full px-6 py-4 rounded-2xl bg-white/[0.02] border border-dashed border-white/10 text-center">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-white/20">
-                    Generating your code…
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* UPI Payment Details */}
-          {isOwnProfile && (
-            <div className="glass-card p-6 sm:p-8 border border-white/5 bg-white/[0.01] relative overflow-hidden">
-              {/* Subtle accent line */}
-              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
-
-              <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center shrink-0 border border-emerald-500/20 shadow-[0_0_20px_-5px_rgba(16,185,129,0.1)]">
-                  <CreditCard size={20} className="text-emerald-400" />
-                </div>
-                <div className="flex-1 space-y-1 mt-1">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-black text-white/60 uppercase tracking-[0.2em] font-manrope">
-                      Payment Details
-                    </h3>
-                    {userHasPayment ? (
-                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/15 text-emerald-400 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm">
-                        <CheckCircle2 size={10} /> UPI ACTIVE
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/15 text-amber-400/80 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-sm">
-                        <AlertTriangle size={10} /> NO UPI ID
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-white/30 font-inter leading-relaxed">
-                    Connect your UPI ID to receive payments directly with real-time verification.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                {/* UPI ID */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between px-1">
-                    <label className="flex items-center gap-2 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">
-                      <AtSign size={11} />
-                      UPI ID
-                    </label>
-                  </div>
-                  <div className="relative group">
-                    <Input
-                      id="upi-id"
-                      value={upiId}
-                      onChange={(e) => {
-                        setUpiId(e.target.value);
-                        setPaymentError('');
-                      }}
-                      placeholder="example@okhdfc"
-                      className="h-14 bg-white/[0.03] font-manrope text-base text-white focus:bg-white/[0.05] transition-all"
-                      disabled={!isOnline || savingPayment}
-                    />
-                  </div>
-                </div>
-
-                {/* Error */}
-                {paymentError && (
-                  <p className="text-xs text-red-500 font-inter flex items-center gap-2 animate-shake">
-                    <AlertTriangle size={13} /> {paymentError}
-                  </p>
-                )}
-
-                {/* Save Section */}
-                <div className="pt-2 flex flex-col gap-4">
-                  <Button
-                    onClick={handleSavePaymentDetails}
-                    disabled={!isOnline || savingPayment}
-                    className={`h-14 w-full md:w-auto md:px-12 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-xl
-                      ${!isOnline ? 'opacity-20 cursor-not-allowed bg-white/5 border-white/5 text-white/40' : savingPayment ? 'opacity-60 cursor-wait bg-white text-black/50' : 'bg-white text-black hover:bg-white/90'}`}
-                  >
-                    {savingPayment ? (
-                      <span className="flex items-center gap-3">
-                        <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                        UPDATING…
-                      </span>
-                    ) : isOnline ? (
-                      'SAVE UPI ID'
-                    ) : (
-                      'OFFLINE'
-                    )}
-                  </Button>
-
-                  {!userHasPayment && isOnline && !savingPayment && (
-                    <p className="text-[10px] text-amber-400/50 font-bold uppercase tracking-widest">
-                      Mandatory for settlement receiving
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Cohort History */}
-          {isOwnProfile ? (
-            <CohortHistory userId={currentUser?._id} />
-          ) : (
-            <CohortHistory userId={id} myId={currentUser?._id} isFriendView={true} />
+            <Button
+              variant="ghost"
+              onClick={() => setShowRemoveConfirm(true)}
+              className="h-9 px-4 text-xs font-bold text-red-400 border border-red-500/20 hover:bg-red-500/10 flex items-center gap-1.5"
+            >
+              <UserX size={14} />
+              <span>Remove Friend</span>
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Footer (Own Profile Only) */}
-      {isOwnProfile && (
-        <div className="mt-16 pb-8 flex flex-col items-center justify-center gap-3">
-          <div className="h-[1px] w-16 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-          <div className="flex flex-col items-center gap-1.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20">
-              Engineered by <span className="text-white/40">Harshil</span>
-            </p>
-            <a
-              href="https://github.com/Marshmellow31/PayMatrix"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] font-black uppercase tracking-[0.2em] text-white/20 hover:text-primary transition-all duration-300"
-            >
-              Github
-            </a>
-          </div>
-        </div>
-      )}
+      {/* Payment Settings */}
+      <PaymentSettingsCard
+        isOwnProfile={isOwnProfile}
+        currentUser={currentUser}
+        targetUser={targetUser}
+        isOnline={isOnline}
+        onUpdateUPI={handleUpdateUPI}
+      />
 
-      {/* Confirmation Modal for Removal */}
-      <AnimatePresence>
-        {showRemoveConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => !isRemoving && setShowRemoveConfirm(false)}
-              className="absolute inset-0 bg-background/80 backdrop-blur-md"
-            />
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-sm glass-card border-red-500/20 bg-red-500/[0.02] p-8 space-y-6 overflow-hidden"
-            >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-30" />
-
-              <div className="w-16 h-16 rounded-3xl bg-red-500/10 flex items-center justify-center mx-auto mb-2 border border-red-500/20">
-                <AlertTriangle size={32} className="text-red-500 animate-pulse" />
-              </div>
-
-              <div className="text-center space-y-2">
-                <h3 className="text-xl font-black text-white font-manrope">Sever Connection?</h3>
-                <p className="text-sm text-white/40 font-inter leading-relaxed">
-                  This will remove <span className="text-white font-bold">{displayUser?.name}</span>{' '}
-                  from your network. Bidirectional disconnection will be operationalized.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3 pt-2">
-                <Button
-                  variant="ghost"
-                  className="h-14 rounded-2xl bg-red-500 text-white hover:bg-red-600 font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all w-full"
-                  onClick={handleRemoveFriend}
-                  disabled={isRemoving}
-                >
-                  {isRemoving ? 'SEVERING...' : 'CONFIRM REMOVAL'}
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="h-14 rounded-2xl bg-white/5 hover:bg-white/10 text-white/60 font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all w-full border border-white/5"
-                  onClick={() => setShowRemoveConfirm(false)}
-                  disabled={isRemoving}
-                >
-                  CANCEL
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* System Preferences */}
+      <SystemSettingsCard
+        isOwnProfile={isOwnProfile}
+        currentUser={currentUser}
+        onOpenChangelog={() => setShowChangelog(true)}
+        onExportData={handleExportData}
+        onDeleteAccount={() => navigate('/delete-account')}
+      />
 
       {/* Changelog Modal */}
-      <AnimatePresence>
-        {showChangelog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowChangelog(false)}
-              className="absolute inset-0 bg-background/80 backdrop-blur-md"
-            />
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg glass-card border-primary/20 bg-primary/[0.02] p-6 sm:p-8 space-y-6 overflow-hidden max-h-[80vh] flex flex-col"
+      <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} />
+
+      {/* Remove Friend Confirmation Modal */}
+      <Modal
+        isOpen={showRemoveConfirm}
+        onClose={() => setShowRemoveConfirm(false)}
+        title="Remove Friend"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-white/70 font-inter">
+            Are you sure you want to remove <strong className="text-white">{targetUser?.name}</strong> from your friends list?
+          </p>
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="ghost"
+              onClick={() => setShowRemoveConfirm(false)}
+              className="flex-1 border border-white/10"
             >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-30" />
-
-              <div className="flex items-center justify-between mb-2 shrink-0">
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
-                  <Flame size={24} className="text-primary" />
-                </div>
-                <button
-                  onClick={() => setShowChangelog(false)}
-                  className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
-                >
-                  <X size={16} className="text-white/60" />
-                </button>
-              </div>
-
-              <div className="space-y-2 shrink-0">
-                <h3 className="text-2xl font-black text-white font-manrope">What&apos;s New</h3>
-                <p className="text-xs text-white/40 font-inter">Version 1.2.2 Updates</p>
-              </div>
-
-              <div className="overflow-y-auto custom-scrollbar flex-1 pr-2 space-y-5">
-                <div className="space-y-3">
-                  <h4 className="text-[11px] font-black text-primary uppercase tracking-widest">
-                    New Features
-                  </h4>
-                  <ul className="text-sm text-white/70 space-y-3 font-inter">
-                    <li className="flex items-start gap-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />
-                      <div className="flex-1">
-                        <p>
-                          <strong>Scan Bill [Beta]</strong> — Auto-scan and extract bill amounts,
-                          vendor name, and line items with Gemini OCR.
-                        </p>
-                        <div className="mt-2.5 p-3 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2 text-xs text-white/50">
-                          <p className="font-black text-[9px] uppercase tracking-wider text-primary">
-                            Steps to use:
-                          </p>
-                          <ol className="list-decimal pl-4 space-y-1 text-[11px] leading-relaxed text-white/60">
-                            <li>Navigate to any active group.</li>
-                            <li>
-                              Tap the floating{' '}
-                              <span className="text-primary font-bold">Scan Bill</span> button in
-                              the bottom corner.
-                            </li>
-                            <li>Upload or snap a photo of a receipt.</li>
-                            <li>Review the extracted total amount, merchant, date, and items.</li>
-                            <li>
-                              Assign line items to members (unallocated items split equally) and
-                              submit!
-                            </li>
-                          </ol>
-                        </div>
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />{' '}
-                      <strong>Transaction Notes</strong> — Add custom notes/descriptions to details
-                      of any expense
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />{' '}
-                      Mobile view optimizations for Record Transaction modal
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />{' '}
-                      Scrollable group and category lists for better accessibility
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />{' '}
-                      Unified Profile & System Settings with intuitive UI
-                    </li>
-                  </ul>
-                </div>
-                <div className="space-y-3 pt-4 border-t border-white/5">
-                  <h4 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest">
-                    Improvements
-                  </h4>
-                  <ul className="text-sm text-white/70 space-y-3 font-inter">
-                    <li className="flex items-start gap-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />{' '}
-                      Enhanced visual animations across menus
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />{' '}
-                      Smooth settle button interactions
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />{' '}
-                      Improved UI consistency and layout
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="pt-4 shrink-0 border-t border-white/5">
-                <Button
-                  variant="ghost"
-                  className="h-12 rounded-xl bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all w-full border border-white/5"
-                  onClick={() => setShowChangelog(false)}
-                >
-                  Got it
-                </Button>
-              </div>
-            </motion.div>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRemoveFriend}
+              disabled={isRemoving}
+              className="flex-1 bg-red-500 text-white font-bold hover:bg-red-600"
+            >
+              {isRemoving ? 'Removing...' : 'Confirm Remove'}
+            </Button>
           </div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-const CohortHistory = ({ userId, myId, isFriendView = false }) => {
-  const [groups, setGroups] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(null);
-  const [expandedGroupId, setExpandedGroupId] = useState(null);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    setLoading(true);
-    const fetchAction = isFriendView
-      ? groupService.getMutualGroups(myId, userId)
-      : groupService.getPastGroups(userId);
-
-    fetchAction
-      .then((res) => setGroups(res.data.data.groups))
-      .catch((err) => console.error('Failed to fetch cohorts:', err))
-      .finally(() => setLoading(false));
-  }, [userId, myId, isFriendView]);
-
-  const handleExport = async (group) => {
-    setExporting(group._id);
-    try {
-      const [expRes, stlRes, logRes] = await Promise.all([
-        expenseService.getExpenses(group._id),
-        expenseService.getSettlements(group._id),
-        expenseService.getActivity(group._id),
-      ]);
-
-      const expenses = expRes.data.data.expenses;
-      const settlements = stlRes.data.data.settlements;
-      const logs = logRes.data.data.activity;
-
-      // Compute balances dynamically for the report
-      const calculatedBalances = computeGroupBalances(expenses, settlements, group.members);
-
-      // Map to the format exportToPDF expects
-      const formattedBalances = Object.keys(calculatedBalances).map((uid) => {
-        const member = group.members.find((m) => {
-          const mid = (m.user?._id || m.user?.uid || m.user || '').toString();
-          return mid === uid;
-        });
-        return {
-          user: member?.user || { name: 'Member', email: 'N/A' },
-          balance: calculatedBalances[uid],
-        };
-      });
-
-      await exportToPDF(group, expenses, formattedBalances, logs);
-      toast.success(`PDF Security Report exported for ${group.name || group.title}`);
-    } catch (err) {
-      console.error(err);
-      toast.error('Export failed. Please try again.');
-    } finally {
-      setExporting(null);
-    }
-  };
-
-  if (loading) return null;
-
-  return (
-    <div className="glass-card p-6 sm:p-8 border-primary/10 bg-primary/[0.01]">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-primary/10 rounded-lg text-primary">
-          {isFriendView ? <Flame size={16} /> : <Archive size={16} />}
         </div>
-        <h3 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] font-manrope text-primary/60">
-          {isFriendView ? 'Mutual Cohorts' : 'Archived Cohorts'}
-        </h3>
-      </div>
-
-      <div className="flex flex-col gap-5">
-        {groups.length === 0 ? (
-          <div className="text-center py-10 border border-dashed border-white/5 rounded-3xl bg-white/[0.01]">
-            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">
-              {isFriendView ? 'No Active Shared Cohorts Identified' : 'No Archived Sessions Found'}
-            </p>
-          </div>
-        ) : (
-          groups.map((group) => {
-            const isExpanded = expandedGroupId === group._id;
-
-            return (
-              <div
-                key={group._id}
-                className={`flex flex-col rounded-3xl bg-white/[0.02] border transition-all duration-300 overflow-hidden ${
-                  isExpanded
-                    ? 'border-primary/30 bg-primary/[0.03]'
-                    : 'border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
-                }`}
-              >
-                {/* Header Row (Click to toggle) */}
-                <div
-                  onClick={() => setExpandedGroupId(isExpanded ? null : group._id)}
-                  className="flex items-center justify-between p-5 cursor-pointer select-none group"
-                >
-                  <div className="flex flex-col gap-1">
-                    <span
-                      className={`text-md font-black transition-colors ${isExpanded ? 'text-primary' : 'text-white'}`}
-                    >
-                      {group.name || group.title}
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`text-[8px] font-black uppercase tracking-[0.15em] px-2 py-0.5 rounded-full ${
-                          group.status === 'deleted'
-                            ? 'bg-red-500/10 text-red-400 border border-red-500/10'
-                            : 'bg-white/5 text-white/40 border border-white/5'
-                        }`}
-                      >
-                        {group.status === 'deleted' ? 'Deleted' : 'Former Member'}
-                      </span>
-                      <span className="text-[9px] text-white/20 font-inter font-bold">
-                        •{' '}
-                        {new Date(group.createdAt).toLocaleDateString(undefined, {
-                          year: 'numeric',
-                          month: 'short',
-                        })}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Indicator Icon */}
-                  <motion.div
-                    animate={{ rotate: isExpanded ? 180 : 0 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center border ${
-                      isExpanded
-                        ? 'bg-primary/20 border-primary/40 text-primary'
-                        : 'bg-white/5 border-white/10 text-white/30 group-hover:text-white/60'
-                    }`}
-                  >
-                    <Smartphone size={14} className={isExpanded ? 'rotate-180' : ''} />
-                  </motion.div>
-                </div>
-
-                {/* Expanded Drawer */}
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3, ease: 'easeInOut' }}
-                    >
-                      <div className="px-5 pb-5 pt-1 border-t border-white/5">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleExport(group);
-                          }}
-                          disabled={exporting === group._id}
-                          className="h-11 w-full rounded-2xl bg-white/5 hover:bg-white/10 text-[10px] font-black text-white uppercase tracking-[0.2em] transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 border border-white/5 shadow-inner"
-                        >
-                          {exporting === group._id ? (
-                            <>
-                              <div className="w-3 h-3 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-                              <span>Preparing...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Download size={16} className="opacity-60 text-primary" />
-                              <span>Generate Report</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            );
-          })
-        )}
-      </div>
+      </Modal>
     </div>
   );
 };

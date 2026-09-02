@@ -180,16 +180,31 @@ fun AvatarStack(ids: List<String>, profiles: Map<String, UserProfile>, size: Int
 }
 
 @Composable
-fun PayMatrixHeader(user: UserProfile?, unread: Int, onActivity: () -> Unit, onProfile: () -> Unit) {
+fun PayMatrixHeader(user: UserProfile?, unread: Int, syncPending: Boolean = false, onActivity: () -> Unit, onProfile: () -> Unit) {
     Surface(color = ObsidianSurface.copy(alpha = .98f), modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("paymatrix", color = Color.White, fontWeight = FontWeight.Black, fontSize = 19.sp)
+        Row(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("paymatrix", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp, letterSpacing = (-.5).sp)
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    Modifier.size(6.dp).clip(CircleShape)
+                        .background(if (syncPending) Color(0xFFF6C85F) else Positive)
+                )
+            }
             Spacer(Modifier.weight(1f))
             Box {
-                IconButton(onClick = onActivity) { Icon(Icons.Default.NotificationsNone, "Activity", tint = Color.White.copy(alpha = .72f)) }
-                if (unread > 0) Box(Modifier.size(7.dp).clip(CircleShape).background(Color.White).align(Alignment.TopEnd).offset((-9).dp, 9.dp))
+                IconButton(onClick = onActivity) { Icon(Icons.Default.NotificationsNone, "Activity", tint = Color.White.copy(alpha = .78f)) }
+                if (unread > 0) {
+                    Box(
+                        Modifier.align(Alignment.TopEnd).offset((-4).dp, 6.dp)
+                            .clip(CircleShape).background(Color.White)
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    ) {
+                        Text(if (unread > 9) "9+" else unread.toString(), color = Color.Black, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    }
+                }
             }
-            Spacer(Modifier.width(3.dp))
+            Spacer(Modifier.width(4.dp))
             UserAvatar(user, 34, onProfile)
         }
     }

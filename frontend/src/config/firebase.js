@@ -30,7 +30,9 @@ const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: isNativeRuntime() ? persistentSingleTabManager() : persistentMultipleTabManager(),
   }),
-  experimentalForceLongPolling: true,
+  ...(import.meta.env.VITE_FIREBASE_FORCE_LONG_POLLING === 'true'
+    ? { experimentalForceLongPolling: true }
+    : {}),
 });
 const storage = getStorage(app);
 // messaging is only initialized in browser context (not in the service worker)

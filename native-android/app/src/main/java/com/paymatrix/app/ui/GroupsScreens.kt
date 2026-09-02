@@ -85,6 +85,7 @@ private fun GroupListCard(group: Group, balance: Long, onClick: () -> Unit) {
 @Composable
 fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
     val context = LocalContext.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     LaunchedEffect(id) { vm.loadGroup(id); vm.loadFriends() }
     val snapshot = state.group?.takeIf { it.group.id == id }
     var tab by remember { mutableIntStateOf(0) }
@@ -96,78 +97,227 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
     var deleteConfirm by remember { mutableStateOf(false) }
     var mineOnly by remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxSize()) {
-        if (snapshot == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
-        else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp, 16.dp, 20.dp, 120.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            item {
-                GroupHero(
-                    snapshot = snapshot,
-                    onRecord = { nav.navigate("expense/$id") },
-                    onSettle = { settle = true },
-                    onAddMember = { addMember = true },
-                    onMenu = { menu = true },
-                )
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = ModalSurface) {
-                        DropdownMenuItem({ Text("Edit group") }, { menu = false; editGroup = true }, leadingIcon = { Icon(Icons.Default.Edit, null) })
-                        DropdownMenuItem({ Text("Share invite") }, {
-                            menu = false
-                            val link = "https://pay-matrix.vercel.app/join/${snapshot.group.inviteCode}"
-                            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, link) }, "Share group invite"))
-                        }, leadingIcon = { Icon(Icons.Default.Share, null) })
-                        DropdownMenuItem({ Text("Leave group") }, { menu = false; leaveConfirm = true }, leadingIcon = { Icon(Icons.Default.Logout, null) })
-                        if (snapshot.group.admin == state.user?.uid) DropdownMenuItem({ Text("Delete group", color = Negative) }, { menu = false; deleteConfirm = true }, leadingIcon = { Icon(Icons.Default.DeleteOutline, null, tint = Negative) })
+    Scaffold(
+        containerColor = CanvasBlack,
+        topBar = {
+            BackBar(
+                title = snapshot?.group?.name ?: "Group",
+                nav = nav,
+                subtitle = snapshot?.group?.category?.let { "$it · ${snapshot.group.members.size} members" },
+                actions = {
+                    if (snapshot != null) {
+                        IconButton(onClick = { addMember = true }) {
+                            Icon(Icons.Default.PersonAdd, "Add member", tint = Color.White.copy(alpha = .78f))
+                        }
+                        IconButton(onClick = { menu = true }) {
+                            Icon(Icons.Default.MoreVert, "Group menu", tint = Color.White.copy(alpha = .78f))
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = ModalSurface) {
+                            DropdownMenuItem(
+                                text = { Text("Share invite") },
+                                onClick = {
+                                    menu = false
+                                    val link = "https://pay-matrix.vercel.app/join/${snapshot.group.inviteCode}"
+                                    context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, link) }, "Share group invite"))
+                                },
+                                leadingIcon = { Icon(Icons.Default.Share, null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Edit group") },
+                                onClick = { menu = false; editGroup = true },
+                                leadingIcon = { Icon(Icons.Default.Edit, null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Leave group") },
+                                onClick = { menu = false; leaveConfirm = true },
+                                leadingIcon = { Icon(Icons.Default.Logout, null) }
+                            )
+                            if (snapshot.group.admin == state.user?.uid) {
+                                DropdownMenuItem(
+                                    text = { Text("Delete group", color = Negative) },
+                                    onClick = { menu = false; deleteConfirm = true },
+                                    leadingIcon = { Icon(Icons.Default.DeleteOutline, null, tint = Negative) }
+                                )
+                            }
+                        }
                     }
                 }
-            }
-            item {
-                ScrollableTabRow(selectedTabIndex = tab, containerColor = CanvasBlack, contentColor = Color.White, edgePadding = 14.dp, divider = {}, indicator = { positions -> TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(positions[tab]), color = Color.White) }) {
-                    listOf("Expenses", "Members", "Logs", "Insights").forEachIndexed { index, label -> Tab(tab == index, { tab = index }, text = { Text(label, fontSize = 12.sp, fontWeight = if (tab == index) FontWeight.Bold else FontWeight.Medium) }) }
+            )
+        }
+    ) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            if (snapshot == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
+            else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(18.dp, 12.dp, 18.dp, 100.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                item {
+                    GroupHero(
+                        snapshot = snapshot,
+                        myUid = state.user?.uid.orEmpty(),
+                        onCopyInvite = {
+                            clipboard.setText(androidx.compose.ui.text.AnnotatedString(snapshot.group.inviteCode))
+                        },
+                        onRecord = { nav.navigate("expense/$id") },
+                        onScan = { nav.navigate("scanner") },
+                        onSettle = { settle = true },
+                        billScanningEnabled = state.flags.billScanning,
+                    )
+                }
+                item {
+                    ScrollableTabRow(
+                        selectedTabIndex = tab,
+                        containerColor = CanvasBlack,
+                        contentColor = Color.White,
+                        edgePadding = 6.dp,
+                        divider = { HorizontalDivider(color = Hairline) },
+                        indicator = { positions -> TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(positions[tab]), color = Color.White) }
+                    ) {
+                        listOf("Expenses", "Members", "Logs", "Insights").forEachIndexed { index, label ->
+                            Tab(
+                                selected = tab == index,
+                                onClick = { tab = index },
+                                text = { Text(label, fontSize = 12.sp, fontWeight = if (tab == index) FontWeight.Bold else FontWeight.Medium) }
+                            )
+                        }
+                    }
+                }
+                when (tab) {
+                    0 -> expenseItems(snapshot, state.user?.uid.orEmpty(), mineOnly, { mineOnly = !mineOnly }, vm, nav)
+                    1 -> memberItems(snapshot, state, vm, { addMember = true })
+                    2 -> activityItems(snapshot, vm)
+                    else -> insightItems(snapshot)
                 }
             }
-            when (tab) {
-                0 -> expenseItems(snapshot, state.user?.uid.orEmpty(), mineOnly, { mineOnly = !mineOnly }, vm, nav)
-                1 -> memberItems(snapshot, state, vm, { addMember = true })
-                2 -> activityItems(snapshot, vm)
-                else -> insightItems(snapshot)
-            }
         }
-        if (state.flags.billScanning && snapshot != null) ExtendedFloatingActionButton(
-            onClick = { nav.navigate("scanner") },
-            icon = { Icon(Icons.Default.DocumentScanner, null) },
-            text = { Text("Scan receipt", fontWeight = FontWeight.Bold) },
-            containerColor = ObsidianSurface,
-            contentColor = Color.White,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
-        )
     }
 
     if (settle && snapshot != null) SettlementDialog(snapshot, state.user?.uid.orEmpty(), { settle = false }) { payee, amount, note -> vm.settle(id, payee, amount, note) { settle = false } }
     if (editGroup && snapshot != null) EditGroupDialog(snapshot.group, { editGroup = false }) { name, description, category -> vm.updateGroup(id, name, description, category) { editGroup = false } }
     if (addMember && snapshot != null) AddMemberDialog(snapshot, state.friends, { addMember = false }) { uid -> vm.addGroupMember(id, uid) { addMember = false } }
-    if (leaveConfirm) ConfirmDialog("Exit group?", "You can leave only when your balance is ₹0.00. This does not erase historical records.", "Leave", { leaveConfirm = false }) { vm.leaveGroup(id) { leaveConfirm = false; nav.navigate("groups") { popUpTo("groups") { inclusive = true } } } }
-    if (deleteConfirm) ConfirmDialog("Delete group?", "All balances must be reconciled. The group is archived so members can retain historical records.", "Delete", { deleteConfirm = false }, destructive = true) { vm.deleteGroup(id) { deleteConfirm = false; nav.navigate("groups") { popUpTo("groups") { inclusive = true } } } }
+    if (leaveConfirm) ConfirmDialog("Exit group?", "You can leave only when your balance is ₹0.00. This does not erase historical records.", "Leave", { leaveConfirm = false }) { vm.leaveGroup(id) { leaveConfirm = false; nav.popBackStack() } }
+    if (deleteConfirm) ConfirmDialog("Delete group?", "All balances must be reconciled. The group is archived so members can retain historical records.", "Delete", { deleteConfirm = false }, destructive = true) { vm.deleteGroup(id) { deleteConfirm = false; nav.popBackStack() } }
 }
 
 @Composable
-private fun GroupHero(snapshot: GroupSnapshot, onRecord: () -> Unit, onSettle: () -> Unit, onAddMember: () -> Unit, onMenu: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(32.dp)).background(Color(0xFF131313)).border(1.dp, Hairline, RoundedCornerShape(32.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+private fun GroupHero(
+    snapshot: GroupSnapshot,
+    myUid: String,
+    onCopyInvite: () -> Unit,
+    onRecord: () -> Unit,
+    onScan: () -> Unit,
+    onSettle: () -> Unit,
+    billScanningEnabled: Boolean,
+) {
+    val myBalance = snapshot.balances[myUid] ?: 0L
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
+            .background(CardSurface)
+            .border(1.dp, Hairline, RoundedCornerShape(28.dp))
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(58.dp).clip(RoundedCornerShape(18.dp)).background(categoryColor(snapshot.group.category).copy(alpha = .12f)).border(1.dp, categoryColor(snapshot.group.category).copy(alpha = .25f), RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) {
-                Icon(categoryIcon(snapshot.group.category), null, tint = categoryColor(snapshot.group.category), modifier = Modifier.size(30.dp))
+            Box(
+                Modifier.size(52.dp).clip(RoundedCornerShape(16.dp))
+                    .background(categoryColor(snapshot.group.category).copy(alpha = .12f))
+                    .border(1.dp, categoryColor(snapshot.group.category).copy(alpha = .25f), RoundedCornerShape(16.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(categoryIcon(snapshot.group.category), null, tint = categoryColor(snapshot.group.category), modifier = Modifier.size(26.dp))
             }
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(snapshot.group.name, color = Color.White, fontWeight = FontWeight.Black, fontSize = 21.sp, letterSpacing = (-.35).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(5.dp))
-                Text("${snapshot.group.category} · ${snapshot.group.members.size} member${if (snapshot.group.members.size == 1) "" else "s"}", color = QuietText, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        snapshot.group.name,
+                        color = Color.White,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 19.sp,
+                        letterSpacing = (-.3).sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        Modifier.clip(CircleShape).background(Color.White.copy(alpha = .08f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(snapshot.group.category.uppercase(), color = QuietText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "${snapshot.group.members.size} members · Created by ${if (snapshot.group.admin == myUid) "You" else "Admin"}",
+                    color = QuietText,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
-            IconButton(onClick = onAddMember, modifier = Modifier.border(1.dp, Hairline, CircleShape)) { Icon(Icons.Default.PersonAdd, "Add member", tint = MutedText) }
-            IconButton(onClick = onMenu) { Icon(Icons.Default.MoreVert, "Group menu", tint = MutedText) }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            PrimaryAction("Add expense", onRecord, Modifier.weight(1f), icon = { Icon(Icons.Default.Add, null) })
-            SecondaryAction("Settle up", onSettle, Modifier.weight(1f), icon = { Icon(Icons.Default.AccountBalanceWallet, null) })
+
+        // Invite code pill
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                .background(Color.White.copy(alpha = .03f))
+                .border(1.dp, Hairline, RoundedCornerShape(14.dp))
+                .clickable(onClick = onCopyInvite)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Share, "Invite code", tint = PrimaryBlue, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Invite code: ${snapshot.group.inviteCode}", color = Color.White.copy(alpha = .85f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Icon(Icons.Default.ContentCopy, "Copy", tint = MutedText, modifier = Modifier.size(14.dp))
+        }
+
+        // Your Group Balance Card
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+                .background(Color.White.copy(alpha = .025f))
+                .border(1.dp, Hairline, RoundedCornerShape(20.dp))
+                .padding(16.dp)
+        ) {
+            Text("YOUR GROUP POSITION", color = QuietText, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = when {
+                        myBalance > 0 -> "+${Money.format(myBalance)}"
+                        myBalance < 0 -> "−${Money.format(kotlin.math.abs(myBalance))}"
+                        else -> "₹0.00"
+                    },
+                    color = when {
+                        myBalance > 0 -> Positive
+                        myBalance < 0 -> Negative
+                        else -> Color.White
+                    },
+                    fontWeight = FontWeight.Black,
+                    fontSize = 26.sp,
+                    letterSpacing = (-.5).sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = when {
+                        myBalance > 0 -> "You are owed"
+                        myBalance < 0 -> "You owe"
+                        else -> "All settled up"
+                    },
+                    color = when {
+                        myBalance > 0 -> Positive.copy(alpha = .8f)
+                        myBalance < 0 -> Negative.copy(alpha = .8f)
+                        else -> QuietText
+                    },
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        // Actions grid
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PrimaryAction("Add expense", onRecord, Modifier.weight(1f), icon = { Icon(Icons.Default.Add, null, Modifier.size(17.dp)) })
+            if (billScanningEnabled) {
+                SecondaryAction("Scan bill", onScan, Modifier.weight(1f), icon = { Icon(Icons.Default.DocumentScanner, null, Modifier.size(17.dp)) })
+            }
+            SecondaryAction("Settle up", onSettle, Modifier.weight(1f), icon = { Icon(Icons.Default.AccountBalanceWallet, null, Modifier.size(17.dp)) })
         }
     }
 }
@@ -289,7 +439,7 @@ private fun SettlementDialog(snapshot: GroupSnapshot, currentUid: String, onDism
         FormField(amount, { amount = it }, "Amount in ₹"); FormField(note, { note = it }, "Note")
         val profile = snapshot.profiles[payee]
         if (!profile?.upiId.isNullOrBlank()) SecondaryAction("Open UPI app", { runCatching { UpiLauncher.pay(context, profile!!.upiId, profile.name, Money.toPaise(amount), note) } }, Modifier.fillMaxWidth(), icon = { Icon(Icons.Default.OpenInNew, null, Modifier.size(16.dp)) })
-        Text("Opening a payment app does not prove money moved. Record only after checking the completed payment in your UPI or bank history.", color = QuietText, fontSize = 10.sp, lineHeight = 14.sp)
+        Text("PayMatrix is an informational calculation ledger. Recording a settlement here updates your shared balance, but does not execute or verify a bank transfer. Confirm only after checking your bank or UPI app history.", color = QuietText, fontSize = 10.sp, lineHeight = 14.sp)
     } }, confirmButton = { Button(onClick = { onConfirm(payee, amount, note) }, enabled = payee.isNotBlank() && amount.isNotBlank()) { Text("I verified payment — record") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }
 

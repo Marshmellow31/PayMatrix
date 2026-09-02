@@ -43,7 +43,7 @@ const JoinGroup = () => {
 
         setStatus('success');
         setGroupData({ groupId: response.data.data.groupId });
-        toast.success(response.data.message || 'Successfully joined the cohort!');
+        toast.success(response.data.message || 'Joined group successfully!');
       } catch (err) {
         setStatus('error');
         setError(err.message || 'Failed to join group. Please check your invite link.');
@@ -88,12 +88,12 @@ const JoinGroup = () => {
         </div>
 
         <h1 className="font-manrope font-black text-3xl text-white mb-4 tracking-tighter leading-none">
-          {status === 'success' ? 'Cohort Joined' : 'Access Denied'}
+          {status === 'success' ? 'Group Joined' : 'Access Denied'}
         </h1>
 
         <p className="font-inter text-on-surface-variant text-sm mb-10 leading-relaxed opacity-70">
           {status === 'success'
-            ? "You've been successfully integrated into the group ledger. You can now track shared expenses with this cohort."
+            ? "You've successfully joined the group! You can now split and track shared expenses with your group members."
             : error}
         </p>
 
@@ -102,7 +102,7 @@ const JoinGroup = () => {
             onClick={() => navigate(`/groups/${groupData.groupId}`)}
             className="w-full h-16 rounded-3xl font-manrope font-black text-lg bg-white text-black hover:bg-neutral-200 transition-all flex items-center justify-center gap-3 shadow-2xl"
           >
-            Enter Workspace
+            Open Group
             <ArrowRight size={20} />
           </Button>
         ) : (
