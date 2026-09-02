@@ -55,6 +55,11 @@ import java.io.File
 fun LogGroupsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
     var create by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { vm.loadLogGroups(); vm.loadFriends() }
+
+    androidx.activity.compose.BackHandler(enabled = create) {
+        create = false
+    }
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(18.dp, 16.dp, 18.dp, 100.dp),
@@ -205,6 +210,17 @@ fun LogEntriesScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, 
     var remove by remember { mutableStateOf<LogEntry?>(null) }
     var manage by remember { mutableStateOf(false) }
     LaunchedEffect(id) { vm.loadLogEntries(id) }
+
+    androidx.activity.compose.BackHandler(enabled = add || pick || edit != null || remove != null || manage) {
+        when {
+            remove != null -> remove = null
+            edit != null -> edit = null
+            add -> add = false
+            pick -> pick = false
+            manage -> manage = false
+        }
+    }
+
     Scaffold(
         containerColor = CanvasBlack,
         topBar = {
@@ -329,6 +345,13 @@ fun ProfileScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let { target -> exportContent?.let { content -> context.contentResolver.openOutputStream(target)?.use { it.write(content.toByteArray()) } } } }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) vm.enablePush(context) }
     val hasUpi = !state.user?.upiId.isNullOrBlank()
+
+    androidx.activity.compose.BackHandler(enabled = edit || signOut) {
+        when {
+            signOut -> signOut = false
+            edit -> edit = false
+        }
+    }
 
     LazyColumn(
         Modifier.fillMaxSize(),

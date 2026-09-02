@@ -183,7 +183,7 @@ private fun MainShell(route: String, state: PayMatrixState, nav: NavHostControll
                 containerColor = ObsidianSurface,
                 tonalElevation = 0.dp,
                 windowInsets = NavigationBarDefaults.windowInsets,
-                modifier = Modifier.fillMaxWidth().height(66.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 visibleNavItems.forEach { item ->
                     val selected = route == item.route
@@ -199,20 +199,15 @@ private fun MainShell(route: String, state: PayMatrixState, nav: NavHostControll
                             }
                         },
                         icon = {
-                            Box(
-                                modifier = if (selected) Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = .12f)).padding(horizontal = 12.dp, vertical = 3.dp) else Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(if (selected) item.selected else item.idle, item.label, modifier = Modifier.size(19.dp))
-                            }
+                            Icon(if (selected) item.selected else item.idle, item.label, modifier = Modifier.size(22.dp))
                         },
-                        label = { Text(item.label, fontSize = 9.5.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium) },
+                        label = { Text(item.label, fontSize = 10.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Color.White,
                             selectedTextColor = Color.White,
                             unselectedIconColor = Color.White.copy(alpha = .38f),
                             unselectedTextColor = Color.White.copy(alpha = .38f),
-                            indicatorColor = Color.Transparent,
+                            indicatorColor = Color.White.copy(alpha = .12f),
                         ),
                     )
                 }
