@@ -1,13 +1,12 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronRight, Hash } from 'lucide-react';
-import { getLucideIcon } from '../../utils/iconMap.js';
-import { GROUP_CATEGORIES } from '../../utils/constants.js';
+import { getGroupCategoryMeta } from '../../utils/iconMap.js';
 import Avatar from '../common/Avatar.jsx';
 
 const GroupCard = ({ group, balance = 0 }) => {
-  const category = GROUP_CATEGORIES.find((c) => c.value === group.category);
-  const _IconComponent = category?.icon ? getLucideIcon(category.icon) || Hash : Hash;
+  const categoryMeta = getGroupCategoryMeta(group.category, group.name || group.title);
+  const IconComponent = categoryMeta.IconComponent || Hash;
 
   // De-duplicate members by user ID (handles both raw UIDs and expanded objects)
   const uniqueMembers = Array.from(
@@ -29,12 +28,23 @@ const GroupCard = ({ group, balance = 0 }) => {
       >
         <div className="flex justify-between items-start mb-6 relative z-10">
           <div>
-            <h3 className="font-headline text-xl font-bold text-white mb-1 group-hover:text-primary transition-colors tracking-tight">
+            <h3 className="font-headline text-xl font-bold text-white mb-1.5 group-hover:text-primary transition-colors tracking-tight">
               {group.name || group.title}
             </h3>
             <div className="flex items-center gap-2">
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border"
+                style={{
+                  backgroundColor: `${categoryMeta.color}12`,
+                  borderColor: `${categoryMeta.color}25`,
+                  color: categoryMeta.color,
+                }}
+              >
+                <IconComponent size={10} />
+                <span>{categoryMeta.label}</span>
+              </span>
               <span className="text-on-surface-variant text-[10px] font-bold tracking-[0.15em] uppercase opacity-60">
-                {group.category} • {uniqueMembers.length} Members
+                • {uniqueMembers.length} {uniqueMembers.length === 1 ? 'Member' : 'Members'}
               </span>
             </div>
           </div>

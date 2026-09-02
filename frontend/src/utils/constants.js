@@ -1,10 +1,16 @@
 // Group categories
 export const GROUP_CATEGORIES = [
-  { value: 'Trip', label: 'Trip', icon: 'Plane', color: '#6366f1' },
-  { value: 'Roommates', label: 'Roommates', icon: 'Home', color: '#22c55e' },
-  { value: 'Events', label: 'Events', icon: 'PartyPopper', color: '#f59e0b' },
-  { value: 'Friends', label: 'Friends', icon: 'Flame', color: '#f97316' },
-  { value: 'Couple', label: 'Couple', icon: 'Heart', color: '#ec4899' },
+  { value: 'Trip', label: 'Trip & Travel', icon: 'Plane', color: '#6366f1' },
+  { value: 'Food', label: 'Food & Dining', icon: 'Utensils', color: '#f97316' },
+  { value: 'Roommates', label: 'Roommates & Flat', icon: 'Home', color: '#22c55e' },
+  { value: 'Friends', label: 'Friends & Gang', icon: 'Flame', color: '#ec4899' },
+  { value: 'Work', label: 'Work & Office', icon: 'Briefcase', color: '#3b82f6' },
+  { value: 'Events', label: 'Events & Party', icon: 'PartyPopper', color: '#f59e0b' },
+  { value: 'Couple', label: 'Couple & Partner', icon: 'Heart', color: '#f43f5e' },
+  { value: 'Sports', label: 'Sports & Fitness', icon: 'Trophy', color: '#10b981' },
+  { value: 'Entertainment', label: 'Entertainment', icon: 'Film', color: '#a855f7' },
+  { value: 'Shopping', label: 'Shopping & Groceries', icon: 'ShoppingBag', color: '#06b6d4' },
+  { value: 'Family', label: 'Family & Home', icon: 'Users', color: '#8b5cf6' },
   { value: 'Other', label: 'Other', icon: 'Hash', color: '#919191' },
 ];
 

@@ -204,29 +204,38 @@ const Groups = () => {
             />
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <label className="block text-[10px] uppercase tracking-[0.2em] font-black text-white/30 font-label">
               Select Category
             </label>
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-              {GROUP_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.value}
-                  type="button"
-                  onClick={() => setForm({ ...form, category: cat.value })}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl border transition-all text-[11px] font-bold flex items-center gap-2 ${
-                    form.category === cat.value
-                      ? 'bg-white text-black border-white'
-                      : 'bg-white/[0.03] border-white/5 text-white/40 hover:text-white'
-                  }`}
-                >
-                  {(() => {
-                    const IconComp = getLucideIcon(cat.icon) || Hash;
-                    return <IconComp size={14} />;
-                  })()}
-                  <span>{cat.label}</span>
-                </button>
-              ))}
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto no-scrollbar pr-1">
+              {GROUP_CATEGORIES.map((cat) => {
+                const isSelected = form.category === cat.value;
+                const IconComp = getLucideIcon(cat.icon) || Hash;
+                return (
+                  <button
+                    key={cat.value}
+                    type="button"
+                    onClick={() => setForm({ ...form, category: cat.value })}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all text-center ${
+                      isSelected
+                        ? 'bg-white text-black border-white shadow-md'
+                        : 'bg-white/[0.02] border-white/5 text-white/50 hover:bg-white/[0.05] hover:text-white'
+                    }`}
+                  >
+                    <div
+                      className="w-6 h-6 rounded-lg flex items-center justify-center"
+                      style={{
+                        backgroundColor: isSelected ? '#00000015' : `${cat.color}15`,
+                        color: isSelected ? '#000000' : cat.color,
+                      }}
+                    >
+                      <IconComp size={14} />
+                    </div>
+                    <span className="text-[10px] font-bold truncate w-full">{cat.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

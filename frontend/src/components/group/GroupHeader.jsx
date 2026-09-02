@@ -10,7 +10,7 @@ import {
   UserPlus,
   WalletCards,
 } from 'lucide-react';
-import { getLucideIcon } from '../../utils/iconMap.js';
+import { getGroupCategoryMeta } from '../../utils/iconMap.js';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import Button from '../common/Button.jsx';
 import toast from 'react-hot-toast';
@@ -28,7 +28,11 @@ const GroupHeader = ({
   onOpenDeleteGroup,
   billScanningEnabled,
 }) => {
-  const IconComponent = getLucideIcon(activeGroup?.category);
+  const categoryMeta = getGroupCategoryMeta(
+    activeGroup?.category,
+    activeGroup?.name || activeGroup?.title
+  );
+  const IconComponent = categoryMeta.IconComponent || Hash;
 
   const copyInviteCode = () => {
     if (activeGroup?.inviteCode) {
@@ -42,19 +46,32 @@ const GroupHeader = ({
       {/* Top Banner / Info Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white/[0.03] border border-white/5 relative overflow-hidden backdrop-blur-xl">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-            {IconComponent ? <IconComponent size={28} /> : <Hash size={28} />}
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border transition-all shadow-lg"
+            style={{
+              backgroundColor: `${categoryMeta.color}18`,
+              borderColor: `${categoryMeta.color}30`,
+              color: categoryMeta.color,
+            }}
+          >
+            <IconComponent size={28} />
           </div>
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-black font-manrope text-white tracking-tight truncate">
                 {activeGroup?.name || activeGroup?.title || 'Group'}
               </h1>
-              {activeGroup?.category && (
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-white/[0.06] text-white/70 border border-white/5">
-                  {activeGroup.category}
-                </span>
-              )}
+              <span
+                className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1.5"
+                style={{
+                  backgroundColor: `${categoryMeta.color}12`,
+                  borderColor: `${categoryMeta.color}25`,
+                  color: categoryMeta.color,
+                }}
+              >
+                <IconComponent size={10} />
+                <span>{categoryMeta.label}</span>
+              </span>
             </div>
             <p className="text-xs text-white/40 font-inter mt-0.5">
               {activeGroup?.members?.length || 0} members · Created by {isAdmin ? 'You' : 'Admin'}

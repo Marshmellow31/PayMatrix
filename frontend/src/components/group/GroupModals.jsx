@@ -120,23 +120,33 @@ export const EditGroupModal = ({
           <label className="text-[10px] font-black uppercase tracking-widest text-white/40 font-inter">
             Category
           </label>
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-60 overflow-y-auto pr-1">
             {GROUP_CATEGORIES.map((cat) => {
-              const isSelected = editCategory === cat.name;
+              const isSelected = editCategory === cat.value;
               const IconComp = getLucideIcon(cat.icon);
               return (
                 <button
-                  key={cat.name}
+                  key={cat.value}
                   type="button"
-                  onClick={() => setEditCategory(cat.name)}
-                  className={`p-2.5 rounded-xl border flex flex-col items-center gap-1.5 transition-all text-center ${
+                  onClick={() => setEditCategory(cat.value)}
+                  className={`p-3 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all text-center ${
                     isSelected
-                      ? 'bg-primary/15 border-primary text-white'
-                      : 'bg-white/[0.02] border-white/5 text-white/50 hover:bg-white/[0.05]'
+                      ? 'bg-white text-black border-white shadow-lg'
+                      : 'bg-white/[0.02] border-white/5 text-white/50 hover:bg-white/[0.05] hover:text-white'
                   }`}
                 >
-                  {IconComp && <IconComp size={16} />}
-                  <span className="text-[10px] font-bold">{cat.name}</span>
+                  <div
+                    className="w-7 h-7 rounded-xl flex items-center justify-center"
+                    style={{
+                      backgroundColor: isSelected ? '#00000015' : `${cat.color}15`,
+                      color: isSelected ? '#000000' : cat.color,
+                    }}
+                  >
+                    {IconComp && <IconComp size={16} />}
+                  </div>
+                  <span className="text-[10px] font-bold tracking-tight truncate w-full">
+                    {cat.label}
+                  </span>
                 </button>
               );
             })}

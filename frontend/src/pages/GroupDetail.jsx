@@ -27,7 +27,7 @@ import { useGroupRealtime } from '../hooks/useGroupRealtime.js';
 import groupService from '../services/groupService.js';
 import friendService from '../services/friendService.js';
 import toast from 'react-hot-toast';
-import { User, ScanLine } from 'lucide-react';
+import { User } from 'lucide-react';
 
 const GroupDetail = () => {
   const { id } = useParams();
@@ -505,19 +505,6 @@ const GroupDetail = () => {
           openAddExpense(id, null, data);
         }}
       />
-
-      {/* Floating Scan Bill Button */}
-      {flags.billScanning && (
-        <button
-          onClick={() => setShowBillScanner(true)}
-          className="fixed bottom-24 right-4 lg:bottom-8 lg:right-8 z-50 flex items-center gap-2 px-4 h-12 rounded-full bg-[#181818] border border-white/10 text-white shadow-2xl hover:bg-[#222] active:scale-95 transition-all"
-        >
-          <ScanLine size={16} className="text-primary" />
-          <span className="text-[10px] font-black uppercase tracking-widest font-manrope">
-            Scan Bill
-          </span>
-        </button>
-      )}
     </div>
   );
 };

@@ -15,8 +15,7 @@ import {
   WalletCards,
   WifiOff,
 } from 'lucide-react';
-import { GROUP_CATEGORIES } from '../utils/constants.js';
-import { getLucideIcon } from '../utils/iconMap.js';
+import { getGroupCategoryMeta } from '../utils/iconMap.js';
 import expenseService from '../services/expenseService.js';
 import { useSyncStatus } from '../hooks/useSyncStatus.js';
 import Loader from '../components/common/Loader.jsx';
@@ -490,8 +489,8 @@ const AttentionRow = ({ item }) => {
 };
 
 const GroupRow = ({ group, balance, index, reduceMotion }) => {
-  const category = GROUP_CATEGORIES.find((item) => item.value === group.category);
-  const Icon = category?.icon ? getLucideIcon(category.icon) || Hash : Hash;
+  const categoryMeta = getGroupCategoryMeta(group.category, group.name || group.title);
+  const Icon = categoryMeta.IconComponent || Hash;
   const memberCount = Array.isArray(group.members) ? group.members.length : 0;
   return (
     <motion.div
@@ -506,8 +505,8 @@ const GroupRow = ({ group, balance, index, reduceMotion }) => {
         <span
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
           style={{
-            backgroundColor: `${category?.color || '#919191'}18`,
-            color: category?.color || '#919191',
+            backgroundColor: `${categoryMeta.color || '#919191'}18`,
+            color: categoryMeta.color || '#919191',
           }}
         >
           <Icon size={21} strokeWidth={1.8} />
