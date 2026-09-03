@@ -139,7 +139,7 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
     val context = LocalContext.current
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     LaunchedEffect(id) { vm.loadGroup(id); vm.loadFriends() }
-    val snapshot = state.group?.takeIf { it.group.id == id }
+    val snapshot = state.groupCache[id] ?: state.group?.takeIf { it.group.id == id }
     var tab by remember { mutableIntStateOf(0) }
     var settle by remember { mutableStateOf(false) }
     var editGroup by remember { mutableStateOf(false) }
@@ -164,9 +164,8 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
         containerColor = CanvasBlack,
         topBar = {
             BackBar(
-                title = snapshot?.group?.name ?: "Group",
+                title = "Back",
                 nav = nav,
-                subtitle = snapshot?.group?.category?.let { "$it · ${snapshot.group.members.size} members" },
                 actions = {
                     if (snapshot != null) {
                         IconButton(onClick = { addMember = true }) {
@@ -185,11 +184,13 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
                                 },
                                 leadingIcon = { Icon(Icons.Default.Share, null) }
                             )
-                            DropdownMenuItem(
-                                text = { Text("Edit group") },
-                                onClick = { menu = false; editGroup = true },
-                                leadingIcon = { Icon(Icons.Default.Edit, null) }
-                            )
+                            if (snapshot.group.admin == state.user?.uid) {
+                                DropdownMenuItem(
+                                    text = { Text("Edit group") },
+                                    onClick = { menu = false; editGroup = true },
+                                    leadingIcon = { Icon(Icons.Default.Edit, null) }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text("Leave group") },
                                 onClick = { menu = false; leaveConfirm = true },
@@ -210,9 +211,7 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             if (snapshot == null) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Color.White)
-                }
+                GroupDetailSkeleton()
             } else {
                 LazyColumn(
                     Modifier.fillMaxSize(),
@@ -267,10 +266,34 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
     }
 
     if (settle && snapshot != null) SettlementDialog(snapshot, state.user?.uid.orEmpty(), { settle = false }) { payee, amount, note -> vm.settle(id, payee, amount, note) { settle = false } }
-    if (editGroup && snapshot != null) EditGroupDialog(snapshot.group, { editGroup = false }) { name, description, category -> vm.updateGroup(id, name, description, category) { editGroup = false } }
+    if (editGroup && snapshot != null && snapshot.group.admin == state.user?.uid) EditGroupDialog(snapshot.group, { editGroup = false }) { name, description, category -> vm.updateGroup(id, name, description, category) { editGroup = false } }
     if (addMember && snapshot != null) AddMemberDialog(snapshot, state.friends, { addMember = false }) { uid -> vm.addGroupMember(id, uid) { addMember = false } }
     if (leaveConfirm) ConfirmDialog("Exit group?", "You can leave only when your balance is ₹0.00. This does not erase historical records.", "Leave", { leaveConfirm = false }) { vm.leaveGroup(id) { leaveConfirm = false; nav.popBackStack() } }
-    if (deleteConfirm) ConfirmDialog("Delete group?", "All balances must be reconciled. The group is archived so members can retain historical records.", "Delete", { deleteConfirm = false }, destructive = true) { vm.deleteGroup(id) { deleteConfirm = false; nav.popBackStack() } }
+    if (deleteConfirm && snapshot != null && snapshot.group.admin == state.user?.uid) {
+        val hasPending = snapshot.balances.values.any { kotlin.math.abs(it) > 0L } || snapshot.debts.isNotEmpty()
+        if (hasPending) {
+            ConfirmDialog(
+                title = "Cannot Delete Group",
+                message = "This group has unsettled debts. All members must settle up before the group can be permanently deleted.",
+                confirm = "Understood",
+                onDismiss = { deleteConfirm = false },
+                showDismiss = false
+            ) { deleteConfirm = false }
+        } else {
+            ConfirmDialog(
+                title = "Delete group?",
+                message = "Are you sure you want to delete this group? All recorded expenses and settlement histories will be permanently removed.",
+                confirm = "Delete Group",
+                onDismiss = { deleteConfirm = false },
+                destructive = true
+            ) {
+                vm.deleteGroup(id) {
+                    deleteConfirm = false
+                    nav.popBackStack()
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -289,11 +312,11 @@ private fun GroupHero(
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         // Top Group Header Card
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
                 .background(CardSurface)
-                .border(1.dp, Hairline, RoundedCornerShape(24.dp))
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .border(1.dp, Hairline, RoundedCornerShape(22.dp))
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -332,7 +355,9 @@ private fun GroupHero(
                         "${snapshot.group.members.size} members · Created by ${if (snapshot.group.admin == myUid) "You" else snapshot.profiles[snapshot.group.admin]?.name ?: "Admin"}",
                         color = QuietText,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -372,22 +397,37 @@ private fun GroupHero(
                     Text("Invite", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
 
-                Spacer(Modifier.weight(1f))
+                if (snapshot.group.admin == myUid) {
+                    Spacer(Modifier.weight(1f))
 
-                // Settings cog button
-                IconButton(
-                    onClick = onSettings,
-                    modifier = Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(alpha = .05f)).border(1.dp, Hairline, CircleShape)
-                ) {
-                    Icon(Icons.Default.Settings, "Settings", tint = Color.White.copy(alpha = .8f), modifier = Modifier.size(15.dp))
-                }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Settings cog button
+                        Box(
+                            Modifier.size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White.copy(alpha = .06f))
+                                .border(1.dp, Hairline, RoundedCornerShape(10.dp))
+                                .clickable(onClick = onSettings),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Settings, "Settings", tint = Color.White.copy(alpha = .8f), modifier = Modifier.size(16.dp))
+                        }
 
-                // Delete button
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(alpha = .05f)).border(1.dp, Hairline, CircleShape)
-                ) {
-                    Icon(Icons.Default.DeleteOutline, "Delete", tint = Color(0xFFFF737B), modifier = Modifier.size(15.dp))
+                        // Delete button
+                        Box(
+                            Modifier.size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Negative.copy(alpha = .12f))
+                                .border(1.dp, Negative.copy(alpha = .25f), RoundedCornerShape(10.dp))
+                                .clickable(onClick = onDelete),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.DeleteOutline, "Delete", tint = Color(0xFFFF737B), modifier = Modifier.size(16.dp))
+                        }
+                    }
                 }
             }
         }
@@ -637,10 +677,27 @@ private fun androidx.compose.foundation.lazy.LazyListScope.insightItems(snapshot
 @Composable
 private fun GroupActivityCard(item: ActivityItem, snapshot: GroupSnapshot, vm: PayMatrixViewModel) {
     var confirmDelete by remember { mutableStateOf<Settlement?>(null) }
+    val isDeletion = item.type == "expense_deleted" || item.type == "settlement_deleted"
+    val isRestored = item.type == "expense_restored" || item.type == "settlement_restored"
+    val isSettlement = item.type == "settlement_added"
+    val icon = when {
+        isDeletion -> Icons.Default.DeleteOutline
+        isRestored -> Icons.Default.Restore
+        isSettlement -> Icons.Default.ReceiptLong
+        item.type == "expense_updated" -> Icons.Default.Edit
+        else -> Icons.Default.History
+    }
+    val iconTint = when {
+        isDeletion -> Negative
+        isRestored -> Positive
+        isSettlement -> PrimaryBlue
+        item.type == "expense_updated" -> Color(0xFFF59E0B)
+        else -> Color.White
+    }
     ObsidianCard(contentPadding = PaddingValues(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(alpha = .08f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.History, null, tint = Color.White, modifier = Modifier.size(16.dp))
+            Box(Modifier.size(34.dp).clip(CircleShape).background(iconTint.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = iconTint, modifier = Modifier.size(16.dp))
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
@@ -988,6 +1045,117 @@ fun TextEntryDialog(title: String, label: String, confirm: String, onDismiss: ()
 }
 
 @Composable
-fun ConfirmDialog(title: String, message: String, confirm: String, onDismiss: () -> Unit, destructive: Boolean = false, onConfirm: () -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text(title) }, text = { Text(message, color = MutedText) }, confirmButton = { Button(onClick = onConfirm, colors = if (destructive) ButtonDefaults.buttonColors(containerColor = Negative, contentColor = Color.Black) else ButtonDefaults.buttonColors()) { Text(confirm) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+fun ConfirmDialog(title: String, message: String, confirm: String, onDismiss: () -> Unit, destructive: Boolean = false, showDismiss: Boolean = true, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = ModalSurface,
+        shape = RoundedCornerShape(28.dp),
+        title = { Text(title) },
+        text = { Text(message, color = MutedText) },
+        confirmButton = {
+            Button(onClick = onConfirm, colors = if (destructive) ButtonDefaults.buttonColors(containerColor = Negative, contentColor = Color.Black) else ButtonDefaults.buttonColors()) {
+                Text(confirm)
+            }
+        },
+        dismissButton = if (showDismiss) {
+            { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        } else null
+    )
+}
+
+@Composable
+fun GroupDetailSkeleton() {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp, 10.dp, 16.dp, 100.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            // Group Hero Card Skeleton
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+                    .background(CardSurface)
+                    .border(1.dp, Hairline, RoundedCornerShape(22.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SkeletonBox(Modifier.size(48.dp), shape = RoundedCornerShape(16.dp))
+                    Spacer(Modifier.width(14.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        SkeletonBox(Modifier.size(130.dp, 18.dp), shape = RoundedCornerShape(6.dp))
+                        SkeletonBox(Modifier.size(70.dp, 14.dp), shape = CircleShape)
+                        SkeletonBox(Modifier.size(100.dp, 11.dp), shape = RoundedCornerShape(4.dp))
+                    }
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SkeletonBox(Modifier.size(100.dp, 34.dp), shape = RoundedCornerShape(100.dp))
+                    SkeletonBox(Modifier.size(75.dp, 34.dp), shape = RoundedCornerShape(100.dp))
+                    Spacer(Modifier.weight(1f))
+                    SkeletonBox(Modifier.size(34.dp), shape = RoundedCornerShape(10.dp))
+                    SkeletonBox(Modifier.size(34.dp), shape = RoundedCornerShape(10.dp))
+                }
+            }
+        }
+
+        item {
+            // Balance Card Skeleton
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                    .background(CardSurface)
+                    .border(1.dp, Hairline, RoundedCornerShape(24.dp))
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                SkeletonBox(Modifier.size(110.dp, 11.dp), shape = RoundedCornerShape(4.dp))
+                SkeletonBox(Modifier.size(160.dp, 30.dp), shape = RoundedCornerShape(8.dp))
+                SkeletonBox(Modifier.size(130.dp, 12.dp), shape = RoundedCornerShape(4.dp))
+            }
+        }
+
+        item {
+            // Action Buttons Skeleton
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SkeletonBox(Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(100.dp))
+                SkeletonBox(Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(100.dp))
+            }
+        }
+
+        item {
+            // Settle up Skeleton
+            SkeletonBox(Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(100.dp))
+        }
+
+        item {
+            // Tabs Row Skeleton
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                repeat(4) {
+                    SkeletonBox(Modifier.weight(1f).height(32.dp), shape = RoundedCornerShape(8.dp))
+                }
+            }
+        }
+
+        items(3) {
+            // Expense List Item Skeletons
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                    .background(CardSurface)
+                    .border(1.dp, Hairline, RoundedCornerShape(18.dp))
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SkeletonBox(Modifier.size(40.dp), shape = RoundedCornerShape(12.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SkeletonBox(Modifier.size(120.dp, 15.dp), shape = RoundedCornerShape(6.dp))
+                    SkeletonBox(Modifier.size(80.dp, 11.dp), shape = RoundedCornerShape(4.dp))
+                }
+                SkeletonBox(Modifier.size(65.dp, 20.dp), shape = RoundedCornerShape(6.dp))
+            }
+        }
+    }
 }

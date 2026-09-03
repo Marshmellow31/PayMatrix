@@ -19,17 +19,17 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 > **Native Android app.** The Kotlin/Compose app lives in
 > [`native-android/`](./native-android/). The previous Capacitor client remains in
 > [`android app/`](./android%20app/) and its signed v1.2.5 GitHub release remains available.
-> Version 2.1.0 is the current release candidate for Google Play. Console declarations,
+> Version 2.1.3 is the current release candidate for Google Play. Console declarations,
 > physical-device checks, and any required closed test remain publication gates.
 
-[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 2.1.0**](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.1.0/paymatrix-native-2.1.0.apk) · [**Keep/download v1.2.5**](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5)
+[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 2.1.3**](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.1.3/app-release.apk) · [**Keep/download v1.2.5**](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5)
 
 ### Latest Android release
 
-- Version: **2.1.0** (`versionCode 21000`)
+- Version: **2.1.3** (`versionCode 21003`)
 - Package: `com.paymatrix.app`
-- Signed APK: [`paymatrix-native-2.1.0.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.1.0/paymatrix-native-2.1.0.apk)
-- SHA-256: `c50cb13909469406d9068b236cc2b269bcbacbb15c8e01385c00003e6a3c0317`
+- Signed APK: [`app-release.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.1.3/app-release.apk)
+- SHA-256: `e162238b48285bbcfb69a3cbc79e53781e05efe180064a1dd32a7251db6958c4`
 
 The GitHub APK is a direct-install build. The Play Console must receive the signed AAB and all
 required declarations before the app is publicly listed.

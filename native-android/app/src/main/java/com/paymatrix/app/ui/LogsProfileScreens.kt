@@ -568,9 +568,35 @@ fun ScannerScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) { PrimaryAction("Open camera", { permission.launch(Manifest.permission.CAMERA) }, Modifier.weight(1f), icon = { Icon(Icons.Default.CameraAlt, null, Modifier.size(17.dp)) }); SecondaryAction("Gallery", { gallery.launch("image/*") }, icon = { Icon(Icons.Default.PhotoLibrary, null, Modifier.size(17.dp)) }) }
             }
             image?.let { bitmap -> Image(bitmap.asImageBitmap(), "Captured receipt", Modifier.fillMaxWidth().height(300.dp).clip(RoundedCornerShape(20.dp)).background(Color.Black), contentScale = ContentScale.Fit); PrimaryAction("Analyze bill", { scope.launch { busy = true; error = null; runCatching { scanner.scan(bitmap) }.onSuccess { result = it; vm.setBillScan(it) }.onFailure { error = it.message }; busy = false } }, Modifier.fillMaxWidth(), enabled = !busy, icon = { Icon(Icons.Default.AutoAwesome, null, Modifier.size(17.dp)) }) }
-            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Color.White)
+            if (busy) BillAnalyzingSkeleton()
             error?.let { Text(it, color = Negative) }
             result?.let { scan -> ObsidianCard { Text(scan.merchant.ifBlank { "Scanned bill" }, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp); Text("Total ${scan.total}", color = MutedText); if (scan.date.isNotBlank()) Text(scan.date, color = QuietText); scan.items.take(8).forEach { Text("• $it", color = MutedText, fontSize = 11.sp) }; Text("Choose the group to continue", color = Color.White, fontWeight = FontWeight.Bold); state.groups.forEach { group -> SecondaryAction(group.name, { nav.navigate("expense/${group.id}") }, Modifier.fillMaxWidth()) } } }
+        }
+    }
+}
+
+@Composable
+fun BillAnalyzingSkeleton() {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+            .background(CardSurface)
+            .border(1.dp, Hairline, RoundedCornerShape(22.dp))
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.AutoAwesome, null, tint = Positive, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Analyzing receipt with Gemini AI...", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
+        SkeletonBox(Modifier.fillMaxWidth(0.6f).height(22.dp), shape = RoundedCornerShape(6.dp))
+        SkeletonBox(Modifier.fillMaxWidth(0.4f).height(16.dp), shape = RoundedCornerShape(4.dp))
+        Spacer(Modifier.height(2.dp))
+        repeat(3) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                SkeletonBox(Modifier.fillMaxWidth(0.6f).height(14.dp), shape = RoundedCornerShape(4.dp))
+                SkeletonBox(Modifier.width(60.dp).height(14.dp), shape = RoundedCornerShape(4.dp))
+            }
         }
     }
 }

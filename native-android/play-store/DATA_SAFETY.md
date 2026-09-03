@@ -1,6 +1,6 @@
 # Google Play Data Safety working sheet
 
-Complete the Play Console form against the final SDK dependency report. This sheet describes version 2.1.0; it is not a substitute for the Console declaration.
+Complete the Play Console form against the final SDK dependency report. This sheet describes version 2.1.3; it is not a substitute for the Console declaration.
 
 ## Security and handling
 

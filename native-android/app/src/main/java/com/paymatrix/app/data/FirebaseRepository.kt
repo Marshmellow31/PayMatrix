@@ -310,24 +310,24 @@ class FirebaseRepository(
         groups.map { group -> async { groupSnapshot(group.id) } }.awaitAll()
     }
 
-    suspend fun groupActivity(groupId: String, limit: Long = 100): List<ActivityItem> = runCatching {
-        db.collection("groups").document(groupId)
-            .collection("logs").orderBy("createdAt", Query.Direction.DESCENDING).limit(limit).get().await().documents.map {
-                ActivityItem(it.id, it.getString("type").orEmpty(), it.getString("message").orEmpty(), it.getString("actorId").orEmpty(), it.getString("actorName") ?: "Member", it.getString("relatedId").orEmpty(), groupId, timestamp(it.get("createdAt")))
-            }
-    }.getOrElse {
-        // Fallback: fetch without remote order constraint and sort locally
-        runCatching {
+    suspend fun groupActivity(groupId: String, limit: Long = 100): List<ActivityItem> {
+        val docs = runCatching {
             db.collection("groups").document(groupId)
-                .collection("logs").limit(limit).get().await().documents.map {
-                    ActivityItem(it.id, it.getString("type").orEmpty(), it.getString("message").orEmpty(), it.getString("actorId").orEmpty(), it.getString("actorName") ?: "Member", it.getString("relatedId").orEmpty(), groupId, timestamp(it.get("createdAt")))
-                }.sortedByDescending { it.createdAt }
+                .collection("logs").get().await().documents
         }.getOrDefault(emptyList())
+
+        return docs.map { activityItemFrom(it, groupId) }
+            .sortedByDescending { parseEpochMillis(it.createdAt) }
+            .take(limit.toInt())
     }
 
     suspend fun allActivity(sourceGroups: List<Group>? = null): List<ActivityItem> = coroutineScope {
         val resolvedGroups = sourceGroups ?: groups()
-        resolvedGroups.map { group -> async { groupActivity(group.id, 20) } }.awaitAll().flatten().sortedByDescending { it.createdAt }.take(50)
+        resolvedGroups.map { group -> async { groupActivity(group.id, 50) } }
+            .awaitAll()
+            .flatten()
+            .sortedByDescending { parseEpochMillis(it.createdAt) }
+            .take(50)
     }
 
     suspend fun addExpense(
@@ -491,8 +491,8 @@ class FirebaseRepository(
     }
 
     suspend fun logGroups(): List<LogGroup> = db.collection("logGroups").whereArrayContains("members", uid).get().await().documents.map {
-        LogGroup(it.id, it.getString("name") ?: "Log", it.getString("ownerId").orEmpty(), strings(it.get("members")), it.getString("updatedAt").orEmpty(), it.getString("status") ?: "active")
-    }.filter { it.status != "deleted" }.sortedByDescending { it.updatedAt }
+        LogGroup(it.id, it.getString("name") ?: "Log", it.getString("ownerId").orEmpty(), strings(it.get("members")), timestamp(it.get("updatedAt")), it.getString("status") ?: "active")
+    }.filter { it.status != "deleted" }.sortedByDescending { parseEpochMillis(it.updatedAt) }
 
     suspend fun createLogGroup(name: String): String {
         require(name.trim().isNotEmpty()) { "Log name is required." }
@@ -533,19 +533,31 @@ class FirebaseRepository(
         )
     }.sortedByDescending { it.date }
 
-    suspend fun logActivity(groupId: String): List<LogActivity> = db.collection("logGroups").document(groupId)
-        .collection("activity").orderBy("createdAt", Query.Direction.DESCENDING).limit(50).get().await().documents.map {
-            LogActivity(
-                id = it.id,
-                type = it.getString("type").orEmpty(),
-                message = it.getString("message").orEmpty(),
-                actorId = it.getString("actorId").orEmpty(),
-                actorName = it.getString("actorName") ?: "Member",
-                relatedId = it.getString("relatedId").orEmpty(),
-                groupId = groupId,
-                createdAt = timestamp(it.get("createdAt")),
-            )
-        }
+    suspend fun logActivity(groupId: String): List<LogActivity> = runCatching {
+        db.collection("logGroups").document(groupId)
+            .collection("activity").get().await().documents.map {
+                val msg = when (val m = it.get("message")) {
+                    is String -> m
+                    is Map<*, *> -> m["message"]?.toString() ?: m.toString()
+                    else -> m?.toString().orEmpty()
+                }
+                val actor = when (val a = it.get("actorName")) {
+                    is String -> a
+                    is Map<*, *> -> a["name"]?.toString() ?: a["displayName"]?.toString() ?: "Member"
+                    else -> a?.toString() ?: "Member"
+                }
+                LogActivity(
+                    id = it.id,
+                    type = it.getString("type").orEmpty(),
+                    message = msg,
+                    actorId = it.getString("actorId").orEmpty(),
+                    actorName = actor,
+                    relatedId = it.getString("relatedId").orEmpty(),
+                    groupId = groupId,
+                    createdAt = timestamp(it.get("createdAt")),
+                )
+            }.sortedByDescending { parseEpochMillis(it.createdAt) }.take(50)
+    }.getOrDefault(emptyList())
 
     suspend fun addLogEntry(groupId: String, title: String, amountText: String, category: String, place: String, note: String): MutationResult {
         val amount = com.paymatrix.app.domain.Money.toPaise(amountText)
@@ -746,7 +758,53 @@ class FirebaseRepository(
     private fun idValue(value: Any?): String = when (value) { is String -> value; is Map<*, *> -> (value["uid"] ?: value["_id"] ?: value["id"])?.toString().orEmpty(); else -> "" }
     private fun number(value: Any?) = value as? Number
     private fun paise(doc: DocumentSnapshot, paiseField: String, amountField: String): Long = doc.getLong(paiseField) ?: ((doc.getDouble(amountField) ?: doc.getLong(amountField)?.toDouble() ?: 0.0) * 100).toLong()
-    private fun timestamp(value: Any?): String = when (value) { is String -> value; is com.google.firebase.Timestamp -> value.toDate().toInstant().toString(); else -> "" }
+    fun parseEpochMillis(value: Any?): Long {
+        if (value == null) return 0L
+        return when (value) {
+            is com.google.firebase.Timestamp -> value.toDate().time
+            is java.util.Date -> value.time
+            is Number -> value.toLong()
+            is String -> {
+                if (value.isBlank()) return 0L
+                runCatching { Instant.parse(value).toEpochMilli() }
+                    .recoverCatching { java.time.OffsetDateTime.parse(value).toInstant().toEpochMilli() }
+                    .recoverCatching { java.time.LocalDateTime.parse(value).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() }
+                    .recoverCatching { value.toLong() }
+                    .getOrDefault(0L)
+            }
+            else -> 0L
+        }
+    }
+
+    private fun timestamp(value: Any?): String {
+        if (value == null) return now()
+        val millis = parseEpochMillis(value)
+        return if (millis > 0) runCatching { Instant.ofEpochMilli(millis).toString() }.getOrDefault(now())
+        else when (value) {
+            is String -> value.ifBlank { now() }
+            is com.google.firebase.Timestamp -> value.toDate().toInstant().toString()
+            else -> now()
+        }
+    }
+
+    private fun activityItemFrom(doc: DocumentSnapshot, groupId: String): ActivityItem {
+        val message = when (val m = doc.get("message")) {
+            is String -> m
+            is Map<*, *> -> m["message"]?.toString() ?: m.toString()
+            else -> m?.toString().orEmpty()
+        }
+        val actorName = when (val a = doc.get("actorName")) {
+            is String -> a
+            is Map<*, *> -> a["name"]?.toString() ?: a["displayName"]?.toString() ?: "Member"
+            else -> a?.toString() ?: "Member"
+        }
+        val type = doc.getString("type").orEmpty()
+        val actorId = doc.getString("actorId").orEmpty()
+        val relatedId = doc.getString("relatedId").orEmpty()
+        val createdAt = timestamp(doc.get("createdAt"))
+        return ActivityItem(doc.id, type, message, actorId, actorName, relatedId, groupId, createdAt)
+    }
+
     private fun jsonSafe(value: Any?): Any? = when (value) {
         is com.google.firebase.Timestamp -> value.toDate().toInstant().toString()
         is Map<*, *> -> value.entries.associate { it.key.toString() to jsonSafe(it.value) }

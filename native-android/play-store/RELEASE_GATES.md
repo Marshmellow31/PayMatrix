@@ -6,7 +6,7 @@ The signed AAB and Play Console state must satisfy every item before production 
 
 - [ ] Confirm whether the developer account is Personal or Organization.
 - [ ] If it is a Personal account created after 13 November 2023, complete the required closed test with at least 12 opted-in testers for 14 continuous days.
-- [ ] Confirm the highest versionCode already uploaded for `com.paymatrix.app`; it must be lower than `21000`.
+- [ ] Confirm the highest versionCode already uploaded for `com.paymatrix.app`; it must be lower than `21003`.
 - [ ] Enroll in Play App Signing and securely archive the upload key.
 - [ ] If Google classifies the product as a financial-service provider, use an eligible Organization account and complete the applicable verification.
 

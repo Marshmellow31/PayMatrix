@@ -36,6 +36,18 @@ import coil3.request.crossfade
 import androidx.compose.ui.platform.LocalContext
 import com.paymatrix.app.data.UserProfile
 import com.paymatrix.app.domain.Money
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 // Exact Digital Obsidian surface hierarchy from frontend/tailwind.config.js.
 val CanvasBlack = Color(0xFF1A1A1A)
@@ -118,8 +130,50 @@ fun MoneyText(paise: Long, positiveGood: Boolean = true, large: Boolean = false,
 }
 
 @Composable
+fun Modifier.shimmer(shape: Shape = RoundedCornerShape(8.dp)): Modifier {
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val startOffsetX by transition.animateFloat(
+        initialValue = -2 * (if (size.width > 0) size.width else 400).toFloat(),
+        targetValue = 2 * (if (size.width > 0) size.width else 400).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmer"
+    )
+
+    val shimmerColors = listOf(
+        Color.White.copy(alpha = 0.04f),
+        Color.White.copy(alpha = 0.14f),
+        Color.White.copy(alpha = 0.04f),
+    )
+
+    return this
+        .onGloballyPositioned { size = it.size }
+        .clip(shape)
+        .background(
+            brush = Brush.linearGradient(
+                colors = shimmerColors,
+                start = Offset(startOffsetX, 0f),
+                end = Offset(startOffsetX + (if (size.width > 0) size.width else 400).toFloat(), (if (size.height > 0) size.height else 100).toFloat())
+            )
+        )
+}
+
+@Composable
+fun SkeletonBox(
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(8.dp)
+) {
+    Box(modifier.shimmer(shape))
+}
+
+@Composable
 fun BusyOverlay(show: Boolean, label: String = "") {
     if (!show) return
+    val criticalActions = listOf("Signing in", "Signing out", "Deleting your account")
+    if (label.isNotBlank() && label !in criticalActions) return
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .58f)), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(30.dp))

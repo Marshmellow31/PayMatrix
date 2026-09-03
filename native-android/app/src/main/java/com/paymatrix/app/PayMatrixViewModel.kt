@@ -25,6 +25,7 @@ data class PayMatrixState(
     val analytics: AnalyticsSnapshot = AnalyticsSnapshot(),
     val activity: List<ActivityItem> = emptyList(),
     val group: GroupSnapshot? = null,
+    val groupCache: Map<String, GroupSnapshot> = emptyMap(),
     val friends: List<UserProfile> = emptyList(),
     val friendRequests: List<FriendRequest> = emptyList(),
     val notifications: List<AppNotification> = emptyList(),
@@ -101,7 +102,7 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
         )
     }
 
-    fun loadGroups() = action("Loading groups") {
+    fun loadGroups() = action("Loading groups", showLoading = false) {
         val groups = container.repository.groups()
         _state.value = _state.value.copy(groups = groups, summary = container.repository.dashboardSummary(groups))
     }
@@ -131,8 +132,22 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
 
     fun deleteGroup(id: String, done: () -> Unit) = action("Deleting group") { container.repository.deleteGroup(id); loadGroupsInternal(); done() }
 
-    fun loadGroup(id: String) = action("Loading group") { reloadGroup(id); startGroupRealtime(id) }
-    private suspend fun reloadGroup(id: String) { _state.value = _state.value.copy(group = container.repository.groupSnapshot(id)) }
+    fun loadGroup(id: String) = action("Loading group", showLoading = false) {
+        _state.value.groupCache[id]?.let { cached ->
+            if (_state.value.group?.group?.id != id) {
+                _state.value = _state.value.copy(group = cached)
+            }
+        }
+        reloadGroup(id)
+        startGroupRealtime(id)
+    }
+    private suspend fun reloadGroup(id: String) {
+        val snapshot = container.repository.groupSnapshot(id)
+        _state.value = _state.value.copy(
+            group = snapshot,
+            groupCache = _state.value.groupCache + (id to snapshot)
+        )
+    }
     private suspend fun loadGroupsInternal() { _state.value = _state.value.copy(groups = container.repository.groups()) }
 
     fun saveExpense(groupId: String, draft: ExpenseDraft, editing: Expense? = null, done: () -> Unit) = action(if (editing == null) "Recording expense" else "Updating expense") {
@@ -161,31 +176,31 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
         _state.value = _state.value.copy(message = "Payment recorded after your confirmation"); done()
     }
 
-    fun loadFriends() = action("Loading friends") { loadFriendsInternal() }
+    fun loadFriends() = action("Loading friends", showLoading = false) { loadFriendsInternal() }
     private suspend fun loadFriendsInternal() { val result = container.repository.friends(); _state.value = _state.value.copy(friends = result.first, friendRequests = result.second) }
     fun sendFriendRequest(code: String) = action("Sending request") { container.repository.sendFriendRequest(code); loadFriendsInternal(); _state.value = _state.value.copy(message = "Friend request sent") }
     fun respond(request: FriendRequest, accept: Boolean) = action("Updating request") { container.repository.respondToFriend(request, accept); loadFriendsInternal() }
     fun removeFriend(friendUid: String, done: () -> Unit = {}) = action("Removing friend") { container.repository.removeFriend(friendUid); loadFriendsInternal(); done() }
 
-    fun loadNotifications() = action("Loading activity") { _state.value = _state.value.copy(notifications = container.repository.notifications()) }
+    fun loadNotifications() = action("Loading activity", showLoading = false) { _state.value = _state.value.copy(notifications = container.repository.notifications()) }
     fun markRead(id: String) = action("Updating activity", false) { container.repository.markNotificationRead(id); _state.value = _state.value.copy(notifications = container.repository.notifications()) }
     fun markAllRead() = action("Marking all read") { container.repository.markAllNotificationsRead(); _state.value = _state.value.copy(notifications = container.repository.notifications()) }
-    fun loadActivity() = action("Loading activity") { _state.value = _state.value.copy(activity = container.repository.allActivity(_state.value.groups.ifEmpty { container.repository.groups() })) }
-    fun loadAnalytics() = action("Calculating analytics") { _state.value = _state.value.copy(analytics = container.repository.analytics(_state.value.groups.ifEmpty { container.repository.groups() })) }
+    fun loadActivity() = action("Loading activity", showLoading = false) { _state.value = _state.value.copy(activity = container.repository.allActivity(_state.value.groups.ifEmpty { container.repository.groups() })) }
+    fun loadAnalytics() = action("Calculating analytics", showLoading = false) { _state.value = _state.value.copy(analytics = container.repository.analytics(_state.value.groups.ifEmpty { container.repository.groups() })) }
 
     fun enablePush(context: Context) = action("Enabling notifications") {
         val token = FirebaseMessaging.getInstance().token.await(); container.auth.savePushToken(context, token)
         _state.value = _state.value.copy(message = "Push notifications enabled")
     }
 
-    fun loadLogGroups() = action("Loading logs") { _state.value = _state.value.copy(logGroups = container.repository.logGroups()) }
+    fun loadLogGroups() = action("Loading logs", showLoading = false) { _state.value = _state.value.copy(logGroups = container.repository.logGroups()) }
     fun createLogGroup(name: String, members: List<String> = emptyList(), done: (String) -> Unit = {}) = action("Creating log") {
         val id = container.repository.createLogGroup(name); container.repository.addLogGroupMembers(id, members); _state.value = _state.value.copy(logGroups = container.repository.logGroups()); done(id)
     }
     fun renameLogGroup(id: String, name: String) = action("Renaming log") { container.repository.renameLogGroup(id, name); _state.value = _state.value.copy(logGroups = container.repository.logGroups()) }
     fun leaveLogGroup(id: String, done: () -> Unit) = action("Leaving log") { _state.value.user?.uid?.let { container.repository.removeLogGroupMember(id, it) }; _state.value = _state.value.copy(logGroups = container.repository.logGroups()); done() }
     fun deleteLogGroup(id: String, done: () -> Unit) = action("Deleting log") { container.repository.deleteLogGroup(id); _state.value = _state.value.copy(logGroups = container.repository.logGroups()); done() }
-    fun loadLogEntries(groupId: String) = action("Loading entries") {
+    fun loadLogEntries(groupId: String) = action("Loading entries", showLoading = false) {
         _state.value = _state.value.copy(
             logEntries = container.repository.logEntries(groupId),
             logActivity = container.repository.logActivity(groupId),
@@ -204,7 +219,7 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
             message = if (result.queued) "Deleted offline · audit pending sync" else "Entry deleted · audit history preserved",
         )
     }
-    fun loadExpenseShares() = action("Loading transactions") { _state.value = _state.value.copy(expenseShares = container.repository.myExpenseShares(_state.value.groups.ifEmpty { container.repository.groups() })) }
+    fun loadExpenseShares() = action("Loading transactions", showLoading = false) { _state.value = _state.value.copy(expenseShares = container.repository.myExpenseShares(_state.value.groups.ifEmpty { container.repository.groups() })) }
     fun addExpenseShareToLog(groupId: String, share: ExpenseShare) = action("Adding transaction") {
         val result = container.repository.addExpenseShareToLog(groupId, share)
         _state.value = _state.value.copy(logEntries = container.repository.logEntries(groupId), logActivity = container.repository.logActivity(groupId), message = if (result.queued) "Added offline · pending sync" else "Transaction added to log")

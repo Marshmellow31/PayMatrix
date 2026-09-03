@@ -179,37 +179,63 @@ private fun MainShell(route: String, state: PayMatrixState, nav: NavHostControll
         containerColor = CanvasBlack,
         topBar = { PayMatrixHeader(state.user, state.notifications.count { !it.isRead }, syncPending = state.syncStatus.pendingWrites > 0, { nav.navigate("activity") }, { if (route != "profile") nav.navigate("profile") }) },
         bottomBar = {
-            NavigationBar(
-                containerColor = ObsidianSurface,
-                tonalElevation = 0.dp,
-                windowInsets = NavigationBarDefaults.windowInsets,
-                modifier = Modifier.fillMaxWidth(),
+            Surface(
+                color = ObsidianSurface,
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.07f)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                visibleNavItems.forEach { item ->
-                    val selected = route == item.route
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            if (!selected) {
-                                if (item.route == "dashboard") {
-                                    nav.navigate("dashboard") { popUpTo("dashboard") { inclusive = true }; launchSingleTop = true }
-                                } else {
-                                    nav.navigate(item.route) { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .height(58.dp)
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    visibleNavItems.forEach { item ->
+                        val selected = route == item.route
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    if (!selected) {
+                                        if (item.route == "dashboard") {
+                                            nav.navigate("dashboard") { popUpTo("dashboard") { inclusive = true }; launchSingleTop = true }
+                                        } else {
+                                            nav.navigate(item.route) { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true }
+                                        }
+                                    }
                                 }
-                            }
-                        },
-                        icon = {
-                            Icon(if (selected) item.selected else item.idle, item.label, modifier = Modifier.size(22.dp))
-                        },
-                        label = { Text(item.label, fontSize = 10.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color.White,
-                            selectedTextColor = Color.White,
-                            unselectedIconColor = Color.White.copy(alpha = .38f),
-                            unselectedTextColor = Color.White.copy(alpha = .38f),
-                            indicatorColor = Color.White.copy(alpha = .12f),
-                        ),
-                    )
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(20.dp)
+                                    .height(2.5.dp)
+                                    .clip(CircleShape)
+                                    .background(if (selected) Color.White else Color.Transparent)
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Icon(
+                                imageVector = if (selected) item.selected else item.idle,
+                                contentDescription = item.label,
+                                tint = if (selected) Color.White else Color.White.copy(alpha = 0.38f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = item.label,
+                                fontSize = 10.sp,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                color = if (selected) Color.White else Color.White.copy(alpha = 0.38f),
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
             }
         },
@@ -273,16 +299,46 @@ private fun rememberNetworkAvailable(): Boolean {
 }
 
 @Composable
-fun BackBar(title: String, nav: NavHostController, subtitle: String? = null, actions: @Composable RowScope.() -> Unit = {}) = TopAppBar(
-    title = {
-        Column {
-            Text(title, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 17.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            if (!subtitle.isNullOrBlank()) {
-                Text(subtitle, color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+fun BackBar(title: String, nav: NavHostController, subtitle: String? = null, actions: @Composable RowScope.() -> Unit = {}) {
+    Surface(
+        color = ObsidianSurface.copy(alpha = .98f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp)
+                .padding(horizontal = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = { nav.popBackStack() },
+                modifier = Modifier.size(34.dp)
+            ) {
+                Icon(Icons.Default.ArrowBack, "Back", tint = Color.White.copy(alpha = .9f), modifier = Modifier.size(20.dp))
             }
+            Spacer(Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    fontSize = 17.sp,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                if (!subtitle.isNullOrBlank()) {
+                    Text(
+                        text = subtitle,
+                        color = QuietText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, content = actions)
         }
-    },
-    navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.Default.ArrowBack, "Back", tint = Color.White) } },
-    actions = actions,
-    colors = TopAppBarDefaults.topAppBarColors(containerColor = ObsidianSurface),
-)
+    }
+}

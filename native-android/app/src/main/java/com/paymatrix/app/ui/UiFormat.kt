@@ -8,7 +8,16 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 fun shortDate(value: String): String = runCatching {
-    DateTimeFormatter.ofPattern("MMM d, h:mm a").format(Instant.parse(value).atZone(ZoneId.systemDefault()))
+    val instant = runCatching { Instant.parse(value) }
+        .recoverCatching { java.time.OffsetDateTime.parse(value).toInstant() }
+        .recoverCatching { java.time.LocalDateTime.parse(value).atZone(ZoneId.systemDefault()).toInstant() }
+        .recoverCatching { Instant.ofEpochMilli(value.toLong()) }
+        .getOrNull()
+    if (instant != null) {
+        DateTimeFormatter.ofPattern("MMM d, h:mm a").format(instant.atZone(ZoneId.systemDefault()))
+    } else {
+        value.take(16).ifBlank { "Recently" }
+    }
 }.getOrDefault(value.take(16).ifBlank { "Recently" })
 
 fun memberSince(value: String): String = runCatching {

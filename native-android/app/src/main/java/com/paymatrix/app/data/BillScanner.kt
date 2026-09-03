@@ -25,7 +25,8 @@ class BillScanner(
 ) {
     suspend fun scan(bitmap: Bitmap): BillScanResult = withContext(Dispatchers.IO) {
         val user = FirebaseAuth.getInstance().currentUser ?: error("Sign in before scanning a bill.")
-        val token = user.getIdToken(true).await().token ?: error("Could not create an authenticated scan request.")
+        val token = user.getIdToken(false).await().token
+            ?: error("Could not create an authenticated scan request.")
 
         // Downscale to max 1600px on the longest dimension (same as web)
         val maxDim = 1600
@@ -55,17 +56,21 @@ class BillScanner(
             .url(BuildConfig.SCAN_API_URL)
             .header("Authorization", "Bearer $token")
             .header("Content-Type", "application/json")
+            .header("Origin", "https://pay-matrix.vercel.app")
             .post(body)
             .build()
 
         val response = client.newCall(request).execute()
         val text = response.body?.string().orEmpty()
-
         if (!response.isSuccessful) {
             val serverMsg = runCatching { JSONObject(text).optString("error") }.getOrNull().orEmpty()
             error(serverMsg.ifBlank { "Bill scan failed (${response.code})." })
         }
 
+        parseScanResult(text)
+    }
+
+    private fun parseScanResult(text: String): BillScanResult {
         val root = JSONObject(text)
         val data = root.optJSONObject("data") ?: root
         val itemsArray = data.optJSONArray("items")
@@ -100,7 +105,7 @@ class BillScanner(
 
         val date = data.optString("date")
 
-        BillScanResult(
+        return BillScanResult(
             merchant = merchant,
             total = total,
             date = date,

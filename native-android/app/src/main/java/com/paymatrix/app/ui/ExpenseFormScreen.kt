@@ -39,7 +39,7 @@ private val expenseCategories = listOf("General", "Travel", "Food", "Household",
 @Composable
 fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
     LaunchedEffect(groupId) { if (state.group?.group?.id != groupId) vm.loadGroup(groupId) }
-    val snapshot = state.group?.takeIf { it.group.id == groupId }
+    val snapshot = state.groupCache[groupId] ?: state.group?.takeIf { it.group.id == groupId }
     val editing = snapshot?.expenses?.firstOrNull { it.id == expenseId }
     val scan = state.billScan
     var amount by remember(editing, scan) { mutableStateOf(editing?.let { "%.2f".format(it.amountPaise / 100.0) } ?: scan?.total.orEmpty()) }
@@ -59,7 +59,7 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
     val valid = title.isNotBlank() && totalPaise > 0 && participants.isNotEmpty() && preview != null && paidBy.isNotBlank()
 
     Scaffold(containerColor = CanvasBlack, topBar = { TopAppBar(title = { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (editing == null) "Record Transaction" else "Edit Transaction", fontWeight = FontWeight.Bold); Text("FOCUSED SESSION", color = QuietText, fontSize = 8.sp, letterSpacing = 1.4.sp) } }, navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.Default.Close, "Close") } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = ObsidianSurface)) }) { padding ->
-        if (snapshot == null) Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
+        if (snapshot == null) ExpenseFormSkeleton(padding)
         else Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Spacer(Modifier.height(4.dp))
             ObsidianCard(contentPadding = PaddingValues(20.dp)) {
@@ -142,5 +142,49 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
         val initial = runCatching { Instant.parse(date).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
         val picker = rememberDatePickerState(initialSelectedDateMillis = initial)
         DatePickerDialog(onDismissRequest = { showDate = false }, confirmButton = { TextButton(onClick = { picker.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).toString() }; showDate = false }) { Text("Done") } }, dismissButton = { TextButton(onClick = { showDate = false }) { Text("Cancel") } }) { DatePicker(picker) }
+    }
+}
+
+@Composable
+fun ExpenseFormSkeleton(padding: PaddingValues) {
+    Column(
+        Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Spacer(Modifier.height(4.dp))
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                .background(CardSurface)
+                .border(1.dp, Hairline, RoundedCornerShape(24.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            SkeletonBox(Modifier.size(100.dp, 12.dp).align(Alignment.CenterHorizontally), shape = RoundedCornerShape(4.dp))
+            SkeletonBox(Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(8.dp))
+            SkeletonBox(Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                repeat(4) {
+                    SkeletonBox(Modifier.size(70.dp, 32.dp), shape = RoundedCornerShape(8.dp))
+                }
+            }
+        }
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                .background(CardSurface)
+                .border(1.dp, Hairline, RoundedCornerShape(24.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SkeletonBox(Modifier.size(120.dp, 14.dp), shape = RoundedCornerShape(4.dp))
+            repeat(3) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    SkeletonBox(Modifier.size(36.dp), shape = CircleShape)
+                    Spacer(Modifier.width(12.dp))
+                    SkeletonBox(Modifier.weight(1f).height(16.dp), shape = RoundedCornerShape(4.dp))
+                    Spacer(Modifier.width(12.dp))
+                    SkeletonBox(Modifier.size(50.dp, 16.dp), shape = RoundedCornerShape(4.dp))
+                }
+            }
+        }
     }
 }
