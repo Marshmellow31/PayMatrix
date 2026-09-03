@@ -131,6 +131,15 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: false,
+      modulePreload: {
+        resolveDependencies: (filename, deps) =>
+          deps.filter(
+            (dep) =>
+              !dep.includes('vendor-pdf') &&
+              !dep.includes('vendor-charts') &&
+              !dep.includes('html2canvas')
+          ),
+      },
       rollupOptions: {
         output: {
           manualChunks(id) {

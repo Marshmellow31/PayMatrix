@@ -310,10 +310,20 @@ class FirebaseRepository(
         groups.map { group -> async { groupSnapshot(group.id) } }.awaitAll()
     }
 
-    suspend fun groupActivity(groupId: String, limit: Long = 100): List<ActivityItem> = db.collection("groups").document(groupId)
-        .collection("logs").orderBy("createdAt", Query.Direction.DESCENDING).limit(limit).get().await().documents.map {
-            ActivityItem(it.id, it.getString("type").orEmpty(), it.getString("message").orEmpty(), it.getString("actorId").orEmpty(), it.getString("actorName") ?: "Member", it.getString("relatedId").orEmpty(), groupId, timestamp(it.get("createdAt")))
-        }
+    suspend fun groupActivity(groupId: String, limit: Long = 100): List<ActivityItem> = runCatching {
+        db.collection("groups").document(groupId)
+            .collection("logs").orderBy("createdAt", Query.Direction.DESCENDING).limit(limit).get().await().documents.map {
+                ActivityItem(it.id, it.getString("type").orEmpty(), it.getString("message").orEmpty(), it.getString("actorId").orEmpty(), it.getString("actorName") ?: "Member", it.getString("relatedId").orEmpty(), groupId, timestamp(it.get("createdAt")))
+            }
+    }.getOrElse {
+        // Fallback: fetch without remote order constraint and sort locally
+        runCatching {
+            db.collection("groups").document(groupId)
+                .collection("logs").limit(limit).get().await().documents.map {
+                    ActivityItem(it.id, it.getString("type").orEmpty(), it.getString("message").orEmpty(), it.getString("actorId").orEmpty(), it.getString("actorName") ?: "Member", it.getString("relatedId").orEmpty(), groupId, timestamp(it.get("createdAt")))
+                }.sortedByDescending { it.createdAt }
+        }.getOrDefault(emptyList())
+    }
 
     suspend fun allActivity(sourceGroups: List<Group>? = null): List<ActivityItem> = coroutineScope {
         val resolvedGroups = sourceGroups ?: groups()
@@ -330,6 +340,8 @@ class FirebaseRepository(
         splitType: String = "equal",
         splitValues: Map<String, Double> = emptyMap(),
         date: String = "",
+        paidBy: String = "",
+        paidByName: String = "",
     ): MutationResult {
         val totalPaise = com.paymatrix.app.domain.Money.toPaise(amountText)
         require(totalPaise in 1..100_000_000) { "Amount must be between ₹0.01 and ₹10,00,000." }
@@ -341,10 +353,12 @@ class FirebaseRepository(
         val groupRef = db.collection("groups").document(groupId)
         val actor = publicProfile(uid).name
         val stamp = FieldValue.serverTimestamp()
+        val effectivePaidBy = paidBy.ifBlank { uid }
+        val effectivePaidByName = paidByName.ifBlank { if (effectivePaidBy == uid) actor else publicProfile(effectivePaidBy).name }
         val payload = mapOf(
             "title" to title.trim(), "description" to "", "amount" to totalPaise / 100.0,
-            "amountPaise" to totalPaise, "currency" to "INR", "date" to date.ifBlank { now() }, "paidBy" to uid,
-            "paidByName" to actor, "createdBy" to uid, "admin" to uid, "splitType" to splitType,
+            "amountPaise" to totalPaise, "currency" to "INR", "date" to date.ifBlank { now() }, "paidBy" to effectivePaidBy,
+            "paidByName" to effectivePaidByName, "createdBy" to uid, "admin" to uid, "splitType" to splitType,
             "splitData" to splitValues, "participants" to participants, "splitUserIds" to splits.map { it.user },
             "splits" to splits.map { mapOf("user" to it.user, "amount" to it.amount, "amountPaise" to it.amountPaise) },
             "category" to category.take(50), "attachments" to emptyList<String>(), "notes" to notes.take(500),

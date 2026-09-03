@@ -48,6 +48,7 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
     var notes by remember(editing, scan) { mutableStateOf(editing?.notes ?: scan?.items?.take(5)?.joinToString(", ").orEmpty()) }
     var splitType by remember(editing) { mutableStateOf(editing?.splitType?.takeIf { it in listOf("equal", "exact", "itemized") } ?: "equal") }
     var date by remember(editing, scan) { mutableStateOf(editing?.date ?: scan?.date.orEmpty().ifBlank { Instant.now().toString() }) }
+    var paidBy by remember(editing) { mutableStateOf(editing?.paidBy?.ifBlank { state.user?.uid.orEmpty() } ?: state.user?.uid.orEmpty()) }
     val selected = remember(snapshot, editing) { mutableStateMapOf<String, Boolean>().apply { snapshot?.group?.members?.forEach { put(it, editing?.participants?.contains(it) ?: true) } } }
     val values = remember(editing) { mutableStateMapOf<String, String>().apply { editing?.splits?.forEach { split -> put(split.user, "%.2f".format(if (splitType == "itemized") (split.dishPaise ?: split.amountPaise) / 100.0 else split.amountPaise / 100.0)) } } }
     var showDate by remember { mutableStateOf(false) }
@@ -55,7 +56,7 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
     val splitValues = participants.associateWith { values[it]?.toDoubleOrNull() ?: if (splitType == "equal") 1.0 else 0.0 }
     val totalPaise = runCatching { Money.toPaise(amount) }.getOrDefault(0L)
     val preview = runCatching { BalanceEngine.calculateSplits(totalPaise, splitType, splitValues, participants) }.getOrNull()
-    val valid = title.isNotBlank() && totalPaise > 0 && participants.isNotEmpty() && preview != null
+    val valid = title.isNotBlank() && totalPaise > 0 && participants.isNotEmpty() && preview != null && paidBy.isNotBlank()
 
     Scaffold(containerColor = CanvasBlack, topBar = { TopAppBar(title = { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (editing == null) "Record Transaction" else "Edit Transaction", fontWeight = FontWeight.Bold); Text("FOCUSED SESSION", color = QuietText, fontSize = 8.sp, letterSpacing = 1.4.sp) } }, navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.Default.Close, "Close") } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = ObsidianSurface)) }) { padding ->
         if (snapshot == null) Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
@@ -70,6 +71,29 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AssistChip(onClick = { showDate = true }, label = { Text(shortDate(date)) }, leadingIcon = { Icon(Icons.Default.CalendarMonth, null, Modifier.size(15.dp)) })
                     AssistChip(onClick = {}, label = { Text(snapshot.group.name, maxLines = 1) }, leadingIcon = { Icon(Icons.Default.Groups, null, Modifier.size(15.dp)) })
+                }
+            }
+
+            ObsidianCard(contentPadding = PaddingValues(18.dp)) {
+                Text("PAID BY", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    snapshot.group.members.forEach { uid ->
+                        val isSelected = (paidBy == uid)
+                        val name = if (uid == state.user?.uid) "You" else snapshot.profiles[uid]?.name?.substringBefore(' ') ?: "Member"
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { paidBy = uid },
+                            label = { Text(name, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                            leadingIcon = { UserAvatar(snapshot.profiles[uid], 22) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color.White,
+                                selectedLabelColor = Color.Black,
+                                containerColor = Color.White.copy(alpha = 0.05f),
+                                labelColor = Color.White
+                            )
+                        )
+                    }
                 }
             }
 
@@ -97,8 +121,17 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                 } else preview?.forEach { split -> Row { Text(snapshot.profiles[split.user]?.name ?: "Member", Modifier.weight(1f), color = MutedText); Text(Money.format(split.amountPaise), color = Color.White, fontWeight = FontWeight.SemiBold) } }
             }
 
+            val effectivePaidBy = paidBy.ifBlank { state.user?.uid.orEmpty() }
+            val paidByName = if (effectivePaidBy == state.user?.uid) "You" else snapshot.profiles[effectivePaidBy]?.name ?: "Member"
             PrimaryAction(if (editing == null) "Create expense" else "Save changes", {
-                vm.saveExpense(groupId, ExpenseDraft(title, amount, category, notes, participants, splitType, splitValues, date), editing) { vm.setBillScan(null); nav.popBackStack() }
+                vm.saveExpense(
+                    groupId,
+                    ExpenseDraft(title, amount, category, notes, participants, splitType, splitValues, date, effectivePaidBy, paidByName),
+                    editing
+                ) {
+                    vm.setBillScan(null)
+                    nav.popBackStack()
+                }
             }, Modifier.fillMaxWidth(), enabled = valid, icon = { Icon(Icons.Default.Send, null, Modifier.size(18.dp)) })
             if (!valid && amount.isNotBlank()) Text("Complete the amount, title, participants, and balanced split before saving.", color = Negative, fontSize = 11.sp)
             Spacer(Modifier.height(32.dp))

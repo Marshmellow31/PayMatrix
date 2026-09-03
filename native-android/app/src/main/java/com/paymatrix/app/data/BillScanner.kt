@@ -1,34 +1,110 @@
 package com.paymatrix.app.data
 
 import android.graphics.Bitmap
+import android.util.Base64
 import com.google.firebase.auth.FirebaseAuth
 import com.paymatrix.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.TimeUnit
 
-class BillScanner(private val client: OkHttpClient = OkHttpClient()) {
+class BillScanner(
+    private val client: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(35, TimeUnit.SECONDS)
+        .readTimeout(35, TimeUnit.SECONDS)
+        .writeTimeout(35, TimeUnit.SECONDS)
+        .build()
+) {
     suspend fun scan(bitmap: Bitmap): BillScanResult = withContext(Dispatchers.IO) {
         val user = FirebaseAuth.getInstance().currentUser ?: error("Sign in before scanning a bill.")
         val token = user.getIdToken(true).await().token ?: error("Could not create an authenticated scan request.")
-        val bytes = ByteArrayOutputStream().use { stream -> bitmap.compress(Bitmap.CompressFormat.JPEG, 82, stream); stream.toByteArray() }
-        require(bytes.size <= 8 * 1024 * 1024) { "Image is too large." }
-        val body = MultipartBody.Builder().setType(MultipartBody.FORM)
-            .addFormDataPart("image", "bill.jpg", bytes.toRequestBody("image/jpeg".toMediaType())).build()
-        val response = client.newCall(Request.Builder().url(BuildConfig.SCAN_API_URL).header("Authorization", "Bearer $token").post(body).build()).execute()
-        val text = response.body.string()
-        if (!response.isSuccessful) error(runCatching { JSONObject(text).optString("error") }.getOrNull().orEmpty().ifBlank { "Bill scan failed (${response.code})." })
+
+        // Downscale to max 1600px on the longest dimension (same as web)
+        val maxDim = 1600
+        val longest = maxOf(bitmap.width, bitmap.height)
+        val targetBitmap = if (longest > maxDim) {
+            val factor = maxDim.toFloat() / longest
+            Bitmap.createScaledBitmap(bitmap, (bitmap.width * factor).toInt(), (bitmap.height * factor).toInt(), true)
+        } else {
+            bitmap
+        }
+
+        val base64 = ByteArrayOutputStream().use { stream ->
+            targetBitmap.compress(Bitmap.CompressFormat.JPEG, 85, stream)
+            Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
+        }
+
+        val imageObj = JSONObject().apply {
+            put("base64", base64)
+            put("mimeType", "image/jpeg")
+        }
+        val requestJson = JSONObject().apply {
+            put("images", JSONArray().apply { put(imageObj) })
+        }
+
+        val body = requestJson.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+        val request = Request.Builder()
+            .url(BuildConfig.SCAN_API_URL)
+            .header("Authorization", "Bearer $token")
+            .header("Content-Type", "application/json")
+            .post(body)
+            .build()
+
+        val response = client.newCall(request).execute()
+        val text = response.body?.string().orEmpty()
+
+        if (!response.isSuccessful) {
+            val serverMsg = runCatching { JSONObject(text).optString("error") }.getOrNull().orEmpty()
+            error(serverMsg.ifBlank { "Bill scan failed (${response.code})." })
+        }
+
         val root = JSONObject(text)
         val data = root.optJSONObject("data") ?: root
         val itemsArray = data.optJSONArray("items")
-        val items = buildList { if (itemsArray != null) for (index in 0 until itemsArray.length()) add(itemsArray.get(index).toString()) }
-        BillScanResult(data.optString("merchant", data.optString("vendor")), data.opt("total")?.toString().orEmpty(), data.optString("date"), items)
+        val items = buildList {
+            if (itemsArray != null) {
+                for (index in 0 until itemsArray.length()) {
+                    val item = itemsArray.opt(index)
+                    if (item is JSONObject) {
+                        val name = item.optString("name")
+                        val price = item.opt("price")?.toString()?.toDoubleOrNull()
+                        if (name.isNotBlank()) {
+                            if (price != null && price > 0) add("$name: ₹%.2f".format(price))
+                            else add(name)
+                        }
+                    } else if (item != null) {
+                        add(item.toString())
+                    }
+                }
+            }
+        }
+
+        val merchant = data.optString("title").ifBlank {
+            data.optString("merchant", data.optString("vendor"))
+        }
+
+        val rawTotal = if (data.has("amount")) data.opt("amount") else data.opt("total")
+        val total = when (rawTotal) {
+            is Number -> if (rawTotal.toDouble() > 0) "%.2f".format(rawTotal.toDouble()) else ""
+            is String -> rawTotal
+            else -> ""
+        }
+
+        val date = data.optString("date")
+
+        BillScanResult(
+            merchant = merchant,
+            total = total,
+            date = date,
+            items = items
+        )
     }
 }

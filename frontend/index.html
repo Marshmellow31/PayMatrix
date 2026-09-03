@@ -10,6 +10,39 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script>
+      // Self-healing: if an outdated cached index.html or service worker fails to load chunks,
+      // unregister service workers, clear caches, and reload the fresh deployment.
+      window.addEventListener('error', function (e) {
+        var msg = (e && e.message) ? String(e.message) : '';
+        var target = e && e.target;
+        var isChunkOrMimeError =
+          msg.indexOf('Expected a JavaScript-or-Wasm module script') !== -1 ||
+          msg.indexOf('Strict MIME type') !== -1 ||
+          msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+          (target && target.tagName === 'LINK' && target.rel === 'stylesheet' && target.href && target.href.indexOf('/assets/') !== -1) ||
+          (target && target.tagName === 'SCRIPT' && target.src && target.src.indexOf('/assets/') !== -1);
+        if (isChunkOrMimeError) {
+          var key = 'pm_auto_recovery_ts';
+          var last = sessionStorage.getItem(key);
+          var now = Date.now();
+          if (!last || now - parseInt(last, 10) > 15000) {
+            sessionStorage.setItem(key, String(now));
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function (regs) {
+                for (var i = 0; i < regs.length; i++) { regs[i].unregister(); }
+              });
+            }
+            if ('caches' in window) {
+              caches.keys().then(function (names) {
+                for (var i = 0; i < names.length; i++) { caches.delete(names[i]); }
+              });
+            }
+            setTimeout(function () { window.location.reload(true); }, 150);
+          }
+        }
+      }, true);
+    </script>
     <title>PayMatrix — Smart Expense Sharing</title>
   </head>
   <body class="bg-background text-on-surface font-inter antialiased">

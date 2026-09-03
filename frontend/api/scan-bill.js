@@ -208,7 +208,9 @@ export default async function handler(request, response) {
     
     const parsed = {
       amount: Number(raw.amount) > 0 ? Number(raw.amount) : null,
+      total: Number(raw.amount) > 0 ? Number(raw.amount) : null,
       title: String(raw.title || "").trim(),
+      merchant: String(raw.title || "").trim(),
       date: /^\d{4}-\d{2}-\d{2}$/.test(raw.date) ? raw.date : null,
       category: VALID_CATEGORIES.includes(raw.category) ? raw.category : "Other",
       items: Array.isArray(raw.items)

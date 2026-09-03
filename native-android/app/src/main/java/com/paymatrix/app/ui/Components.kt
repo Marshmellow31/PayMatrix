@@ -55,14 +55,21 @@ val AccentPurple = Color(0xFF9B6CFF)
 val AccentEmerald = Color(0xFF35D6A0)
 val ModalSurface = Color(0xFF242424)
 
-fun categoryColor(category: String): Color = when (category.lowercase()) {
-    "travel", "trip" -> PrimaryBlue
-    "food", "dining" -> AccentOrange
-    "entertainment" -> AccentPink
-    "household", "home" -> AccentPurple
-    "sports" -> ElectricBlue
-    "shopping" -> AccentEmerald
-    else -> Color(0xFF8B8B92)
+fun categoryColor(category: String): Color {
+    val lower = category.lowercase()
+    return when {
+        lower.contains("travel") || lower.contains("trip") -> Color(0xFF38BDF8)
+        lower.contains("food") || lower.contains("dining") -> Color(0xFFFB923C)
+        lower.contains("roommate") || lower.contains("flat") || lower.contains("home") || lower.contains("household") -> Color(0xFF4ADE80)
+        lower.contains("friend") || lower.contains("gang") -> Color(0xFFF472B6)
+        lower.contains("work") || lower.contains("office") -> Color(0xFF60A5FA)
+        lower.contains("event") || lower.contains("party") -> Color(0xFFFACC15)
+        lower.contains("couple") || lower.contains("partner") -> Color(0xFFF43F5E)
+        lower.contains("sport") || lower.contains("fitness") -> Color(0xFF2DD4BF)
+        lower.contains("entertainment") || lower.contains("movie") -> Color(0xFFA855F7)
+        lower.contains("shopping") -> Color(0xFF34D399)
+        else -> Color(0xFF94A3B8)
+    }
 }
 
 @Composable

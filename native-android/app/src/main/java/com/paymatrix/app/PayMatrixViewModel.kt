@@ -136,7 +136,11 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
     private suspend fun loadGroupsInternal() { _state.value = _state.value.copy(groups = container.repository.groups()) }
 
     fun saveExpense(groupId: String, draft: ExpenseDraft, editing: Expense? = null, done: () -> Unit) = action(if (editing == null) "Recording expense" else "Updating expense") {
-        val result = if (editing == null) container.repository.addExpense(groupId, draft.title, draft.amount, draft.category, draft.notes, draft.participants, draft.splitType, draft.splitValues, draft.date)
+        val result = if (editing == null) container.repository.addExpense(
+            groupId, draft.title, draft.amount, draft.category, draft.notes,
+            draft.participants, draft.splitType, draft.splitValues, draft.date,
+            draft.paidBy, draft.paidByName
+        )
         else container.repository.updateExpense(editing, draft)
         reloadGroup(groupId)
         _state.value = _state.value.copy(message = when {

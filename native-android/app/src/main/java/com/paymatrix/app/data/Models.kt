@@ -201,6 +201,8 @@ data class ExpenseDraft(
     val splitType: String = "equal",
     val splitValues: Map<String, Double> = emptyMap(),
     val date: String = "",
+    val paidBy: String = "",
+    val paidByName: String = "",
 )
 
 data class BillScanResult(
