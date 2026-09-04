@@ -5,6 +5,7 @@ import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
@@ -25,7 +26,7 @@ class AuthRepository(
     suspend fun signInWithGoogle(context: Context, webClientId: String): UserProfile {
         val credential = googleCredential(context, webClientId)
         val result = auth.signInWithCredential(credential).await()
-        return completeSignIn(result.user ?: error("Firebase authentication did not return a user."))
+        return completeSignIn(result.user ?: error("Firebase authentication did not return a user."), isGoogle = true)
     }
 
     suspend fun createEmailAccount(name: String, email: String, password: String): String {
@@ -86,11 +87,16 @@ class AuthRepository(
         user.linkWithCredential(EmailAuthProvider.getCredential(email, password)).await()
     }
 
-    private fun needsEmailVerification(user: FirebaseUser): Boolean =
-        user.providerData.any { it.providerId == EmailAuthProvider.PROVIDER_ID } && !user.isEmailVerified
+    private fun needsEmailVerification(user: FirebaseUser): Boolean {
+        // Google accounts are authenticated directly by Google and do not require separate email verification.
+        if (user.providerData.any { it.providerId == GoogleAuthProvider.PROVIDER_ID }) return false
+        return user.providerData.any { it.providerId == EmailAuthProvider.PROVIDER_ID } && !user.isEmailVerified
+    }
 
-    private suspend fun completeSignIn(firebaseUser: FirebaseUser): UserProfile {
-        require(!needsEmailVerification(firebaseUser)) { "Verify your email before opening shared data." }
+    private suspend fun completeSignIn(firebaseUser: FirebaseUser, isGoogle: Boolean = false): UserProfile {
+        if (!isGoogle) {
+            require(!needsEmailVerification(firebaseUser)) { "Verify your email before opening shared data." }
+        }
         firebaseUser.getIdToken(true).await()
         val userRef = db.collection("users").document(firebaseUser.uid)
         val existing = userRef.get().await()
@@ -111,11 +117,19 @@ class AuthRepository(
             base["createdAt"] = now
         }
         userRef.set(base, com.google.firebase.firestore.SetOptions.merge()).await()
-        db.collection("publicProfiles").document(firebaseUser.uid).set(
-            mapOf("name" to (firebaseUser.displayName ?: "Member"), "avatar" to (firebaseUser.photoUrl?.toString() ?: ""), "updatedAt" to now),
-            com.google.firebase.firestore.SetOptions.merge(),
-        ).await()
-        ensureFriendCode(firebaseUser)
+        runCatching {
+            val publicData = mapOf(
+                "name" to (firebaseUser.displayName?.ifBlank { null } ?: existing.getString("name")?.ifBlank { null } ?: "Member"),
+                "avatar" to allowedAvatar(firebaseUser.photoUrl?.toString(), existing.getString("avatar")),
+                "updatedAt" to now
+            )
+            db.collection("publicProfiles").document(firebaseUser.uid).set(publicData).await()
+        }.onFailure { e ->
+            android.util.Log.w("AuthRepository", "Public profile sync skipped: ${e.message}")
+        }
+        runCatching { ensureFriendCode(firebaseUser) }.onFailure { e ->
+            android.util.Log.w("AuthRepository", "Friend code sync skipped: ${e.message}")
+        }
         return profile(firebaseUser.uid)
     }
 
@@ -145,7 +159,9 @@ class AuthRepository(
         require(upiId.isBlank() || Regex("^[\\w.-]+@[\\w.-]+$", RegexOption.IGNORE_CASE).matches(upiId)) { "Enter a valid UPI ID." }
         val payload = mapOf("name" to name.trim(), "displayName" to name.trim(), "nameLowerCase" to name.trim().lowercase(), "upiId" to upiId.trim(), "phone" to phone.trim(), "updatedAt" to java.time.Instant.now().toString())
         db.collection("users").document(user.uid).update(payload).await()
-        db.collection("publicProfiles").document(user.uid).set(mapOf("name" to name.trim(), "updatedAt" to java.time.Instant.now().toString()), com.google.firebase.firestore.SetOptions.merge()).await()
+        runCatching {
+            db.collection("publicProfiles").document(user.uid).update(mapOf("name" to name.trim(), "updatedAt" to java.time.Instant.now().toString())).await()
+        }
         user.updateProfile(com.google.firebase.auth.UserProfileChangeRequest.Builder().setDisplayName(name.trim()).build()).await()
     }
 
@@ -191,13 +207,47 @@ class AuthRepository(
     }
 
     private suspend fun googleCredential(context: Context, webClientId: String): com.google.firebase.auth.AuthCredential {
-        val option = GetSignInWithGoogleOption.Builder(webClientId).build()
-        val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
-        val response = CredentialManager.create(context).getCredential(context, request)
+        val credentialManager = CredentialManager.create(context)
+        val googleIdOption = GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setServerClientId(webClientId)
+            .setAutoSelectEnabled(false)
+            .build()
+        val request = GetCredentialRequest.Builder()
+            .addCredentialOption(googleIdOption)
+            .build()
+
+        val response = try {
+            credentialManager.getCredential(context, request)
+        } catch (cancellation: androidx.credentials.exceptions.GetCredentialCancellationException) {
+            val msg = cancellation.message.orEmpty()
+            if (msg.contains("reauth", ignoreCase = true) || msg.contains("16")) {
+                runCatching { credentialManager.clearCredentialState(ClearCredentialStateRequest()) }
+                val retryOption = GetSignInWithGoogleOption.Builder(webClientId).build()
+                val retryRequest = GetCredentialRequest.Builder().addCredentialOption(retryOption).build()
+                credentialManager.getCredential(context, retryRequest)
+            } else {
+                throw cancellation
+            }
+        } catch (e: Exception) {
+            runCatching { credentialManager.clearCredentialState(ClearCredentialStateRequest()) }
+            val fallbackOption = GetSignInWithGoogleOption.Builder(webClientId).build()
+            val fallbackRequest = GetCredentialRequest.Builder().addCredentialOption(fallbackOption).build()
+            credentialManager.getCredential(context, fallbackRequest)
+        }
+
         val custom = response.credential as? CustomCredential ?: error("Google did not return an identity credential.")
-        require(custom.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) { "Unexpected credential type." }
-        val google = GoogleIdTokenCredential.createFrom(custom.data)
-        return GoogleAuthProvider.getCredential(google.idToken, null)
+        val idToken = when (custom.type) {
+            GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL,
+            GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_SIWG_CREDENTIAL -> {
+                GoogleIdTokenCredential.createFrom(custom.data).idToken
+            }
+            else -> {
+                runCatching { GoogleIdTokenCredential.createFrom(custom.data).idToken }
+                    .getOrNull() ?: error("Unexpected credential type: ${custom.type}")
+            }
+        }
+        return GoogleAuthProvider.getCredential(idToken, null)
     }
 
     private suspend fun ensureFriendCode(user: FirebaseUser) {

@@ -6,16 +6,17 @@ No. paymatrix contains no advertising SDK or paid placement.
 
 ## App access
 
-The app requires Google sign-in. Before review, create a dedicated reviewer Google account with non-sensitive sample groups and provide its credentials and the exact sign-in steps in Play Console. Do not place credentials in this repository.
+The app supports Firebase Authentication via email & password and Google Sign-in. Reviewers can sign in directly using the pre-verified email/password test credentials provided in Play Console (no inbox access needed) or tap "Continue with Google".
 
 Suggested reviewer path:
 
-1. Open paymatrix and tap **Continue with Google**.
-2. Select the supplied reviewer account.
+1. Open paymatrix on the sign-in screen.
+2. Sign in with the provided reviewer email & password (or select **Continue with Google**).
 3. Open **Goa weekend** to inspect expenses, members, Activity, and Insights.
-4. Use **Add expense** with the supplied test data; do not initiate a real UPI payment.
-5. Open **Spending logs** and delete the sample entry to confirm an immutable Activity event remains.
-6. Open **Profile → Security & privacy** and **Profile → Delete account**.
+4. Test the bill scanner with any sample receipt.
+5. Use **Add expense** or inspect settlements (settle-up generates a UPI QR for scanning in banking apps; do not execute real bank payments during review).
+6. Open **Spending logs** and inspect immutable Activity events.
+7. Open **Profile → Security & privacy** and inspect account settings.
 
 ## Target audience
 

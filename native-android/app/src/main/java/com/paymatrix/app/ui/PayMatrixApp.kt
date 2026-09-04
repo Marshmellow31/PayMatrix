@@ -14,6 +14,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -195,7 +196,9 @@ private fun LoginScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavH
         }
         Spacer(Modifier.height(16.dp))
         OutlinedButton(onClick = { vm.signIn(context, clientId) }, enabled = !state.loading, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .12f)), colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = .025f))) {
-            Text("G", color = Color(0xFF4285F4), fontWeight = FontWeight.Black, fontSize = 19.sp); Spacer(Modifier.width(10.dp)); Text("Continue with Google", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp)
+            Icon(painter = painterResource(R.drawable.ic_google_logo), contentDescription = "Google", tint = Color.Unspecified, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(11.dp))
+            Text("Continue with Google", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp)
         }
         Spacer(Modifier.height(17.dp))
         Row(verticalAlignment = Alignment.CenterVertically) { HorizontalDivider(Modifier.weight(1f), color = Hairline); Text("  OR USE EMAIL  ", color = QuietText, fontWeight = FontWeight.Black, fontSize = 8.sp, letterSpacing = 1.2.sp); HorizontalDivider(Modifier.weight(1f), color = Hairline) }
@@ -206,7 +209,27 @@ private fun LoginScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavH
         }
         OutlinedTextField(value = email, onValueChange = { email = it.trim() }, label = { Text("Email address") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next))
         Spacer(Modifier.height(11.dp))
-        OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text(if (createMode) "Password · 8+ characters" else "Password") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors, visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done), trailingIcon = { IconButton(onClick = { showPassword = !showPassword }) { Icon(if (showPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (showPassword) "Hide password" else "Show password", tint = QuietText) } })
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text(if (createMode) "Password · 8+ characters" else "Password") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = fieldColors,
+            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                if (!state.loading && email.isNotBlank() && password.isNotBlank() && (!createMode || name.isNotBlank())) {
+                    if (createMode) vm.createEmailAccount(name, email, password) else vm.signInWithEmail(email, password)
+                }
+            }),
+            trailingIcon = {
+                IconButton(onClick = { showPassword = !showPassword }) {
+                    Icon(if (showPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (showPassword) "Hide password" else "Show password", tint = QuietText)
+                }
+            }
+        )
         if (!createMode) {
             TextButton(onClick = { vm.sendPasswordReset(email) }, enabled = email.isNotBlank() && !state.loading, modifier = Modifier.align(Alignment.End)) { Text("Forgot password?", color = MutedText, fontWeight = FontWeight.Bold, fontSize = 11.sp) }
         } else Spacer(Modifier.height(14.dp))

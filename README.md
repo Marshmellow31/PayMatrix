@@ -15,24 +15,35 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 > [!NOTE]
 > This README is intentionally exhaustive: it documents every feature, how it works internally, the data model, the security model, and how to run the project. If you are evaluating the code, also read [`SECURITY_AND_CODE_REVIEW.md`](./SECURITY_AND_CODE_REVIEW.md) — it lists known security issues and a prioritised improvement plan.
 
-> [!WARNING]
-> **Native Android app.** The Kotlin/Compose app lives in
-> [`native-android/`](./native-android/). The previous Capacitor client remains in
-> [`android app/`](./android%20app/) and its signed v1.2.5 GitHub release remains available.
-> Version 2.1.3 is the current release candidate for Google Play. Console declarations,
-> physical-device checks, and any required closed test remain publication gates.
+<div align="center">
 
-[**🌐 Live app**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK 2.1.3**](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.1.3/app-release.apk) · [**Keep/download v1.2.5**](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5)
+[![Google Play Coming Soon](https://img.shields.io/badge/Google_Play-Coming_Soon-4285F4?style=for-the-badge&logo=google-play&logoColor=white)](#-native-android-release-v216)
+[![Direct APK Download](https://img.shields.io/badge/Download_APK-v2.1.6-00C853?style=for-the-badge&logo=android&logoColor=white)](./native-android/releases/paymatrix-native-2.1.6.apk)
+[![Play Store AAB](https://img.shields.io/badge/Play_Store-AAB_v2.1.6-4285F4?style=for-the-badge&logo=google-play&logoColor=white)](./native-android/releases/paymatrix-native-2.1.6.aab)
 
-### Latest Android release
+</div>
 
-- Version: **2.1.3** (`versionCode 21003`)
-- Package: `com.paymatrix.app`
-- Signed APK: [`app-release.apk`](https://github.com/Marshmellow31/PayMatrix/releases/download/v2.1.3/app-release.apk)
-- SHA-256: `e162238b48285bbcfb69a3cbc79e53781e05efe180064a1dd32a7251db6958c4`
+> [!TIP]
+> **🚀 Coming soon on Google Play!**
+> The modern Native Android app (100% Kotlin & Jetpack Compose) is coming soon to the Google Play Store. You can download and install the production-signed APK or inspect the Play Store `.aab` bundle directly from this repository.
 
-The GitHub APK is a direct-install build. The Play Console must receive the signed AAB and all
-required declarations before the app is publicly listed.
+[**🌐 Live Web App**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK v2.1.6**](./native-android/releases/paymatrix-native-2.1.6.apk) · [**📦 Download Google Play AAB Bundle**](./native-android/releases/paymatrix-native-2.1.6.aab)
+
+### 📱 Native Android Release (v2.1.6)
+
+- **Version**: `2.1.6` (`versionCode 21006`)
+- **Package ID**: `com.paymatrix.app`
+- **Signed APK**: [`paymatrix-native-2.1.6.apk`](./native-android/releases/paymatrix-native-2.1.6.apk)
+  - **SHA-256**: `3EF3A432CA7A3D2E834DFF3664B2610560F9B21B13BC2FC9558ECACD17D80552`
+- **Signed AAB (Google Play)**: [`paymatrix-native-2.1.6.aab`](./native-android/releases/paymatrix-native-2.1.6.aab)
+  - **SHA-256**: `0CF4058CB3F46C569108174A48574A5D17D1E784C9A0585AA70510D380BDA6F5`
+- **What's New in v2.1.6**:
+  - ✨ **Step-Wise Expense Addition**: Web-parity 2-step flow with Essentials & Category on Step 1, Split Methods, Paid By, and Live Distribution Preview on Step 2.
+  - 🔄 **Dynamic Select/Deselect All**: Instant participant toggle with adaptive button label.
+  - 💳 **Web-Parity Settle Up**: Total You Owe summary, Settle All, Recommended Payments with Ready/No ID badges, and inline Partial Settlement.
+  - 📲 **On-Device UPI QR & App Intent**: High-res ZXing QR generation, Copy UPI ID, Save QR to device gallery, and launch Google Pay / default UPI app.
+  - 🔑 **Google Sign-In Fix**: Bypass email verification for Google authenticated accounts across all devices (e.g. OnePlus, OxygenOS).
+  - 🛠️ **Edit Transaction Fix**: Bulletproof Firestore version type handling and safe audit payload.
 
 ---
 

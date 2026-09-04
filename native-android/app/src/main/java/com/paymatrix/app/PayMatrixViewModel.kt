@@ -315,11 +315,37 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    private fun friendlyAuthError(t: Throwable): String {
+        val message = t.message.orEmpty()
+        return when {
+            message.contains("email-already-in-use", ignoreCase = true) || message.contains("already exists", ignoreCase = true) ->
+                "This email already has an account. Sign in or continue with Google."
+            message.contains("wrong-password", ignoreCase = true) || message.contains("invalid-credential", ignoreCase = true) || message.contains("invalid email or password", ignoreCase = true) ->
+                "Incorrect email or password. Please try again."
+            message.contains("user-not-found", ignoreCase = true) ->
+                "No account found with this email. Please create an account first."
+            message.contains("too-many-requests", ignoreCase = true) ->
+                "Too many failed attempts. Please try again in a few moments."
+            message.contains("network-request-failed", ignoreCase = true) ->
+                "Network error. Please check your internet connection."
+            else -> message.ifBlank { "Action failed" }
+        }
+    }
+
     private fun action(label: String, showLoading: Boolean = true, block: suspend () -> Unit) {
         viewModelScope.launch {
             if (showLoading) _state.value = _state.value.copy(loading = true, loadingLabel = label, error = null)
             else _state.value = _state.value.copy(error = null)
-            runCatching { block() }.onFailure { _state.value = _state.value.copy(error = it.message ?: "$label failed") }
+            runCatching { block() }.onFailure { t ->
+                if (t is androidx.credentials.exceptions.GetCredentialCancellationException) {
+                    val msg = t.message.orEmpty()
+                    if (msg.contains("reauth", ignoreCase = true) || msg.contains("16")) {
+                        _state.value = _state.value.copy(error = "Google sign-in was interrupted. Please try again.")
+                    }
+                } else {
+                    _state.value = _state.value.copy(error = friendlyAuthError(t))
+                }
+            }
             _state.value = _state.value.copy(loading = false, loadingLabel = "")
         }
     }

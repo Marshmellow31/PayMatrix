@@ -2,11 +2,17 @@
 
 package com.paymatrix.app.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
+import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -922,119 +928,683 @@ private fun AddMemberDialog(snapshot: GroupSnapshot, friends: List<UserProfile>,
     AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Add member") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { Text("SELECT FROM FRIENDS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); if (available.isEmpty()) Text("No available friends. Connect on the Friends page first.", color = MutedText) else available.forEach { friend -> Row(Modifier.fillMaxWidth().clickable { onAdd(friend.uid) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { UserAvatar(friend, 38); Spacer(Modifier.width(10.dp)); Text(friend.name, Modifier.weight(1f)); Icon(Icons.Default.Add, null) } }; HorizontalDivider(color = Hairline); Text("Invite code", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); Text(snapshot.group.inviteCode.chunked(4).joinToString(" "), color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 2.sp) } }, confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text("Done") } })
 }
 
+private data class UpiQrTarget(
+    val uid: String,
+    val name: String,
+    val upiId: String,
+    val amountPaise: Long,
+    val note: String,
+)
+
 @Composable
-private fun SettlementDialog(snapshot: GroupSnapshot, currentUid: String, onDismiss: () -> Unit, onConfirm: (String, String, String) -> Unit) {
-    var payee by remember { mutableStateOf(snapshot.debts.firstOrNull { it.from == currentUid }?.to ?: snapshot.group.members.firstOrNull { it != currentUid }.orEmpty()) }
-    val suggested = snapshot.debts.firstOrNull { it.from == currentUid && it.to == payee }?.amountPaise
-    var amount by remember(suggested) { mutableStateOf(suggested?.let { "%.2f".format(it / 100.0) }.orEmpty()) }
-    var note by remember { mutableStateOf("Settled up") }
+private fun SettlementDialog(
+    snapshot: GroupSnapshot,
+    currentUid: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, String) -> Unit
+) {
     val context = LocalContext.current
+    var view by remember { mutableStateOf("main") } // "main" or "custom"
+    val myDebts = remember(snapshot, currentUid) {
+        snapshot.debts.filter { it.from == currentUid }
+    }
+    val totalOwePaise = remember(myDebts) {
+        myDebts.sumOf { it.amountPaise }
+    }
+    var partialDebtTarget by remember { mutableStateOf<String?>(null) }
+    var partialAmountText by remember { mutableStateOf("") }
+    var qrTarget by remember { mutableStateOf<UpiQrTarget?>(null) }
+
+    val otherMembers = remember(snapshot, currentUid) {
+        snapshot.group.members.filter { it != currentUid }
+    }
+    var customPayee by remember { mutableStateOf(otherMembers.firstOrNull().orEmpty()) }
+    var customAmount by remember { mutableStateOf("") }
+    var customNote by remember { mutableStateOf("Settled up") }
+
+    if (qrTarget != null) {
+        UpiQrModal(
+            target = qrTarget!!,
+            onDismiss = { qrTarget = null },
+            onMarkPaid = { payee, amount, note ->
+                qrTarget = null
+                onConfirm(payee, amount, note)
+            }
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF141416),
         shape = RoundedCornerShape(24.dp),
         title = {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("SETTLE UP", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 0.5.sp)
-                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (view == "custom") {
+                        IconButton(
+                            onClick = { view = "main" },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(Icons.Default.ArrowBack, "Back", tint = Color.White, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    Text(
+                        if (view == "custom") "CUSTOM SETTLEMENT" else "SETTLE UP",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))
+                ) {
                     Icon(Icons.Default.Close, "Close", tint = Color.White, modifier = Modifier.size(16.dp))
                 }
             }
         },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("SELECT PAYEE", color = QuietText, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                val otherMembers = snapshot.group.members.filter { it != currentUid }
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    otherMembers.forEach { uid ->
-                        val isSelected = (payee == uid)
-                        val profile = snapshot.profiles[uid]
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                if (view == "main") {
+                    if (myDebts.isEmpty()) {
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(CircleShape)
+                                    .background(MintGreen.copy(alpha = 0.15f))
+                                    .border(1.dp, MintGreen.copy(alpha = 0.3f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.CheckCircle, null, tint = MintGreen, modifier = Modifier.size(28.dp))
+                            }
+                            Text(
+                                "You are all settled up",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                "You have no outstanding dues in this group.",
+                                color = QuietText,
+                                fontSize = 12.sp
+                            )
+                        }
+                    } else {
+                        // Total You Owe Banner with Settle All button
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(if (isSelected) Color.White else Color.White.copy(alpha = 0.04f))
-                                .border(1.dp, if (isSelected) Color.White else Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
-                                .clickable { payee = uid }
-                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(MintGreen.copy(alpha = 0.10f))
+                                .border(1.dp, MintGreen.copy(alpha = 0.25f), RoundedCornerShape(18.dp))
+                                .padding(16.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                UserAvatar(profile, 30)
-                                Text(
-                                    profile?.name?.substringBefore(' ') ?: "Member",
-                                    color = if (isSelected) Color.Black else Color.White,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 12.sp
-                                )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        "TOTAL YOU OWE",
+                                        color = MintGreen,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.sp,
+                                        letterSpacing = 1.5.sp
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        Money.format(totalOwePaise),
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 24.sp
+                                    )
+                                }
+                                Button(
+                                    onClick = {
+                                        myDebts.forEach { debt ->
+                                            onConfirm(debt.to, "%.2f".format(debt.amountPaise / 100.0), "Settled all dues")
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(100.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                                ) {
+                                    Text("Settle All", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                        }
+
+                        // Informational Disclaimer
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.03f))
+                                .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(12.dp))
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(Icons.Default.Info, null, tint = MintGreen.copy(alpha = 0.7f), modifier = Modifier.size(15.dp))
+                            Text(
+                                "PayMatrix is an informational calculation ledger. Recording a settlement updates your balance but does not execute a bank transfer. Confirm after completing your payment.",
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp
+                            )
+                        }
+
+                        Text(
+                            "RECOMMENDED PAYMENTS",
+                            color = QuietText,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.4.sp,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+
+                        // Debt cards
+                        myDebts.forEach { debt ->
+                            val payeeProfile = snapshot.profiles[debt.to]
+                            val payeeName = payeeProfile?.name ?: "Member"
+                            val hasUpi = !payeeProfile?.upiId.isNullOrBlank()
+                            val isPartialActive = partialDebtTarget == debt.to
+
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color.White.copy(alpha = 0.03f))
+                                    .border(1.dp, Color.White.copy(alpha = 0.07f), RoundedCornerShape(16.dp))
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    UserAvatar(payeeProfile, 38)
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text("You should pay", color = Color.White.copy(alpha = 0.4f), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Text(Money.format(debt.amountPaise), color = Color(0xFFFCA5A5), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                            Text("→", color = Color.White.copy(alpha = 0.3f), fontSize = 12.sp)
+                                            Text(payeeName, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1)
+                                        }
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (hasUpi) MintGreen.copy(alpha = 0.12f) else Color(0xFFF59E0B).copy(alpha = 0.12f))
+                                            .border(1.dp, if (hasUpi) MintGreen.copy(alpha = 0.25f) else Color(0xFFF59E0B).copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                                    ) {
+                                        Text(
+                                            if (hasUpi) "READY" else "NO ID",
+                                            color = if (hasUpi) MintGreen else Color(0xFFFBBF24),
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Black,
+                                            letterSpacing = 1.sp
+                                        )
+                                    }
+                                }
+
+                                if (isPartialActive) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Color.Black.copy(alpha = 0.4f))
+                                            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                                            .padding(10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = partialAmountText,
+                                            onValueChange = { partialAmountText = it.filter { ch -> ch.isDigit() || ch == '.' }.take(12) },
+                                            prefix = { Text("₹", color = MutedText, fontSize = 16.sp) },
+                                            label = { Text("Amount to Pay", fontSize = 11.sp) },
+                                            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold),
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            OutlinedButton(
+                                                onClick = { partialDebtTarget = null },
+                                                modifier = Modifier.weight(1f).height(36.dp),
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(0.dp)
+                                            ) {
+                                                Text("Cancel", fontSize = 11.sp, color = Color.White)
+                                            }
+                                            Button(
+                                                onClick = {
+                                                    val clean = partialAmountText.trim()
+                                                    if (clean.isNotBlank() && (clean.toDoubleOrNull() ?: 0.0) > 0) {
+                                                        onConfirm(debt.to, clean, "Partial settlement")
+                                                        partialDebtTarget = null
+                                                    }
+                                                },
+                                                modifier = Modifier.weight(1f).height(36.dp),
+                                                shape = RoundedCornerShape(8.dp),
+                                                colors = ButtonDefaults.buttonColors(containerColor = MintGreen, contentColor = Color.Black),
+                                                contentPadding = PaddingValues(0.dp)
+                                            ) {
+                                                Text("Confirm", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                partialDebtTarget = debt.to
+                                                partialAmountText = "%.2f".format(debt.amountPaise / 100.0)
+                                            },
+                                            modifier = Modifier.weight(1f).height(36.dp),
+                                            shape = RoundedCornerShape(10.dp),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                                            contentPadding = PaddingValues(0.dp)
+                                        ) {
+                                            Text("Partial", fontSize = 11.sp, color = Color.White)
+                                        }
+                                        Button(
+                                            onClick = {
+                                                onConfirm(debt.to, "%.2f".format(debt.amountPaise / 100.0), "Settled up")
+                                            },
+                                            modifier = Modifier.weight(1f).height(36.dp),
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                                            contentPadding = PaddingValues(0.dp)
+                                        ) {
+                                            Text("Mark Paid", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            qrTarget = UpiQrTarget(
+                                                uid = debt.to,
+                                                name = payeeName,
+                                                upiId = payeeProfile?.upiId.orEmpty(),
+                                                amountPaise = debt.amountPaise,
+                                                note = "Settled up"
+                                            )
+                                        },
+                                        modifier = Modifier.fillMaxWidth().height(40.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (hasUpi) MintGreen.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.04f),
+                                            contentColor = if (hasUpi) MintGreen else Color.White.copy(alpha = 0.4f)
+                                        ),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (hasUpi) MintGreen.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.08f)),
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Icon(Icons.Default.QrCode, null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Pay via UPI / QR", fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                                    }
+                                }
                             }
                         }
                     }
-                }
 
-                Text("AMOUNT", color = QuietText, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' }.take(12) },
-                    prefix = { Text("₹", color = MutedText, fontSize = 22.sp) },
-                    textStyle = LocalTextStyle.current.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White.copy(alpha = 0.06f),
-                        unfocusedContainerColor = Color.White.copy(alpha = 0.04f),
-                        focusedBorderColor = Color.White.copy(alpha = 0.3f),
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+                    // Custom Settlement Entry Link
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color.White.copy(alpha = 0.03f))
+                            .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(14.dp))
+                            .clickable { view = "custom" }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF8B5CF6).copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Tune, null, tint = Color(0xFFA78BFA), modifier = Modifier.size(16.dp))
+                            }
+                            Column {
+                                Text("Custom Settlement", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                                Text("Settle a custom amount with any member", color = QuietText, fontSize = 10.sp)
+                            }
+                        }
+                        Icon(Icons.Default.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
+                    }
+                } else {
+                    // ─── CUSTOM SETTLEMENT VIEW ─────────────────────────────────
+                    Text("SELECT PAYEE", color = QuietText, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        otherMembers.forEach { uid ->
+                            val isSelected = (customPayee == uid)
+                            val profile = snapshot.profiles[uid]
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(if (isSelected) Color.White else Color.White.copy(alpha = 0.04f))
+                                    .border(1.dp, if (isSelected) Color.White else Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                                    .clickable { customPayee = uid }
+                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    UserAvatar(profile, 30)
+                                    Text(
+                                        profile?.name?.substringBefore(' ') ?: "Member",
+                                        color = if (isSelected) Color.Black else Color.White,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Text("AMOUNT", color = QuietText, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                    OutlinedTextField(
+                        value = customAmount,
+                        onValueChange = { customAmount = it.filter { ch -> ch.isDigit() || ch == '.' }.take(12) },
+                        prefix = { Text("₹", color = MutedText, fontSize = 22.sp) },
+                        textStyle = LocalTextStyle.current.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White.copy(alpha = 0.06f),
+                            unfocusedContainerColor = Color.White.copy(alpha = 0.04f),
+                            focusedBorderColor = Color.White.copy(alpha = 0.3f),
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    FormField(customNote, { customNote = it.take(100) }, "Note")
+
+                    val profile = snapshot.profiles[customPayee]
+                    val customPaise = runCatching { Money.toPaise(customAmount) }.getOrDefault(0L)
+                    if (profile != null && !profile.upiId.isNullOrBlank() && customPaise > 0) {
+                        Button(
+                            onClick = {
+                                qrTarget = UpiQrTarget(
+                                    uid = customPayee,
+                                    name = profile.name,
+                                    upiId = profile.upiId,
+                                    amountPaise = customPaise,
+                                    note = customNote
+                                )
+                            },
+                            shape = RoundedCornerShape(100.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MintGreen.copy(alpha = 0.2f), contentColor = MintGreen),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MintGreen.copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.QrCode, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Open UPI / QR Code", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { view = "main" },
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(100.dp)
+                        ) {
+                            Text("Back", color = Color.White)
+                        }
+                        Button(
+                            onClick = { onConfirm(customPayee, customAmount, customNote) },
+                            enabled = customPayee.isNotBlank() && customAmount.isNotBlank() && customPaise > 0,
+                            shape = RoundedCornerShape(100.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                            modifier = Modifier.weight(1.5f).height(46.dp)
+                        ) {
+                            Text("Record Settlement", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {}
+    )
+}
+
+@Composable
+private fun UpiQrModal(
+    target: UpiQrTarget,
+    onDismiss: () -> Unit,
+    onMarkPaid: (String, String, String) -> Unit
+) {
+    val context = LocalContext.current
+    val qrContent = remember(target) {
+        if (target.upiId.isNotBlank()) {
+            UpiLauncher.getUpiString(target.upiId, target.name, target.amountPaise, target.note)
+        } else ""
+    }
+    val qrBitmap = remember(qrContent) {
+        if (qrContent.isNotBlank()) QrCodeHelper.generateQrBitmap(qrContent, 600) else null
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF18181B),
+        shape = RoundedCornerShape(28.dp),
+        title = {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Scan to Pay",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 18.sp
+                )
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))
+                ) {
+                    Icon(Icons.Default.Close, "Close", tint = Color.White, modifier = Modifier.size(16.dp))
+                }
+            }
+        },
+        text = {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = androidx.compose.ui.text.buildAnnotatedString {
+                        append("Pay ")
+                        pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold, color = Color.White))
+                        append(target.name)
+                        pop()
+                        append(" ")
+                        pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Black, color = MintGreen))
+                        append(Money.format(target.amountPaise))
+                        pop()
+                    },
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.7f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
 
-                FormField(note, { note = it.take(100) }, "Note")
-
-                val profile = snapshot.profiles[payee]
-                if (profile != null && !profile.upiId.isNullOrBlank()) {
-                    Button(
-                        onClick = { runCatching { UpiLauncher.pay(context, profile.upiId, profile.name, Money.toPaise(amount), note) } },
-                        shape = RoundedCornerShape(100.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue, contentColor = Color.White),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Pay via UPI App", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Box(
+                    modifier = Modifier
+                        .size(220.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color.White)
+                        .padding(14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (qrBitmap != null) {
+                        Image(
+                            bitmap = qrBitmap.asImageBitmap(),
+                            contentDescription = "UPI QR Code",
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            "No UPI ID available for this member",
+                            color = Color.Black.copy(alpha = 0.6f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
                     }
                 }
 
                 Text(
-                    "PayMatrix is an informational calculation ledger. Recording a settlement here updates your shared balance, but does not execute a bank transfer. Confirm after completing your payment.",
-                    color = QuietText,
-                    fontSize = 10.sp,
-                    lineHeight = 14.sp
+                    "Open any UPI app and scan this code. Or save it to your gallery and use “scan from gallery” in your UPI app.",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 11.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    lineHeight = 15.sp
                 )
+
+                if (target.upiId.isNotBlank()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White.copy(alpha = 0.05f))
+                            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.AlternateEmail, null, tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(14.dp))
+                            Text(
+                                target.upiId,
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 12.sp,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("UPI ID", target.upiId))
+                                Toast.makeText(context, "UPI ID copied!", Toast.LENGTH_SHORT).show()
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.ContentCopy, null, tint = MintGreen, modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Copy", color = MintGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            if (target.upiId.isNotBlank()) {
+                                val launched = UpiLauncher.pay(context, target.upiId, target.name, target.amountPaise, target.note)
+                                if (!launched) {
+                                    Toast.makeText(context, "No UPI app found. Scan or save the QR code instead.", Toast.LENGTH_LONG).show()
+                                }
+                            } else {
+                                Toast.makeText(context, "Recipient has no UPI ID.", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        enabled = target.upiId.isNotBlank(),
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue, contentColor = Color.White),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(Icons.Default.Smartphone, null, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Pay via App", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = {
+                            if (qrBitmap != null) {
+                                val saved = QrCodeHelper.saveQrToGallery(context, qrBitmap, target.name)
+                                if (saved) {
+                                    Toast.makeText(context, "QR saved to Gallery!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Could not save QR.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        enabled = qrBitmap != null,
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MintGreen.copy(alpha = 0.2f), contentColor = MintGreen),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MintGreen.copy(alpha = 0.4f)),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(Icons.Default.Download, null, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Save QR", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        onMarkPaid(target.uid, "%.2f".format(target.amountPaise / 100.0), target.note)
+                    },
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
+                ) {
+                    Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("I Have Paid · Confirm Settlement", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
             }
         },
-        confirmButton = {
-            Button(
-                onClick = { onConfirm(payee, amount, note) },
-                enabled = payee.isNotBlank() && amount.isNotBlank(),
-                shape = RoundedCornerShape(100.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
-                contentPadding = PaddingValues(horizontal = 22.dp, vertical = 10.dp)
-            ) {
-                Text("Record Settlement", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            }
-        },
-        dismissButton = {
-            Button(
-                onClick = onDismiss,
-                shape = RoundedCornerShape(100.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Color.White),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
-            ) {
-                Text("Cancel", fontWeight = FontWeight.Medium, fontSize = 13.sp)
-            }
-        }
+        confirmButton = {},
+        dismissButton = {}
     )
 }
 

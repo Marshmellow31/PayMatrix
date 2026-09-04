@@ -66,6 +66,7 @@ val AccentOrange = Color(0xFFFF7A1A)
 val AccentPink = Color(0xFFF0449A)
 val AccentPurple = Color(0xFF9B6CFF)
 val AccentEmerald = Color(0xFF35D6A0)
+val MintGreen = Color(0xFF35D6A0)
 val ModalSurface = Color(0xFF242424)
 
 fun categoryColor(category: String): Color {

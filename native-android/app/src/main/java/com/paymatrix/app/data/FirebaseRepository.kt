@@ -385,14 +385,18 @@ class FirebaseRepository(
         val groupRef = db.collection("groups").document(expense.groupId)
         val actor = publicProfile(uid).name
         val stamp = FieldValue.serverTimestamp()
-        val changes = mapOf(
+        val currentVersion = (current.get("version") as? Number)?.toLong() ?: 1L
+        val changes = mutableMapOf<String, Any>(
             "title" to draft.title.trim(), "amount" to totalPaise / 100.0, "amountPaise" to totalPaise,
             "splitType" to draft.splitType, "splitData" to draft.splitValues, "participants" to draft.participants,
             "splitUserIds" to splits.map { it.user }, "splits" to splits.map { mapOf("user" to it.user, "amount" to it.amount, "amountPaise" to it.amountPaise) },
             "category" to draft.category.take(50), "notes" to draft.notes.take(500), "date" to draft.date.ifBlank { expense.date }, "updatedAt" to stamp,
-            "version" to ((current.getLong("version") ?: 1L) + 1L), "lastMutationAt" to stamp,
+            "version" to (currentVersion + 1L), "lastMutationAt" to stamp,
             "lastMutationId" to log.id, "lastMutationType" to "expense_updated", "lastEditedBy" to uid,
         )
+        if (draft.paidByName.isNotBlank()) {
+            changes["paidByName"] = draft.paidByName
+        }
         val queued = finishWrite(db.runBatch { batch ->
             batch.update(record, changes)
             batch.set(log, audit("expense_updated", "$actor edited \"${draft.title.trim()}\"", expense.id, expense.groupId, actor, stamp))
@@ -723,7 +727,7 @@ class FirebaseRepository(
 
     private suspend fun publicProfile(userId: String): UserProfile {
         val public = db.collection("publicProfiles").document(userId).get().await()
-        val privateProfile = if (userId == uid) runCatching { db.collection("users").document(userId).get().await() }.getOrNull() else null
+        val privateProfile = runCatching { db.collection("users").document(userId).get().await() }.getOrNull()
         return UserProfile(
             uid = userId,
             name = privateProfile?.getString("name") ?: privateProfile?.getString("displayName") ?: public.getString("name") ?: public.getString("displayName") ?: "Member",
