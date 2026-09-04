@@ -110,6 +110,31 @@ beforeEach(async () => {
   });
 });
 
+describe('verified authentication boundary', () => {
+  test('rejects shared-data access from an unverified password session', async () => {
+    const db = environment
+      .authenticatedContext('member', {
+        email: 'member@example.com',
+        email_verified: false,
+        firebase: { sign_in_provider: 'password', identities: {} },
+      })
+      .firestore();
+    await assertFails(getDoc(doc(db, 'groups', 'group-1')));
+    await assertFails(updateDoc(doc(db, 'users', 'member'), { updatedAt: 'blocked' }));
+  });
+
+  test('allows a verified password session through the existing authorization rules', async () => {
+    const db = environment
+      .authenticatedContext('member', {
+        email: 'member@example.com',
+        email_verified: true,
+        firebase: { sign_in_provider: 'password', identities: {} },
+      })
+      .firestore();
+    await assertSucceeds(getDoc(doc(db, 'groups', 'group-1')));
+  });
+});
+
 after(async () => environment?.cleanup());
 
 describe('PayMatrix Firestore authorization', () => {

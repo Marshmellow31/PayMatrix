@@ -4,11 +4,16 @@ import toast from 'react-hot-toast';
 import accountService from '../services/accountService.js';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { auth } from '../config/firebase.js';
 
 const DeleteAccount = () => {
   const [confirmation, setConfirmation] = useState('');
   const [working, setWorking] = useState(false);
+  const [password, setPassword] = useState('');
   const user = useSelector((state) => state.auth.user);
+  const usesPassword = auth.currentUser?.providerData?.some(
+    (provider) => provider.providerId === 'password'
+  );
 
   if (!user) {
     return (
@@ -16,8 +21,8 @@ const DeleteAccount = () => {
         <div className="mx-auto max-w-xl space-y-6 rounded-3xl border border-white/10 bg-white/[0.02] p-8 text-center">
           <h1 className="text-3xl font-black">Delete your PayMatrix account</h1>
           <p className="text-sm leading-6 text-white/50">
-            Sign in with the Google account you use for PayMatrix. You can then export your data and
-            permanently delete the account after reauthentication.
+            Sign in with the Google account or verified email you use for paymatrix. You can then
+            export your data and permanently delete the account after reauthentication.
           </p>
           <Link
             to="/login?returnTo=%2Fdelete-account"
@@ -51,7 +56,7 @@ const DeleteAccount = () => {
     if (confirmation !== 'DELETE') return;
     setWorking(true);
     try {
-      await accountService.deleteMyAccount();
+      await accountService.deleteMyAccount(password);
       localStorage.clear();
       window.location.replace('/login?deleted=1');
     } catch (error) {
@@ -91,6 +96,24 @@ const DeleteAccount = () => {
         </button>
 
         <div className="space-y-3">
+          {usesPassword && (
+            <>
+              <label
+                htmlFor="delete-password"
+                className="text-xs font-bold uppercase tracking-widest text-white/50"
+              >
+                Current password
+              </label>
+              <input
+                id="delete-password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                className="h-14 w-full rounded-2xl border border-white/10 bg-black px-4 text-white outline-none focus:border-red-500/50"
+              />
+            </>
+          )}
           <label
             htmlFor="delete-confirmation"
             className="text-xs font-bold uppercase tracking-widest text-white/50"
@@ -106,7 +129,7 @@ const DeleteAccount = () => {
           />
           <button
             onClick={removeAccount}
-            disabled={working || confirmation !== 'DELETE'}
+            disabled={working || confirmation !== 'DELETE' || (usesPassword && !password)}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500 py-4 text-sm font-black text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-30"
           >
             <Trash2 size={17} /> {working ? 'Working…' : 'Permanently delete account'}

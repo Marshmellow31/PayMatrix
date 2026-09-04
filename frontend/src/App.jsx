@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onIdTokenChanged } from 'firebase/auth';
 import { auth, db } from './config/firebase.js';
 import { setUser } from './redux/authSlice.js';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
@@ -126,8 +126,21 @@ function App() {
     let _unsubscribeProfile = null;
     let _unsubscribeNotifs = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribeAuth = onIdTokenChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
+        const passwordUser = firebaseUser.providerData?.some(
+          (provider) => provider.providerId === 'password'
+        );
+        if (passwordUser && !firebaseUser.emailVerified) {
+          if (_unsubscribeProfile) _unsubscribeProfile();
+          if (_unsubscribeNotifs) _unsubscribeNotifs();
+          _unsubscribeProfile = null;
+          _unsubscribeNotifs = null;
+          dispatch(setUser(null));
+          dispatch(setNotifications([]));
+          setInitializing(false);
+          return;
+        }
         _unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
           if (docSnap.exists()) {
             const userData = serializeFirestoreData({
@@ -207,7 +220,9 @@ function App() {
 
   return (
     <>
-      {!nativeRuntime && location.pathname !== '/' && <InstallPrompt />}
+      {!nativeRuntime && !['/', '/login', '/register'].includes(location.pathname) && (
+        <InstallPrompt />
+      )}
       {!nativeRuntime && <PwaUpdatePrompt />}
       <Suspense
         fallback={

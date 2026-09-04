@@ -1,6 +1,7 @@
 import {
   deleteUser,
   GoogleAuthProvider,
+  EmailAuthProvider,
   reauthenticateWithCredential,
   reauthenticateWithPopup,
 } from 'firebase/auth';
@@ -19,7 +20,15 @@ import { auth, db } from '../config/firebase.js';
 import { isNativeRuntime, signInWithGoogleNative } from '#paymatrix-runtime';
 import fcmService from './fcmService.js';
 
-const reauthenticate = async (user) => {
+const reauthenticate = async (user, password = '') => {
+  const usesPassword = user.providerData.some(
+    (provider) => provider.providerId === EmailAuthProvider.PROVIDER_ID
+  );
+  if (usesPassword) {
+    if (!password) throw new Error('Enter your current password to delete this account.');
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+    return;
+  }
   if (isNativeRuntime()) {
     const result = await signInWithGoogleNative();
     const credential = GoogleAuthProvider.credential(
@@ -105,10 +114,10 @@ const accountService = {
     );
   },
 
-  deleteMyAccount: async () => {
+  deleteMyAccount: async (password = '') => {
     const user = auth.currentUser;
     if (!user) throw new Error('Sign in before deleting your account.');
-    await reauthenticate(user);
+    await reauthenticate(user, password);
     await fcmService.deleteToken();
 
     const userRef = doc(db, 'users', user.uid);

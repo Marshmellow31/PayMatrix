@@ -41,6 +41,7 @@ data class PayMatrixState(
     val loadingLabel: String = "",
     val message: String? = null,
     val error: String? = null,
+    val verificationEmail: String = "",
 )
 
 @OptIn(FlowPreview::class)
@@ -62,15 +63,55 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
     fun clearFeedback() { _state.value = _state.value.copy(message = null, error = null) }
 
     fun refreshSession() = action("Loading your account") {
-        val user = container.auth.currentUser?.let { container.auth.profile(it.uid) }
-        _state.value = _state.value.copy(user = user)
+        val user = container.auth.currentVerifiedProfile()
+        _state.value = _state.value.copy(user = user, verificationEmail = if (user == null) container.auth.pendingVerificationEmail() else "")
         if (user != null) { container.repository.watchPendingWrites(); refreshHomeInternal(); startHomeRealtime() }
     }
 
     fun signIn(context: Context, webClientId: String) = action("Signing in") {
         val profile = container.auth.signInWithGoogle(context, webClientId)
-        _state.value = _state.value.copy(user = profile, message = "Welcome, ${profile.name}")
+        _state.value = _state.value.copy(user = profile, verificationEmail = "", message = "Welcome, ${profile.name}")
         container.repository.watchPendingWrites(); refreshHomeInternal(); startHomeRealtime()
+    }
+
+    fun createEmailAccount(name: String, email: String, password: String) = action("Creating account") {
+        val address = container.auth.createEmailAccount(name, email, password)
+        _state.value = _state.value.copy(user = null, verificationEmail = address, message = "Verification email sent")
+    }
+
+    fun signInWithEmail(email: String, password: String) = action("Signing in") {
+        val profile = container.auth.signInWithEmail(email, password)
+        if (profile == null) {
+            _state.value = _state.value.copy(user = null, verificationEmail = container.auth.pendingVerificationEmail(), message = "Verify your email to continue")
+        } else {
+            _state.value = _state.value.copy(user = profile, verificationEmail = "", message = "Welcome, ${profile.name}")
+            container.repository.watchPendingWrites(); refreshHomeInternal(); startHomeRealtime()
+        }
+    }
+
+    fun checkEmailVerification() = action("Checking email") {
+        val profile = container.auth.refreshEmailVerification()
+        if (profile == null) {
+            _state.value = _state.value.copy(verificationEmail = container.auth.pendingVerificationEmail(), message = "Not verified yet")
+        } else {
+            _state.value = _state.value.copy(user = profile, verificationEmail = "", message = "Email verified")
+            container.repository.watchPendingWrites(); refreshHomeInternal(); startHomeRealtime()
+        }
+    }
+
+    fun resendEmailVerification() = action("Sending email") {
+        val address = container.auth.resendEmailVerification()
+        _state.value = _state.value.copy(verificationEmail = address, message = "Verification email resent")
+    }
+
+    fun sendPasswordReset(email: String) = action("Sending reset email") {
+        container.auth.sendPasswordReset(email)
+        _state.value = _state.value.copy(message = "If that address has an account, a reset email is on its way")
+    }
+
+    fun useAnotherAccount(context: Context) = action("Signing out") {
+        container.auth.signOut(context)
+        _state.value = PayMatrixState()
     }
 
     fun signOut(context: Context, done: () -> Unit = {}) = action("Signing out") {
@@ -80,8 +121,16 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
         done()
     }
 
-    fun deleteAccount(context: Context, webClientId: String, done: () -> Unit) = action("Deleting your account") {
-        container.auth.deleteAccount(context, webClientId)
+    fun usesPasswordProvider(): Boolean = container.auth.usesPasswordProvider()
+
+    fun linkEmailPassword(password: String, done: () -> Unit = {}) = action("Adding email sign-in") {
+        container.auth.linkEmailPassword(password)
+        _state.value = _state.value.copy(message = "Email sign-in added without changing your account")
+        done()
+    }
+
+    fun deleteAccount(context: Context, webClientId: String, password: String = "", done: () -> Unit) = action("Deleting your account") {
+        container.auth.deleteAccount(context, webClientId, password)
         _state.value = PayMatrixState(message = "Account deleted")
         done()
     }

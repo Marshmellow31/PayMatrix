@@ -26,6 +26,7 @@ const initialState = {
   user: user,
   loading: false,
   error: null,
+  pendingVerificationEmail: null,
 };
 
 // Google Auth
@@ -38,6 +39,63 @@ export const googleLogin = createAsyncThunk('auth/googleLogin', async (_, thunkA
     return thunkAPI.rejectWithValue(error.message || 'Google Auth failed');
   }
 });
+
+export const registerWithEmail = createAsyncThunk(
+  'auth/registerWithEmail',
+  async (details, thunkAPI) => {
+    try {
+      return await authService.registerWithEmail(details);
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || 'Account creation failed');
+    }
+  }
+);
+
+export const emailLogin = createAsyncThunk('auth/emailLogin', async (details, thunkAPI) => {
+  try {
+    const result = await authService.signInWithEmail(details);
+    if (result.user) localStorage.setItem('paymatrix_user', JSON.stringify(result.user));
+    return result;
+  } catch (error) {
+    return thunkAPI.rejectWithValue(error.message || 'Email sign-in failed');
+  }
+});
+
+export const confirmEmailVerification = createAsyncThunk(
+  'auth/confirmEmailVerification',
+  async (_, thunkAPI) => {
+    try {
+      const result = await authService.refreshEmailVerification();
+      if (result.user) localStorage.setItem('paymatrix_user', JSON.stringify(result.user));
+      return result;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || 'Could not confirm email verification');
+    }
+  }
+);
+
+export const resendEmailVerification = createAsyncThunk(
+  'auth/resendEmailVerification',
+  async (_, thunkAPI) => {
+    try {
+      return await authService.resendEmailVerification();
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || 'Could not resend verification email');
+    }
+  }
+);
+
+export const requestPasswordReset = createAsyncThunk(
+  'auth/requestPasswordReset',
+  async (email, thunkAPI) => {
+    try {
+      await authService.sendPasswordReset(email);
+      return true;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || 'Could not send password reset email');
+    }
+  }
+);
 
 // Get current user (sync with firestore)
 export const getMe = createAsyncThunk('auth/getMe', async (_, thunkAPI) => {
@@ -102,6 +160,7 @@ const authSlice = createSlice({
       const userData = action.payload;
       if (userData && userData.uid && !userData._id) userData._id = userData.uid;
       state.user = userData;
+      if (userData) state.pendingVerificationEmail = null;
       localStorage.setItem('paymatrix_user', JSON.stringify(userData));
     },
   },
@@ -115,8 +174,75 @@ const authSlice = createSlice({
       .addCase(googleLogin.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
+        state.pendingVerificationEmail = null;
       })
       .addCase(googleLogin.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(registerWithEmail.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(registerWithEmail.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = null;
+        state.pendingVerificationEmail = action.payload.email;
+      })
+      .addCase(registerWithEmail.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(emailLogin.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(emailLogin.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload.user || null;
+        state.pendingVerificationEmail = action.payload.verificationRequired
+          ? action.payload.email
+          : null;
+      })
+      .addCase(emailLogin.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(confirmEmailVerification.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(confirmEmailVerification.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload.user || null;
+        state.pendingVerificationEmail = action.payload.verificationRequired
+          ? action.payload.email
+          : null;
+      })
+      .addCase(confirmEmailVerification.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(resendEmailVerification.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(resendEmailVerification.fulfilled, (state, action) => {
+        state.loading = false;
+        state.pendingVerificationEmail = action.payload.email;
+      })
+      .addCase(resendEmailVerification.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(requestPasswordReset.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(requestPasswordReset.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(requestPasswordReset.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })

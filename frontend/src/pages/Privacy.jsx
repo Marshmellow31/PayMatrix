@@ -27,12 +27,21 @@ const Privacy = () => (
       </Section>
       <Section title="Data we store">
         <p>
-          Account data can include your name, email address, Firebase user ID, Google profile photo,
-          friend relationships, group membership, UPI ID, notification tokens and preferences.
+          Account data can include your name, email address, Firebase user ID, optional Google
+          profile photo, authentication provider, friend relationships, group membership, UPI ID,
+          notification tokens and preferences.
         </p>
         <p>
           Financial records can include expense titles, amounts, categories, dates, participants,
           split details, settlement records, notes, audit history, and personal log entries.
+        </p>
+      </Section>
+      <Section title="Authentication emails">
+        <p>
+          If you choose email and password, Firebase Authentication sends address-verification and
+          password-reset emails on paymatrix&apos;s behalf. Firebase handles your password;
+          paymatrix does not receive or store it. An email account cannot access shared app data
+          until its address is verified.
         </p>
       </Section>
       <Section title="How data is used">
@@ -81,8 +90,8 @@ const Privacy = () => (
         <p>
           Traffic uses HTTPS in production, access is restricted by Firebase Authentication and
           Firestore rules, and Android backups are disabled. No system can guarantee that an attack
-          is impossible. Keep your device and Google account secure, review transaction edits, and
-          report suspected abuse.
+          is impossible. Keep your device, email inbox, password, and linked Google account secure,
+          review transaction edits, and report suspected abuse.
         </p>
         <p>
           Push notifications are optional and requested only after you enable them. You may also

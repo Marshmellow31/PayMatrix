@@ -30,16 +30,17 @@ const Terms = () => (
         </p>
       </Section>
 
-      <Section title="2. Account Registration & Google Authentication">
+      <Section title="2. Account Registration & Authentication">
         <p>
-          You must authenticate via Google Sign-In to use PayMatrix. By registering, you authorize
-          PayMatrix to access basic profile details (your display name, email address, and profile
-          photo) solely for the purpose of creating your account, displaying your identity to
-          members of groups you join, and securing your sessions.
+          You must authenticate through Firebase Authentication using Google Sign-In or a verified
+          email address and password. paymatrix uses your name, email address, and optional provider
+          profile photo solely to create your account, identify you to members of groups you join,
+          and secure your sessions.
         </p>
         <p>
-          You are responsible for maintaining the security of your device and Google account. You
-          agree to notify us immediately of any unauthorized access or security breach.
+          Firebase handles passwords; paymatrix does not receive or store them. You are responsible
+          for maintaining the security of your device, linked account, and email inbox. You agree to
+          notify us immediately of unauthorized access or a security breach.
         </p>
       </Section>
 

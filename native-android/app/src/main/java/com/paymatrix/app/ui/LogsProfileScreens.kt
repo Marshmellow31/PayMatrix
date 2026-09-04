@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -341,6 +342,8 @@ fun ProfileScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
     val context = LocalContext.current
     var edit by remember { mutableStateOf(false) }
     var signOut by remember { mutableStateOf(false) }
+    var addPassword by remember { mutableStateOf(false) }
+    var newPassword by remember { mutableStateOf("") }
     var exportContent by remember { mutableStateOf<String?>(null) }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let { target -> exportContent?.let { content -> context.contentResolver.openOutputStream(target)?.use { it.write(content.toByteArray()) } } } }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) vm.enablePush(context) }
@@ -379,6 +382,24 @@ fun ProfileScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
                     )
+                }
+            }
+        }
+
+        if (!vm.usesPasswordProvider() && !state.user?.email.isNullOrBlank()) item {
+            ObsidianCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(Positive.copy(alpha = .1f)), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Lock, null, tint = Positive, modifier = Modifier.size(18.dp)) }
+                    Spacer(Modifier.width(11.dp))
+                    Column(Modifier.weight(1f)) { Text("Add email sign-in", color = Color.White, fontWeight = FontWeight.Bold); Text("Add a password to this same UID and data.", color = QuietText, fontSize = 10.sp) }
+                    if (!addPassword) TextButton(onClick = { addPassword = true }) { Text("Add", color = Color.White, fontWeight = FontWeight.Bold) }
+                }
+                if (addPassword) {
+                    FormField(newPassword, { newPassword = it }, "New password · 8+ characters", visualTransformation = PasswordVisualTransformation())
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SecondaryAction("Cancel", { addPassword = false; newPassword = "" }, Modifier.weight(1f))
+                        PrimaryAction("Save", { vm.linkEmailPassword(newPassword) { addPassword = false; newPassword = "" } }, Modifier.weight(1f), enabled = newPassword.length >= 8)
+                    }
                 }
             }
         }
@@ -613,7 +634,7 @@ fun JoinGroupScreen(code: String, state: PayMatrixState, vm: PayMatrixViewModel,
 fun TermsScreen(nav: NavHostController) {
     val sections = listOf(
         "1. Nature of the Service" to "PayMatrix is an informational calculation ledger and debt-simplification tool. PayMatrix is NOT a bank, payment processor, or money transmitter and never holds or moves money.",
-        "2. Google Authentication" to "Authentication uses Google Sign-In via AndroidX Credential Manager. PayMatrix accesses only your basic name, email, and avatar to identify you within groups.",
+        "2. Authentication" to "Firebase Authentication supports Google Sign-In or verified email and password. Firebase handles passwords; paymatrix never receives or stores them. Basic name, email, and optional avatar identify you within groups.",
         "3. Group Ledgers & Balances" to "Debt simplification calculations are automated suggestions based on user-entered splits. All entries must be accurate and agreed upon by group members.",
         "4. UPI Settlements" to "UPI QR generation and 'Mark Paid' are peer-to-peer user confirmations. Recording a payment does not execute or verify a bank transfer.",
         "5. AI Receipt OCR" to "Receipt photos are ephemerally processed via Google Gemini AI without persistent storage in Firestore.",
@@ -638,6 +659,7 @@ fun PrivacyScreen(nav: NavHostController) {
     val sections = listOf(
         "What paymatrix is" to "paymatrix helps people record shared expenses, balances, settlements, friend connections, and personal spending logs.",
         "Data we store" to "Firebase stores your profile, groups, expenses, settlements, friend relationships, notifications, push-token records, and audit history required by the product.",
+        "Authentication emails" to "For email accounts, Firebase sends address-verification and password-reset emails on paymatrix's behalf. Shared app data stays unavailable until the address is verified.",
         "Receipt scanning and AI" to "A selected receipt image is sent to the protected scanner endpoint for extraction. Review the returned merchant, amount, date, and items before saving.",
         "Payments" to "paymatrix can open an installed UPI app, but it cannot prove a transfer completed. A settlement enters the ledger only after you explicitly confirm it.",
         "Retention and deletion" to "Account deletion immediately anonymizes your profile and creates a delayed-deletion request so shared financial history remains intelligible to other group members.",
@@ -650,7 +672,7 @@ fun PrivacyScreen(nav: NavHostController) {
 
 @Composable
 fun DeleteAccountScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
-    val context = LocalContext.current; val clientId = stringResource(R.string.default_web_client_id); var phrase by remember { mutableStateOf("") }; var confirm by remember { mutableStateOf(false) }
-    Scaffold(containerColor = CanvasBlack, topBar = { BackBar("Delete account", nav) }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) { PageTitle("Delete your paymatrix account", "This is a destructive privacy workflow"); ObsidianCard { Text("What happens", color = Color.White, fontWeight = FontWeight.Bold); Text("Your profile is anonymized, friend code removed, this device's push token deleted, and a delayed backend cleanup request is created. Shared group records remain as Deleted user so other members' ledgers stay valid.", color = MutedText, lineHeight = 20.sp) }; FormField(phrase, { phrase = it }, "Type DELETE to continue"); PrimaryAction("Delete my account", { confirm = true }, Modifier.fillMaxWidth(), enabled = phrase == "DELETE"); SecondaryAction("Cancel", { nav.popBackStack() }, Modifier.fillMaxWidth()) } }
-    if (confirm) ConfirmDialog("Final confirmation", "Google will ask you to reauthenticate. After that, your profile is anonymized and Firebase Authentication account deleted.", "Delete forever", { confirm = false }, destructive = true) { vm.deleteAccount(context, clientId) { confirm = false; nav.navigate("login") { popUpTo(0) } } }
+    val context = LocalContext.current; val clientId = stringResource(R.string.default_web_client_id); var phrase by remember { mutableStateOf("") }; var password by remember { mutableStateOf("") }; var confirm by remember { mutableStateOf(false) }; val usesPassword = vm.usesPasswordProvider()
+    Scaffold(containerColor = CanvasBlack, topBar = { BackBar("Delete account", nav) }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) { PageTitle("Delete your paymatrix account", "This is a destructive privacy workflow"); ObsidianCard { Text("What happens", color = Color.White, fontWeight = FontWeight.Bold); Text("Your profile is anonymized, friend code removed, this device's push token deleted, and a delayed backend cleanup request is created. Shared group records remain as Deleted user so other members' ledgers stay valid.", color = MutedText, lineHeight = 20.sp) }; if (usesPassword) FormField(password, { password = it }, "Current password", visualTransformation = PasswordVisualTransformation()); FormField(phrase, { phrase = it }, "Type DELETE to continue"); PrimaryAction("Delete my account", { confirm = true }, Modifier.fillMaxWidth(), enabled = phrase == "DELETE" && (!usesPassword || password.isNotBlank())); SecondaryAction("Cancel", { nav.popBackStack() }, Modifier.fillMaxWidth()) } }
+    if (confirm) ConfirmDialog("Final confirmation", if (usesPassword) "Your password will be verified. Then your profile is anonymized and Firebase Authentication account deleted." else "Google will ask you to reauthenticate. Then your profile is anonymized and Firebase Authentication account deleted.", "Delete forever", { confirm = false }, destructive = true) { vm.deleteAccount(context, clientId, password) { confirm = false; nav.navigate("login") { popUpTo(0) } } }
 }

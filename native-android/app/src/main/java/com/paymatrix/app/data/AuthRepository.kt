@@ -8,6 +8,7 @@ import androidx.credentials.GetCredentialRequest
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FieldValue
@@ -24,7 +25,73 @@ class AuthRepository(
     suspend fun signInWithGoogle(context: Context, webClientId: String): UserProfile {
         val credential = googleCredential(context, webClientId)
         val result = auth.signInWithCredential(credential).await()
-        val firebaseUser = result.user ?: error("Firebase authentication did not return a user.")
+        return completeSignIn(result.user ?: error("Firebase authentication did not return a user."))
+    }
+
+    suspend fun createEmailAccount(name: String, email: String, password: String): String {
+        val cleanName = name.trim()
+        require(cleanName.isNotEmpty() && cleanName.length <= 50) { "Name must be 1–50 characters." }
+        require(password.length >= 8) { "Password must be at least 8 characters." }
+        val result = auth.createUserWithEmailAndPassword(email.trim().lowercase(), password).await()
+        val user = result.user ?: error("Firebase authentication did not return a user.")
+        user.updateProfile(com.google.firebase.auth.UserProfileChangeRequest.Builder().setDisplayName(cleanName).build()).await()
+        user.sendEmailVerification().await()
+        return user.email.orEmpty()
+    }
+
+    suspend fun signInWithEmail(email: String, password: String): UserProfile? {
+        val result = auth.signInWithEmailAndPassword(email.trim().lowercase(), password).await()
+        val user = result.user ?: error("Firebase authentication did not return a user.")
+        user.reload().await()
+        val refreshed = auth.currentUser ?: error("Authentication session expired.")
+        return if (needsEmailVerification(refreshed)) null else completeSignIn(refreshed)
+    }
+
+    suspend fun currentVerifiedProfile(): UserProfile? {
+        val user = currentUser ?: return null
+        // Firebase persists the verified flag with the local auth session. Avoid a
+        // network reload here so an already verified member can still open the app
+        // offline; the explicit verification action below performs the fresh check.
+        return if (needsEmailVerification(user)) null else profile(user.uid)
+    }
+
+    suspend fun refreshEmailVerification(): UserProfile? {
+        val user = currentUser ?: error("Sign in with your email and password first.")
+        user.reload().await()
+        val refreshed = currentUser ?: error("Authentication session expired.")
+        return if (needsEmailVerification(refreshed)) null else completeSignIn(refreshed)
+    }
+
+    suspend fun resendEmailVerification(): String {
+        val user = currentUser ?: error("Sign in with your email and password first.")
+        require(needsEmailVerification(user)) { "This email is already verified." }
+        user.sendEmailVerification().await()
+        return user.email.orEmpty()
+    }
+
+    suspend fun sendPasswordReset(email: String) {
+        require(email.isNotBlank()) { "Enter your email address first." }
+        auth.sendPasswordResetEmail(email.trim().lowercase()).await()
+    }
+
+    fun pendingVerificationEmail(): String = currentUser?.takeIf(::needsEmailVerification)?.email.orEmpty()
+
+    fun usesPasswordProvider(): Boolean = currentUser?.providerData?.any { it.providerId == EmailAuthProvider.PROVIDER_ID } == true
+
+    suspend fun linkEmailPassword(password: String) {
+        val user = currentUser ?: error("Sign in before adding an email password.")
+        require(!usesPasswordProvider()) { "Email password is already enabled for this account." }
+        require(password.length >= 8) { "Password must be at least 8 characters." }
+        val email = user.email ?: error("This account does not have an email address.")
+        user.linkWithCredential(EmailAuthProvider.getCredential(email, password)).await()
+    }
+
+    private fun needsEmailVerification(user: FirebaseUser): Boolean =
+        user.providerData.any { it.providerId == EmailAuthProvider.PROVIDER_ID } && !user.isEmailVerified
+
+    private suspend fun completeSignIn(firebaseUser: FirebaseUser): UserProfile {
+        require(!needsEmailVerification(firebaseUser)) { "Verify your email before opening shared data." }
+        firebaseUser.getIdToken(true).await()
         val userRef = db.collection("users").document(firebaseUser.uid)
         val existing = userRef.get().await()
         val now = java.time.Instant.now().toString()
@@ -98,9 +165,14 @@ class AuthRepository(
         ).await()
     }
 
-    suspend fun deleteAccount(context: Context, webClientId: String) {
+    suspend fun deleteAccount(context: Context, webClientId: String, password: String = "") {
         val user = currentUser ?: error("Sign in before deleting your account.")
-        user.reauthenticate(googleCredential(context, webClientId)).await()
+        if (usesPasswordProvider()) {
+            require(password.isNotBlank()) { "Enter your current password to delete this account." }
+            user.reauthenticate(EmailAuthProvider.getCredential(user.email.orEmpty(), password)).await()
+        } else {
+            user.reauthenticate(googleCredential(context, webClientId)).await()
+        }
         runCatching { db.collection("users").document(user.uid).collection("pushTokens").document(installationId(context)).delete().await() }
         val userRef = db.collection("users").document(user.uid)
         val profile = userRef.get().await()
