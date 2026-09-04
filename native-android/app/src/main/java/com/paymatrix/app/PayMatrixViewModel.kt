@@ -340,7 +340,7 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
                 if (t is androidx.credentials.exceptions.GetCredentialCancellationException) {
                     val msg = t.message.orEmpty()
                     if (msg.contains("reauth", ignoreCase = true) || msg.contains("16")) {
-                        _state.value = _state.value.copy(error = "Google sign-in was interrupted. Please try again.")
+                        _state.value = _state.value.copy(error = "Google Sign-In was interrupted ($msg). Please try again.")
                     }
                 } else {
                     _state.value = _state.value.copy(error = friendlyAuthError(t))

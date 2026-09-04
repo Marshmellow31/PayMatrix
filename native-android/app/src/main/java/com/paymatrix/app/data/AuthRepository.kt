@@ -208,33 +208,9 @@ class AuthRepository(
 
     private suspend fun googleCredential(context: Context, webClientId: String): com.google.firebase.auth.AuthCredential {
         val credentialManager = CredentialManager.create(context)
-        val googleIdOption = GetGoogleIdOption.Builder()
-            .setFilterByAuthorizedAccounts(false)
-            .setServerClientId(webClientId)
-            .setAutoSelectEnabled(false)
-            .build()
-        val request = GetCredentialRequest.Builder()
-            .addCredentialOption(googleIdOption)
-            .build()
-
-        val response = try {
-            credentialManager.getCredential(context, request)
-        } catch (cancellation: androidx.credentials.exceptions.GetCredentialCancellationException) {
-            val msg = cancellation.message.orEmpty()
-            if (msg.contains("reauth", ignoreCase = true) || msg.contains("16")) {
-                runCatching { credentialManager.clearCredentialState(ClearCredentialStateRequest()) }
-                val retryOption = GetSignInWithGoogleOption.Builder(webClientId).build()
-                val retryRequest = GetCredentialRequest.Builder().addCredentialOption(retryOption).build()
-                credentialManager.getCredential(context, retryRequest)
-            } else {
-                throw cancellation
-            }
-        } catch (e: Exception) {
-            runCatching { credentialManager.clearCredentialState(ClearCredentialStateRequest()) }
-            val fallbackOption = GetSignInWithGoogleOption.Builder(webClientId).build()
-            val fallbackRequest = GetCredentialRequest.Builder().addCredentialOption(fallbackOption).build()
-            credentialManager.getCredential(context, fallbackRequest)
-        }
+        val option = GetSignInWithGoogleOption.Builder(webClientId).build()
+        val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
+        val response = credentialManager.getCredential(context, request)
 
         val custom = response.credential as? CustomCredential ?: error("Google did not return an identity credential.")
         val idToken = when (custom.type) {

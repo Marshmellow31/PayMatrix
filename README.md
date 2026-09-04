@@ -27,23 +27,24 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 > **🚀 Coming soon on Google Play!**
 > The modern Native Android app (100% Kotlin & Jetpack Compose) is coming soon to the Google Play Store. You can download and install the production-signed APK or inspect the Play Store `.aab` bundle directly from this repository.
 
-[**🌐 Live Web App**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK v2.1.6**](./native-android/releases/paymatrix-native-2.1.6.apk) · [**📦 Download Google Play AAB Bundle**](./native-android/releases/paymatrix-native-2.1.6.aab)
+[**🌐 Live Web App**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK v2.1.7**](./native-android/releases/paymatrix-native-2.1.7.apk) · [**📦 Download Google Play AAB Bundle**](./native-android/releases/paymatrix-native-2.1.7.aab)
 
-### 📱 Native Android Release (v2.1.6)
+### 📱 Native Android Release (v2.1.7)
 
-- **Version**: `2.1.6` (`versionCode 21006`)
+- **Version**: `2.1.7` (`versionCode 21007`)
 - **Package ID**: `com.paymatrix.app`
-- **Signed APK**: [`paymatrix-native-2.1.6.apk`](./native-android/releases/paymatrix-native-2.1.6.apk)
-  - **SHA-256**: `3EF3A432CA7A3D2E834DFF3664B2610560F9B21B13BC2FC9558ECACD17D80552`
-- **Signed AAB (Google Play)**: [`paymatrix-native-2.1.6.aab`](./native-android/releases/paymatrix-native-2.1.6.aab)
-  - **SHA-256**: `0CF4058CB3F46C569108174A48574A5D17D1E784C9A0585AA70510D380BDA6F5`
-- **What's New in v2.1.6**:
+- **Signed APK**: [`paymatrix-native-2.1.7.apk`](./native-android/releases/paymatrix-native-2.1.7.apk)
+  - **SHA-256**: `4E59863DF0CFC760DD25261B49567B402008752829007ABDA74E4B7F7A8CCF39`
+- **Signed AAB (Google Play)**: [`paymatrix-native-2.1.7.aab`](./native-android/releases/paymatrix-native-2.1.7.aab)
+  - **SHA-256**: `CC3DFECB61865AA7D3F50A79861E500EB6A29ECEC220EE88D63DADA8AA1B3FCA`
+- **What's New in v2.1.7**:
+  - 🔑 **Google Sign-In Reliability**: Restored `GetSignInWithGoogleOption` with auto-linked Google Play App Signing credentials and detailed diagnostic messages.
+  - 🛡️ **Native Debug Symbols**: Configured `debugSymbolLevel = "FULL"` in App Bundle for zero-warning Google Play distribution.
+  - 🎨 **Android 15 Edge-to-Edge**: Modernized system bar styling for Android 15 (API 35+) window inset standards.
   - ✨ **Step-Wise Expense Addition**: Web-parity 2-step flow with Essentials & Category on Step 1, Split Methods, Paid By, and Live Distribution Preview on Step 2.
   - 🔄 **Dynamic Select/Deselect All**: Instant participant toggle with adaptive button label.
   - 💳 **Web-Parity Settle Up**: Total You Owe summary, Settle All, Recommended Payments with Ready/No ID badges, and inline Partial Settlement.
   - 📲 **On-Device UPI QR & App Intent**: High-res ZXing QR generation, Copy UPI ID, Save QR to device gallery, and launch Google Pay / default UPI app.
-  - 🔑 **Google Sign-In Fix**: Bypass email verification for Google authenticated accounts across all devices (e.g. OnePlus, OxygenOS).
-  - 🛠️ **Edit Transaction Fix**: Bulletproof Firestore version type handling and safe audit payload.
 
 ---
 
