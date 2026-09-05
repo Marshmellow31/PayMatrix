@@ -126,7 +126,7 @@ const SystemSettingsCard = ({
         <div className="flex items-center justify-between pt-4">
           <div>
             <p className="text-sm font-bold text-white/80">PayMatrix Version</p>
-            <p className="text-[11px] text-white/30 font-inter">v2.1.0 · Web & PWA Release</p>
+            <p className="text-[11px] text-white/30 font-inter">v2.2.0 · Web & PWA Release</p>
           </div>
           <button
             onClick={onOpenChangelog}

@@ -4,9 +4,21 @@ import { CheckCircle2 } from 'lucide-react';
 
 const releases = [
   {
+    version: '2.2.0',
+    date: 'September 2026',
+    tag: 'Latest Production Release',
+    highlights: [
+      'Full synchronization between web and native Android 2.2.0 workflows.',
+      'All 5 split modes (Equal, Percentage, Exact, Shares, GST Itemized) with remainder preservation.',
+      'Collaborative editing enabled across all group expenses and shared spending logs.',
+      'Optimistic version locking protecting against concurrent edit conflicts.',
+      'Digital Asset Links integration for verified Android App Links domain verification.',
+    ],
+  },
+  {
     version: '2.1.0',
     date: 'August 2026',
-    tag: 'Latest Production Release',
+    tag: 'Production Release',
     highlights: [
       'Native Android Kotlin/Jetpack Compose architecture release.',
       'Google Play targetSdk 36 readiness and Modern AndroidX Credential Manager.',
