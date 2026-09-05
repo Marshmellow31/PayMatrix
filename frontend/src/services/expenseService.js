@@ -241,7 +241,9 @@ const expenseService = {
     const previous = previousSnap.data();
 
     if (data.initialVersion && previous.version && previous.version !== data.initialVersion) {
-      throw new Error('This transaction was modified by another member. Please refresh before saving.');
+      throw new Error(
+        'This transaction was modified by another member. Please refresh before saving.'
+      );
     }
 
     // Re-calculate splits if amount or split configuration changed

@@ -68,8 +68,9 @@ const LogTimeline = ({
               const IconComp = cat?.icon ? getLucideIcon(cat.icon) || Hash : Hash;
               const iconColor = cat?.color || '#919191';
               const isExpense = entry.type === 'expense';
-              const canDelete = true;
-              const canEdit = !isExpense;
+              const isMine = currentUid && entry.addedBy === currentUid;
+              const canDelete = isMine || isOwner;
+              const canEdit = !isExpense && canDelete;
 
               return (
                 <motion.div
