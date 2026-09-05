@@ -36,6 +36,14 @@ data class Split(
     val amount: Double get() = amountPaise / 100.0
 }
 
+data class ExpensePayer(
+    val user: String,
+    val amountPaise: Long,
+    val percent: Double? = null,
+) {
+    val amount: Double get() = amountPaise / 100.0
+}
+
 data class Expense(
     val id: String = "",
     val groupId: String = "",
@@ -45,6 +53,7 @@ data class Expense(
     val currency: String = "INR",
     val paidBy: String = "",
     val paidByName: String = "Member",
+    val payers: List<ExpensePayer> = emptyList(),
     val createdBy: String = "",
     val splitType: String = "equal",
     val participants: List<String> = emptyList(),
@@ -204,6 +213,7 @@ data class ExpenseDraft(
     val date: String = "",
     val paidBy: String = "",
     val paidByName: String = "",
+    val payers: List<ExpensePayer> = emptyList(),
     val initialVersion: Long = 1L,
 )
 

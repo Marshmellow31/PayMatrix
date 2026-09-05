@@ -385,7 +385,7 @@ service cloud.firestore {
                       request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                         'title', 'description', 'amount', 'amountPaise', 'currency', 'date',
                         'splitType', 'splitData', 'participants', 'category', 'attachments',
-                        'notes', 'splits', 'splitUserIds', 'paidBy', 'paidByName', 'status', 'updatedAt',
+                        'notes', 'splits', 'splitUserIds', 'paidBy', 'paidByName', 'payers', 'status', 'updatedAt',
                         'lastMutationAt', 'lastMutationId', 'lastMutationType', 'lastEditedBy', 'version'
                       ]) &&
                       request.resource.data.get('createdBy', request.resource.data.get('admin', '')) == resource.data.get('createdBy', resource.data.get('admin', '')) &&

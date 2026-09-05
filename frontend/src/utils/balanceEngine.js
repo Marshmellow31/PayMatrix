@@ -183,26 +183,50 @@ export const computeGroupBalances = (expenses = [], settlements = [], groupMembe
   // Add from expenses
   for (const expense of expenses) {
     try {
-      const payerId = extractUid(expense.paidBy);
-      if (!payerId || expense.status === 'deleted') continue;
+      if (expense.status === 'deleted') continue;
 
       // Ensure splits exist
       const splits = expense.splits || [];
 
-      splits.forEach((split) => {
-        const splitUserId = extractUid(split.user);
-        if (!splitUserId) return;
+      if (Array.isArray(expense.payers) && expense.payers.length > 0) {
+        // Multi-payer allocation: credit each payer and debit each split participant
+        expense.payers.forEach((payer) => {
+          const payerId = extractUid(payer.user || payer);
+          if (!payerId) return;
+          const payerPaise = Number.isSafeInteger(payer.amountPaise)
+            ? payer.amountPaise
+            : toPaise(payer.amount || 0);
+          netBalances[payerId] = (netBalances[payerId] || 0) + payerPaise;
+        });
 
-        const splitPaise = Number.isSafeInteger(split.amountPaise)
-          ? split.amountPaise
-          : toPaise(split.amount || 0);
-
-        // The person who paid is owed back
-        if (payerId !== splitUserId) {
-          netBalances[payerId] = (netBalances[payerId] || 0) + splitPaise;
+        splits.forEach((split) => {
+          const splitUserId = extractUid(split.user);
+          if (!splitUserId) return;
+          const splitPaise = Number.isSafeInteger(split.amountPaise)
+            ? split.amountPaise
+            : toPaise(split.amount || 0);
           netBalances[splitUserId] = (netBalances[splitUserId] || 0) - splitPaise;
-        }
-      });
+        });
+      } else {
+        // Legacy single payer
+        const payerId = extractUid(expense.paidBy);
+        if (!payerId) continue;
+
+        splits.forEach((split) => {
+          const splitUserId = extractUid(split.user);
+          if (!splitUserId) return;
+
+          const splitPaise = Number.isSafeInteger(split.amountPaise)
+            ? split.amountPaise
+            : toPaise(split.amount || 0);
+
+          // The person who paid is owed back
+          if (payerId !== splitUserId) {
+            netBalances[payerId] = (netBalances[payerId] || 0) + splitPaise;
+            netBalances[splitUserId] = (netBalances[splitUserId] || 0) - splitPaise;
+          }
+        });
+      }
     } catch (err) {
       console.error('Error processing expense for balance:', err, expense);
     }

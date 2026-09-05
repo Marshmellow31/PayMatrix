@@ -4,9 +4,22 @@ import { CheckCircle2 } from 'lucide-react';
 
 const releases = [
   {
-    version: '2.2.0',
+    version: '2.2.1',
     date: 'September 2026',
     tag: 'Latest Production Release',
+    highlights: [
+      'Multi-payer expense engine: divide paid amount equally or unequally (₹ Exact / % Percent) among multiple payers.',
+      '3-step expense creation workflow with snug header and pinned action controls.',
+      'Distinct colored category icons with centered titles and boxed amount display card.',
+      'Horizontally swipeable 3-row avatar selection grids for both payers and split participants.',
+      'Universal Google avatar propagation to users, publicProfiles, and friendCodes protecting custom uploads.',
+      'Hardened GST Itemized calculation with safe numeric parsing preventing crash states.',
+    ],
+  },
+  {
+    version: '2.2.0',
+    date: 'September 2026',
+    tag: 'Production Release',
     highlights: [
       'Full synchronization between web and native Android 2.2.0 workflows.',
       'All 5 split modes (Equal, Percentage, Exact, Shares, GST Itemized) with remainder preservation.',

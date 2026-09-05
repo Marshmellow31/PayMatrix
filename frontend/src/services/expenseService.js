@@ -172,13 +172,24 @@ const expenseService = {
     // Sanitize and Validate input
     const cleanData = sanitizationService.sanitizeObject(data);
 
+    const effectivePaidBy =
+      Array.isArray(data.payers) && data.payers.length > 0
+        ? data.payers[0].user || data.paidBy || currentUid
+        : data.paidBy || currentUid;
+    const effectivePaidByName = data.paidByName || (await getStoredName(effectivePaidBy, 'Member'));
+    const payers =
+      Array.isArray(data.payers) && data.payers.length > 0
+        ? data.payers
+        : [{ user: effectivePaidBy, amount, amountPaise: toPaise(data.amount), percent: 100 }];
+
     const payload = clean({
       ...cleanData,
       amount,
       amountPaise: toPaise(data.amount),
       groupId,
-      paidBy: currentUid,
-      paidByName: 'Member',
+      paidBy: effectivePaidBy,
+      paidByName: effectivePaidByName,
+      payers,
       splits,
       splitUserIds: splits.map((split) => split.user),
       admin: currentUid,
@@ -261,6 +272,9 @@ const expenseService = {
       effectivePaidByName = data.paidByName || (await getStoredName(data.paidBy, 'Member'));
     }
 
+    const effectivePayers =
+      Array.isArray(data.payers) && data.payers.length > 0 ? data.payers : previous.payers || [];
+
     const payload = clean({
       title: data.title,
       description: data.description,
@@ -270,6 +284,7 @@ const expenseService = {
       date: data.date,
       paidBy: effectivePaidBy,
       paidByName: effectivePaidByName,
+      payers: effectivePayers,
       splitType: data.splitType,
       splitData: data.splitData || {},
       participants: data.participants || [],

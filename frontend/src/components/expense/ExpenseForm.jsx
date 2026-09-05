@@ -51,6 +51,9 @@ const ExpenseForm = ({
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [participants, setParticipants] = useState([]); // Array of user IDs
+  const [selectedPayers, setSelectedPayers] = useState([]); // Array of payer user IDs
+  const [payerDivisionMode, setPayerDivisionMode] = useState('equal'); // 'equal' | 'exact' | 'percentage'
+  const [payerValues, setPayerValues] = useState({}); // { [uid]: string }
   const [splitType, setSplitType] = useState('equal');
   const [splitData, setSplitData] = useState({
     percentages: {},
@@ -91,6 +94,30 @@ const ExpenseForm = ({
         notes: initialData.notes || prev.notes,
       }));
       setSplitType(initialData.splitType || 'equal');
+
+      if (initialData.payers && initialData.payers.length > 0) {
+        setSelectedPayers(initialData.payers.map((p) => (p.user?._id || p.user || '').toString()));
+        if (initialData.payers.some((p) => p.percent != null)) {
+          setPayerDivisionMode('percentage');
+        } else {
+          const firstAmt = initialData.payers[0].amountPaise;
+          const allEq = initialData.payers.every((p) => p.amountPaise === firstAmt);
+          setPayerDivisionMode(allEq ? 'equal' : 'exact');
+        }
+        const pVals = {};
+        initialData.payers.forEach((p) => {
+          const uid = (p.user?._id || p.user || '').toString();
+          pVals[uid] =
+            p.percent != null
+              ? p.percent.toString()
+              : p.amount != null
+                ? p.amount.toString()
+                : (p.amountPaise / 100).toFixed(2);
+        });
+        setPayerValues(pVals);
+      } else if (initialData.paidBy) {
+        setSelectedPayers([(initialData.paidBy?._id || initialData.paidBy).toString()]);
+      }
 
       // Hydrate participants from splits ONLY if they aren't already set or if it's the first run
       const splits = initialData.splits || [];
@@ -330,10 +357,61 @@ const ExpenseForm = ({
 
     setIsSubmitting(true);
     try {
+      const totalAmountVal = parseFloat(form.amount || 0);
+      const totalPaiseVal = Math.round(totalAmountVal * 100);
+      const activePayers = selectedPayers.filter(Boolean);
+      let calculatedPayers = [];
+      if (activePayers.length <= 1) {
+        const singleUid = activePayers[0] || form.paidBy || user?._id || '';
+        calculatedPayers = [
+          {
+            user: singleUid,
+            amount: totalAmountVal,
+            amountPaise: totalPaiseVal,
+            percent: 100,
+          },
+        ];
+      } else if (payerDivisionMode === 'equal') {
+        const perPerson = Math.floor(totalPaiseVal / activePayers.length);
+        const rem = totalPaiseVal % activePayers.length;
+        calculatedPayers = activePayers.map((uid, idx) => {
+          const amtPaise = perPerson + (idx < rem ? 1 : 0);
+          return {
+            user: uid,
+            amount: amtPaise / 100,
+            amountPaise: amtPaise,
+            percent: 100 / activePayers.length,
+          };
+        });
+      } else if (payerDivisionMode === 'exact') {
+        calculatedPayers = activePayers.map((uid) => {
+          const amt = parseFloat(payerValues[uid] || 0);
+          return {
+            user: uid,
+            amount: amt,
+            amountPaise: Math.round(amt * 100),
+          };
+        });
+      } else if (payerDivisionMode === 'percentage') {
+        calculatedPayers = activePayers.map((uid) => {
+          const pct = parseFloat(payerValues[uid] || 0);
+          const amtPaise = Math.round((pct / 100) * totalPaiseVal);
+          return {
+            user: uid,
+            amount: amtPaise / 100,
+            amountPaise: amtPaise,
+            percent: pct,
+          };
+        });
+      }
+
       let resolvedName = 'Member';
-      if (selectedGroup?.members) {
+      if (calculatedPayers.length > 1) {
+        resolvedName = `${calculatedPayers.length} members`;
+      } else if (selectedGroup?.members) {
+        const primaryPayer = calculatedPayers[0]?.user || form.paidBy;
         const member = selectedGroup.members.find(
-          (m) => (m.user?._id || m.user || '').toString() === form.paidBy
+          (m) => (m.user?._id || m.user || '').toString() === primaryPayer
         );
         if (member && member.user?.name) {
           resolvedName = member.user.name;
@@ -342,10 +420,11 @@ const ExpenseForm = ({
 
       await onSubmit({
         ...form,
-        amount: parseFloat(form.amount || 0),
+        amount: totalAmountVal,
         participants: participants,
-        paidBy: form.paidBy,
+        paidBy: calculatedPayers[0]?.user || form.paidBy,
         paidByName: resolvedName,
+        payers: calculatedPayers,
         splitType,
         initialVersion: initialData?.version || 1,
         splitData: {
@@ -417,27 +496,25 @@ const ExpenseForm = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 items-start">
         {/* LEFT: Amount + Description */}
         <div className="flex flex-col gap-6">
-          {/* Amount Section */}
-          <div className="text-center">
-            <p className="font-inter text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-3 opacity-60">
+          {/* Amount Section (Boxed Card) */}
+          <div className="bg-surface-container-low/40 border border-white/10 rounded-3xl p-6 text-center transition-all focus-within:border-white/20 focus-within:bg-surface-container-low/60 shadow-lg">
+            <p className="font-inter text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-2 opacity-60 font-bold">
               Total Amount
             </p>
-            <div className="flex items-center justify-center gap-1 relative">
-              <span className="font-manrope text-3xl sm:text-4xl font-bold text-on-surface-variant opacity-40">
-                ₹
-              </span>
+            <div className="flex items-center justify-center gap-2 relative">
+              <span className="font-manrope text-3xl sm:text-4xl font-bold text-primary">₹</span>
               <input
                 type="number"
                 step="0.01"
-                className="bg-transparent !border-none !outline-none font-manrope text-6xl lg:text-7xl font-black text-white focus:!ring-0 !ring-offset-0 placeholder:text-surface-container-highest tracking-tighter [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none !shadow-none text-center"
-                placeholder="0"
+                className="bg-transparent !border-none !outline-none font-manrope text-5xl sm:text-6xl font-black text-white focus:!ring-0 !ring-offset-0 placeholder:text-white/20 tracking-tighter [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none !shadow-none text-center"
+                placeholder="0.00"
                 value={form.amount}
                 name="amount"
                 onChange={handleChange}
                 autoFocus
                 required
                 style={{
-                  width: form.amount ? `${Math.max(1, form.amount.length) * 0.65}em` : '1.2em',
+                  width: form.amount ? `${Math.max(2, form.amount.length) * 0.65}em` : '1.8em',
                 }}
               />
             </div>
@@ -564,22 +641,35 @@ const ExpenseForm = ({
             <label className="block text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter px-1 opacity-60">
               Category Focus
             </label>
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:grid md:grid-cols-3 md:gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 gap-3 overflow-x-auto no-scrollbar pb-2">
               {EXPENSE_CATEGORIES.map((cat) => {
                 const IconComp = getLucideIcon(cat.icon) || Hash;
+                const isSelected = form.category === cat.value;
+                const catColor = cat.color || '#94a3b8';
                 return (
                   <button
                     key={cat.value}
                     type="button"
                     onClick={() => handleCategorySelect(cat.value)}
-                    className={`flex-shrink-0 md:w-full px-4 py-2.5 rounded-full border transition-all text-[10px] font-bold flex items-center justify-center gap-1.5 ${
-                      form.category === cat.value
-                        ? 'bg-white text-black border-white shadow-lg'
-                        : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
-                    }`}
+                    className="flex flex-col items-center gap-2 p-2 rounded-2xl transition-all group"
                   >
-                    <IconComp size={11} className="shrink-0" />
-                    <span className="uppercase tracking-wider truncate">{cat.label}</span>
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-md"
+                      style={{
+                        backgroundColor: isSelected ? `${catColor}33` : `${catColor}15`,
+                        border: `2px solid ${isSelected ? catColor : 'rgba(255,255,255,0.08)'}`,
+                        color: catColor,
+                      }}
+                    >
+                      <IconComp size={20} />
+                    </div>
+                    <span
+                      className={`text-[11px] font-bold transition-colors uppercase tracking-wider ${
+                        isSelected ? 'text-white' : 'text-on-surface-variant opacity-70'
+                      }`}
+                    >
+                      {cat.label}
+                    </span>
                   </button>
                 );
               })}
@@ -641,8 +731,47 @@ const ExpenseForm = ({
     // empty subtotal or a discount that wipes out the whole bill is invalid.
     const isItemizedValid = itemizedSubtotal > 0 && totalAmountValue > 0;
 
+    // Multi-payer calculation and validation
+    const activePayersList = selectedPayers.filter(Boolean);
+    const totalPaiseVal = Math.round(totalAmountValue * 100);
+
+    const calculatedPayerAmounts = {};
+    if (activePayersList.length === 1) {
+      calculatedPayerAmounts[activePayersList[0]] = totalAmountValue;
+    } else if (payerDivisionMode === 'equal') {
+      const perPerson = Math.floor(totalPaiseVal / activePayersList.length);
+      const rem = totalPaiseVal % activePayersList.length;
+      activePayersList.forEach((uid, idx) => {
+        calculatedPayerAmounts[uid] = (perPerson + (idx < rem ? 1 : 0)) / 100;
+      });
+    } else if (payerDivisionMode === 'exact') {
+      activePayersList.forEach((uid) => {
+        calculatedPayerAmounts[uid] = parseFloat(payerValues[uid] || 0);
+      });
+    } else if (payerDivisionMode === 'percentage') {
+      activePayersList.forEach((uid) => {
+        const pct = parseFloat(payerValues[uid] || 0);
+        calculatedPayerAmounts[uid] = Math.round((pct / 100) * totalPaiseVal) / 100;
+      });
+    }
+
+    const payerTotalPaid = Object.values(calculatedPayerAmounts).reduce((a, b) => a + b, 0);
+    const isPayerPercentageValid =
+      payerDivisionMode === 'percentage'
+        ? Math.abs(
+            activePayersList.reduce((s, uid) => s + (parseFloat(payerValues[uid]) || 0), 0) - 100
+          ) < 0.01
+        : true;
+    const isPayerBalanced =
+      activePayersList.length > 0 &&
+      (activePayersList.length === 1 ||
+        (payerDivisionMode === 'percentage'
+          ? isPayerPercentageValid && Math.abs(payerTotalPaid - totalAmountValue) < 0.02
+          : Math.abs(payerTotalPaid - totalAmountValue) < 0.01));
+
     const isSplitValid =
-      splitType === 'exact'
+      isPayerBalanced &&
+      (splitType === 'exact'
         ? Math.abs(leftValue) < 0.01
         : splitType === 'percentage'
           ? isPercentageValid
@@ -650,7 +779,7 @@ const ExpenseForm = ({
             ? isSharesValid
             : splitType === 'itemized'
               ? isItemizedValid
-              : true;
+              : true);
 
     // Scanned-bill dish assignment state
     const hasScannedItems = scannedItems.length > 0;
@@ -886,12 +1015,9 @@ const ExpenseForm = ({
                 <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
                   Paid By
                 </label>
-                {uniqueMembers.length > 3 && (
-                  <div className="flex items-center gap-0.5 text-[9px] text-primary/80 font-black uppercase tracking-widest animate-pulse">
-                    <span>Swipe</span>
-                    <ChevronRight size={11} className="shrink-0" />
-                  </div>
-                )}
+                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                  {activePayersList.length} Selected
+                </span>
               </div>
               <div className="relative w-full">
                 <div className="flex gap-2.5 pt-1 overflow-x-auto no-scrollbar pb-2 w-full">
@@ -899,13 +1025,21 @@ const ExpenseForm = ({
                     const allMemberNames = uniqueMembers.map((m) => m.user?.name).filter(Boolean);
                     return uniqueMembers.map((member) => {
                       const userId = (member.user?._id || member.user || '').toString();
-                      const isSelected = form.paidBy === userId;
+                      const isSelected = selectedPayers.includes(userId);
                       const u = member.user || member;
                       return (
                         <button
                           key={`payer-${userId}`}
                           type="button"
-                          onClick={() => setForm({ ...form, paidBy: userId })}
+                          onClick={() => {
+                            setSelectedPayers((prev) => {
+                              if (prev.includes(userId)) {
+                                if (prev.length <= 1) return prev; // Keep at least one
+                                return prev.filter((id) => id !== userId);
+                              }
+                              return [...prev, userId];
+                            });
+                          }}
                           className={`flex-shrink-0 flex items-center gap-2 md:gap-3 px-3 py-1.5 md:px-4 md:py-3 rounded-xl md:rounded-2xl border transition-all ${
                             isSelected
                               ? 'bg-white text-black border-white shadow-lg'
@@ -931,6 +1065,119 @@ const ExpenseForm = ({
                   <div className="absolute right-0 top-0 bottom-2 w-10 bg-gradient-to-l from-[#1a1a1a] to-transparent pointer-events-none z-10" />
                 )}
               </div>
+
+              {/* If 2+ payers, division mode and individual payer inputs */}
+              {activePayersList.length >= 2 && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex gap-2">
+                    {[
+                      { id: 'equal', label: 'Equal' },
+                      { id: 'exact', label: '₹ Exact' },
+                      { id: 'percentage', label: '% Percent' },
+                    ].map((mode) => (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={() => {
+                          setPayerDivisionMode(mode.id);
+                          if (mode.id === 'exact') {
+                            const pVals = {};
+                            activePayersList.forEach((uid) => {
+                              pVals[uid] = (calculatedPayerAmounts[uid] || 0).toFixed(2);
+                            });
+                            setPayerValues(pVals);
+                          } else if (mode.id === 'percentage') {
+                            const pVals = {};
+                            const equalPct = (100 / activePayersList.length).toFixed(1);
+                            activePayersList.forEach((uid) => {
+                              pVals[uid] = equalPct;
+                            });
+                            setPayerValues(pVals);
+                          }
+                        }}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
+                          payerDivisionMode === mode.id
+                            ? 'bg-primary/20 text-primary border-primary/40'
+                            : 'bg-white/5 text-on-surface-variant border-white/5 hover:bg-white/10'
+                        }`}
+                      >
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    {activePayersList.map((uid) => {
+                      const member = uniqueMembers.find(
+                        (m) => (m.user?._id || m.user || '').toString() === uid
+                      );
+                      const u = member?.user || member;
+                      return (
+                        <div
+                          key={`payer-input-${uid}`}
+                          className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-surface-container-low/50 border border-white/5"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Avatar name={u?.name} src={u?.avatar} size="xs" />
+                            <span className="text-xs font-bold text-white truncate">
+                              {u?.name || 'Member'}
+                            </span>
+                          </div>
+                          {payerDivisionMode === 'equal' ? (
+                            <span className="text-xs font-bold font-manrope text-primary">
+                              ₹{(calculatedPayerAmounts[uid] || 0).toFixed(2)}
+                            </span>
+                          ) : payerDivisionMode === 'exact' ? (
+                            <div className="flex items-center gap-1 w-24">
+                              <span className="text-xs text-on-surface-variant">₹</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                className="w-full bg-transparent border border-white/10 rounded-lg px-2 py-1 text-xs text-right font-bold text-white focus:outline-none focus:border-primary"
+                                value={payerValues[uid] || ''}
+                                onChange={(e) =>
+                                  setPayerValues((prev) => ({ ...prev, [uid]: e.target.value }))
+                                }
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 w-24">
+                              <input
+                                type="number"
+                                step="0.1"
+                                className="w-full bg-transparent border border-white/10 rounded-lg px-2 py-1 text-xs text-right font-bold text-white focus:outline-none focus:border-primary"
+                                value={payerValues[uid] || ''}
+                                onChange={(e) =>
+                                  setPayerValues((prev) => ({ ...prev, [uid]: e.target.value }))
+                                }
+                              />
+                              <span className="text-xs text-on-surface-variant">%</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Payer status badge */}
+                  <div
+                    className={`flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-bold ${
+                      isPayerBalanced
+                        ? 'bg-primary/10 border-primary/20 text-primary'
+                        : 'bg-red-500/10 border-red-500/20 text-red-400'
+                    }`}
+                  >
+                    <span>
+                      {isPayerBalanced
+                        ? 'Paid Balanced'
+                        : payerTotalPaid < totalAmountValue
+                          ? `Remaining: ₹${(totalAmountValue - payerTotalPaid).toFixed(2)}`
+                          : `Over: ₹${(payerTotalPaid - totalAmountValue).toFixed(2)}`}
+                    </span>
+                    <span>Total: ₹{payerTotalPaid.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

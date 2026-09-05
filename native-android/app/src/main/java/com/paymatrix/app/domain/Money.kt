@@ -43,6 +43,8 @@ object Money {
         return if (negative) -total else total
     }
 
+    fun toPaiseOrNull(value: String): Long? = runCatching { toPaise(value) }.getOrNull()
+
     fun toPaise(value: Double): Long = BigDecimal.valueOf(value)
         .multiply(BigDecimal(100))
         .setScale(0, RoundingMode.HALF_UP)

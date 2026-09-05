@@ -107,15 +107,27 @@ class AuthRepository(
         val userRef = db.collection("users").document(firebaseUser.uid)
         val existing = userRef.get().await()
         val now = java.time.Instant.now().toString()
+
+        val existingAvatar = existing.getString("avatar").orEmpty()
+        val existingPhotoURL = existing.getString("photoURL").orEmpty()
+        val isCustomUpload = existingAvatar.startsWith("https://firebasestorage.googleapis.com/") ||
+                             existingPhotoURL.startsWith("https://firebasestorage.googleapis.com/")
+        val googlePhoto = firebaseUser.photoUrl?.toString().orEmpty()
+        val resolvedAvatar = when {
+            isCustomUpload -> existingAvatar.ifBlank { existingPhotoURL }
+            googlePhoto.isNotBlank() -> googlePhoto
+            else -> allowedAvatar(existingAvatar, existingPhotoURL)
+        }
+
         val base = mutableMapOf<String, Any>(
             "uid" to firebaseUser.uid,
             "_id" to firebaseUser.uid,
             "email" to (firebaseUser.email ?: ""),
-            "name" to (firebaseUser.displayName ?: "Member"),
-            "displayName" to (firebaseUser.displayName ?: ""),
-            "nameLowerCase" to (firebaseUser.displayName ?: "Member").lowercase(),
-            "avatar" to (firebaseUser.photoUrl?.toString() ?: ""),
-            "photoURL" to (firebaseUser.photoUrl?.toString() ?: ""),
+            "name" to (firebaseUser.displayName?.ifBlank { null } ?: existing.getString("name")?.ifBlank { null } ?: "Member"),
+            "displayName" to (firebaseUser.displayName ?: existing.getString("displayName").orEmpty()),
+            "nameLowerCase" to (firebaseUser.displayName?.ifBlank { null } ?: existing.getString("name")?.ifBlank { null } ?: "Member").lowercase(),
+            "avatar" to resolvedAvatar,
+            "photoURL" to resolvedAvatar,
             "updatedAt" to now,
         )
         if (!existing.exists()) {
@@ -126,14 +138,14 @@ class AuthRepository(
         runCatching {
             val publicData = mapOf(
                 "name" to (firebaseUser.displayName?.ifBlank { null } ?: existing.getString("name")?.ifBlank { null } ?: "Member"),
-                "avatar" to allowedAvatar(firebaseUser.photoUrl?.toString(), existing.getString("avatar")),
+                "avatar" to resolvedAvatar,
                 "updatedAt" to now
             )
-            db.collection("publicProfiles").document(firebaseUser.uid).set(publicData).await()
+            db.collection("publicProfiles").document(firebaseUser.uid).set(publicData, com.google.firebase.firestore.SetOptions.merge()).await()
         }.onFailure { e ->
             android.util.Log.w("AuthRepository", "Public profile sync skipped: ${e.message}")
         }
-        runCatching { ensureFriendCode(firebaseUser) }.onFailure { e ->
+        runCatching { ensureFriendCode(firebaseUser, resolvedAvatar) }.onFailure { e ->
             android.util.Log.w("AuthRepository", "Friend code sync skipped: ${e.message}")
         }
         return profile(firebaseUser.uid)
@@ -240,10 +252,21 @@ class AuthRepository(
         return GoogleAuthProvider.getCredential(idToken, null)
     }
 
-    private suspend fun ensureFriendCode(user: FirebaseUser) {
+    private suspend fun ensureFriendCode(user: FirebaseUser, avatar: String = "") {
         val userRef = db.collection("users").document(user.uid)
         val existing = userRef.get().await().getString("friendCode")
-        if (!existing.isNullOrBlank()) return
+        val resolvedAvatar = avatar.ifBlank { user.photoUrl?.toString().orEmpty() }
+        if (!existing.isNullOrBlank()) {
+            val codeRef = db.collection("friendCodes").document(existing)
+            if (codeRef.get().await().exists()) {
+                val updates = mutableMapOf<String, Any>(
+                    "name" to (user.displayName ?: "Member").take(50)
+                )
+                if (resolvedAvatar.isNotBlank()) updates["avatar"] = resolvedAvatar
+                codeRef.update(updates).await()
+            }
+            return
+        }
         val alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
         repeat(12) {
             val code = (1..8).map { alphabet.random() }.joinToString("")
@@ -251,7 +274,7 @@ class AuthRepository(
             if (!codeRef.get().await().exists()) {
                 val stamp = Instant.now().toString()
                 db.runBatch { batch ->
-                    batch.set(codeRef, mapOf("uid" to user.uid, "name" to (user.displayName ?: "Member").take(50), "avatar" to (user.photoUrl?.toString() ?: ""), "createdAt" to stamp))
+                    batch.set(codeRef, mapOf("uid" to user.uid, "name" to (user.displayName ?: "Member").take(50), "avatar" to resolvedAvatar, "createdAt" to stamp))
                     batch.update(userRef, "friendCode", code)
                 }.await()
                 return

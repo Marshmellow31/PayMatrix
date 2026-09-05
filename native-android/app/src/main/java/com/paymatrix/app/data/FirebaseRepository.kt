@@ -358,6 +358,7 @@ class FirebaseRepository(
         date: String = "",
         paidBy: String = "",
         paidByName: String = "",
+        payers: List<ExpensePayer> = emptyList(),
     ): MutationResult {
         val totalPaise = com.paymatrix.app.domain.Money.toPaise(amountText)
         require(totalPaise in 1..100_000_000) { "Amount must be between ₹0.01 and ₹10,00,000." }
@@ -369,9 +370,21 @@ class FirebaseRepository(
         val groupRef = db.collection("groups").document(groupId)
         val actor = publicProfile(uid).name
         val stamp = FieldValue.serverTimestamp()
-        val effectivePaidBy = paidBy.ifBlank { uid }
-        val effectivePaidByName = paidByName.ifBlank { if (effectivePaidBy == uid) actor else publicProfile(effectivePaidBy).name }
-        val payload = mapOf(
+        val effectivePaidBy = if (payers.isNotEmpty()) payers.first().user else paidBy.ifBlank { uid }
+        val effectivePaidByName = if (payers.isNotEmpty()) {
+            if (payers.size == 1) {
+                if (effectivePaidBy == uid) actor else publicProfile(effectivePaidBy).name
+            } else {
+                val names = mutableListOf<String>()
+                for (payer in payers) {
+                    names.add(if (payer.user == uid) "You" else publicProfile(payer.user).name)
+                }
+                names.joinToString(" & ")
+            }
+        } else {
+            paidByName.ifBlank { if (effectivePaidBy == uid) actor else publicProfile(effectivePaidBy).name }
+        }
+        val payload = mutableMapOf<String, Any>(
             "title" to title.trim(), "description" to "", "amount" to totalPaise / 100.0,
             "amountPaise" to totalPaise, "currency" to "INR", "date" to date.ifBlank { now() }, "paidBy" to effectivePaidBy,
             "paidByName" to effectivePaidByName, "createdBy" to uid, "admin" to uid, "splitType" to splitType,
@@ -388,6 +401,13 @@ class FirebaseRepository(
             "lastMutationAt" to stamp, "lastMutationId" to logRef.id, "lastMutationType" to "expense_added",
             "lastEditedBy" to uid, "version" to 1,
         )
+        if (payers.isNotEmpty()) {
+            payload["payers"] = payers.map { payer ->
+                val m = mutableMapOf<String, Any>("user" to payer.user, "amount" to payer.amount, "amountPaise" to payer.amountPaise)
+                payer.percent?.let { m["percent"] = it }
+                m
+            }
+        }
         val queued = finishWrite(db.runBatch { batch ->
             batch.set(expenseRef, payload)
             batch.set(logRef, audit("expense_added", "$actor added \"${title.trim()}\" (${com.paymatrix.app.domain.Money.format(totalPaise)})", expenseRef.id, groupId, actor, stamp))
@@ -435,9 +455,22 @@ class FirebaseRepository(
         val groupRef = db.collection("groups").document(expense.groupId)
         val actor = publicProfile(uid).name
         val stamp = FieldValue.serverTimestamp()
-        val effectivePaidBy = draft.paidBy.ifBlank { expense.paidBy }
-        val effectivePaidByName = draft.paidByName.ifBlank {
-            if (effectivePaidBy == uid) actor else publicProfile(effectivePaidBy).name
+        val effectivePayers = if (draft.payers.isNotEmpty()) draft.payers else expense.payers
+        val effectivePaidBy = if (effectivePayers.isNotEmpty()) effectivePayers.first().user else draft.paidBy.ifBlank { expense.paidBy }
+        val effectivePaidByName = if (effectivePayers.isNotEmpty()) {
+            if (effectivePayers.size == 1) {
+                if (effectivePaidBy == uid) actor else publicProfile(effectivePaidBy).name
+            } else {
+                val names = mutableListOf<String>()
+                for (payer in effectivePayers) {
+                    names.add(if (payer.user == uid) "You" else publicProfile(payer.user).name)
+                }
+                names.joinToString(" & ")
+            }
+        } else {
+            draft.paidByName.ifBlank {
+                if (effectivePaidBy == uid) actor else publicProfile(effectivePaidBy).name
+            }
         }
         val auditChanges = mutableListOf<String>()
         if (draft.title.trim() != expense.title) auditChanges.add("title")
@@ -463,6 +496,13 @@ class FirebaseRepository(
             "paidBy" to effectivePaidBy,
             "paidByName" to effectivePaidByName,
         )
+        if (effectivePayers.isNotEmpty()) {
+            changes["payers"] = effectivePayers.map { payer ->
+                val m = mutableMapOf<String, Any>("user" to payer.user, "amount" to payer.amount, "amountPaise" to payer.amountPaise)
+                payer.percent?.let { m["percent"] = it }
+                m
+            }
+        }
         val queued = finishWrite(db.runBatch { batch ->
             batch.update(record, changes)
             batch.set(log, audit("expense_updated", "$actor edited \"${draft.title.trim()}\"$changeDesc", expense.id, expense.groupId, actor, stamp))
@@ -906,8 +946,17 @@ class FirebaseRepository(
                 dishPaise = number(map["dishPaise"])?.toLong(),
             )
         }.orEmpty()
+        val payers = (doc.get("payers") as? List<*>)?.mapNotNull { raw ->
+            val map = raw as? Map<*, *> ?: return@mapNotNull null
+            val user = when (val value = map["user"]) { is String -> value; is Map<*, *> -> value["uid"] as? String ?: value["_id"] as? String; else -> null } ?: return@mapNotNull null
+            ExpensePayer(
+                user = user,
+                amountPaise = number(map["amountPaise"])?.toLong() ?: ((number(map["amount"])?.toDouble() ?: 0.0) * 100).toLong(),
+                percent = number(map["percent"])?.toDouble() ?: number(map["percentage"])?.toDouble(),
+            )
+        }.orEmpty()
         val version = doc.getLong("version") ?: 1L
-        return Expense(doc.id, groupId, doc.getString("title") ?: "Expense", doc.getString("description").orEmpty(), paise(doc, "amountPaise", "amount"), doc.getString("currency") ?: "INR", idValue(doc.get("paidBy")), doc.getString("paidByName") ?: "Member", doc.getString("createdBy") ?: doc.getString("admin").orEmpty(), doc.getString("splitType") ?: "equal", strings(doc.get("participants")), splits, doc.getString("category") ?: "Other", doc.getString("notes").orEmpty(), timestamp(doc.get("date")), timestamp(doc.get("createdAt")), doc.getString("status") ?: "active", version)
+        return Expense(doc.id, groupId, doc.getString("title") ?: "Expense", doc.getString("description").orEmpty(), paise(doc, "amountPaise", "amount"), doc.getString("currency") ?: "INR", idValue(doc.get("paidBy")), doc.getString("paidByName") ?: "Member", payers, doc.getString("createdBy") ?: doc.getString("admin").orEmpty(), doc.getString("splitType") ?: "equal", strings(doc.get("participants")), splits, doc.getString("category") ?: "Other", doc.getString("notes").orEmpty(), timestamp(doc.get("date")), timestamp(doc.get("createdAt")), doc.getString("status") ?: "active", version)
     }
 
     private fun settlementFrom(doc: DocumentSnapshot, groupId: String) = Settlement(doc.id, groupId, idValue(doc.get("payer") ?: doc.get("createdBy")), idValue(doc.get("payee") ?: doc.get("recipient") ?: doc.get("to")), paise(doc, "amountPaise", "amount"), doc.getString("confirmationStatus") ?: "confirmed", doc.getString("status") ?: "active", doc.getString("notes").orEmpty(), timestamp(doc.get("createdAt")))

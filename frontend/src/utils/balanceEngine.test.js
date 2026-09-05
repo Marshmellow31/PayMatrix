@@ -238,6 +238,29 @@ describe('computeGroupBalances', () => {
     expect(balances.alice).toBe(0);
   });
 
+  it('correctly calculates balances when an expense has multiple payers', () => {
+    const expenses = [
+      {
+        payers: [
+          { user: 'alice', amountPaise: 6000 },
+          { user: 'bob', amountPaise: 4000 },
+        ],
+        amount: 100,
+        amountPaise: 10000,
+        status: 'active',
+        splits: [
+          { user: 'alice', amountPaise: 3334 },
+          { user: 'bob', amountPaise: 3333 },
+          { user: 'carol', amountPaise: 3333 },
+        ],
+      },
+    ];
+    const balances = computeGroupBalances(expenses, [], members);
+    expect(balances.alice).toBe(26.66);
+    expect(balances.bob).toBe(6.67);
+    expect(balances.carol).toBe(-33.33);
+  });
+
   it('handles missing splits gracefully', () => {
     const expenses = [{ paidBy: 'alice', amount: 90, status: 'active' }];
     expect(() => computeGroupBalances(expenses, [], members)).not.toThrow();

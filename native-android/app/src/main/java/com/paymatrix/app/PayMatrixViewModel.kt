@@ -228,7 +228,7 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
         val result = if (editing == null) container.repository.addExpense(
             groupId, draft.title, draft.amount, draft.category, draft.notes,
             draft.participants, draft.splitType, draft.splitValues, draft.date,
-            draft.paidBy, draft.paidByName
+            draft.paidBy, draft.paidByName, draft.payers
         )
         else container.repository.updateExpense(editing, draft)
         _state.value = _state.value.copy(message = when {

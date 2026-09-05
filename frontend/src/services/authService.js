@@ -46,11 +46,27 @@ export const ensurePublicProfile = async (firebaseUser, storedProfile = {}) => {
   );
 };
 
-export const needsEmailVerification = (user) =>
-  Boolean(
-    user?.providerData?.some((provider) => provider.providerId === EmailAuthProvider.PROVIDER_ID) &&
-    !user.emailVerified
+export const needsEmailVerification = (user) => {
+  if (!user) return false;
+  if (user.emailVerified) return false;
+  const providers = Array.isArray(user.providerData) ? user.providerData : [];
+  if (
+    providers.some(
+      (provider) =>
+        provider?.providerId === GoogleAuthProvider.PROVIDER_ID ||
+        provider?.providerId === 'google.com'
+    )
+  ) {
+    return false;
+  }
+  return Boolean(
+    providers.some(
+      (provider) =>
+        provider?.providerId === EmailAuthProvider.PROVIDER_ID ||
+        provider?.providerId === 'password'
+    )
   );
+};
 
 export const ensureUserProfile = async (firebaseUser, preferredName = '') => {
   if (!firebaseUser?.uid) throw new Error('Firebase authentication did not return a user.');
@@ -81,10 +97,15 @@ export const ensureUserProfile = async (firebaseUser, preferredName = '') => {
     await setDoc(userDocRef, userData);
   } else {
     const existingData = serializeFirestoreData(userDoc.data());
+    const existingAvatar = existingData.avatar || existingData.photoURL || '';
+    const isCustomUpload = existingAvatar.startsWith('https://firebasestorage.googleapis.com/');
+    const googlePhoto = firebaseUser.photoURL || '';
+    const resolvedAvatar = isCustomUpload ? existingAvatar : googlePhoto || existingAvatar;
+
     const updates = { updatedAt: now, email: firebaseUser.email || existingData.email || '' };
-    if (firebaseUser.photoURL) {
-      updates.avatar = firebaseUser.photoURL;
-      updates.photoURL = firebaseUser.photoURL;
+    if (resolvedAvatar) {
+      updates.avatar = resolvedAvatar;
+      updates.photoURL = resolvedAvatar;
     }
     if (preferredName.trim() || firebaseUser.displayName) {
       updates.name = resolvedName;

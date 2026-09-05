@@ -29,8 +29,8 @@ android {
         applicationId = "com.paymatrix.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 22000
-        versionName = "2.2.0"
+        versionCode = 22001
+        versionName = "2.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         buildConfigField("String", "SCAN_API_URL", "\"https://pay-matrix.vercel.app/api/scan-bill\"")

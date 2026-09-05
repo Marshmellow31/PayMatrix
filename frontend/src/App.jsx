@@ -14,6 +14,7 @@ import { hasSeenOnboarding } from './hooks/useOnboardingState.js';
 import { isNativeRuntime } from '#paymatrix-runtime';
 import { useNativeAppBridge } from './platform/useNativeAppBridge.js';
 import { serializeFirestoreData } from './utils/firestoreSerialization.js';
+import { needsEmailVerification } from './services/authService.js';
 
 // Layout & Pages
 const AppLayout = lazy(() => import('./components/layout/AppLayout.jsx'));
@@ -128,10 +129,7 @@ function App() {
 
     const unsubscribeAuth = onIdTokenChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        const passwordUser = firebaseUser.providerData?.some(
-          (provider) => provider.providerId === 'password'
-        );
-        if (passwordUser && !firebaseUser.emailVerified) {
+        if (needsEmailVerification(firebaseUser)) {
           if (_unsubscribeProfile) _unsubscribeProfile();
           if (_unsubscribeNotifs) _unsubscribeNotifs();
           _unsubscribeProfile = null;

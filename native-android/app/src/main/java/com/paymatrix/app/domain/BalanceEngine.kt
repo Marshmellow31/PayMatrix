@@ -45,10 +45,19 @@ object BalanceEngine {
     ): Map<String, Long> {
         val balances = members.associateWith { 0L }.toMutableMap()
         expenses.filter { it.status != "deleted" }.forEach { expense ->
-            expense.splits.forEach { split ->
-                if (expense.paidBy.isNotBlank() && split.user != expense.paidBy) {
-                    balances[expense.paidBy] = (balances[expense.paidBy] ?: 0) + split.amountPaise
-                    balances[split.user] = (balances[split.user] ?: 0) - split.amountPaise
+            if (expense.payers.isNotEmpty()) {
+                expense.payers.forEach { payer ->
+                    balances[payer.user] = (balances[payer.user] ?: 0L) + payer.amountPaise
+                }
+                expense.splits.forEach { split ->
+                    balances[split.user] = (balances[split.user] ?: 0L) - split.amountPaise
+                }
+            } else if (expense.paidBy.isNotBlank()) {
+                expense.splits.forEach { split ->
+                    if (split.user != expense.paidBy) {
+                        balances[expense.paidBy] = (balances[expense.paidBy] ?: 0L) + split.amountPaise
+                        balances[split.user] = (balances[split.user] ?: 0L) - split.amountPaise
+                    }
                 }
             }
         }
