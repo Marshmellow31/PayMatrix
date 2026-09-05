@@ -1,0 +1,66 @@
+Calculating task graph as configuration cache cannot be reused because file 'app\build.gradle.kts' has changed.
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:injectCrashlyticsVersionControlInfoDebug
+> Task :app:generateDebugResValues
+> Task :app:processDebugGoogleServices
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:injectCrashlyticsMappingFileIdDebug
+> Task :app:generateDebugResources
+> Task :app:extractDeepLinksDebug
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugBuildConfig
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:javaPreCompileDebug
+> Task :app:processDebugNavigationResources
+> Task :app:compileDebugNavigationResources
+> Task :app:checkDebugAarMetadata
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :app:packageDebugResources
+> Task :app:parseDebugLocalResources
+> Task :app:mergeDebugResources
+> Task :app:processDebugResources
+> Task :app:compileDebugKotlin
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/MainActivity.kt:27:102 'val defaultDisplay: Display!' is deprecated. Deprecated in Java.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/PayMatrixViewModel.kt:246:53 'val token: Task<String!>' is deprecated. Deprecated in Java.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/data/BillScanner.kt:64:33 Unnecessary safe call on a non-null receiver of type 'ResponseBody'.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/data/PayMatrixMessagingService.kt:19:18 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/domain/Money.kt:26:72 'constructor(p0: String!, p1: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/ExpenseFormScreen.kt:108:65 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/ExpenseFormScreen.kt:223:53 'val Icons.Filled.ArrowForward: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowForward.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/ExpenseFormScreen.kt:460:57 'val Icons.Filled.Send: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Send.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/FriendsActivityScreens.kt:53:21 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/FriendsActivityScreens.kt:131:49 'val Icons.Filled.Send: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Send.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/FriendsActivityScreens.kt:137:13 'fun TabRow(selectedTabIndex: Int, modifier: Modifier = ..., containerColor: Color = ..., contentColor: Color = ..., indicator: ComposableFunction1<List<TabPosition>, Unit> = ..., divider: ComposableFunction0<Unit> = ..., tabs: ComposableFunction0<Unit>): Unit' is deprecated. Replaced with PrimaryTabRow and SecondaryTabRow.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/FriendsActivityScreens.kt:145:38 'fun Modifier.tabIndicatorOffset(currentTabPosition: TabPosition): Modifier' is deprecated. Solely for use alongside deprecated TabRowDefaults.Indicator method. For recommended PrimaryIndicator and SecondaryIndicator methods, please use TabIndicatorScope.tabIndicatorOffset method.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/FriendsActivityScreens.kt:434:286 'val Icons.Filled.ReceiptLong: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ReceiptLong.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/GroupsScreens.kt:146:50 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/GroupsScreens.kt:203:68 'val Icons.Filled.Logout: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Logout.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/GroupsScreens.kt:246:25 'fun ScrollableTabRow(selectedTabIndex: Int, modifier: Modifier = ..., containerColor: Color = ..., contentColor: Color = ..., edgePadding: Dp = ..., indicator: ComposableFunction1<List<TabPosition>, Unit> = ..., divider: ComposableFunction0<Unit> = ..., tabs: ComposableFunction0<Unit>): Unit' is deprecated. Replaced with PrimaryScrollableTabRow and SecondaryScrollableTabRow tab variants.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/GroupsScreens.kt:252:99 'fun Modifier.tabIndicatorOffset(currentTabPosition: TabPosition): Modifier' is deprecated. Solely for use alongside deprecated TabRowDefaults.Indicator method. For recommended PrimaryIndicator and SecondaryIndicator methods, please use TabIndicatorScope.tabIndicatorOffset method.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/GroupsScreens.kt:692:39 'val Icons.Filled.ReceiptLong: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ReceiptLong.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/GroupsScreens.kt:992:48 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/LogsProfileScreens.kt:108:48 'val Icons.Filled.ReceiptLong: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ReceiptLong.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/LogsProfileScreens.kt:435:51 Unnecessary safe call on a non-null receiver of type 'UserProfile'.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/LogsProfileScreens.kt:493:45 'val Icons.Filled.Logout: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Logout.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/PayMatrixApp.kt:60:46 'val Icons.Filled.ReceiptLong: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ReceiptLong.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/PayMatrixApp.kt:60:74 'val Icons.Outlined.ReceiptLong: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Outlined.ReceiptLong.
+w: file:///C:/Users/1080p/Desktop/personal%20projects/PayMatrix/native-android/app/src/main/java/com/paymatrix/app/ui/PayMatrixApp.kt:414:36 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+
+> Task :app:processDebugJavaRes
+> Task :app:compileDebugJavaWithJavac
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:transformDebugClassesWithAsm
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:testDebugUnitTest
+
+BUILD SUCCESSFUL in 1m 28s
+30 actionable tasks: 30 executed
+Configuration cache entry stored.

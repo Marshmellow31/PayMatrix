@@ -47,8 +47,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+
+val LocalActionBusy = compositionLocalOf { false }
 
 // Exact Digital Obsidian surface hierarchy from frontend/tailwind.config.js.
 val CanvasBlack = Color(0xFF1A1A1A)
@@ -172,14 +175,23 @@ fun SkeletonBox(
 }
 
 @Composable
-fun BusyOverlay(show: Boolean, label: String = "") {
+fun BusyOverlay(show: Boolean, label: String = "", onDismiss: (() -> Unit)? = null) {
     if (!show) return
     val criticalActions = listOf("Signing in", "Signing out", "Deleting your account")
     if (label.isNotBlank() && label !in criticalActions) return
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .58f)), contentAlignment = Alignment.Center) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = .58f))
+            .clickable(enabled = onDismiss != null) { onDismiss?.invoke() },
+        contentAlignment = Alignment.Center
+    ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(30.dp))
             if (label.isNotBlank()) Text(label, color = MutedText, fontSize = 12.sp)
+            if (onDismiss != null) {
+                TextButton(onClick = onDismiss) { Text("Dismiss", color = QuietText, fontSize = 12.sp) }
+            }
         }
     }
 }

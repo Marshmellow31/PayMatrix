@@ -74,7 +74,7 @@ fun FriendsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
                     Spacer(Modifier.height(3.dp))
                     Text("People you trust to share expenses with", color = MutedText, fontSize = 12.sp)
                 }
-                Button(
+                Button(enabled = !LocalActionBusy.current,
                     onClick = { inviteOpen = !inviteOpen },
                     shape = RoundedCornerShape(16.dp),
                     colors = if (inviteOpen) ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
@@ -266,7 +266,7 @@ fun FriendsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
                             Spacer(Modifier.height(3.dp))
                             Text("${sharedGroups.size} shared group${if (sharedGroups.size == 1) "" else "s"}", color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
-                        IconButton(
+                        IconButton(enabled = !LocalActionBusy.current,
                             onClick = { selectedFriend = friend },
                             modifier = Modifier.size(38.dp).clip(CircleShape).background(Color.White.copy(alpha = .06f))
                         ) {
@@ -384,7 +384,7 @@ private fun FriendDetailDialog(
                     }
                 }
                 HorizontalDivider(color = Hairline)
-                OutlinedButton(
+                OutlinedButton(enabled = !LocalActionBusy.current,
                     onClick = onRemove,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
@@ -399,7 +399,7 @@ private fun FriendDetailDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(enabled = !LocalActionBusy.current, onClick = onDismiss) {
                 Text("Close", color = Color.White.copy(alpha = .7f))
             }
         }
@@ -410,9 +410,9 @@ private fun FriendDetailDialog(
 fun ActivityScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
     LaunchedEffect(Unit) { vm.loadActivity(); vm.loadNotifications() }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 30.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { PageTitle("Activity", "Your financial narrative, curated.") { IconButton(onClick = { vm.loadActivity() }) { Icon(Icons.Default.Refresh, "Refresh") } } }
+        item { PageTitle("Activity", "Your financial narrative, curated.") { IconButton(enabled = !LocalActionBusy.current, onClick = { vm.loadActivity() }) { Icon(Icons.Default.Refresh, "Refresh") } } }
         if (state.notifications.isEmpty() && state.activity.isEmpty()) item { EmptyState("Nothing here yet", "Expenses, settlements, members, and alerts will appear here.") }
-        if (state.notifications.any { !it.isRead }) item { TextButton(onClick = { vm.markAllRead() }) { Text("Mark all notifications read") } }
+        if (state.notifications.any { !it.isRead }) item { TextButton(enabled = !LocalActionBusy.current, onClick = { vm.markAllRead() }) { Text("Mark all notifications read") } }
         items(state.notifications, key = { "notification_${it.id}" }) { notification -> NotificationTimelineRow(notification) { if (!notification.isRead) vm.markRead(notification.id) } }
         items(state.activity, key = { "audit_${it.id}_${it.groupId}" }) { activity -> AuditTimelineRow(activity) { activity.groupId.takeIf { it.isNotBlank() }?.let { nav.navigate("group/$it") } } }
     }
@@ -442,7 +442,7 @@ fun AnalyticsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostC
     LaunchedEffect(Unit) { vm.loadAnalytics() }
     val analytics = state.analytics
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 30.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { PageTitle("Analytics", "Your spending intelligence") { IconButton(onClick = { vm.loadAnalytics() }) { Icon(Icons.Default.Refresh, "Refresh") } } }
+        item { PageTitle("Analytics", "Your spending intelligence") { IconButton(enabled = !LocalActionBusy.current, onClick = { vm.loadAnalytics() }) { Icon(Icons.Default.Refresh, "Refresh") } } }
         item { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { BalanceCard("Total shared", analytics.summary.totalSharedPaise, true, Modifier.weight(1f)); BalanceCard("Net balance", analytics.summary.netBalancePaise, true, Modifier.weight(1f)) } }
         item { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { MetricTile("EXPENSES", analytics.expenseCount.toString(), Modifier.weight(1f)); MetricTile("SETTLEMENTS", analytics.settlementCount.toString(), Modifier.weight(1f)) } }
         item { SectionTitle("Spending trend", "Recent months") }

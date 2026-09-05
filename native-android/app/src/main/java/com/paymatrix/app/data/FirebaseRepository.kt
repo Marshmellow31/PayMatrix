@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.delay
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import java.time.Instant
 import java.time.LocalDate
@@ -42,6 +44,17 @@ class FirebaseRepository(
     val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
     private val uid get() = auth.currentUser?.uid ?: error("Authentication required")
     private fun now() = Instant.now().toString()
+    private val lastMutationTime = ConcurrentHashMap<String, Long>()
+
+    private suspend fun enforceMutationThrottle(recordId: String) {
+        val currentTime = System.currentTimeMillis()
+        val last = lastMutationTime[recordId] ?: 0L
+        val elapsed = currentTime - last
+        if (elapsed in 1..1100L) {
+            delay(1150L - elapsed)
+        }
+        lastMutationTime[recordId] = System.currentTimeMillis()
+    }
 
     fun isOnline(): Boolean {
         val network = connectivity.activeNetwork ?: return false
@@ -86,7 +99,8 @@ class FirebaseRepository(
     fun groupListChanges(): Flow<Unit> = callbackFlow {
         var initialized = false
         val registration = db.collection("groups").whereArrayContains("members", uid).addSnapshotListener { _, error ->
-            if (error == null && initialized) trySend(Unit) else if (error == null) initialized = true
+            if (error != null) close(error)
+            else if (initialized) trySend(Unit) else initialized = true
         }
         awaitClose { registration.remove() }
     }
@@ -94,7 +108,8 @@ class FirebaseRepository(
     fun notificationChanges(): Flow<Unit> = callbackFlow {
         var initialized = false
         val registration = db.collection("notifications").whereEqualTo("to", uid).addSnapshotListener { _, error ->
-            if (error == null && initialized) trySend(Unit) else if (error == null) initialized = true
+            if (error != null) close(error)
+            else if (initialized) trySend(Unit) else initialized = true
         }
         awaitClose { registration.remove() }
     }
@@ -102,7 +117,8 @@ class FirebaseRepository(
     fun featureFlagChanges(): Flow<Unit> = callbackFlow {
         var initialized = false
         val registration = db.collection("config").document("featureFlags").addSnapshotListener { _, error ->
-            if (error == null && initialized) trySend(Unit) else if (error == null) initialized = true
+            if (error != null) close(error)
+            else if (initialized) trySend(Unit) else initialized = true
         }
         awaitClose { registration.remove() }
     }
@@ -115,16 +131,16 @@ class FirebaseRepository(
         var logsInitialized = false
         val registrations = listOf(
             group.addSnapshotListener { _, error ->
-                if (error == null && groupInitialized) trySend(Unit) else if (error == null) groupInitialized = true
+                if (error != null) close(error) else if (groupInitialized) trySend(Unit) else groupInitialized = true
             },
             group.collection("expenses").addSnapshotListener { _, error ->
-                if (error == null && expensesInitialized) trySend(Unit) else if (error == null) expensesInitialized = true
+                if (error != null) close(error) else if (expensesInitialized) trySend(Unit) else expensesInitialized = true
             },
             group.collection("settlements").addSnapshotListener { _, error ->
-                if (error == null && settlementsInitialized) trySend(Unit) else if (error == null) settlementsInitialized = true
+                if (error != null) close(error) else if (settlementsInitialized) trySend(Unit) else settlementsInitialized = true
             },
             group.collection("logs").addSnapshotListener { _, error ->
-                if (error == null && logsInitialized) trySend(Unit) else if (error == null) logsInitialized = true
+                if (error != null) close(error) else if (logsInitialized) trySend(Unit) else logsInitialized = true
             },
         )
         awaitClose { registrations.forEach { it.remove() } }
@@ -360,7 +376,13 @@ class FirebaseRepository(
             "amountPaise" to totalPaise, "currency" to "INR", "date" to date.ifBlank { now() }, "paidBy" to effectivePaidBy,
             "paidByName" to effectivePaidByName, "createdBy" to uid, "admin" to uid, "splitType" to splitType,
             "splitData" to splitValues, "participants" to participants, "splitUserIds" to splits.map { it.user },
-            "splits" to splits.map { mapOf("user" to it.user, "amount" to it.amount, "amountPaise" to it.amountPaise) },
+            "splits" to splits.map { split ->
+                val m = mutableMapOf<String, Any>("user" to split.user, "amount" to split.amount, "amountPaise" to split.amountPaise)
+                split.percent?.let { m["percent"] = it }
+                split.shares?.let { m["shares"] = it }
+                split.dishPaise?.let { m["dishPaise"] = it }
+                m
+            },
             "category" to category.take(50), "attachments" to emptyList<String>(), "notes" to notes.take(500),
             "groupId" to groupId, "status" to "active", "createdAt" to now(), "updatedAt" to now(),
             "lastMutationAt" to stamp, "lastMutationId" to logRef.id, "lastMutationType" to "expense_added",
@@ -371,37 +393,69 @@ class FirebaseRepository(
             batch.set(logRef, audit("expense_added", "$actor added \"${title.trim()}\" (${com.paymatrix.app.domain.Money.format(totalPaise)})", expenseRef.id, groupId, actor, stamp))
             batch.update(groupRef, "updatedAt", stamp)
         })
+        if (!queued) {
+            participants.filter { it != uid }.forEach { recipientId ->
+                runCatching {
+                    val notifId = "expense_added_${expenseRef.id}_$recipientId"
+                    db.collection("notifications").document(notifId).set(
+                        mapOf(
+                            "to" to recipientId,
+                            "createdBy" to uid,
+                            "message" to "A group member added an expense.",
+                            "type" to "expense_added",
+                            "relatedId" to expenseRef.id,
+                            "groupId" to groupId,
+                            "read" to false,
+                            "createdAt" to FieldValue.serverTimestamp(),
+                        )
+                    )
+                }
+            }
+        }
         return MutationResult(expenseRef.id, queued)
     }
 
     suspend fun updateExpense(expense: Expense, draft: ExpenseDraft): MutationResult {
+        enforceMutationThrottle(expense.id)
         val totalPaise = com.paymatrix.app.domain.Money.toPaise(draft.amount)
         require(totalPaise in 1..100_000_000) { "Amount must be between ₹0.01 and ₹10,00,000." }
         require(draft.title.trim().isNotEmpty() && draft.participants.isNotEmpty()) { "Title and participants are required." }
-        val splits = BalanceEngine.calculateSplits(totalPaise, draft.splitType, draft.splitValues, draft.participants)
+        val splits = if (draft.splitType == expense.splitType && totalPaise == expense.amountPaise && draft.participants == expense.participants && draft.splitValues.isEmpty()) {
+            expense.splits
+        } else {
+            BalanceEngine.calculateSplits(totalPaise, draft.splitType, draft.splitValues, draft.participants)
+        }
         val record = db.collection("groups").document(expense.groupId).collection("expenses").document(expense.id)
         val current = record.get().await()
+        val currentVersion = (current.get("version") as? Number)?.toLong() ?: 1L
+        if (currentVersion != draft.initialVersion) {
+            throw StaleEditConflictException("This transaction was modified by another member. Please refresh before saving.")
+        }
         val log = db.collection("groups").document(expense.groupId).collection("logs").document()
         val groupRef = db.collection("groups").document(expense.groupId)
         val actor = publicProfile(uid).name
         val stamp = FieldValue.serverTimestamp()
-        val currentVersion = (current.get("version") as? Number)?.toLong() ?: 1L
         val changes = mutableMapOf<String, Any>(
             "title" to draft.title.trim(), "amount" to totalPaise / 100.0, "amountPaise" to totalPaise,
             "splitType" to draft.splitType, "splitData" to draft.splitValues, "participants" to draft.participants,
-            "splitUserIds" to splits.map { it.user }, "splits" to splits.map { mapOf("user" to it.user, "amount" to it.amount, "amountPaise" to it.amountPaise) },
+            "splitUserIds" to splits.map { it.user }, "splits" to splits.map { split ->
+                val m = mutableMapOf<String, Any>("user" to split.user, "amount" to split.amount, "amountPaise" to split.amountPaise)
+                split.percent?.let { m["percent"] = it }
+                split.shares?.let { m["shares"] = it }
+                split.dishPaise?.let { m["dishPaise"] = it }
+                m
+            },
             "category" to draft.category.take(50), "notes" to draft.notes.take(500), "date" to draft.date.ifBlank { expense.date }, "updatedAt" to stamp,
-            "version" to (currentVersion + 1L), "lastMutationAt" to stamp,
+            "version" to (draft.initialVersion + 1L), "lastMutationAt" to stamp,
             "lastMutationId" to log.id, "lastMutationType" to "expense_updated", "lastEditedBy" to uid,
+            "paidByName" to expense.paidByName,
         )
-        if (draft.paidByName.isNotBlank()) {
-            changes["paidByName"] = draft.paidByName
-        }
         val queued = finishWrite(db.runBatch { batch ->
             batch.update(record, changes)
             batch.set(log, audit("expense_updated", "$actor edited \"${draft.title.trim()}\"", expense.id, expense.groupId, actor, stamp))
             batch.update(groupRef, "updatedAt", stamp)
         })
+        lastMutationTime[expense.id] = System.currentTimeMillis()
         return MutationResult(expense.id, queued)
     }
 
@@ -439,6 +493,21 @@ class FirebaseRepository(
             batch.set(logRef, audit("settlement_added", "$actor recorded ${com.paymatrix.app.domain.Money.format(amountPaise)} to $payeeName", settlementRef.id, groupId, actor, stamp))
             batch.update(groupRef, "updatedAt", stamp)
         }.await()
+        runCatching {
+            val notifId = "settlement_received_${settlementRef.id}_$payee"
+            db.collection("notifications").document(notifId).set(
+                mapOf(
+                    "to" to payee,
+                    "createdBy" to uid,
+                    "message" to "A group member recorded a payer-confirmed settlement.",
+                    "type" to "settlement_received",
+                    "relatedId" to settlementRef.id,
+                    "groupId" to groupId,
+                    "read" to false,
+                    "createdAt" to FieldValue.serverTimestamp(),
+                )
+            )
+        }
         return operationId
     }
 
@@ -462,16 +531,50 @@ class FirebaseRepository(
         val ref = db.collection("friendRequests").document(id)
         if (ref.get().await().getString("status") == "pending") return
         ref.set(mapOf("from" to uid, "to" to target, "status" to "pending", "createdAt" to now())).await()
+        runCatching {
+            val notifId = "friend_request_${uid}_$target"
+            db.collection("notifications").document(notifId).set(
+                mapOf(
+                    "to" to target,
+                    "createdBy" to uid,
+                    "message" to "A PayMatrix member sent you a friend request.",
+                    "type" to "friend_request",
+                    "relatedId" to null,
+                    "groupId" to null,
+                    "read" to false,
+                    "createdAt" to FieldValue.serverTimestamp(),
+                )
+            )
+        }
     }
 
     suspend fun respondToFriend(request: FriendRequest, accept: Boolean) {
         require(request.to == uid) { "Only the recipient can respond." }
         val requestRef = db.collection("friendRequests").document(request.id)
-        if (accept) db.runBatch { batch ->
-            batch.update(requestRef, mapOf("status" to "accepted", "respondedAt" to now()))
-            batch.update(db.collection("users").document(request.from), "friends", FieldValue.arrayUnion(request.to))
-            batch.update(db.collection("users").document(request.to), "friends", FieldValue.arrayUnion(request.from))
-        }.await() else requestRef.update(mapOf("status" to "rejected", "respondedAt" to now())).await()
+        if (accept) {
+            db.runBatch { batch ->
+                batch.update(requestRef, mapOf("status" to "accepted", "respondedAt" to now()))
+                batch.update(db.collection("users").document(request.from), "friends", FieldValue.arrayUnion(request.to))
+                batch.update(db.collection("users").document(request.to), "friends", FieldValue.arrayUnion(request.from))
+            }.await()
+            runCatching {
+                val notifId = "friend_accepted_${request.from}_$uid"
+                db.collection("notifications").document(notifId).set(
+                    mapOf(
+                        "to" to request.from,
+                        "createdBy" to uid,
+                        "message" to "A PayMatrix member accepted your friend request.",
+                        "type" to "friend_accepted",
+                        "relatedId" to null,
+                        "groupId" to null,
+                        "read" to false,
+                        "createdAt" to FieldValue.serverTimestamp(),
+                    )
+                )
+            }
+        } else {
+            requestRef.update(mapOf("status" to "rejected", "respondedAt" to now())).await()
+        }
     }
 
     suspend fun removeFriend(friendUid: String) {
@@ -482,16 +585,33 @@ class FirebaseRepository(
         }.await()
     }
 
-    suspend fun notifications(): List<AppNotification> = db.collection("notifications").whereEqualTo("to", uid)
-        .limit(30).get().await().documents.map { AppNotification(it.id, it.getString("title") ?: "paymatrix", it.getString("message").orEmpty(), it.getString("type").orEmpty(), it.getBoolean("read") ?: it.getBoolean("isRead") ?: false, timestamp(it.get("createdAt"))) }
-        .sortedByDescending { it.createdAt }
+    suspend fun notifications(): List<AppNotification> = db.collection("notifications")
+        .whereEqualTo("to", uid)
+        .orderBy("createdAt", Query.Direction.DESCENDING)
+        .limit(30)
+        .get().await().documents.map {
+            AppNotification(
+                it.id,
+                it.getString("title") ?: "paymatrix",
+                it.getString("message").orEmpty(),
+                it.getString("type").orEmpty(),
+                it.getBoolean("read") ?: it.getBoolean("isRead") ?: false,
+                timestamp(it.get("createdAt"))
+            )
+        }
 
     suspend fun markNotificationRead(id: String) = db.collection("notifications").document(id).update("read", true).await()
 
     suspend fun markAllNotificationsRead() {
-        val unread = db.collection("notifications").whereEqualTo("to", uid).whereEqualTo("read", false).get().await()
-        if (unread.isEmpty) return
-        db.runBatch { batch -> unread.documents.forEach { batch.update(it.reference, "read", true) } }.await()
+        val unread = db.collection("notifications").whereEqualTo("to", uid).get().await().documents.filter {
+            !(it.getBoolean("read") ?: it.getBoolean("isRead") ?: false)
+        }
+        if (unread.isEmpty()) return
+        unread.chunked(450).forEach { chunk ->
+            db.runBatch { batch ->
+                chunk.forEach { batch.update(it.reference, "read", true) }
+            }.await()
+        }
     }
 
     suspend fun logGroups(): List<LogGroup> = db.collection("logGroups").whereArrayContains("members", uid).get().await().documents.map {
@@ -680,9 +800,25 @@ class FirebaseRepository(
         val groupsJson = JSONArray()
         for (group in history) {
             val value = JSONObject(jsonSafe(group.data) as Map<*, *>).put("id", group.id)
-            value.put("expenses", JSONArray(group.reference.collection("expenses").get().await().documents.map { JSONObject(jsonSafe(it.data) as Map<*, *>).put("id", it.id) }))
-            value.put("settlements", JSONArray(group.reference.collection("settlements").get().await().documents.map { JSONObject(jsonSafe(it.data) as Map<*, *>).put("id", it.id) }))
-            value.put("auditLog", JSONArray(group.reference.collection("logs").get().await().documents.map { JSONObject(jsonSafe(it.data) as Map<*, *>).put("id", it.id) }))
+            val membersList = strings(group.get("members"))
+            val isCurrentMember = membersList.contains(uid)
+            if (isCurrentMember) {
+                runCatching {
+                    value.put("expenses", JSONArray(group.reference.collection("expenses").get().await().documents.map { JSONObject(jsonSafe(it.data) as Map<*, *>).put("id", it.id) }))
+                    value.put("settlements", JSONArray(group.reference.collection("settlements").get().await().documents.map { JSONObject(jsonSafe(it.data) as Map<*, *>).put("id", it.id) }))
+                    value.put("auditLog", JSONArray(group.reference.collection("logs").get().await().documents.map { JSONObject(jsonSafe(it.data) as Map<*, *>).put("id", it.id) }))
+                }.onFailure {
+                    value.put("subcollectionsAccess", "read_restricted")
+                    value.put("expenses", JSONArray())
+                    value.put("settlements", JSONArray())
+                    value.put("auditLog", JSONArray())
+                }
+            } else {
+                value.put("subcollectionsAccess", "historical_former_member_restricted")
+                value.put("expenses", JSONArray())
+                value.put("settlements", JSONArray())
+                value.put("auditLog", JSONArray())
+            }
             groupsJson.put(value)
         }
         val logsJson = JSONArray()
@@ -696,6 +832,7 @@ class FirebaseRepository(
     }
 
     private suspend fun mutateFinancial(groupId: String, collection: String, id: String, type: String, message: String, status: String): MutationResult {
+        enforceMutationThrottle(id)
         val record = db.collection("groups").document(groupId).collection(collection).document(id)
         val current = record.get().await()
         val log = db.collection("groups").document(groupId).collection("logs").document()
@@ -703,10 +840,11 @@ class FirebaseRepository(
         val actor = publicProfile(uid).name
         val stamp = FieldValue.serverTimestamp()
         val queued = finishWrite(db.runBatch { batch ->
-            batch.update(record, mapOf("status" to status, "updatedAt" to stamp, "version" to ((current.getLong("version") ?: 1) + 1), "lastMutationAt" to stamp, "lastMutationId" to log.id, "lastMutationType" to type, "lastEditedBy" to uid))
+            batch.update(record, mapOf("status" to status, "updatedAt" to stamp, "version" to (((current.get("version") as? Number)?.toLong() ?: 1L) + 1L), "lastMutationAt" to stamp, "lastMutationId" to log.id, "lastMutationType" to type, "lastEditedBy" to uid))
             batch.set(log, audit(type, message, id, groupId, actor, stamp))
             batch.update(groupRef, "updatedAt", stamp)
         })
+        lastMutationTime[id] = System.currentTimeMillis()
         return MutationResult(id, queued)
     }
 
@@ -747,9 +885,16 @@ class FirebaseRepository(
         val splits = (doc.get("splits") as? List<*>)?.mapNotNull { raw ->
             val map = raw as? Map<*, *> ?: return@mapNotNull null
             val user = when (val value = map["user"]) { is String -> value; is Map<*, *> -> value["uid"] as? String ?: value["_id"] as? String; else -> null } ?: return@mapNotNull null
-            Split(user, number(map["amountPaise"])?.toLong() ?: ((number(map["amount"])?.toDouble() ?: 0.0) * 100).toLong())
+            Split(
+                user = user,
+                amountPaise = number(map["amountPaise"])?.toLong() ?: ((number(map["amount"])?.toDouble() ?: 0.0) * 100).toLong(),
+                percent = number(map["percent"])?.toDouble() ?: number(map["percentage"])?.toDouble(),
+                shares = number(map["shares"])?.toInt(),
+                dishPaise = number(map["dishPaise"])?.toLong(),
+            )
         }.orEmpty()
-        return Expense(doc.id, groupId, doc.getString("title") ?: "Expense", doc.getString("description").orEmpty(), paise(doc, "amountPaise", "amount"), doc.getString("currency") ?: "INR", idValue(doc.get("paidBy")), doc.getString("paidByName") ?: "Member", doc.getString("createdBy") ?: doc.getString("admin").orEmpty(), doc.getString("splitType") ?: "equal", strings(doc.get("participants")), splits, doc.getString("category") ?: "Other", doc.getString("notes").orEmpty(), timestamp(doc.get("date")), timestamp(doc.get("createdAt")), doc.getString("status") ?: "active")
+        val version = doc.getLong("version") ?: 1L
+        return Expense(doc.id, groupId, doc.getString("title") ?: "Expense", doc.getString("description").orEmpty(), paise(doc, "amountPaise", "amount"), doc.getString("currency") ?: "INR", idValue(doc.get("paidBy")), doc.getString("paidByName") ?: "Member", doc.getString("createdBy") ?: doc.getString("admin").orEmpty(), doc.getString("splitType") ?: "equal", strings(doc.get("participants")), splits, doc.getString("category") ?: "Other", doc.getString("notes").orEmpty(), timestamp(doc.get("date")), timestamp(doc.get("createdAt")), doc.getString("status") ?: "active", version)
     }
 
     private fun settlementFrom(doc: DocumentSnapshot, groupId: String) = Settlement(doc.id, groupId, idValue(doc.get("payer") ?: doc.get("createdBy")), idValue(doc.get("payee") ?: doc.get("recipient") ?: doc.get("to")), paise(doc, "amountPaise", "amount"), doc.getString("confirmationStatus") ?: "confirmed", doc.getString("status") ?: "active", doc.getString("notes").orEmpty(), timestamp(doc.get("createdAt")))

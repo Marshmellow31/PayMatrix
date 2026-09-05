@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.paymatrix.app",
+      "sha256_cert_fingerprints": [
+        "E4:10:14:9C:68:27:D1:0B:47:5D:F7:61:9D:CE:60:9B:47:FD:AD:09:0C:D7:CE:12:CA:5B:CC:C3:FD:A2:A2:5C",
+        "77:BC:53:C8:E4:C6:EE:B1:74:49:75:0B:0B:D1:D8:39:01:68:20:30:21:9E:8A:36:39:63:42:8E:98:20:65:9F"
+      ]
+    }
+  }
+]

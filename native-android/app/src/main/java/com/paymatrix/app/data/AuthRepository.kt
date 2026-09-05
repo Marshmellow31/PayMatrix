@@ -15,6 +15,7 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 
 class AuthRepository(
@@ -35,8 +36,8 @@ class AuthRepository(
         require(password.length >= 8) { "Password must be at least 8 characters." }
         val result = auth.createUserWithEmailAndPassword(email.trim().lowercase(), password).await()
         val user = result.user ?: error("Firebase authentication did not return a user.")
-        user.updateProfile(com.google.firebase.auth.UserProfileChangeRequest.Builder().setDisplayName(cleanName).build()).await()
-        user.sendEmailVerification().await()
+        runCatching { user.updateProfile(com.google.firebase.auth.UserProfileChangeRequest.Builder().setDisplayName(cleanName).build()).await() }
+        runCatching { user.sendEmailVerification().await() }
         return user.email.orEmpty()
     }
 
@@ -53,7 +54,12 @@ class AuthRepository(
         // Firebase persists the verified flag with the local auth session. Avoid a
         // network reload here so an already verified member can still open the app
         // offline; the explicit verification action below performs the fresh check.
-        return if (needsEmailVerification(user)) null else profile(user.uid)
+        if (needsEmailVerification(user)) return null
+        val p = profile(user.uid)
+        if (p.friendCode.isBlank()) {
+            runCatching { ensureFriendCode(user) }
+        }
+        return p
     }
 
     suspend fun refreshEmailVerification(): UserProfile? {
@@ -168,7 +174,9 @@ class AuthRepository(
     suspend fun signOut(context: Context) {
         val uid = currentUser?.uid
         if (uid != null) runCatching {
-            db.collection("users").document(uid).collection("pushTokens").document(installationId(context)).delete().await()
+            withTimeoutOrNull(1500L) {
+                db.collection("users").document(uid).collection("pushTokens").document(installationId(context)).delete().await()
+            }
         }
         auth.signOut()
         runCatching { CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest()) }

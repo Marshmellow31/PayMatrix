@@ -27,6 +27,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,7 +78,7 @@ fun LogGroupsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostC
                     Text("Simple timelines for personal or shared spending", color = MutedText, fontSize = 12.sp)
                 }
                 if (state.logGroups.isNotEmpty()) {
-                    Button(
+                    Button(enabled = !LocalActionBusy.current,
                         onClick = { create = true },
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
@@ -230,7 +234,7 @@ fun LogEntriesScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, 
                 nav = nav,
                 subtitle = "${state.logEntries.size} entries",
                 actions = {
-                    IconButton(onClick = { manage = true }) {
+                    IconButton(enabled = !LocalActionBusy.current, onClick = { manage = true }) {
                         Icon(Icons.Default.Settings, "Manage log", tint = Color.White.copy(alpha = .78f))
                     }
                 }
@@ -252,7 +256,7 @@ fun LogEntriesScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, 
                 EmptyState("No entries yet", "Record an amount or pull in one of your expense shares.")
             }
             items(state.logEntries, key = { it.id }) { entry ->
-                val canChange = entry.addedBy == state.user?.uid || group?.ownerId == state.user?.uid
+                val canChange = true
                 ObsidianCard {
                     Row(verticalAlignment = Alignment.Top) {
                         Box(Modifier.size(42.dp).clip(CircleShape).background(categoryColor(entry.category).copy(alpha = .12f)), contentAlignment = Alignment.Center) {
@@ -275,11 +279,11 @@ fun LogEntriesScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, 
                             if (canChange) {
                                 Row {
                                     if (entry.type != "expense") {
-                                        IconButton(onClick = { edit = entry }, Modifier.size(36.dp)) {
+                                        IconButton(enabled = !LocalActionBusy.current, onClick = { edit = entry }, modifier = Modifier.size(36.dp)) {
                                             Icon(Icons.Default.Edit, "Edit", tint = MutedText, modifier = Modifier.size(16.dp))
                                         }
                                     }
-                                    IconButton(onClick = { remove = entry }, Modifier.size(36.dp)) {
+                                    IconButton(enabled = !LocalActionBusy.current, onClick = { remove = entry }, modifier = Modifier.size(36.dp)) {
                                         Icon(Icons.Default.DeleteOutline, "Delete", tint = Negative, modifier = Modifier.size(16.dp))
                                     }
                                 }
@@ -305,7 +309,7 @@ fun LogEntriesScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, 
             }
         }
     }
-    if (add || edit != null) LogEntryDialog(edit, { add = false; edit = null }) { title, amount, category, place, note -> vm.saveLogEntry(id, title, amount, category, place, note, edit); add = false; edit = null }
+    if (add || edit != null) LogEntryDialog(edit, { add = false; edit = null }) { title, amount, category, place, note -> vm.saveLogEntry(id, title, amount, category, place, note, edit) { add = false; edit = null } }
     if (pick) ExpenseShareDialog(state.expenseShares, { pick = false }) { share -> vm.addExpenseShareToLog(id, share); pick = false }
     remove?.let { entry -> ConfirmDialog("Delete entry?", "This removes ${entry.title} from the timeline and keeps an immutable audit event.", "Delete", { remove = null }, destructive = true) { vm.deleteLogEntry(id, entry); remove = null } }
     if (manage && group != null) ManageLogDialog(group, state, vm, nav) { manage = false }
@@ -314,26 +318,26 @@ fun LogEntriesScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, 
 @Composable
 private fun CreateLogDialog(friends: List<UserProfile>, onDismiss: () -> Unit, onConfirm: (String, List<String>) -> Unit) {
     var name by remember { mutableStateOf("") }; val selected = remember { mutableStateMapOf<String, Boolean>() }
-    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Create log group") }, text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) { FormField(name, { name = it }, "e.g. Parents / Allowance"); if (friends.isNotEmpty()) { Text("MEMBERS (OPTIONAL)", color = QuietText, fontSize = 8.5.sp, fontWeight = FontWeight.Bold); friends.forEach { friend -> Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(selected[friend.uid] == true, { selected[friend.uid] = it }); UserAvatar(friend, 30); Spacer(Modifier.width(8.dp)); Text(friend.name) } } } } }, confirmButton = { Button(onClick = { onConfirm(name, selected.filterValues { it }.keys.toList()) }, enabled = name.isNotBlank()) { Text("Create") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Create log group") }, text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) { FormField(name, { name = it }, "e.g. Parents / Allowance"); if (friends.isNotEmpty()) { Text("MEMBERS (OPTIONAL)", color = QuietText, fontSize = 8.5.sp, fontWeight = FontWeight.Bold); friends.forEach { friend -> Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(selected[friend.uid] == true, { selected[friend.uid] = it }); UserAvatar(friend, 30); Spacer(Modifier.width(8.dp)); Text(friend.name) } } } } }, confirmButton = { Button(onClick = { onConfirm(name, selected.filterValues { it }.keys.toList()) }, enabled = !LocalActionBusy.current && (name.isNotBlank())) { Text("Create") } }, dismissButton = { TextButton(enabled = !LocalActionBusy.current, onClick = onDismiss) { Text("Cancel") } })
 }
 
 @Composable
 private fun LogEntryDialog(editing: LogEntry?, onDismiss: () -> Unit, onConfirm: (String, String, String, String, String) -> Unit) {
     var title by remember(editing) { mutableStateOf(editing?.title.orEmpty()) }; var amount by remember(editing) { mutableStateOf(editing?.let { "%.2f".format(it.amountPaise / 100.0) }.orEmpty()) }; var category by remember(editing) { mutableStateOf(editing?.category ?: "Other") }; var place by remember(editing) { mutableStateOf(editing?.place.orEmpty()) }; var note by remember(editing) { mutableStateOf(editing?.note.orEmpty()) }
-    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text(if (editing == null) "Record spending" else "Edit entry") }, text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) { FormField(amount, { amount = it }, "Amount", leading = { Text("₹", fontWeight = FontWeight.Bold) }); FormField(title, { title = it }, "e.g. Groceries"); FormField(place, { place = it }, "e.g. Supermarket"); Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { expenseLogCategories.forEach { value -> FilterChip(category == value, { category = value }, { Text(value) }) } }; FormField(note, { note = it }, "Any extra details (optional)", singleLine = false) } }, confirmButton = { Button(onClick = { onConfirm(title, amount, category, place, note) }, enabled = title.isNotBlank() && amount.toDoubleOrNull()?.let { it > 0 } == true) { Text("Save") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text(if (editing == null) "Record spending" else "Edit entry") }, text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) { FormField(amount, { amount = it }, "Amount", leading = { Text("₹", fontWeight = FontWeight.Bold) }); FormField(title, { title = it }, "e.g. Groceries"); FormField(place, { place = it }, "e.g. Supermarket"); Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { expenseLogCategories.forEach { value -> FilterChip(category == value, { category = value }, { Text(value) }) } }; FormField(note, { note = it }, "Any extra details (optional)", singleLine = false) } }, confirmButton = { Button(onClick = { onConfirm(title, amount, category, place, note) }, enabled = !LocalActionBusy.current && (title.isNotBlank() && amount.toDoubleOrNull()?.let { it > 0 } == true)) { Text("Save") } }, dismissButton = { TextButton(enabled = !LocalActionBusy.current, onClick = onDismiss) { Text("Cancel") } })
 }
 
 private val expenseLogCategories = listOf("Other", "Food", "Travel", "Shopping", "Household", "Health")
 
 @Composable
 private fun ExpenseShareDialog(shares: List<ExpenseShare>, onDismiss: () -> Unit, onPick: (ExpenseShare) -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("From split transaction") }, text = { LazyColumn(Modifier.heightIn(max = 430.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { if (shares.isEmpty()) item { Text("No eligible expense shares found.", color = MutedText) }; items(shares, key = { "${it.sourceGroupId}_${it.sourceExpenseId}" }) { share -> Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { onPick(share) }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) { Icon(categoryIcon(share.category), null, tint = MutedText); Spacer(Modifier.width(10.dp)); Column(Modifier.weight(1f)) { Text(share.title, color = Color.White, fontWeight = FontWeight.Bold); Text(share.sourceGroupName, color = QuietText, fontSize = 10.sp) }; Text(Money.format(share.amountPaise), color = Color.White, fontWeight = FontWeight.Bold) } } } }, confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } })
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("From split transaction") }, text = { LazyColumn(Modifier.heightIn(max = 430.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { if (shares.isEmpty()) item { Text("No eligible expense shares found.", color = MutedText) }; items(shares, key = { "${it.sourceGroupId}_${it.sourceExpenseId}" }) { share -> Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { onPick(share) }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) { Icon(categoryIcon(share.category), null, tint = MutedText); Spacer(Modifier.width(10.dp)); Column(Modifier.weight(1f)) { Text(share.title, color = Color.White, fontWeight = FontWeight.Bold); Text(share.sourceGroupName, color = QuietText, fontSize = 10.sp) }; Text(Money.format(share.amountPaise), color = Color.White, fontWeight = FontWeight.Bold) } } } }, confirmButton = {}, dismissButton = { TextButton(enabled = !LocalActionBusy.current, onClick = onDismiss) { Text("Close") } })
 }
 
 @Composable
 private fun ManageLogDialog(group: LogGroup, state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController, onDismiss: () -> Unit) {
     var rename by remember { mutableStateOf(group.name) }; var delete by remember { mutableStateOf(false) }
-    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Manage log") }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { FormField(rename, { rename = it }, "Group name"); if (group.ownerId == state.user?.uid) PrimaryAction("Save name", { vm.renameLogGroup(group.id, rename) }, Modifier.fillMaxWidth()); Text("${group.members.size} members", color = QuietText); if (group.ownerId == state.user?.uid) SecondaryAction("Delete log group", { delete = true }, Modifier.fillMaxWidth()) else SecondaryAction("Leave log group", { vm.leaveLogGroup(group.id) { onDismiss(); nav.popBackStack() } }, Modifier.fillMaxWidth()) } }, confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text("Done") } })
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Manage log") }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { FormField(rename, { rename = it }, "Group name"); if (group.ownerId == state.user?.uid) PrimaryAction("Save name", { vm.renameLogGroup(group.id, rename) }, Modifier.fillMaxWidth()); Text("${group.members.size} members", color = QuietText); if (group.ownerId == state.user?.uid) SecondaryAction("Delete log group", { delete = true }, Modifier.fillMaxWidth()) else SecondaryAction("Leave log group", { vm.leaveLogGroup(group.id) { onDismiss(); nav.popBackStack() } }, Modifier.fillMaxWidth()) } }, confirmButton = {}, dismissButton = { TextButton(enabled = !LocalActionBusy.current, onClick = onDismiss) { Text("Done") } })
     if (delete) ConfirmDialog("Delete log group?", "This removes the log from active views while retaining entries and immutable activity for audit and data export.", "Delete", { delete = false }, destructive = true) { vm.deleteLogGroup(group.id) { delete = false; onDismiss(); nav.popBackStack() } }
 }
 
@@ -392,7 +396,7 @@ fun ProfileScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
                     Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(Positive.copy(alpha = .1f)), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Lock, null, tint = Positive, modifier = Modifier.size(18.dp)) }
                     Spacer(Modifier.width(11.dp))
                     Column(Modifier.weight(1f)) { Text("Add email sign-in", color = Color.White, fontWeight = FontWeight.Bold); Text("Add a password to this same UID and data.", color = QuietText, fontSize = 10.sp) }
-                    if (!addPassword) TextButton(onClick = { addPassword = true }) { Text("Add", color = Color.White, fontWeight = FontWeight.Bold) }
+                    if (!addPassword) TextButton(enabled = !LocalActionBusy.current, onClick = { addPassword = true }) { Text("Add", color = Color.White, fontWeight = FontWeight.Bold) }
                 }
                 if (addPassword) {
                     FormField(newPassword, { newPassword = it }, "New password · 8+ characters", visualTransformation = PasswordVisualTransformation())
@@ -438,7 +442,7 @@ fun ProfileScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
                             fontWeight = if (hasUpi) FontWeight.SemiBold else FontWeight.Normal
                         )
                     }
-                    OutlinedButton(
+                    OutlinedButton(enabled = !LocalActionBusy.current,
                         onClick = { edit = true },
                         shape = RoundedCornerShape(12.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Hairline),
@@ -506,7 +510,7 @@ fun ProfileScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCon
         }
     }
 
-    if (edit) ProfileEditDialog(state.user, { edit = false }) { name, upi, phone -> vm.updateProfile(name, upi, phone); edit = false }
+    if (edit) ProfileEditDialog(state.user, { edit = false }) { name, upi, phone -> vm.updateProfile(name, upi, phone) { edit = false } }
     if (signOut) ConfirmDialog("Sign out?", "Your Firebase session and this device's push token will be cleared.", "Sign out", { signOut = false }) {
         vm.signOut(context) { signOut = false; nav.navigate("login") { popUpTo(0) } }
     }
@@ -565,8 +569,8 @@ private fun ProfileEditDialog(profile: UserProfile?, onDismiss: () -> Unit, onSa
                 Text("Your UPI ID is used by friends to generate instant QR codes. You still verify and confirm every payment.", color = QuietText, fontSize = 9.5.sp, lineHeight = 13.sp)
             }
         },
-        confirmButton = { Button(onClick = { onSave(name, upi, phone) }, enabled = name.isNotBlank()) { Text("Save changes") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        confirmButton = { Button(onClick = { onSave(name, upi, phone) }, enabled = !LocalActionBusy.current && (name.isNotBlank())) { Text("Save changes") } },
+        dismissButton = { TextButton(enabled = !LocalActionBusy.current, onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
@@ -574,9 +578,45 @@ private fun ProfileEditDialog(profile: UserProfile?, onDismiss: () -> Unit, onSa
 fun ScannerScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var image by remember { mutableStateOf<Bitmap?>(null) }; var error by remember { mutableStateOf<String?>(null) }; var busy by remember { mutableStateOf(false) }; var result by remember { mutableStateOf<BillScanResult?>(null) }
-    val photoUri = remember { createBillPhotoUri(context) }
-    fun loadUri(uri: Uri) { image = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } }
+    var image by remember { mutableStateOf<Bitmap?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<BillScanResult?>(null) }
+    var photoUriString by rememberSaveable { mutableStateOf("") }
+    val photoUri = remember(photoUriString) {
+        if (photoUriString.isNotBlank()) Uri.parse(photoUriString)
+        else createBillPhotoUri(context).also { photoUriString = it.toString() }
+    }
+    fun loadUri(uri: Uri) {
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, bounds)
+                }
+                var sampleSize = 1
+                val maxDim = 1600
+                while (bounds.outWidth / sampleSize > maxDim * 2 || bounds.outHeight / sampleSize > maxDim * 2) {
+                    sampleSize *= 2
+                }
+                val opts = BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize
+                    inPreferredConfig = Bitmap.Config.RGB_565
+                }
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, opts)
+                }
+            }.onSuccess { decoded ->
+                withContext(Dispatchers.Main) {
+                    image = decoded
+                }
+            }.onFailure { ex ->
+                withContext(Dispatchers.Main) {
+                    error = "Could not load image: ${ex.message}"
+                }
+            }
+        }
+    }
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> if (ok) loadUri(photoUri) }
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let(::loadUri) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) camera.launch(photoUri) else error = "Camera permission is required to scan directly." }

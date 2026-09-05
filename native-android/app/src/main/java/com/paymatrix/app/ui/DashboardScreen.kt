@@ -81,7 +81,7 @@ fun DashboardScreen(state: PayMatrixState, nav: NavHostController) {
 
         item {
             SectionTitle("Active groups", "Balances ordered by what matters") {
-                TextButton(onClick = { nav.navigate("groups") }) { Text("See all", color = MutedText, fontSize = 12.sp) }
+                TextButton(enabled = !LocalActionBusy.current, onClick = { nav.navigate("groups") }) { Text("See all", color = MutedText, fontSize = 12.sp) }
             }
         }
         if (state.groups.isEmpty()) {
@@ -97,7 +97,7 @@ fun DashboardScreen(state: PayMatrixState, nav: NavHostController) {
 
         item {
             SectionTitle("Recent activity", "Latest account updates") {
-                TextButton(onClick = { nav.navigate("activity") }) { Text("View all", color = MutedText, fontSize = 12.sp) }
+                TextButton(enabled = !LocalActionBusy.current, onClick = { nav.navigate("activity") }) { Text("View all", color = MutedText, fontSize = 12.sp) }
             }
         }
         item {

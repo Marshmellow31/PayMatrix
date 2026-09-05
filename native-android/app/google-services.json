@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "344969363066-1i001pf9ni8eptfemj9ds8706gqtcta9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.paymatrix.app",
+            "certificate_hash": "d0c2c5a17fb131f3b9383425373e93893876bea5"
+          }
+        },
+        {
           "client_id": "344969363066-4o6l5vu5dl1lo8itohgi8uivd0dm7mrk.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

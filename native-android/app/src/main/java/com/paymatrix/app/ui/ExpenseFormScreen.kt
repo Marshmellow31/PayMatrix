@@ -4,6 +4,7 @@ package com.paymatrix.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,30 +45,62 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
     val editing = snapshot?.expenses?.firstOrNull { it.id == expenseId }
     val scan = state.billScan
 
-    var currentStep by remember { mutableIntStateOf(1) }
-    var amount by remember(editing, scan) { mutableStateOf(editing?.let { "%.2f".format(it.amountPaise / 100.0) } ?: scan?.total.orEmpty()) }
-    var title by remember(editing, scan) { mutableStateOf(editing?.title ?: scan?.merchant.orEmpty()) }
-    var category by remember(editing) { mutableStateOf(editing?.category ?: "General") }
-    var notes by remember(editing, scan) { mutableStateOf(editing?.notes ?: scan?.items?.take(5)?.joinToString(", ").orEmpty()) }
-    var splitType by remember(editing) { mutableStateOf(editing?.splitType?.takeIf { it in listOf("equal", "exact", "itemized") } ?: "equal") }
-    var date by remember(editing, scan) { mutableStateOf(editing?.date ?: scan?.date.orEmpty().ifBlank { Instant.now().toString() }) }
-    var paidBy by remember(editing) { mutableStateOf(editing?.paidBy?.ifBlank { state.user?.uid.orEmpty() } ?: state.user?.uid.orEmpty()) }
-    val selected = remember(snapshot, editing) {
+    val initialVersion = remember(expenseId) { editing?.version ?: 1L }
+    var currentStep by rememberSaveable { mutableIntStateOf(1) }
+    var amount by rememberSaveable { mutableStateOf(editing?.let { Money.formatDecimal(it.amountPaise) } ?: scan?.total.orEmpty()) }
+    var title by rememberSaveable { mutableStateOf(editing?.title ?: scan?.merchant.orEmpty()) }
+    var category by rememberSaveable { mutableStateOf(editing?.category ?: "General") }
+    var notes by rememberSaveable { mutableStateOf(editing?.notes ?: scan?.items?.take(5)?.joinToString(", ").orEmpty()) }
+    var splitType by rememberSaveable { mutableStateOf(editing?.splitType ?: "equal") }
+    var date by rememberSaveable { mutableStateOf(editing?.date ?: scan?.date.orEmpty().ifBlank { Instant.now().toString() }) }
+    var paidBy by rememberSaveable { mutableStateOf(editing?.paidBy?.ifBlank { state.user?.uid.orEmpty() } ?: state.user?.uid.orEmpty()) }
+    val selected = remember(expenseId) {
         mutableStateMapOf<String, Boolean>().apply {
             snapshot?.group?.members?.forEach { put(it, editing?.participants?.contains(it) ?: true) }
         }
     }
-    val values = remember(editing) {
+    val values = remember(expenseId) {
         mutableStateMapOf<String, String>().apply {
-            editing?.splits?.forEach { split ->
-                put(split.user, "%.2f".format(if (splitType == "itemized") (split.dishPaise ?: split.amountPaise) / 100.0 else split.amountPaise / 100.0))
+            if (editing != null) {
+                when (editing.splitType) {
+                    "percentage" -> editing.splits.forEach { split ->
+                        put(split.user, split.percent?.let { "%.2f".format(it) } ?: "")
+                    }
+                    "shares" -> editing.splits.forEach { split ->
+                        put(split.user, split.shares?.toString() ?: "1")
+                    }
+                    "itemized" -> editing.splits.forEach { split ->
+                        val amt = split.dishPaise ?: split.amountPaise
+                        put(split.user, Money.formatDecimal(amt))
+                    }
+                    else -> editing.splits.forEach { split ->
+                        put(split.user, Money.formatDecimal(split.amountPaise))
+                    }
+                }
             }
         }
     }
+
+    LaunchedEffect(snapshot?.group?.members) {
+        snapshot?.group?.members?.forEach { uid ->
+            if (!selected.containsKey(uid)) {
+                selected[uid] = editing?.participants?.contains(uid) ?: true
+            }
+        }
+    }
+
     var showDate by remember { mutableStateOf(false) }
 
     val participants = selected.filterValues { it }.keys.toList()
-    val splitValues = participants.associateWith { values[it]?.toDoubleOrNull() ?: if (splitType == "equal") 1.0 else 0.0 }
+    val splitValues = participants.associateWith { uid ->
+        when (splitType) {
+            "equal" -> 1.0
+            "percentage" -> values[uid]?.toDoubleOrNull() ?: 0.0
+            "shares" -> (values[uid]?.toDoubleOrNull() ?: 1.0).coerceAtLeast(1.0)
+            "itemized", "exact" -> (values[uid]?.toDoubleOrNull() ?: 0.0)
+            else -> 1.0
+        }
+    }
     val totalPaise = runCatching { Money.toPaise(amount) }.getOrDefault(0L)
     val preview = runCatching { BalanceEngine.calculateSplits(totalPaise, splitType, splitValues, participants) }.getOrNull()
     val step1Valid = title.isNotBlank() && totalPaise > 0
@@ -102,7 +136,7 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = {
+                    IconButton(enabled = !LocalActionBusy.current, onClick = {
                         if (currentStep > 1) currentStep = 1 else nav.popBackStack()
                     }) {
                         Icon(if (currentStep > 1) Icons.Default.ArrowBack else Icons.Default.Close, "Back")
@@ -144,6 +178,29 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                             .clip(RoundedCornerShape(2.dp))
                             .background(if (currentStep >= 2) MintGreen else Color.White.copy(alpha = 0.15f))
                     )
+                }
+
+                if (editing != null && editing.version > initialVersion) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Negative.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, Negative),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = Negative, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "This transaction was updated by another member in the background. Saving may overwrite recent changes.",
+                                color = Negative,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
                 }
 
                 if (currentStep == 1) {
@@ -249,7 +306,7 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                     fontSize = 13.sp
                                 )
                             }
-                            TextButton(onClick = { currentStep = 1 }) {
+                            TextButton(enabled = !LocalActionBusy.current, onClick = { currentStep = 1 }) {
                                 Icon(Icons.Default.Edit, "Edit", tint = MutedText, modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text("Edit", color = MutedText, fontSize = 12.sp)
@@ -260,21 +317,28 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                     // PAID BY SECTION
                     ObsidianCard(contentPadding = PaddingValues(18.dp)) {
                         Text("PAID BY", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(8.dp))
+                        if (editing != null) {
+                            Text("Payer cannot be changed on an existing transaction.", color = QuietText, fontSize = 11.sp)
+                            Spacer(Modifier.height(8.dp))
+                        }
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             snapshot.group.members.forEach { uid ->
                                 val isSelected = (paidBy == uid)
                                 val name = if (uid == state.user?.uid) "You" else snapshot.profiles[uid]?.name?.substringBefore(' ') ?: "Member"
                                 FilterChip(
                                     selected = isSelected,
-                                    onClick = { paidBy = uid },
+                                    enabled = editing == null && !LocalActionBusy.current,
+                                    onClick = { if (editing == null) paidBy = uid },
                                     label = { Text(name, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                                     leadingIcon = { UserAvatar(snapshot.profiles[uid], 22) },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = Color.White,
                                         selectedLabelColor = Color.Black,
                                         containerColor = Color.White.copy(alpha = 0.05f),
-                                        labelColor = Color.White
+                                        labelColor = Color.White,
+                                        disabledSelectedContainerColor = Color.White.copy(alpha = 0.8f),
+                                        disabledLabelColor = Color.White.copy(alpha = 0.5f)
                                     )
                                 )
                             }
@@ -290,7 +354,7 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                         ) {
                             Text("Split with", Modifier.weight(1f), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                             // Dynamic SELECT ALL / DESELECT ALL Button
-                            TextButton(onClick = {
+                            TextButton(enabled = !LocalActionBusy.current, onClick = {
                                 if (allSelected) {
                                     snapshot.group.members.forEach { selected[it] = false }
                                 } else {
@@ -344,26 +408,55 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
 
                         Spacer(Modifier.height(14.dp))
 
-                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                            listOf("equal" to "Equal", "exact" to "Exact", "itemized" to "GST").forEachIndexed { index, pair ->
-                                SegmentedButton(
-                                    splitType == pair.first,
-                                    {
-                                        splitType = pair.first
-                                        values.clear()
-                                        if (pair.first == "exact" && participants.isNotEmpty()) {
-                                            val perPerson = totalPaise / participants.size / 100.0
-                                            participants.forEach { p -> values[p] = "%.2f".format(perPerson) }
+                        val splitModes = listOf(
+                            "equal" to "Equal",
+                            "percentage" to "% Percent",
+                            "exact" to "₹ Exact",
+                            "shares" to "Shares",
+                            "itemized" to "GST (Itemized)"
+                        )
+
+                        Row(
+                            Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            splitModes.forEach { (mode, label) ->
+                                FilterChip(
+                                    selected = splitType == mode,
+                                    onClick = {
+                                        if (splitType != mode) {
+                                            splitType = mode
+                                            values.clear()
+                                            if (mode == "exact" && participants.isNotEmpty()) {
+                                                val perPerson = totalPaise / participants.size
+                                                participants.forEach { p -> values[p] = Money.formatDecimal(perPerson) }
+                                            } else if (mode == "percentage" && participants.isNotEmpty()) {
+                                                val perPerson = 100.0 / participants.size
+                                                participants.forEach { p -> values[p] = "%.1f".format(perPerson) }
+                                            } else if (mode == "shares") {
+                                                participants.forEach { p -> values[p] = "1" }
+                                            }
                                         }
                                     },
-                                    SegmentedButtonDefaults.itemShape(index, 3)
-                                ) { Text(pair.second) }
+                                    label = { Text(label, fontSize = 12.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MintGreen.copy(alpha = 0.2f),
+                                        selectedLabelColor = MintGreen,
+                                    )
+                                )
                             }
                         }
 
                         if (splitType != "equal") {
+                            val helperText = when (splitType) {
+                                "exact" -> "Enter each person's exact share"
+                                "percentage" -> "Enter each person's percentage share (must total 100%)"
+                                "shares" -> "Enter each person's share count (e.g. 1, 2, 3)"
+                                "itemized" -> "Enter each person's dish subtotal; GST/charges are distributed proportionally"
+                                else -> ""
+                            }
                             Text(
-                                if (splitType == "exact") "Enter each person's exact share" else "Enter each person's dish subtotal; GST/charges are distributed proportionally",
+                                helperText,
                                 color = QuietText,
                                 fontSize = 10.sp,
                                 lineHeight = 14.sp,
@@ -371,28 +464,56 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                             )
                             participants.forEach { uid ->
                                 OutlinedTextField(
-                                    values[uid].orEmpty(),
-                                    { values[uid] = it.filter { ch -> ch.isDigit() || ch == '.' }.take(12) },
+                                    value = values[uid].orEmpty(),
+                                    onValueChange = { input ->
+                                        values[uid] = when (splitType) {
+                                            "shares" -> input.filter { ch -> ch.isDigit() }.take(5)
+                                            else -> input.filter { ch -> ch.isDigit() || ch == '.' }.take(12)
+                                        }
+                                    },
                                     label = { Text(snapshot.profiles[uid]?.name ?: "Member") },
-                                    prefix = { Text("₹") },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    prefix = if (splitType in listOf("exact", "itemized")) { { Text("₹") } } else null,
+                                    suffix = when (splitType) {
+                                        "percentage" -> { { Text("%") } }
+                                        "shares" -> { { Text("shares") } }
+                                        else -> null
+                                    },
+                                    keyboardOptions = KeyboardOptions(keyboardType = if (splitType == "shares") KeyboardType.Number else KeyboardType.Decimal),
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(14.dp)
                                 )
                             }
-                            val entered = participants.sumOf { Money.toPaise(values[it]?.toDoubleOrNull() ?: 0.0) }
-                            Text(
-                                if (splitType == "exact") {
+
+                            val statusText = when (splitType) {
+                                "exact" -> {
+                                    val entered = participants.sumOf { Money.toPaise(values[it].orEmpty()) }
                                     "${if (entered == totalPaise) "Balanced" else "Remaining"}: ${Money.format(kotlin.math.abs(totalPaise - entered))}"
-                                } else {
+                                }
+                                "percentage" -> {
+                                    val entered = participants.sumOf { values[it]?.toDoubleOrNull() ?: 0.0 }
+                                    val balanced = kotlin.math.abs(entered - 100.0) <= 0.0001
+                                    "Total: %.2f%% · %s".format(entered, if (balanced) "Balanced" else "Remaining: %.2f%%".format(100.0 - entered))
+                                }
+                                "shares" -> {
+                                    val totalShares = participants.sumOf { values[it]?.toIntOrNull() ?: 1 }
+                                    "Total shares: $totalShares"
+                                }
+                                "itemized" -> {
+                                    val entered = participants.sumOf { Money.toPaise(values[it].orEmpty()) }
                                     "Dishes ${Money.format(entered)} · GST / extra ${Money.format(totalPaise - entered)}"
-                                },
+                                }
+                                else -> ""
+                            }
+                            Text(
+                                statusText,
                                 color = if (preview != null) Positive else Negative,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
                             )
-                        } else {
+                        }
+
+                        if (preview != null) {
                             Spacer(Modifier.height(6.dp))
                             Text(
                                 "DISTRIBUTION PREVIEW",
@@ -402,7 +523,7 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                 letterSpacing = 1.5.sp
                             )
                             Spacer(Modifier.height(4.dp))
-                            preview?.forEach { split ->
+                            preview.forEach { split ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -435,7 +556,7 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        OutlinedButton(
+                        OutlinedButton(enabled = !LocalActionBusy.current,
                             onClick = { currentStep = 1 },
                             modifier = Modifier.weight(1f).height(48.dp),
                             shape = RoundedCornerShape(14.dp),
@@ -448,7 +569,7 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                             onClick = {
                                 vm.saveExpense(
                                     groupId,
-                                    ExpenseDraft(title, amount, category, notes, participants, splitType, splitValues, date, effectivePaidBy, paidByName),
+                                    ExpenseDraft(title, amount, category, notes, participants, splitType, splitValues, date, effectivePaidBy, paidByName, initialVersion = initialVersion),
                                     editing
                                 ) {
                                     vm.setBillScan(null)
@@ -464,7 +585,13 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                     if (!step2Valid && participants.isEmpty()) {
                         Text("Select at least one participant to split with.", color = Negative, fontSize = 11.sp)
                     } else if (!step2Valid && preview == null) {
-                        Text("Ensure exact split amounts match the total of ${Money.format(totalPaise)}.", color = Negative, fontSize = 11.sp)
+                        val requirement = when (splitType) {
+                            "exact" -> "Ensure exact split amounts match the total of ${Money.format(totalPaise)}."
+                            "percentage" -> "Ensure percentage splits total exactly 100%."
+                            "shares" -> "Ensure every participant has at least 1 share."
+                            else -> "Ensure all split values are valid."
+                        }
+                        Text(requirement, color = Negative, fontSize = 11.sp)
                     }
                 }
 
@@ -479,13 +606,13 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
         DatePickerDialog(
             onDismissRequest = { showDate = false },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(enabled = !LocalActionBusy.current, onClick = {
                     picker.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).toString() }
                     showDate = false
                 }) { Text("Done") }
             },
             dismissButton = {
-                TextButton(onClick = { showDate = false }) { Text("Cancel") }
+                TextButton(enabled = !LocalActionBusy.current, onClick = { showDate = false }) { Text("Cancel") }
             }
         ) {
             DatePicker(picker)

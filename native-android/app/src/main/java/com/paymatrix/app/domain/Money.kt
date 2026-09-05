@@ -8,8 +8,33 @@ import java.util.Locale
 object Money {
     private val pattern = Regex("^(-?)(\\d+)(?:\\.(\\d{0,2}))?$")
 
+    fun normalizeMoneyString(value: String): String {
+        var clean = value.trim().replace("₹", "").replace("$", "").trim()
+        if (clean.startsWith("-")) {
+            return "-" + normalizePositiveMoney(clean.substring(1).trim())
+        }
+        return normalizePositiveMoney(clean)
+    }
+
+    private fun normalizePositiveMoney(clean: String): String {
+        return when {
+            clean.contains('.') && clean.contains(',') && clean.lastIndexOf(',') > clean.lastIndexOf('.') -> {
+                clean.replace(".", "").replace(',', '.')
+            }
+            clean.contains(',') && clean.contains('.') -> {
+                clean.replace(",", "")
+            }
+            clean.matches(Regex("^(\\d+),(\\d{1,2})$")) -> {
+                clean.replace(',', '.')
+            }
+            else -> {
+                clean.replace(",", "")
+            }
+        }
+    }
+
     fun toPaise(value: String): Long {
-        val normalized = value.trim().replace(",", "")
+        val normalized = normalizeMoneyString(value)
         val match = pattern.matchEntire(normalized) ?: error("Enter a valid amount with at most two decimal places.")
         val negative = match.groupValues[1] == "-"
         val rupees = match.groupValues[2].toLongOrNull() ?: error("Amount is outside the supported range.")
@@ -24,6 +49,8 @@ object Money {
         .longValueExact()
 
     fun format(paise: Long): String = NumberFormat.getCurrencyInstance(Locale("en", "IN")).format(paise / 100.0)
+
+    fun formatDecimal(paise: Long): String = String.format(Locale.US, "%.2f", paise / 100.0)
 
     fun allocate(totalPaise: Long, weightedUsers: List<Pair<String, Double>>): List<Pair<String, Long>> {
         require(totalPaise >= 0) { "Total must be non-negative." }

@@ -7,12 +7,16 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleCheck,
+  Divide,
   FileText,
   Hash,
   Info,
   PenTool,
+  Percent,
+  PieChart,
   Receipt,
   ReceiptText,
+  Target,
   Users,
 } from 'lucide-react';
 import { getLucideIcon } from '../../utils/iconMap.js';
@@ -343,6 +347,7 @@ const ExpenseForm = ({
         paidBy: form.paidBy,
         paidByName: resolvedName,
         splitType,
+        initialVersion: initialData?.version || 1,
         splitData: {
           percentages: splitType === 'percentage' ? splitData.percentages : undefined,
           exactAmounts: splitType === 'exact' ? splitData.exactAmounts : undefined,
@@ -606,6 +611,21 @@ const ExpenseForm = ({
         : 0;
     const leftValue = totalAmountValue - totalDistributedValue;
 
+    // Percentage split validation
+    const totalPercentage =
+      splitType === 'percentage'
+        ? participants.reduce((sum, id) => sum + (parseFloat(splitData.percentages[id]) || 0), 0)
+        : 0;
+    const leftPercentage = 100 - totalPercentage;
+    const isPercentageValid = Math.abs(leftPercentage) < 0.01;
+
+    // Shares split validation
+    const totalShares =
+      splitType === 'shares'
+        ? participants.reduce((sum, id) => sum + (parseInt(splitData.shares[id]) || 0), 0)
+        : 0;
+    const isSharesValid = totalShares > 0;
+
     // Itemized (restaurant/GST) split: dishes are pre-tax, the leftover up to the
     // bill total is GST/charges distributed by dish ratio.
     const itemizedSubtotal = participants.reduce(
@@ -624,9 +644,13 @@ const ExpenseForm = ({
     const isSplitValid =
       splitType === 'exact'
         ? Math.abs(leftValue) < 0.01
-        : splitType === 'itemized'
-          ? isItemizedValid
-          : true;
+        : splitType === 'percentage'
+          ? isPercentageValid
+          : splitType === 'shares'
+            ? isSharesValid
+            : splitType === 'itemized'
+              ? isItemizedValid
+              : true;
 
     // Scanned-bill dish assignment state
     const hasScannedItems = scannedItems.length > 0;
@@ -653,13 +677,15 @@ const ExpenseForm = ({
               <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60 px-1">
                 Split Method
               </label>
-              <div className="grid grid-cols-3 md:flex md:flex-col gap-2.5">
+              <div className="grid grid-cols-5 md:flex md:flex-col gap-2">
                 {[
-                  { id: 'equal', icon: 'Divide', label: 'Equal' },
-                  { id: 'exact', icon: 'Target', label: 'Exact' },
-                  { id: 'itemized', icon: 'Receipt', label: 'GST' },
+                  { id: 'equal', icon: Divide, label: 'Equal' },
+                  { id: 'percentage', icon: Percent, label: 'Percent' },
+                  { id: 'exact', icon: Target, label: 'Exact' },
+                  { id: 'shares', icon: PieChart, label: 'Shares' },
+                  { id: 'itemized', icon: Receipt, label: 'GST' },
                 ].map((type) => {
-                  const Icon = getLucideIcon(type.icon);
+                  const Icon = type.icon;
                   const isSelected = splitType === type.id;
                   return (
                     <button
@@ -685,6 +711,72 @@ const ExpenseForm = ({
             {/* Indicators container for split methods */}
             <div className="relative">
               <AnimatePresence mode="wait">
+                {splitType === 'percentage' && (
+                  <motion.div
+                    key="percentage-indicator"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className={`flex items-center justify-between px-4 py-3 rounded-2xl border transition-all ${
+                      isSplitValid
+                        ? 'bg-primary/10 border-primary/20'
+                        : leftPercentage > 0
+                          ? 'bg-white/5 border-white/10'
+                          : 'bg-red-500/10 border-red-500/20'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Info
+                        size={14}
+                        className={
+                          isSplitValid
+                            ? 'text-primary'
+                            : leftPercentage > 0
+                              ? 'text-on-surface-variant'
+                              : 'text-red-400'
+                        }
+                      />
+                      <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
+                        {isSplitValid
+                          ? '100% Balanced'
+                          : leftPercentage > 0
+                            ? 'Remaining'
+                            : 'Over 100%'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`font-manrope font-black text-sm ${isSplitValid ? 'text-primary' : leftPercentage > 0 ? 'text-white' : 'text-red-400'}`}
+                      >
+                        {Math.abs(leftPercentage).toFixed(1)}%
+                      </span>
+                      {isSplitValid && <CheckCircle2 size={14} className="text-primary" />}
+                    </div>
+                  </motion.div>
+                )}
+
+                {splitType === 'shares' && (
+                  <motion.div
+                    key="shares-indicator"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className="flex items-center justify-between px-4 py-3 rounded-2xl border bg-primary/10 border-primary/20 transition-all"
+                  >
+                    <div className="flex items-center gap-2">
+                      <PieChart size={14} className="text-primary" />
+                      <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
+                        Total Shares
+                      </span>
+                    </div>
+                    <span className="font-manrope font-black text-sm text-primary">
+                      {totalShares} {totalShares === 1 ? 'Share' : 'Shares'}
+                    </span>
+                  </motion.div>
+                )}
+
                 {splitType === 'exact' && (
                   <motion.div
                     key="exact-indicator"
@@ -801,6 +893,11 @@ const ExpenseForm = ({
                   </div>
                 )}
               </div>
+              {initialData && (
+                <p className="text-[10px] text-primary/80 font-bold px-1 italic">
+                  Payer cannot be changed on an existing transaction.
+                </p>
+              )}
               <div className="relative w-full">
                 <div className="flex gap-2.5 pt-1 overflow-x-auto no-scrollbar pb-2 w-full">
                   {(() => {
@@ -813,12 +910,13 @@ const ExpenseForm = ({
                         <button
                           key={`payer-${userId}`}
                           type="button"
-                          onClick={() => setForm({ ...form, paidBy: userId })}
+                          disabled={!!initialData}
+                          onClick={() => !initialData && setForm({ ...form, paidBy: userId })}
                           className={`flex-shrink-0 flex items-center gap-2 md:gap-3 px-3 py-1.5 md:px-4 md:py-3 rounded-xl md:rounded-2xl border transition-all ${
                             isSelected
                               ? 'bg-white text-black border-white shadow-lg'
                               : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
-                          }`}
+                          } ${initialData ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
                           <Avatar
                             name={u?.name}
@@ -895,7 +993,9 @@ const ExpenseForm = ({
                       </div>
                       <AnimatePresence mode="wait">
                         {isSelected &&
-                          (splitType === 'exact' ||
+                          (splitType === 'percentage' ||
+                            splitType === 'shares' ||
+                            splitType === 'exact' ||
                             (splitType === 'itemized' && scannedItems.length === 0)) && (
                             <motion.div
                               key={`split-input-${userId}-${splitType}`}
@@ -905,6 +1005,39 @@ const ExpenseForm = ({
                               transition={{ duration: 0.2, ease: 'easeOut' }}
                               className="w-full pt-1"
                             >
+                              {splitType === 'percentage' && (
+                                <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5 w-full">
+                                  <span className="text-[10px] opacity-40 font-bold">Share</span>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    className="flex-1 bg-transparent border-none outline-none text-right font-manrope font-bold text-xs p-0 focus:ring-0"
+                                    value={splitData.percentages[userId] || ''}
+                                    placeholder="0.0"
+                                    onChange={(e) =>
+                                      handleSplitDataChange(userId, e.target.value, 'percentages')
+                                    }
+                                  />
+                                  <span className="text-[10px] opacity-40 font-bold">%</span>
+                                </div>
+                              )}
+                              {splitType === 'shares' && (
+                                <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5 w-full">
+                                  <span className="text-[10px] opacity-40 font-bold">Shares</span>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    className="flex-1 bg-transparent border-none outline-none text-right font-manrope font-bold text-xs p-0 focus:ring-0"
+                                    value={splitData.shares[userId] || '1'}
+                                    placeholder="1"
+                                    onChange={(e) =>
+                                      handleSplitDataChange(userId, e.target.value, 'shares')
+                                    }
+                                  />
+                                  <span className="text-[10px] opacity-40 font-bold">×</span>
+                                </div>
+                              )}
                               {splitType === 'exact' && (
                                 <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5 w-full">
                                   <span className="text-[10px] opacity-40 font-bold">Amount</span>

@@ -60,7 +60,19 @@ class BillScanner(
             .post(body)
             .build()
 
-        val response = client.newCall(request).execute()
+        val call = client.newCall(request)
+        val response = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation { call.cancel() }
+            call.enqueue(object : okhttp3.Callback {
+                override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                    continuation.resumeWith(Result.success(response))
+                }
+                override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                    if (continuation.isCancelled) return
+                    continuation.resumeWith(Result.failure(e))
+                }
+            })
+        }
         val text = response.body?.string().orEmpty()
         if (!response.isSuccessful) {
             val serverMsg = runCatching { JSONObject(text).optString("error") }.getOrNull().orEmpty()
@@ -82,7 +94,7 @@ class BillScanner(
                         val name = item.optString("name")
                         val price = item.opt("price")?.toString()?.toDoubleOrNull()
                         if (name.isNotBlank()) {
-                            if (price != null && price > 0) add("$name: ₹%.2f".format(price))
+                            if (price != null && price > 0) add("$name: ₹%.2f".format(java.util.Locale.US, price))
                             else add(name)
                         }
                     } else if (item != null) {
@@ -98,8 +110,8 @@ class BillScanner(
 
         val rawTotal = if (data.has("amount")) data.opt("amount") else data.opt("total")
         val total = when (rawTotal) {
-            is Number -> if (rawTotal.toDouble() > 0) "%.2f".format(rawTotal.toDouble()) else ""
-            is String -> rawTotal
+            is Number -> if (rawTotal.toDouble() > 0) "%.2f".format(java.util.Locale.US, rawTotal.toDouble()) else ""
+            is String -> com.paymatrix.app.domain.Money.normalizeMoneyString(rawTotal)
             else -> ""
         }
 

@@ -174,10 +174,10 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
                 nav = nav,
                 actions = {
                     if (snapshot != null) {
-                        IconButton(onClick = { addMember = true }) {
+                        IconButton(enabled = !LocalActionBusy.current, onClick = { addMember = true }) {
                             Icon(Icons.Default.PersonAdd, "Add member", tint = Color.White.copy(alpha = .78f))
                         }
-                        IconButton(onClick = { menu = true }) {
+                        IconButton(enabled = !LocalActionBusy.current, onClick = { menu = true }) {
                             Icon(Icons.Default.MoreVert, "Group menu", tint = Color.White.copy(alpha = .78f))
                         }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = ModalSurface) {
@@ -271,7 +271,15 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
         }
     }
 
-    if (settle && snapshot != null) SettlementDialog(snapshot, state.user?.uid.orEmpty(), { settle = false }) { payee, amount, note -> vm.settle(id, payee, amount, note) { settle = false } }
+    if (settle && snapshot != null) SettlementDialog(
+        snapshot = snapshot,
+        currentUid = state.user?.uid.orEmpty(),
+        friends = state.friends,
+        onAddFriend = { code -> vm.sendFriendRequest(code) },
+        onDismiss = { settle = false }
+    ) { payee, amount, note ->
+        vm.settle(id, payee, amount, note) { settle = false }
+    }
     if (editGroup && snapshot != null && snapshot.group.admin == state.user?.uid) EditGroupDialog(snapshot.group, { editGroup = false }) { name, description, category -> vm.updateGroup(id, name, description, category) { editGroup = false } }
     if (addMember && snapshot != null) AddMemberDialog(snapshot, state.friends, { addMember = false }) { uid -> vm.addGroupMember(id, uid) { addMember = false } }
     if (leaveConfirm) ConfirmDialog("Exit group?", "You can leave only when your balance is ₹0.00. This does not erase historical records.", "Leave", { leaveConfirm = false }) { vm.leaveGroup(id) { leaveConfirm = false; nav.popBackStack() } }
@@ -484,7 +492,7 @@ private fun GroupHero(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Button(
+            Button(enabled = !LocalActionBusy.current,
                 onClick = onRecord,
                 shape = RoundedCornerShape(100.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
@@ -495,7 +503,7 @@ private fun GroupHero(
                 Spacer(Modifier.width(6.dp))
                 Text("ADD EXPENSE", fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = 0.5.sp)
             }
-            Button(
+            Button(enabled = !LocalActionBusy.current,
                 onClick = onScan,
                 shape = RoundedCornerShape(100.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.05f), contentColor = Color.White),
@@ -510,7 +518,7 @@ private fun GroupHero(
         }
 
         // Full width [SETTLE UP] button
-        Button(
+        Button(enabled = !LocalActionBusy.current,
             onClick = onSettle,
             shape = RoundedCornerShape(100.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.05f), contentColor = Color.White),
@@ -544,7 +552,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.overviewItems(snapsho
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.expenseItems(snapshot: GroupSnapshot, uid: String, mineOnly: Boolean, onToggleMine: () -> Unit, vm: PayMatrixViewModel, nav: NavHostController) {
-    item { SectionTitle("Expenses", if (mineOnly) "Showing your expenses" else "Recent first") { TextButton(onClick = onToggleMine) { Text(if (mineOnly) "Show all" else "Show yours", color = MutedText, fontSize = 11.sp) } } }
+    item { SectionTitle("Expenses", if (mineOnly) "Showing your expenses" else "Recent first") { TextButton(enabled = !LocalActionBusy.current, onClick = onToggleMine) { Text(if (mineOnly) "Show all" else "Show yours", color = MutedText, fontSize = 11.sp) } } }
     val active = snapshot.expenses.filter { it.status != "deleted" && it.status != "archived" && (!mineOnly || it.paidBy == uid || it.participants.contains(uid)) }
     if (active.isEmpty()) item { EmptyState("No expenses", "Tap + to record the first one.") }
     items(active, key = { it.id }) { expense -> ExpenseRow(expense, snapshot, uid, { nav.navigate("expense/${snapshot.group.id}?expenseId=${expense.id}") }, { vm.archiveExpense(expense) }) }
@@ -587,7 +595,7 @@ private fun ExpenseRow(expense: Expense, snapshot: GroupSnapshot, myUid: String,
                 }
             }
             Box {
-                IconButton(onClick = { menu = true }, modifier = Modifier.size(34.dp)) {
+                IconButton(enabled = !LocalActionBusy.current, onClick = { menu = true }, modifier = Modifier.size(34.dp)) {
                     Icon(Icons.Default.MoreVert, "Expense menu", tint = Color.White.copy(alpha = .5f), modifier = Modifier.size(17.dp))
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = ModalSurface) {
@@ -620,7 +628,7 @@ private fun ExpenseRow(expense: Expense, snapshot: GroupSnapshot, myUid: String,
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.memberItems(snapshot: GroupSnapshot, state: PayMatrixState, vm: PayMatrixViewModel, onAdd: () -> Unit) {
-    item { SectionTitle("Members", "${snapshot.group.members.size} people") { IconButton(onClick = onAdd) { Icon(Icons.Default.PersonAdd, "Add member") } } }
+    item { SectionTitle("Members", "${snapshot.group.members.size} people") { IconButton(enabled = !LocalActionBusy.current, onClick = onAdd) { Icon(Icons.Default.PersonAdd, "Add member") } } }
     items(snapshot.group.members, key = { it }) { memberUid ->
         val profile = snapshot.profiles[memberUid]
         val balance = snapshot.balances[memberUid] ?: 0L
@@ -713,9 +721,9 @@ private fun GroupActivityCard(item: ActivityItem, snapshot: GroupSnapshot, vm: P
             }
         }
         when (item.type) {
-            "expense_deleted" -> snapshot.expenses.firstOrNull { it.id == item.relatedId }?.let { TextButton(onClick = { vm.restoreExpense(it) }) { Text("Restore") } }
-            "settlement_deleted" -> snapshot.settlements.firstOrNull { it.id == item.relatedId }?.let { TextButton(onClick = { vm.restoreSettlement(it) }) { Text("Restore") } }
-            "settlement_added" -> snapshot.settlements.firstOrNull { it.id == item.relatedId && it.status != "deleted" }?.let { settlement -> TextButton(onClick = { confirmDelete = settlement }) { Text("Delete", color = Negative) } }
+            "expense_deleted" -> snapshot.expenses.firstOrNull { it.id == item.relatedId }?.let { TextButton(enabled = !LocalActionBusy.current, onClick = { vm.restoreExpense(it) }) { Text("Restore") } }
+            "settlement_deleted" -> snapshot.settlements.firstOrNull { it.id == item.relatedId }?.let { TextButton(enabled = !LocalActionBusy.current, onClick = { vm.restoreSettlement(it) }) { Text("Restore") } }
+            "settlement_added" -> snapshot.settlements.firstOrNull { it.id == item.relatedId && it.status != "deleted" }?.let { settlement -> TextButton(enabled = !LocalActionBusy.current, onClick = { confirmDelete = settlement }) { Text("Delete", color = Negative) } }
         }
     }
     confirmDelete?.let { settlement -> ConfirmDialog("Delete settlement record?", "This changes group balances but does not affect a bank or UPI payment. The audit event remains restorable.", "Delete", { confirmDelete = null }, destructive = true) { confirmDelete = null; vm.archiveSettlement(settlement) } }
@@ -735,7 +743,7 @@ private fun CreateGroupDialog(state: PayMatrixState, onDismiss: () -> Unit, onCo
         title = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("CREATE GROUP", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 0.5.sp)
-                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))) {
+                IconButton(enabled = !LocalActionBusy.current, onClick = onDismiss, modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))) {
                     Icon(Icons.Default.Close, "Close", tint = Color.White, modifier = Modifier.size(16.dp))
                 }
             }
@@ -793,7 +801,7 @@ private fun CreateGroupDialog(state: PayMatrixState, onDismiss: () -> Unit, onCo
         confirmButton = {
             Button(
                 onClick = { onConfirm(name, description, category, selected.filterValues { it }.keys.toList()) },
-                enabled = name.isNotBlank(),
+                enabled = !LocalActionBusy.current && (name.isNotBlank()),
                 shape = RoundedCornerShape(100.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
             ) {
@@ -801,7 +809,7 @@ private fun CreateGroupDialog(state: PayMatrixState, onDismiss: () -> Unit, onCo
             }
         },
         dismissButton = {
-            Button(onClick = onDismiss, shape = RoundedCornerShape(100.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Color.White)) {
+            Button(enabled = !LocalActionBusy.current, onClick = onDismiss, shape = RoundedCornerShape(100.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Color.White)) {
                 Text("Cancel", fontWeight = FontWeight.Medium, fontSize = 13.sp)
             }
         }
@@ -821,7 +829,7 @@ private fun EditGroupDialog(group: Group, onDismiss: () -> Unit, onConfirm: (Str
         title = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("EDIT GROUP DETAILS", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 0.5.sp)
-                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))) {
+                IconButton(enabled = !LocalActionBusy.current, onClick = onDismiss, modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))) {
                     Icon(Icons.Default.Close, "Close", tint = Color.White, modifier = Modifier.size(16.dp))
                 }
             }
@@ -901,7 +909,7 @@ private fun EditGroupDialog(group: Group, onDismiss: () -> Unit, onConfirm: (Str
         confirmButton = {
             Button(
                 onClick = { onConfirm(name, description, selectedCategory) },
-                enabled = name.isNotBlank(),
+                enabled = !LocalActionBusy.current && (name.isNotBlank()),
                 shape = RoundedCornerShape(100.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
                 contentPadding = PaddingValues(horizontal = 22.dp, vertical = 10.dp)
@@ -910,7 +918,7 @@ private fun EditGroupDialog(group: Group, onDismiss: () -> Unit, onConfirm: (Str
             }
         },
         dismissButton = {
-            Button(
+            Button(enabled = !LocalActionBusy.current,
                 onClick = onDismiss,
                 shape = RoundedCornerShape(100.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Color.White),
@@ -925,7 +933,7 @@ private fun EditGroupDialog(group: Group, onDismiss: () -> Unit, onConfirm: (Str
 @Composable
 private fun AddMemberDialog(snapshot: GroupSnapshot, friends: List<UserProfile>, onDismiss: () -> Unit, onAdd: (String) -> Unit) {
     val available = friends.filter { it.uid !in snapshot.group.members }
-    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Add member") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { Text("SELECT FROM FRIENDS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); if (available.isEmpty()) Text("No available friends. Connect on the Friends page first.", color = MutedText) else available.forEach { friend -> Row(Modifier.fillMaxWidth().clickable { onAdd(friend.uid) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { UserAvatar(friend, 38); Spacer(Modifier.width(10.dp)); Text(friend.name, Modifier.weight(1f)); Icon(Icons.Default.Add, null) } }; HorizontalDivider(color = Hairline); Text("Invite code", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); Text(snapshot.group.inviteCode.chunked(4).joinToString(" "), color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 2.sp) } }, confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text("Done") } })
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Add member") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { Text("SELECT FROM FRIENDS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); if (available.isEmpty()) Text("No available friends. Connect on the Friends page first.", color = MutedText) else available.forEach { friend -> Row(Modifier.fillMaxWidth().clickable { onAdd(friend.uid) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { UserAvatar(friend, 38); Spacer(Modifier.width(10.dp)); Text(friend.name, Modifier.weight(1f)); Icon(Icons.Default.Add, null) } }; HorizontalDivider(color = Hairline); Text("Invite code", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); Text(snapshot.group.inviteCode.chunked(4).joinToString(" "), color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 2.sp) } }, confirmButton = {}, dismissButton = { TextButton(enabled = !LocalActionBusy.current, onClick = onDismiss) { Text("Done") } })
 }
 
 private data class UpiQrTarget(
@@ -940,6 +948,8 @@ private data class UpiQrTarget(
 private fun SettlementDialog(
     snapshot: GroupSnapshot,
     currentUid: String,
+    friends: List<UserProfile> = emptyList(),
+    onAddFriend: ((String) -> Unit)? = null,
     onDismiss: () -> Unit,
     onConfirm: (String, String, String) -> Unit
 ) {
@@ -985,7 +995,7 @@ private fun SettlementDialog(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (view == "custom") {
-                        IconButton(
+                        IconButton(enabled = !LocalActionBusy.current,
                             onClick = { view = "main" },
                             modifier = Modifier.size(28.dp)
                         ) {
@@ -1000,7 +1010,7 @@ private fun SettlementDialog(
                         letterSpacing = 0.5.sp
                     )
                 }
-                IconButton(
+                IconButton(enabled = !LocalActionBusy.current,
                     onClick = onDismiss,
                     modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))
                 ) {
@@ -1077,7 +1087,7 @@ private fun SettlementDialog(
                                         fontSize = 24.sp
                                     )
                                 }
-                                Button(
+                                Button(enabled = !LocalActionBusy.current,
                                     onClick = {
                                         myDebts.forEach { debt ->
                                             onConfirm(debt.to, "%.2f".format(debt.amountPaise / 100.0), "Settled all dues")
@@ -1126,6 +1136,8 @@ private fun SettlementDialog(
                             val payeeProfile = snapshot.profiles[debt.to]
                             val payeeName = payeeProfile?.name ?: "Member"
                             val hasUpi = !payeeProfile?.upiId.isNullOrBlank()
+                            val isFriend = friends.any { it.uid == debt.to }
+                            val friendCode = payeeProfile?.friendCode.orEmpty()
                             val isPartialActive = partialDebtTarget == debt.to
 
                             Column(
@@ -1168,6 +1180,34 @@ private fun SettlementDialog(
                                     }
                                 }
 
+                                if (!hasUpi) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color.White.copy(alpha = 0.04f))
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            if (!isFriend) "UPI ID hidden by privacy. Add as friend to view UPI." else "Payee has not added their UPI ID yet.",
+                                            color = QuietText,
+                                            fontSize = 10.sp,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        if (!isFriend && friendCode.isNotBlank() && onAddFriend != null) {
+                                            Spacer(Modifier.width(8.dp))
+                                            TextButton(
+                                                onClick = { onAddFriend(friendCode) },
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                            ) {
+                                                Text("Add Friend", color = MintGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
+
                                 if (isPartialActive) {
                                     Column(
                                         modifier = Modifier
@@ -1191,7 +1231,7 @@ private fun SettlementDialog(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
-                                            OutlinedButton(
+                                            OutlinedButton(enabled = !LocalActionBusy.current,
                                                 onClick = { partialDebtTarget = null },
                                                 modifier = Modifier.weight(1f).height(36.dp),
                                                 shape = RoundedCornerShape(8.dp),
@@ -1199,7 +1239,7 @@ private fun SettlementDialog(
                                             ) {
                                                 Text("Cancel", fontSize = 11.sp, color = Color.White)
                                             }
-                                            Button(
+                                            Button(enabled = !LocalActionBusy.current,
                                                 onClick = {
                                                     val clean = partialAmountText.trim()
                                                     if (clean.isNotBlank() && (clean.toDoubleOrNull() ?: 0.0) > 0) {
@@ -1221,7 +1261,7 @@ private fun SettlementDialog(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        OutlinedButton(
+                                        OutlinedButton(enabled = !LocalActionBusy.current,
                                             onClick = {
                                                 partialDebtTarget = debt.to
                                                 partialAmountText = "%.2f".format(debt.amountPaise / 100.0)
@@ -1233,7 +1273,7 @@ private fun SettlementDialog(
                                         ) {
                                             Text("Partial", fontSize = 11.sp, color = Color.White)
                                         }
-                                        Button(
+                                        Button(enabled = !LocalActionBusy.current,
                                             onClick = {
                                                 onConfirm(debt.to, "%.2f".format(debt.amountPaise / 100.0), "Settled up")
                                             },
@@ -1246,7 +1286,7 @@ private fun SettlementDialog(
                                         }
                                     }
 
-                                    Button(
+                                    Button(enabled = !LocalActionBusy.current,
                                         onClick = {
                                             qrTarget = UpiQrTarget(
                                                 uid = debt.to,
@@ -1355,7 +1395,7 @@ private fun SettlementDialog(
                     val profile = snapshot.profiles[customPayee]
                     val customPaise = runCatching { Money.toPaise(customAmount) }.getOrDefault(0L)
                     if (profile != null && !profile.upiId.isNullOrBlank() && customPaise > 0) {
-                        Button(
+                        Button(enabled = !LocalActionBusy.current,
                             onClick = {
                                 qrTarget = UpiQrTarget(
                                     uid = customPayee,
@@ -1380,7 +1420,7 @@ private fun SettlementDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        OutlinedButton(
+                        OutlinedButton(enabled = !LocalActionBusy.current,
                             onClick = { view = "main" },
                             modifier = Modifier.weight(1f).height(46.dp),
                             shape = RoundedCornerShape(100.dp)
@@ -1389,7 +1429,7 @@ private fun SettlementDialog(
                         }
                         Button(
                             onClick = { onConfirm(customPayee, customAmount, customNote) },
-                            enabled = customPayee.isNotBlank() && customAmount.isNotBlank() && customPaise > 0,
+                            enabled = !LocalActionBusy.current && (customPayee.isNotBlank() && customAmount.isNotBlank() && customPaise > 0),
                             shape = RoundedCornerShape(100.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
                             modifier = Modifier.weight(1.5f).height(46.dp)
@@ -1437,7 +1477,7 @@ private fun UpiQrModal(
                     fontWeight = FontWeight.Black,
                     fontSize = 18.sp
                 )
-                IconButton(
+                IconButton(enabled = !LocalActionBusy.current,
                     onClick = onDismiss,
                     modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f))
                 ) {
@@ -1485,7 +1525,7 @@ private fun UpiQrModal(
                         )
                     } else {
                         Text(
-                            "No UPI ID available for this member",
+                            "UPI ID is private or not configured. Add them as a friend to view their UPI ID.",
                             color = Color.Black.copy(alpha = 0.6f),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -1524,7 +1564,7 @@ private fun UpiQrModal(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                        TextButton(
+                        TextButton(enabled = !LocalActionBusy.current,
                             onClick = {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 clipboard.setPrimaryClip(ClipData.newPlainText("UPI ID", target.upiId))
@@ -1554,7 +1594,7 @@ private fun UpiQrModal(
                                 Toast.makeText(context, "Recipient has no UPI ID.", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        enabled = target.upiId.isNotBlank(),
+                        enabled = !LocalActionBusy.current && (target.upiId.isNotBlank()),
                         modifier = Modifier.weight(1f).height(44.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue, contentColor = Color.White),
@@ -1576,7 +1616,7 @@ private fun UpiQrModal(
                                 }
                             }
                         },
-                        enabled = qrBitmap != null,
+                        enabled = !LocalActionBusy.current && (qrBitmap != null),
                         modifier = Modifier.weight(1f).height(44.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MintGreen.copy(alpha = 0.2f), contentColor = MintGreen),
@@ -1589,7 +1629,7 @@ private fun UpiQrModal(
                     }
                 }
 
-                Button(
+                Button(enabled = !LocalActionBusy.current,
                     onClick = {
                         onMarkPaid(target.uid, "%.2f".format(target.amountPaise / 100.0), target.note)
                     },
@@ -1611,7 +1651,7 @@ private fun UpiQrModal(
 @Composable
 fun TextEntryDialog(title: String, label: String, confirm: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var value by remember { mutableStateOf("") }
-    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text(title) }, text = { FormField(value, { value = it }, label) }, confirmButton = { Button(onClick = { onConfirm(value) }, enabled = value.isNotBlank()) { Text(confirm) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text(title) }, text = { FormField(value, { value = it }, label) }, confirmButton = { Button(onClick = { onConfirm(value) }, enabled = !LocalActionBusy.current && (value.isNotBlank())) { Text(confirm) } }, dismissButton = { TextButton(enabled = !LocalActionBusy.current, onClick = onDismiss) { Text("Cancel") } })
 }
 
 @Composable
@@ -1623,12 +1663,12 @@ fun ConfirmDialog(title: String, message: String, confirm: String, onDismiss: ()
         title = { Text(title) },
         text = { Text(message, color = MutedText) },
         confirmButton = {
-            Button(onClick = onConfirm, colors = if (destructive) ButtonDefaults.buttonColors(containerColor = Negative, contentColor = Color.Black) else ButtonDefaults.buttonColors()) {
+            Button(enabled = !LocalActionBusy.current, onClick = onConfirm, colors = if (destructive) ButtonDefaults.buttonColors(containerColor = Negative, contentColor = Color.Black) else ButtonDefaults.buttonColors()) {
                 Text(confirm)
             }
         },
         dismissButton = if (showDismiss) {
-            { TextButton(onClick = onDismiss) { Text("Cancel") } }
+            { TextButton(enabled = !LocalActionBusy.current, onClick = onDismiss) { Text("Cancel") } }
         } else null
     )
 }

@@ -1,0 +1,81 @@
+i  emulators: Starting emulators: firestore
+i  emulators: Detected demo project ID "demo-paymatrix", emulated services will use a demo configuration and attempts to access non-emulated services for this project will fail.
+i  firestore: Firestore Emulator logging to firestore-debug.log
++  firestore: Firestore Emulator was started in standard edition.
++  firestore: Firestore Emulator UI websocket is running on 9150.
+i  Running script: npm.cmd --prefix frontend run test:rules
+
+> paymatrix-frontend@1.2.5 test:rules
+> node --test tests/firestore.rules.test.js
+
+[2026-09-05T10:22:06.705Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd0719 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L111
+▶ verified authentication boundary
+  ✔ rejects shared-data access from an unverified password session (1150.0237ms)
+  ✔ allows a verified password session through the existing authorization rules (291.354ms)
+✔ verified authentication boundary (5841.3584ms)
+[2026-09-05T10:22:07.227Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd071d error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Property admin is undefined on object. for 'update' @ L331, Property admin is undefined on object. for 'update' @ L331
+▶ PayMatrix Firestore authorization
+  ✔ rejects group takeover by a signed-in nonmember (228.0477ms)
+[2026-09-05T10:22:07.398Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd071f error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Property admin is undefined on object. for 'update' @ L111, Property admin is undefined on object. for 'update' @ L111
+  ✔ rejects unilateral friendship and permits accepted-request atomic friendship (337.6762ms)
+  ✔ lets a group member read a minimal public profile but not a private profile (176.9997ms)
+[2026-09-05T10:22:07.971Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd0726 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Property admin is undefined on object. for 'update' @ L111, Property admin is undefined on object. for 'update' @ L111
+  ✔ lets an owner refresh a legacy profile without rewriting its unchanged avatar (228.943ms)
+[2026-09-05T10:22:08.155Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd0728 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L381:26 for 'update' @ L381, false for 'update' @ L381
+  ✔ requires an atomic audit record for collaborative expense edits (298.7418ms)
+[2026-09-05T10:22:08.488Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd072b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L381:26 for 'update' @ L381, evaluation error at L446:26 for 'create' @ L446, false for 'update' @ L471, false for 'update' @ L381
+  ✔ rejects a stale collaborative edit even when its audit record is present (217.806ms)
+  ✔ allows a legacy expense to be soft-deleted with an atomic audit record (214.0127ms)
+  ✔ keeps an immutable audit event when a log entry is deleted (190.9097ms)
+[2026-09-05T10:22:09.103Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd0733 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L209:26 for 'create' @ L209, Property admin is undefined on object. for 'update' @ L221, false for 'create' @ L209
+  ✔ requires an atomic activity event when a member creates a log entry (209.2047ms)
+[2026-09-05T10:22:09.281Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd0735 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L259:26 for 'create' @ L259, false for 'update' @ L290, false for 'create' @ L259
+  ✔ rejects forged log activity from a nonmember (178.7048ms)
+[2026-09-05T10:22:09.431Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd0737 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L259:26 for 'create' @ L259, false for 'update' @ L290, false for 'create' @ L259
+  ✔ rejects a member's standalone log activity without the matching entry mutation (149.429ms)
+[2026-09-05T10:22:09.548Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd0739 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Property admin is undefined on object. for 'delete' @ L195, Property admin is undefined on object. for 'delete' @ L195
+  ✔ soft-deletes a log group and rejects an orphaning hard delete (116.9165ms)
+[2026-09-05T10:22:09.689Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd073b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L408:26 for 'create' @ L408, evaluation error at L428:26 for 'update' @ L428, false for 'create' @ L408
+  ✔ binds confirmed settlement payer to the authenticated user (140.2581ms)
+  ✔ accepts a payer-confirmed settlement only with its atomic audit record (121.0833ms)
+[2026-09-05T10:22:09.973Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd073f error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Property admin is undefined on object. for 'update' @ L331, Property admin is undefined on object. for 'update' @ L331
+  ✔ allows an invited user to join only themselves (163.4759ms)
+  ✔ lets the original sender re-send a deterministic rejected request (141.445ms)
+  ✔ lets former friends re-send a deterministic accepted request after disconnecting (154.2477ms)
+[2026-09-05T10:22:10.472Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd0748 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L580:24 for 'create' @ L580, Property admin is undefined on object. for 'update' @ L514, false for 'create' @ L580
+  ✔ allows a verified Spark-plan friend notification and rejects forged copy (202.6584ms)
+[2026-09-05T10:22:10.661Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd074b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L580:24 for 'create' @ L580, Property admin is undefined on object. for 'update' @ L514, Property admin is undefined on object. for 'update' @ L514
+  ✔ allows only ledger-backed group expense notifications (188.6671ms)
+[2026-09-05T10:22:10.812Z]  @firebase/firestore: Firestore (12.11.0): GrpcConnection RPC 'Write' stream 0x22dd074d error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L615:24 for 'update' @ L615, false for 'update' @ L615
+  ✔ enforces the AI request counter and hourly cap (151.2499ms)
+  ✔ permits atomic anonymization only with a 30-day deletion receipt (116.0136ms)
+✔ PayMatrix Firestore authorization (3929.546ms)
+ℹ tests 23
+ℹ suites 2
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10276.7729
++  Script exited successfully (code 0)
+i  emulators: Shutting down emulators.
+i  firestore: Stopping Firestore Emulator
+!  Firestore Emulator has exited upon receiving signal: SIGINT
+i  hub: Stopping emulator hub
+i  logging: Stopping Logging Emulator

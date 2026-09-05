@@ -63,4 +63,43 @@ class BalanceEngineTest {
         assertTrue(runCatching { BalanceEngine.calculateSplits(1000, "percentage", mapOf("alice" to 80.0, "bob" to 10.0), users) }.isFailure)
         assertTrue(runCatching { BalanceEngine.calculateSplits(1000, "exact", mapOf("alice" to 4.0, "bob" to 5.0), users) }.isFailure)
     }
+
+    @Test fun decimalCommaAndThousandsSeparatorsAreParsedCorrectly() {
+        assertEquals(1250L, Money.toPaise("12,50"))
+        assertEquals(123456L, Money.toPaise("1,234.56"))
+        assertEquals(123456L, Money.toPaise("1.234,56"))
+        assertEquals(100000L, Money.toPaise("1,000"))
+        assertEquals(1250L, Money.toPaise("₹ 12,50"))
+    }
+
+    @Test fun allFiveSplitModesConserveTotalPaiseDeterministically() {
+        val users = listOf("userA", "userB", "userC")
+        val totalPaise = 10001L
+
+        // Equal split
+        val equal = BalanceEngine.calculateSplits(totalPaise, "equal", emptyMap(), users)
+        assertEquals(totalPaise, equal.sumOf { it.amountPaise })
+        assertEquals(listOf(3334L, 3334L, 3333L), equal.map { it.amountPaise })
+
+        // Percentage split (e.g. 50%, 25%, 25%)
+        val pct = BalanceEngine.calculateSplits(totalPaise, "percentage", mapOf("userA" to 50.0, "userB" to 25.0, "userC" to 25.0), users)
+        assertEquals(totalPaise, pct.sumOf { it.amountPaise })
+
+        // Exact split (50.00 + 25.00 + 25.01 = 100.01)
+        val exact = BalanceEngine.calculateSplits(totalPaise, "exact", mapOf("userA" to 50.00, "userB" to 25.00, "userC" to 25.01), users)
+        assertEquals(totalPaise, exact.sumOf { it.amountPaise })
+        assertEquals(5000L, exact[0].amountPaise)
+        assertEquals(2500L, exact[1].amountPaise)
+        assertEquals(2501L, exact[2].amountPaise)
+
+        // Shares split (3 shares, 2 shares, 1 share)
+        val shares = BalanceEngine.calculateSplits(totalPaise, "shares", mapOf("userA" to 3.0, "userB" to 2.0, "userC" to 1.0), users)
+        assertEquals(totalPaise, shares.sumOf { it.amountPaise })
+        assertTrue(shares[0].amountPaise > shares[1].amountPaise)
+        assertTrue(shares[1].amountPaise > shares[2].amountPaise)
+
+        // Itemized split
+        val itemized = BalanceEngine.calculateSplits(totalPaise, "itemized", mapOf("userA" to 50.0, "userB" to 30.0, "userC" to 20.0), users)
+        assertEquals(totalPaise, itemized.sumOf { it.amountPaise })
+    }
 }

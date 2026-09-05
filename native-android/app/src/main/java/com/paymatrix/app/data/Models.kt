@@ -54,6 +54,7 @@ data class Expense(
     val date: String = "",
     val createdAt: String = "",
     val status: String = "active",
+    val version: Long = 1L,
 )
 
 data class Settlement(
@@ -203,6 +204,7 @@ data class ExpenseDraft(
     val date: String = "",
     val paidBy: String = "",
     val paidByName: String = "",
+    val initialVersion: Long = 1L,
 )
 
 data class BillScanResult(

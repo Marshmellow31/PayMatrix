@@ -240,6 +240,10 @@ const expenseService = {
     if (!previousSnap.exists()) throw new Error('Expense not found');
     const previous = previousSnap.data();
 
+    if (data.initialVersion && previous.version && previous.version !== data.initialVersion) {
+      throw new Error('This transaction was modified by another member. Please refresh before saving.');
+    }
+
     // Re-calculate splits if amount or split configuration changed
     const splits = calculateSplits(
       data.amount,

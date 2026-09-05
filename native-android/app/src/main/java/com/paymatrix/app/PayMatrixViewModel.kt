@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.FlowPreview
 import java.time.Instant
@@ -42,6 +45,7 @@ data class PayMatrixState(
     val message: String? = null,
     val error: String? = null,
     val verificationEmail: String = "",
+    val pendingInviteCode: String? = null,
 )
 
 @OptIn(FlowPreview::class)
@@ -50,6 +54,7 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
     val state: StateFlow<PayMatrixState> = _state.asStateFlow()
     private var homeRealtimeJob: Job? = null
     private var groupRealtimeJob: Job? = null
+    private val foregroundActions = ForegroundActionGate()
 
     init {
         viewModelScope.launch {
@@ -61,6 +66,9 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun clearFeedback() { _state.value = _state.value.copy(message = null, error = null) }
+    fun clearMessage(message: String) {
+        if (_state.value.message == message) _state.value = _state.value.copy(message = null)
+    }
 
     fun refreshSession() = action("Loading your account") {
         val user = container.auth.currentVerifiedProfile()
@@ -158,21 +166,38 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
 
     fun createGroup(name: String, description: String, category: String, members: List<String> = emptyList(), done: (String) -> Unit) = action("Creating group") {
         val id = container.repository.createGroup(name, description, category)
-        members.distinct().forEach { member -> runCatching { container.repository.addGroupMember(id, member) } }
-        loadGroupsInternal(); done(id)
+        val failedMembers = mutableListOf<String>()
+        members.distinct().forEach { member ->
+            runCatching { container.repository.addGroupMember(id, member) }
+                .onFailure { failedMembers.add(member) }
+        }
+        if (failedMembers.isNotEmpty()) {
+            _state.value = _state.value.copy(message = "Group created, but ${failedMembers.size} member(s) could not be added.")
+        }
+        done(id)
+        refreshAfterSave { loadGroupsInternal() }
     }
 
     fun joinGroup(code: String, done: (String) -> Unit) = action("Joining group") {
         val id = container.repository.joinGroup(code)
-        loadGroupsInternal(); done(id)
+        clearPendingInvite()
+        done(id)
+        refreshAfterSave { loadGroupsInternal() }
     }
 
     fun updateGroup(id: String, name: String, description: String, category: String, done: () -> Unit) = action("Saving group") {
-        container.repository.updateGroup(id, name, description, category); reloadGroup(id); loadGroupsInternal(); done()
+        container.repository.updateGroup(id, name, description, category)
+        done()
+        refreshAfterSave {
+            reloadGroup(id)
+            loadGroupsInternal()
+        }
     }
 
     fun addGroupMember(id: String, memberUid: String, done: () -> Unit = {}) = action("Adding member") {
-        container.repository.addGroupMember(id, memberUid); reloadGroup(id); done()
+        container.repository.addGroupMember(id, memberUid)
+        done()
+        refreshAfterSave { reloadGroup(id) }
     }
 
     fun removeGroupMember(id: String, memberUid: String) = action("Removing member") { container.repository.removeGroupMember(id, memberUid); reloadGroup(id) }
@@ -206,13 +231,13 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
             draft.paidBy, draft.paidByName
         )
         else container.repository.updateExpense(editing, draft)
-        reloadGroup(groupId)
         _state.value = _state.value.copy(message = when {
-            result.queued -> "Saved offline · pending secure sync"
+            result.queued -> "Saved on this device · awaiting sync"
             editing == null -> "Expense recorded"
             else -> "Expense updated"
         })
         done()
+        refreshAfterSave { reloadGroup(groupId) }
     }
 
     fun archiveExpense(expense: Expense) = action("Deleting expense") { val result = container.repository.archiveExpense(expense.groupId, expense); reloadGroup(expense.groupId); _state.value = _state.value.copy(message = if (result.queued) "Deleted offline · audit pending sync" else "Expense deleted · restore it from Activity") }
@@ -221,8 +246,10 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
     fun restoreSettlement(settlement: Settlement) = action("Restoring settlement") { val result = container.repository.restoreSettlement(settlement.groupId, settlement); reloadGroup(settlement.groupId); if (result.queued) _state.value = _state.value.copy(message = "Settlement restore pending sync") }
 
     fun settle(groupId: String, payee: String, amount: String, note: String, done: () -> Unit) = action("Recording settlement") {
-        container.repository.settle(groupId, payee, amount, note); reloadGroup(groupId)
-        _state.value = _state.value.copy(message = "Payment recorded after your confirmation"); done()
+        container.repository.settle(groupId, payee, amount, note)
+        _state.value = _state.value.copy(message = "Payment recorded after your confirmation")
+        done()
+        refreshAfterSave { reloadGroup(groupId) }
     }
 
     fun loadFriends() = action("Loading friends", showLoading = false) { loadFriendsInternal() }
@@ -244,7 +271,10 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
 
     fun loadLogGroups() = action("Loading logs", showLoading = false) { _state.value = _state.value.copy(logGroups = container.repository.logGroups()) }
     fun createLogGroup(name: String, members: List<String> = emptyList(), done: (String) -> Unit = {}) = action("Creating log") {
-        val id = container.repository.createLogGroup(name); container.repository.addLogGroupMembers(id, members); _state.value = _state.value.copy(logGroups = container.repository.logGroups()); done(id)
+        val id = container.repository.createLogGroup(name)
+        members.distinct().forEach { member -> runCatching { container.repository.addLogGroupMembers(id, listOf(member)) } }
+        done(id)
+        refreshAfterSave { _state.value = _state.value.copy(logGroups = container.repository.logGroups()) }
     }
     fun renameLogGroup(id: String, name: String) = action("Renaming log") { container.repository.renameLogGroup(id, name); _state.value = _state.value.copy(logGroups = container.repository.logGroups()) }
     fun leaveLogGroup(id: String, done: () -> Unit) = action("Leaving log") { _state.value.user?.uid?.let { container.repository.removeLogGroupMember(id, it) }; _state.value = _state.value.copy(logGroups = container.repository.logGroups()); done() }
@@ -255,10 +285,11 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
             logActivity = container.repository.logActivity(groupId),
         )
     }
-    fun saveLogEntry(groupId: String, title: String, amount: String, category: String, place: String, note: String, editing: LogEntry? = null) = action("Saving entry") {
+    fun saveLogEntry(groupId: String, title: String, amount: String, category: String, place: String, note: String, editing: LogEntry? = null, done: () -> Unit = {}) = action("Saving entry") {
         val result = if (editing == null) container.repository.addLogEntry(groupId, title, amount, category, place, note) else container.repository.updateLogEntry(groupId, editing.id, title, amount, category, place, note)
-        _state.value = _state.value.copy(logEntries = container.repository.logEntries(groupId), logActivity = container.repository.logActivity(groupId))
-        if (result.queued) _state.value = _state.value.copy(message = "Saved offline · audit pending sync")
+        done()
+        refreshAfterSave { _state.value = _state.value.copy(logEntries = container.repository.logEntries(groupId), logActivity = container.repository.logActivity(groupId)) }
+        _state.value = _state.value.copy(message = if (result.queued) "Saved on this device · awaiting sync" else "Entry saved")
     }
     fun deleteLogEntry(groupId: String, entry: LogEntry) = action("Deleting entry") {
         val result = container.repository.deleteLogEntry(groupId, entry)
@@ -274,33 +305,46 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
         _state.value = _state.value.copy(logEntries = container.repository.logEntries(groupId), logActivity = container.repository.logActivity(groupId), message = if (result.queued) "Added offline · pending sync" else "Transaction added to log")
     }
 
-    fun updateProfile(name: String, upi: String, phone: String) = action("Updating profile") {
-        container.auth.updateProfile(name, upi, phone); _state.value = _state.value.copy(user = container.auth.profile(), message = "Profile updated")
+    fun updateProfile(name: String, upi: String, phone: String, done: () -> Unit = {}) = action("Updating profile") {
+        container.auth.updateProfile(name, upi, phone)
+        _state.value = _state.value.copy(user = _state.value.user?.copy(name = name.trim(), upiId = upi.trim(), phone = phone.trim()), message = "Profile updated")
+        done()
     }
 
     fun setBillScan(result: BillScanResult?) { _state.value = _state.value.copy(billScan = result) }
-    fun exportData(done: (String) -> Unit) = action("Preparing your export") { done(container.repository.exportMyData()) }
+    fun exportData(done: (String) -> Unit) = action("Preparing your export", timeoutMs = 45000L) { done(container.repository.exportMyData()) }
+
+    fun setPendingInvite(code: String) {
+        val sanitized = code.trim().uppercase()
+        if (sanitized.isNotBlank()) {
+            _state.value = _state.value.copy(pendingInviteCode = sanitized)
+        }
+    }
+
+    fun clearPendingInvite() {
+        _state.value = _state.value.copy(pendingInviteCode = null)
+    }
 
     private fun startHomeRealtime() {
         homeRealtimeJob?.cancel()
         homeRealtimeJob = viewModelScope.launch {
             launch {
                 container.repository.groupListChanges().debounce(500).collect {
-                    runCatching { refreshHomeInternal() }.onFailure { _state.value = _state.value.copy(error = it.message ?: "Live refresh failed") }
+                    runCatching { refreshHomeInternal() }.onFailure { reportFailure(it, "Live refresh failed") }
                 }
             }
             launch {
                 container.repository.notificationChanges().debounce(250).collect {
                     runCatching { container.repository.notifications() }
                         .onSuccess { notifications -> _state.value = _state.value.copy(notifications = notifications) }
-                        .onFailure { _state.value = _state.value.copy(error = it.message ?: "Activity refresh failed") }
+                        .onFailure { reportFailure(it, "Activity refresh failed") }
                 }
             }
             launch {
                 container.repository.featureFlagChanges().debounce(250).collect {
                     runCatching { container.repository.featureFlags() }
                         .onSuccess { flags -> _state.value = _state.value.copy(flags = flags) }
-                        .onFailure { _state.value = _state.value.copy(error = it.message ?: "Feature refresh failed") }
+                        .onFailure { reportFailure(it, "Feature refresh failed") }
                 }
             }
         }
@@ -310,43 +354,60 @@ class PayMatrixViewModel(private val container: AppContainer) : ViewModel() {
         groupRealtimeJob?.cancel()
         groupRealtimeJob = viewModelScope.launch {
             container.repository.groupChanges(groupId).debounce(350).collect {
-                runCatching { reloadGroup(groupId) }.onFailure { _state.value = _state.value.copy(error = it.message ?: "Group refresh failed") }
+                runCatching { reloadGroup(groupId) }.onFailure { reportFailure(it, "Group refresh failed") }
             }
         }
     }
 
-    private fun friendlyAuthError(t: Throwable): String {
-        val message = t.message.orEmpty()
-        return when {
-            message.contains("email-already-in-use", ignoreCase = true) || message.contains("already exists", ignoreCase = true) ->
-                "This email already has an account. Sign in or continue with Google."
-            message.contains("wrong-password", ignoreCase = true) || message.contains("invalid-credential", ignoreCase = true) || message.contains("invalid email or password", ignoreCase = true) ->
-                "Incorrect email or password. Please try again."
-            message.contains("user-not-found", ignoreCase = true) ->
-                "No account found with this email. Please create an account first."
-            message.contains("too-many-requests", ignoreCase = true) ->
-                "Too many failed attempts. Please try again in a few moments."
-            message.contains("network-request-failed", ignoreCase = true) ->
-                "Network error. Please check your internet connection."
-            else -> message.ifBlank { "Action failed" }
+    private fun reportFailure(error: Throwable, label: String) {
+        rethrowCancellation(error)
+        if (error is androidx.credentials.exceptions.GetCredentialCancellationException && !isGoogleReauthFailure(error)) return
+        // Keep diagnostics free of user data and SDK exception messages.
+        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().apply {
+            log("action_failed: $label")
+            val code = (error as? com.google.firebase.firestore.FirebaseFirestoreException)?.code?.name
+                ?: (error as? com.google.firebase.auth.FirebaseAuthException)?.errorCode
+                ?: (error as? androidx.credentials.exceptions.GetCredentialException)?.type
+                ?: "UNEXPECTED"
+            recordException(IllegalStateException("Action failure: $label [$code]").apply { stackTrace = error.stackTrace })
         }
+        _state.value = _state.value.copy(error = actionErrorMessage(error))
     }
 
-    private fun action(label: String, showLoading: Boolean = true, block: suspend () -> Unit) {
+    private fun action(label: String, showLoading: Boolean = true, timeoutMs: Long = 15000L, block: suspend () -> Unit) {
+        // Set before launch: repeated taps cannot enqueue duplicate financial writes.
+        if (showLoading && !foregroundActions.tryBegin()) return
+        if (showLoading) {
+            _state.value = _state.value.copy(loading = true, loadingLabel = label, error = null)
+        }
         viewModelScope.launch {
-            if (showLoading) _state.value = _state.value.copy(loading = true, loadingLabel = label, error = null)
-            else _state.value = _state.value.copy(error = null)
-            runCatching { block() }.onFailure { t ->
-                if (t is androidx.credentials.exceptions.GetCredentialCancellationException) {
-                    val msg = t.message.orEmpty()
-                    if (msg.contains("reauth", ignoreCase = true) || msg.contains("16")) {
-                        _state.value = _state.value.copy(error = "Google Sign-In was interrupted ($msg). Please try again.")
-                    }
-                } else {
-                    _state.value = _state.value.copy(error = friendlyAuthError(t))
+            try {
+                withTimeout(timeoutMs) {
+                    block()
+                }
+            } catch (error: TimeoutCancellationException) {
+                reportFailure(error, label)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                reportFailure(error, label)
+            } finally {
+                // A background fetch must never clear a save operation's busy state.
+                if (showLoading) {
+                    foregroundActions.finish()
+                    _state.value = _state.value.copy(loading = false, loadingLabel = "")
                 }
             }
-            _state.value = _state.value.copy(loading = false, loadingLabel = "")
+        }
+    }
+
+    private fun refreshAfterSave(block: suspend () -> Unit) {
+        viewModelScope.launch {
+            try { block() }
+            catch (error: CancellationException) { throw error }
+            catch (error: Exception) {
+                _state.value = _state.value.copy(error = "Your change was saved, but the view could not refresh. Refresh to see it.")
+            }
         }
     }
 

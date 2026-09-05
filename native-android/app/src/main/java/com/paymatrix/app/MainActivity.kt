@@ -1,5 +1,7 @@
 package com.paymatrix.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -17,7 +19,26 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         requestFastestDisplayMode()
+        handleDeepLink(intent?.data)
         setContent { PayMatrixTheme { PayMatrixApp(viewModel, intent?.data) } }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleDeepLink(intent.data)
+    }
+
+    private fun handleDeepLink(data: Uri?) {
+        if (data == null) return
+        val code = when {
+            data.pathSegments.firstOrNull() == "join" -> data.lastPathSegment?.takeIf { it != "join" } ?: data.getQueryParameter("code")
+            data.host == "join" -> data.lastPathSegment ?: data.getQueryParameter("code")
+            else -> data.getQueryParameter("code")
+        }
+        if (!code.isNullOrBlank()) {
+            viewModel.setPendingInvite(code)
+        }
     }
 
     override fun onResume() { super.onResume(); requestFastestDisplayMode() }

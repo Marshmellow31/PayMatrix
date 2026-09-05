@@ -66,22 +66,39 @@ fun PayMatrixApp(viewModel: PayMatrixViewModel, deepLink: Uri?) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val nav = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
-    val pendingInvite = remember(deepLink) { deepLink?.lastPathSegment?.takeIf { deepLink.pathSegments.firstOrNull() == "join" } }
 
-    LaunchedEffect(state.message, state.error) {
-        val feedback = state.error ?: state.message
-        if (!feedback.isNullOrBlank()) { snackbar.showSnackbar(feedback); viewModel.clearFeedback() }
+    LaunchedEffect(state.message) {
+        val feedback = state.message
+        if (!feedback.isNullOrBlank()) { snackbar.showSnackbar(feedback); viewModel.clearMessage(feedback) }
+    }
+
+    LaunchedEffect(state.pendingInviteCode, state.user, state.loading) {
+        val inviteCode = state.pendingInviteCode
+        if (!inviteCode.isNullOrBlank() && !state.loading) {
+            if (state.user != null) {
+                nav.navigate("join/$inviteCode") {
+                    launchSingleTop = true
+                }
+            } else {
+                val currentRoute = nav.currentDestination?.route
+                if (currentRoute != "login" && currentRoute != "gate") {
+                    nav.navigate("login") { popUpTo(0) }
+                }
+            }
+        }
     }
 
     LaunchedEffect(state.user) {
         val route = nav.currentDestination?.route
         if (state.user != null && (route == "login" || route == "gate")) {
-            nav.navigate(pendingInvite?.let { "join/$it" } ?: "dashboard") { popUpTo("gate") { inclusive = true }; launchSingleTop = true }
+            val destination = state.pendingInviteCode?.let { "join/$it" } ?: "dashboard"
+            nav.navigate(destination) { popUpTo("gate") { inclusive = true }; launchSingleTop = true }
         } else if (state.user == null && route != "login" && route != "gate") {
             nav.navigate("login") { popUpTo(0) }
         }
     }
 
+    CompositionLocalProvider(LocalActionBusy provides state.loading) {
     Scaffold(containerColor = CanvasBlack, snackbarHost = { SnackbarHost(snackbar) }) { outer ->
         Box(Modifier.fillMaxSize().padding(outer).background(CanvasBlack)) {
             NavHost(navController = nav, startDestination = "gate") {
@@ -108,15 +125,29 @@ fun PayMatrixApp(viewModel: PayMatrixViewModel, deepLink: Uri?) {
                 composable("privacy") { PrivacyScreen(nav) }
                 composable("delete-account") { DeleteAccountScreen(state, viewModel, nav) }
             }
-            BusyOverlay(state.loading, state.loadingLabel)
+            BusyOverlay(state.loading, state.loadingLabel, onDismiss = { viewModel.clearFeedback() })
+            if (!state.loading && state.error != null) AlertDialog(
+                onDismissRequest = { viewModel.clearFeedback() },
+                title = { Text("Unable to complete action") },
+                text = { Text(state.error!!) },
+                confirmButton = { TextButton(onClick = { viewModel.clearFeedback() }) { Text("OK") } },
+            )
         }
+    }
     }
 }
 
 @Composable
 private fun GateScreen(state: PayMatrixState, nav: NavHostController) {
-    LaunchedEffect(state.loading, state.user) {
-        if (!state.loading) nav.navigate(if (state.user == null) "login" else "dashboard") { popUpTo("gate") { inclusive = true } }
+    LaunchedEffect(state.loading, state.user, state.pendingInviteCode) {
+        if (!state.loading) {
+            val destination = when {
+                state.user == null -> "login"
+                !state.pendingInviteCode.isNullOrBlank() -> "join/${state.pendingInviteCode}"
+                else -> "dashboard"
+            }
+            nav.navigate(destination) { popUpTo("gate") { inclusive = true } }
+        }
     }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Image(painterResource(R.drawable.logo), "paymatrix", Modifier.size(76.dp)) }
 }
