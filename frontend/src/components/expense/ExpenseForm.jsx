@@ -893,11 +893,6 @@ const ExpenseForm = ({
                   </div>
                 )}
               </div>
-              {initialData && (
-                <p className="text-[10px] text-primary/80 font-bold px-1 italic">
-                  Payer cannot be changed on an existing transaction.
-                </p>
-              )}
               <div className="relative w-full">
                 <div className="flex gap-2.5 pt-1 overflow-x-auto no-scrollbar pb-2 w-full">
                   {(() => {
@@ -910,13 +905,12 @@ const ExpenseForm = ({
                         <button
                           key={`payer-${userId}`}
                           type="button"
-                          disabled={!!initialData}
-                          onClick={() => !initialData && setForm({ ...form, paidBy: userId })}
+                          onClick={() => setForm({ ...form, paidBy: userId })}
                           className={`flex-shrink-0 flex items-center gap-2 md:gap-3 px-3 py-1.5 md:px-4 md:py-3 rounded-xl md:rounded-2xl border transition-all ${
                             isSelected
                               ? 'bg-white text-black border-white shadow-lg'
                               : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
-                          } ${initialData ? 'opacity-70 cursor-not-allowed' : ''}`}
+                          }`}
                         >
                           <Avatar
                             name={u?.name}

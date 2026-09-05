@@ -252,6 +252,13 @@ const expenseService = {
       data.participants || []
     );
 
+    const actorName = await getStoredName(currentUid, 'Someone');
+    const effectivePaidBy = data.paidBy || previous.paidBy || currentUid;
+    let effectivePaidByName = data.paidByName || previous.paidByName || 'Member';
+    if (data.paidBy && data.paidBy !== previous.paidBy) {
+      effectivePaidByName = data.paidByName || (await getStoredName(data.paidBy, 'Member'));
+    }
+
     const payload = clean({
       title: data.title,
       description: data.description,
@@ -259,23 +266,29 @@ const expenseService = {
       amountPaise: toPaise(data.amount),
       currency: data.currency || previous.currency || 'INR',
       date: data.date,
+      paidBy: effectivePaidBy,
+      paidByName: effectivePaidByName,
       splitType: data.splitType,
       splitData: data.splitData || {},
       participants: data.participants || [],
       category: data.category,
       attachments: data.attachments,
       notes: data.notes,
-      paidByName: previous.paidByName || 'Member',
       splits,
       splitUserIds: splits.map((split) => split.user),
       updatedAt: serverTimestamp(),
       version: Number(previous.version || 1) + 1,
     });
-    const actorName = await getStoredName(currentUid, 'Someone');
     const changes = [];
     if (previous.title !== data.title) changes.push('title');
     if (toPaise(previous.amount) !== toPaise(data.amount)) changes.push('amount');
     if (previous.category !== data.category) changes.push('category');
+    if (data.paidBy && previous.paidBy !== data.paidBy) {
+      changes.push(`payer changed to ${effectivePaidByName}`);
+    }
+    if (previous.splitType !== data.splitType) {
+      changes.push(`split mode (${data.splitType})`);
+    }
     const auditedPayload = await commitAuditedMutation({
       groupId,
       recordRef: docRef,

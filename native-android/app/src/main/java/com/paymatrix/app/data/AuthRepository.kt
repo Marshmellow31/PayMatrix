@@ -216,8 +216,14 @@ class AuthRepository(
 
     private suspend fun googleCredential(context: Context, webClientId: String): com.google.firebase.auth.AuthCredential {
         val credentialManager = CredentialManager.create(context)
-        val option = GetSignInWithGoogleOption.Builder(webClientId).build()
-        val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
+        val googleIdOption = GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setServerClientId(webClientId)
+            .setAutoSelectEnabled(false)
+            .build()
+        val request = GetCredentialRequest.Builder()
+            .addCredentialOption(googleIdOption)
+            .build()
         val response = credentialManager.getCredential(context, request)
 
         val custom = response.credential as? CustomCredential ?: error("Google did not return an identity credential.")

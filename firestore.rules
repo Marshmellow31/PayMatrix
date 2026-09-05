@@ -385,11 +385,11 @@ service cloud.firestore {
                       request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                         'title', 'description', 'amount', 'amountPaise', 'currency', 'date',
                         'splitType', 'splitData', 'participants', 'category', 'attachments',
-                        'notes', 'splits', 'splitUserIds', 'paidByName', 'status', 'updatedAt',
+                        'notes', 'splits', 'splitUserIds', 'paidBy', 'paidByName', 'status', 'updatedAt',
                         'lastMutationAt', 'lastMutationId', 'lastMutationType', 'lastEditedBy', 'version'
                       ]) &&
                       request.resource.data.get('createdBy', request.resource.data.get('admin', '')) == resource.data.get('createdBy', resource.data.get('admin', '')) &&
-                      request.resource.data.get('paidBy', '') == resource.data.get('paidBy', '') &&
+                      request.resource.data.get('paidBy', '') in groupData(groupId).get('members', []) &&
                       request.resource.data.get('groupId', groupId) == groupId &&
                       request.resource.data.get('participants', []).hasOnly(groupData(groupId).get('members', [])) &&
                       request.resource.data.get('splitUserIds', []).hasOnly(groupData(groupId).get('members', [])) &&

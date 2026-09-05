@@ -435,6 +435,18 @@ class FirebaseRepository(
         val groupRef = db.collection("groups").document(expense.groupId)
         val actor = publicProfile(uid).name
         val stamp = FieldValue.serverTimestamp()
+        val effectivePaidBy = draft.paidBy.ifBlank { expense.paidBy }
+        val effectivePaidByName = draft.paidByName.ifBlank {
+            if (effectivePaidBy == uid) actor else publicProfile(effectivePaidBy).name
+        }
+        val auditChanges = mutableListOf<String>()
+        if (draft.title.trim() != expense.title) auditChanges.add("title")
+        if (totalPaise != expense.amountPaise) auditChanges.add("amount")
+        if (effectivePaidBy != expense.paidBy) auditChanges.add("payer changed to $effectivePaidByName")
+        if (draft.category != expense.category) auditChanges.add("category")
+        if (draft.splitType != expense.splitType) auditChanges.add("split mode (${draft.splitType})")
+        val changeDesc = if (auditChanges.isNotEmpty()) " (${auditChanges.joinToString(", ")})" else ""
+
         val changes = mutableMapOf<String, Any>(
             "title" to draft.title.trim(), "amount" to totalPaise / 100.0, "amountPaise" to totalPaise,
             "splitType" to draft.splitType, "splitData" to draft.splitValues, "participants" to draft.participants,
@@ -448,11 +460,12 @@ class FirebaseRepository(
             "category" to draft.category.take(50), "notes" to draft.notes.take(500), "date" to draft.date.ifBlank { expense.date }, "updatedAt" to stamp,
             "version" to (draft.initialVersion + 1L), "lastMutationAt" to stamp,
             "lastMutationId" to log.id, "lastMutationType" to "expense_updated", "lastEditedBy" to uid,
-            "paidByName" to expense.paidByName,
+            "paidBy" to effectivePaidBy,
+            "paidByName" to effectivePaidByName,
         )
         val queued = finishWrite(db.runBatch { batch ->
             batch.update(record, changes)
-            batch.set(log, audit("expense_updated", "$actor edited \"${draft.title.trim()}\"", expense.id, expense.groupId, actor, stamp))
+            batch.set(log, audit("expense_updated", "$actor edited \"${draft.title.trim()}\"$changeDesc", expense.id, expense.groupId, actor, stamp))
             batch.update(groupRef, "updatedAt", stamp)
         })
         lastMutationTime[expense.id] = System.currentTimeMillis()

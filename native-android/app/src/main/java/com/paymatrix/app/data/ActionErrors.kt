@@ -34,9 +34,21 @@ internal fun actionErrorMessage(error: Throwable): String = when (error) {
         else -> "Authentication could not complete. Please try again."
     }
     is FirebaseNetworkException -> "Check your internet connection and try again."
-    is GetCredentialException -> if (isGoogleReauthFailure(error))
-        "Google could not refresh this account after retrying. Try another Google account or use email sign-in."
-        else "Google sign-in could not complete. Check your connection and try again."
+    is androidx.credentials.exceptions.GetCredentialCancellationException -> ""
+    is GetCredentialException -> {
+        val msg = error.message.orEmpty()
+        val type = error.type
+        when {
+            isGoogleReauthFailure(error) ->
+                "Google could not refresh this account after retrying. Try another Google account or use email sign-in."
+            msg.contains("10") || msg.contains("DEVELOPER_ERROR", ignoreCase = true) ->
+                "Google Sign-In configuration mismatch (DEVELOPER_ERROR). Please ensure the Play Console SHA-1 is added to Firebase."
+            msg.contains("16") || type.contains("NoCredential", ignoreCase = true) ->
+                "No Google accounts found for this app. Please sign in with email and password below."
+            else ->
+                "Google sign-in could not complete: ${msg.ifBlank { type }}. You can also sign in with email."
+        }
+    }
     is IllegalArgumentException -> error.message?.takeIf { it.length < 200 } ?: "Please check the entered values."
     is IllegalStateException -> error.message?.takeIf { it.length < 200 && !it.contains("Exception") && !Regex("\\b[a-z][0-9]+\\b").containsMatchIn(it) }
         ?: "Unable to complete this action. Please refresh and try again."

@@ -318,18 +318,14 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                     ObsidianCard(contentPadding = PaddingValues(18.dp)) {
                         Text("PAID BY", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
                         Spacer(Modifier.height(8.dp))
-                        if (editing != null) {
-                            Text("Payer cannot be changed on an existing transaction.", color = QuietText, fontSize = 11.sp)
-                            Spacer(Modifier.height(8.dp))
-                        }
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             snapshot.group.members.forEach { uid ->
                                 val isSelected = (paidBy == uid)
                                 val name = if (uid == state.user?.uid) "You" else snapshot.profiles[uid]?.name?.substringBefore(' ') ?: "Member"
                                 FilterChip(
                                     selected = isSelected,
-                                    enabled = editing == null && !LocalActionBusy.current,
-                                    onClick = { if (editing == null) paidBy = uid },
+                                    enabled = !LocalActionBusy.current,
+                                    onClick = { paidBy = uid },
                                     label = { Text(name, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                                     leadingIcon = { UserAvatar(snapshot.profiles[uid], 22) },
                                     colors = FilterChipDefaults.filterChipColors(
