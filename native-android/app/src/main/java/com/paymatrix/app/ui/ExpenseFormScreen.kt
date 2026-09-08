@@ -277,9 +277,9 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                 else -> "STEP 3 OF 3 · SPLIT WITH"
                             },
                             color = MintGreen,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.4.sp
+                            letterSpacing = 1.1.sp
                         )
                     }
                 }
@@ -454,6 +454,7 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                     .fillMaxSize()
                     .padding(padding)
                     .padding(horizontal = 16.dp)
+                    .imePadding()
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -499,9 +500,9 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                     Text(
                                         "TOTAL AMOUNT",
                                         color = QuietText,
-                                        fontSize = 9.sp,
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        letterSpacing = 2.sp
+                                        letterSpacing = 1.4.sp
                                     )
                                     Spacer(Modifier.height(8.dp))
                                     Row(
@@ -521,7 +522,8 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                             textStyle = TextStyle(
                                                 color = Color.White,
                                                 fontSize = 32.sp,
-                                                fontWeight = FontWeight.Bold
+                                                fontWeight = FontWeight.Bold,
+                                                fontFeatureSettings = "tnum"
                                             ),
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                             singleLine = true,
@@ -533,7 +535,8 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                                         "0.00",
                                                         color = Color.White.copy(alpha = 0.25f),
                                                         fontSize = 32.sp,
-                                                        fontWeight = FontWeight.Bold
+                                                        fontWeight = FontWeight.Bold,
+                                                        style = TextStyle(fontFeatureSettings = "tnum")
                                                     )
                                                 }
                                                 innerTextField()
@@ -548,9 +551,9 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                             Text(
                                 "CATEGORY",
                                 color = QuietText,
-                                fontSize = 9.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.5.sp,
+                                letterSpacing = 1.2.sp,
                                 modifier = Modifier.padding(top = 8.dp)
                             )
                             Row(
@@ -661,56 +664,49 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
 
-                            // 3-Row Horizontally Swipeable Avatar Grid for Payers
-                            LazyHorizontalGrid(
-                                rows = GridCells.Fixed(3),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(255.dp),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                items(snapshot.group.members) { uid ->
-                                    val isChecked = selectedPayers[uid] == true
-                                    Column(
-                                        modifier = Modifier
-                                            .width(64.dp)
-                                            .clickable {
-                                                val currentVal = selectedPayers[uid] == true
-                                                selectedPayers[uid] = !currentVal
-                                                if (!currentVal && payerDivisionMode == "exact") {
-                                                    // Seed default
-                                                    payerValues[uid] = "0.00"
-                                                }
-                                            },
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            UserAvatar(snapshot.profiles[uid], 48)
-                                            if (isChecked) {
-                                                Box(
-                                                    Modifier
-                                                        .size(18.dp)
-                                                        .clip(CircleShape)
-                                                        .background(MintGreen)
-                                                        .align(Alignment.BottomEnd),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(13.dp))
-                                                }
+                            // Adaptive Member Grid for Payers
+                            AdaptiveMemberGrid(
+                                items = snapshot.group.members,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) { uid ->
+                                val isChecked = selectedPayers[uid] == true
+                                Column(
+                                    modifier = Modifier
+                                        .width(64.dp)
+                                        .clickable {
+                                            val currentVal = selectedPayers[uid] == true
+                                            selectedPayers[uid] = !currentVal
+                                            if (!currentVal && payerDivisionMode == "exact") {
+                                                // Seed default
+                                                payerValues[uid] = "0.00"
+                                            }
+                                        },
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        UserAvatar(snapshot.profiles[uid], 48)
+                                        if (isChecked) {
+                                            Box(
+                                                Modifier
+                                                    .size(18.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MintGreen)
+                                                    .align(Alignment.BottomEnd),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(13.dp))
                                             }
                                         }
-                                        Spacer(Modifier.height(4.dp))
-                                        Text(
-                                            if (uid == state.user?.uid) "You" else snapshot.profiles[uid]?.name?.substringBefore(' ') ?: "Member",
-                                            color = if (isChecked) Color.White else QuietText,
-                                            fontSize = 11.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            textAlign = TextAlign.Center
-                                        )
                                     }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        if (uid == state.user?.uid) "You" else snapshot.profiles[uid]?.name?.substringBefore(' ') ?: "Member",
+                                        color = if (isChecked) Color.White else QuietText,
+                                        fontSize = 11.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
                             }
 
@@ -724,9 +720,9 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                     Text(
                                         "PAID SPLIT METHOD",
                                         color = QuietText,
-                                        fontSize = 9.sp,
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        letterSpacing = 1.5.sp
+                                        letterSpacing = 1.2.sp
                                     )
                                     Spacer(Modifier.height(6.dp))
                                     Row(
@@ -772,9 +768,9 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                 Text(
                                     "SELECTED PAYERS",
                                     color = QuietText,
-                                    fontSize = 9.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.5.sp
+                                    letterSpacing = 1.2.sp
                                 )
                                 Spacer(Modifier.height(6.dp))
 
@@ -800,7 +796,8 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                                 Money.format(payerAmt),
                                                 color = MintGreen,
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp
+                                                fontSize = 14.sp,
+                                                style = TextStyle(fontFeatureSettings = "tnum")
                                             )
                                         } else if (payerDivisionMode == "exact") {
                                             OutlinedTextField(
@@ -809,7 +806,7 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                                     payerValues[uid] = input.filter { ch -> ch.isDigit() || ch == '.' }.take(10)
                                                 },
                                                 prefix = { Text("₹", fontSize = 12.sp, color = MutedText) },
-                                                textStyle = TextStyle(fontSize = 13.sp, color = Color.White, textAlign = TextAlign.End),
+                                                textStyle = TextStyle(fontSize = 13.sp, color = Color.White, textAlign = TextAlign.End, fontFeatureSettings = "tnum"),
                                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                                 singleLine = true,
                                                 modifier = Modifier.width(115.dp).height(48.dp),
@@ -822,7 +819,7 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                                     payerValues[uid] = input.filter { ch -> ch.isDigit() || ch == '.' }.take(6)
                                                 },
                                                 suffix = { Text("%", fontSize = 12.sp, color = MutedText) },
-                                                textStyle = TextStyle(fontSize = 13.sp, color = Color.White, textAlign = TextAlign.End),
+                                                textStyle = TextStyle(fontSize = 13.sp, color = Color.White, textAlign = TextAlign.End, fontFeatureSettings = "tnum"),
                                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                                 singleLine = true,
                                                 modifier = Modifier.width(95.dp).height(48.dp),
@@ -918,49 +915,42 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                 }
                             }
 
-                            // 3-Row Horizontally Swipeable Avatar Grid for Split
-                            LazyHorizontalGrid(
-                                rows = GridCells.Fixed(3),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(255.dp),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                items(snapshot.group.members) { uid ->
-                                    val checked = selected[uid] == true
-                                    Column(
-                                        Modifier
-                                            .width(64.dp)
-                                            .clickable { selected[uid] = !checked },
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Box {
-                                            UserAvatar(snapshot.profiles[uid], 48)
-                                            if (checked) {
-                                                Box(
-                                                    Modifier
-                                                        .size(18.dp)
-                                                        .clip(CircleShape)
-                                                        .background(MintGreen)
-                                                        .align(Alignment.BottomEnd),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(13.dp))
-                                                }
+                            // Adaptive Member Grid for Split
+                            AdaptiveMemberGrid(
+                                items = snapshot.group.members,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) { uid ->
+                                val checked = selected[uid] == true
+                                Column(
+                                    Modifier
+                                        .width(64.dp)
+                                        .clickable { selected[uid] = !checked },
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Box {
+                                        UserAvatar(snapshot.profiles[uid], 48)
+                                        if (checked) {
+                                            Box(
+                                                Modifier
+                                                    .size(18.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MintGreen)
+                                                    .align(Alignment.BottomEnd),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(13.dp))
                                             }
                                         }
-                                        Spacer(Modifier.height(4.dp))
-                                        Text(
-                                            if (uid == state.user?.uid) "You" else snapshot.profiles[uid]?.name?.substringBefore(' ') ?: "Member",
-                                            color = if (checked) Color.White else QuietText,
-                                            fontSize = 11.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            textAlign = TextAlign.Center
-                                        )
                                     }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        if (uid == state.user?.uid) "You" else snapshot.profiles[uid]?.name?.substringBefore(' ') ?: "Member",
+                                        color = if (checked) Color.White else QuietText,
+                                        fontSize = 11.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
                             }
 
@@ -1076,9 +1066,9 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                 Text(
                                     "DISTRIBUTION PREVIEW",
                                     color = QuietText,
-                                    fontSize = 9.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.5.sp
+                                    letterSpacing = 1.2.sp
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 preview.forEach { split ->
@@ -1100,7 +1090,8 @@ fun ExpenseFormScreen(groupId: String, expenseId: String, state: PayMatrixState,
                                             Money.format(split.amountPaise),
                                             color = Color.White,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 13.sp
+                                            fontSize = 13.sp,
+                                            style = TextStyle(fontFeatureSettings = "tnum")
                                         )
                                     }
                                 }
@@ -1179,6 +1170,114 @@ fun ExpenseFormSkeleton(padding: PaddingValues) {
                     SkeletonBox(Modifier.weight(1f).height(16.dp), shape = RoundedCornerShape(4.dp))
                     Spacer(Modifier.width(12.dp))
                     SkeletonBox(Modifier.size(50.dp, 16.dp), shape = RoundedCornerShape(4.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun <T> AdaptiveMemberGrid(
+    items: List<T>,
+    modifier: Modifier = Modifier,
+    horizontalSpacing: androidx.compose.ui.unit.Dp = 14.dp,
+    verticalSpacing: androidx.compose.ui.unit.Dp = 10.dp,
+    itemContent: @Composable (T) -> Unit
+) {
+    if (items.isEmpty()) return
+
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val availableWidth = maxWidth
+        val itemWidth = 64.dp
+        // Calculate how many 64dp items fit across availableWidth with horizontalSpacing
+        val columnsPerRow = maxOf(1, ((availableWidth + horizontalSpacing) / (itemWidth + horizontalSpacing)).toInt())
+
+        when {
+            // Case 1: All items fit within 1 single row (wrap content height, no scrolling)
+            items.size <= columnsPerRow -> {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(horizontalSpacing)
+                ) {
+                    items.forEach { item ->
+                        itemContent(item)
+                    }
+                }
+            }
+            // Case 2: Items fit within 2 rows (wrap content height, no scrolling)
+            items.size <= columnsPerRow * 2 -> {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(verticalSpacing)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(horizontalSpacing)
+                    ) {
+                        items.take(columnsPerRow).forEach { item ->
+                            itemContent(item)
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(horizontalSpacing)
+                    ) {
+                        items.drop(columnsPerRow).forEach { item ->
+                            itemContent(item)
+                        }
+                    }
+                }
+            }
+            // Case 3: Items fit within 3 rows (wrap content height, no scrolling)
+            items.size <= columnsPerRow * 3 -> {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(verticalSpacing)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(horizontalSpacing)
+                    ) {
+                        items.take(columnsPerRow).forEach { item ->
+                            itemContent(item)
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(horizontalSpacing)
+                    ) {
+                        items.drop(columnsPerRow).take(columnsPerRow).forEach { item ->
+                            itemContent(item)
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(horizontalSpacing)
+                    ) {
+                        items.drop(columnsPerRow * 2).forEach { item ->
+                            itemContent(item)
+                        }
+                    }
+                }
+            }
+            // Case 4: More than 3 full rows -> enable horizontal scrolling with columns of 3 (filled column-wise)
+            else -> {
+                val columns = items.chunked(3)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(horizontalSpacing)
+                ) {
+                    columns.forEach { colItems ->
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(verticalSpacing)
+                        ) {
+                            colItems.forEach { item ->
+                                itemContent(item)
+                            }
+                        }
+                    }
                 }
             }
         }

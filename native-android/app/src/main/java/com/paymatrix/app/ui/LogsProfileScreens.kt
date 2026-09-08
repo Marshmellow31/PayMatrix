@@ -272,19 +272,19 @@ fun LogEntriesScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, 
                                 Text(entry.note, color = MutedText, fontSize = 11.5.sp, maxLines = 2)
                             }
                             Spacer(Modifier.height(4.dp))
-                            Text(listOf(shortDate(entry.date), entry.addedByName.takeIf { it.isNotBlank() }).filterNotNull().joinToString(" · "), color = QuietText, fontSize = 9.5.sp)
+                            Text(listOf(shortDate(entry.date), entry.addedByName.takeIf { it.isNotBlank() }).filterNotNull().joinToString(" · "), color = QuietText, fontSize = 11.sp)
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(Money.format(entry.amountPaise), color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp)
                             if (canChange) {
-                                Row {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     if (entry.type != "expense") {
-                                        IconButton(enabled = !LocalActionBusy.current, onClick = { edit = entry }, modifier = Modifier.size(36.dp)) {
-                                            Icon(Icons.Default.Edit, "Edit", tint = MutedText, modifier = Modifier.size(16.dp))
+                                        IconButton(enabled = !LocalActionBusy.current, onClick = { edit = entry }, modifier = Modifier.size(48.dp)) {
+                                            Icon(Icons.Default.Edit, "Edit entry", tint = MutedText, modifier = Modifier.size(18.dp))
                                         }
                                     }
-                                    IconButton(enabled = !LocalActionBusy.current, onClick = { remove = entry }, modifier = Modifier.size(36.dp)) {
-                                        Icon(Icons.Default.DeleteOutline, "Delete", tint = Negative, modifier = Modifier.size(16.dp))
+                                    IconButton(enabled = !LocalActionBusy.current, onClick = { remove = entry }, modifier = Modifier.size(48.dp)) {
+                                        Icon(Icons.Default.DeleteOutline, "Delete entry", tint = Negative, modifier = Modifier.size(18.dp))
                                     }
                                 }
                             }
@@ -303,7 +303,7 @@ fun LogEntriesScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, 
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(event.message, color = Color.White.copy(alpha = .8f), fontWeight = FontWeight.Medium, fontSize = 12.sp)
-                        Text(shortDate(event.createdAt), color = QuietText, fontSize = 9.sp)
+                        Text(shortDate(event.createdAt), color = QuietText, fontSize = 11.sp)
                     }
                 }
             }

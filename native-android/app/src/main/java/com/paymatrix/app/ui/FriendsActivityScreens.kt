@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -332,7 +333,7 @@ private fun FriendDetailDialog(
         text = {
             Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 HorizontalDivider(color = Hairline)
-                Text("SHARED GROUPS & SETTLEMENTS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
+                Text("SHARED GROUPS & SETTLEMENTS", color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                 if (sharedGroups.isEmpty()) {
                     Text("No shared groups with ${friend.name} yet.", color = MutedText, fontSize = 12.sp)
                 } else {
@@ -422,7 +423,7 @@ fun ActivityScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCo
     ObsidianCard(Modifier.clickable(onClick = onClick)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(44.dp).clip(CircleShape).background(if (item.isRead) Color.White.copy(alpha = .05f) else Color.White), contentAlignment = Alignment.Center) { Icon(Icons.Default.Notifications, null, tint = if (item.isRead) MutedText else Color.Black, modifier = Modifier.size(18.dp)) }
-            Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(item.title.ifBlank { "paymatrix" }, color = Color.White, fontWeight = FontWeight.Bold); Text(item.message, color = MutedText, maxLines = 2, overflow = TextOverflow.Ellipsis); Text(shortDate(item.createdAt), color = QuietText, fontSize = 9.sp) }
+            Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(item.title.ifBlank { "paymatrix" }, color = Color.White, fontWeight = FontWeight.Bold); Text(item.message, color = MutedText, maxLines = 2, overflow = TextOverflow.Ellipsis); Text(shortDate(item.createdAt), color = QuietText, fontSize = 11.sp) }
             if (!item.isRead) Box(Modifier.size(7.dp).clip(CircleShape).background(Color.White))
         }
     }
@@ -432,7 +433,7 @@ fun ActivityScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostCo
     ObsidianCard(Modifier.clickable(onClick = onClick)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(alpha = .08f)), contentAlignment = Alignment.Center) { Icon(if (item.type.contains("settlement")) Icons.Default.Payments else if (item.type.contains("member")) Icons.Default.GroupAdd else Icons.Default.ReceiptLong, null, tint = MutedText, modifier = Modifier.size(18.dp)) }
-            Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(item.message, color = Color.White, fontWeight = FontWeight.SemiBold); Text(shortDate(item.createdAt), color = QuietText, fontSize = 9.sp) }; Icon(Icons.Default.ChevronRight, null, tint = Color.White.copy(alpha = .18f))
+            Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(item.message, color = Color.White, fontWeight = FontWeight.SemiBold); Text(shortDate(item.createdAt), color = QuietText, fontSize = 11.sp) }; Icon(Icons.Default.ChevronRight, null, tint = Color.White.copy(alpha = .18f))
         }
     }
 }
@@ -449,16 +450,16 @@ fun AnalyticsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostC
         item { ObsidianCard { SpendingBars(analytics.trends.map { it.label to it.amountPaise }) } }
         item { SectionTitle("Categories", "Your actual share") }
         val max = analytics.summary.categories.maxOfOrNull { it.amountPaise }?.coerceAtLeast(1L) ?: 1L
-        items(analytics.summary.categories, key = { it.name }) { category -> ObsidianCard { Row { Icon(categoryIcon(category.name), null, tint = MutedText); Spacer(Modifier.width(10.dp)); Text(category.name, Modifier.weight(1f), color = Color.White, fontWeight = FontWeight.SemiBold); Text(Money.format(category.amountPaise), color = Color.White) }; LinearProgressIndicator({ category.amountPaise.toFloat() / max }, Modifier.fillMaxWidth(), color = Color.White, trackColor = Color.White.copy(alpha = .08f)) } }
+        items(analytics.summary.categories, key = { it.name }) { category -> ObsidianCard { Row { Icon(categoryIcon(category.name), null, tint = MutedText); Spacer(Modifier.width(10.dp)); Text(category.name, Modifier.weight(1f), color = Color.White, fontWeight = FontWeight.SemiBold); Text(Money.format(category.amountPaise), color = Color.White, style = TextStyle(fontFeatureSettings = "tnum")) }; LinearProgressIndicator({ category.amountPaise.toFloat() / max }, Modifier.fillMaxWidth(), color = Color.White, trackColor = Color.White.copy(alpha = .08f)) } }
     }
 }
 
-@Composable private fun MetricTile(label: String, value: String, modifier: Modifier) { ObsidianCard(modifier) { Text(label, color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); Text(value, color = Color.White, fontWeight = FontWeight.Black, fontSize = 28.sp) } }
+@Composable private fun MetricTile(label: String, value: String, modifier: Modifier) { ObsidianCard(modifier) { Text(label, color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp); Text(value, color = Color.White, fontWeight = FontWeight.Black, fontSize = 28.sp, style = TextStyle(fontFeatureSettings = "tnum")) } }
 
 @Composable private fun SpendingBars(points: List<Pair<String, Long>>) {
     val max = points.maxOfOrNull { it.second }?.coerceAtLeast(1L) ?: 1L
     if (points.isEmpty()) { EmptyState("Not enough data", "Add expenses to reveal a trend."); return }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { points.takeLast(6).forEach { (label, value) -> Row(verticalAlignment = Alignment.CenterVertically) { Text(label, color = QuietText, fontSize = 10.sp, modifier = Modifier.width(42.dp)); Box(Modifier.weight(1f).height(8.dp).clip(CircleShape).background(Color.White.copy(alpha = .06f))) { Box(Modifier.fillMaxHeight().fillMaxWidth(value.toFloat() / max).clip(CircleShape).background(Color.White)) }; Spacer(Modifier.width(8.dp)); Text(Money.format(value), color = MutedText, fontSize = 10.sp) } } }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { points.takeLast(6).forEach { (label, value) -> Row(verticalAlignment = Alignment.CenterVertically) { Text(label, color = QuietText, fontSize = 11.sp, modifier = Modifier.width(44.dp)); Box(Modifier.weight(1f).height(8.dp).clip(CircleShape).background(Color.White.copy(alpha = .06f))) { Box(Modifier.fillMaxHeight().fillMaxWidth(value.toFloat() / max).clip(CircleShape).background(Color.White)) }; Spacer(Modifier.width(8.dp)); Text(Money.format(value), color = MutedText, fontSize = 11.sp, style = TextStyle(fontFeatureSettings = "tnum")) } } }
 }
 
 @Composable

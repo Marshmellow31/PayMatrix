@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -148,20 +149,20 @@ private fun PositionCard(state: PayMatrixState) {
     val balance = state.summary.netBalancePaise
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF111111), Color(0xFF1D1D1D), Color(0xFF252525))))
+            .background(Brush.linearGradient(listOf(Color(0xFF141414), Color(0xFF1C1C1C), Color(0xFF222222))))
             .border(1.dp, Color.White.copy(alpha = .1f), RoundedCornerShape(30.dp))
             .padding(22.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("YOUR POSITION", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp)
+                Text("YOUR POSITION", color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
                 Spacer(Modifier.height(5.dp))
                 Text(when { balance > 1 -> "Overall, you are owed"; balance < -1 -> "Overall, you owe"; else -> "You are settled" }, color = MutedText, fontSize = 12.sp)
             }
             Icon(Icons.Default.AccountBalanceWallet, null, tint = Color.White.copy(alpha = .3f), modifier = Modifier.size(22.dp))
         }
-        Text(Money.format(abs(balance)), color = Color.White, fontWeight = FontWeight.Black, fontSize = 40.sp, letterSpacing = (-1.8).sp)
+        Text(Money.format(abs(balance)), color = Color.White, fontWeight = FontWeight.Black, fontSize = 40.sp, letterSpacing = (-1.8).sp, style = TextStyle(fontFeatureSettings = "tnum"))
         HorizontalDivider(color = Color.White.copy(alpha = .09f))
         Row(Modifier.fillMaxWidth()) {
             PositionMetric("YOU OWE", state.summary.totalOwePaise, Negative, Modifier.weight(1f))
@@ -174,9 +175,9 @@ private fun PositionCard(state: PayMatrixState) {
 @Composable
 private fun PositionMetric(label: String, value: Long, color: Color, modifier: Modifier = Modifier) {
     Column(modifier) {
-        Text(label, color = QuietText, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+        Text(label, color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
         Spacer(Modifier.height(5.dp))
-        Text(Money.format(value), color = color, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Text(Money.format(value), color = color, fontWeight = FontWeight.Bold, fontSize = 18.sp, style = TextStyle(fontFeatureSettings = "tnum"))
     }
 }
 
@@ -195,7 +196,7 @@ private fun DashboardQuickAction(icon: ImageVector, title: String, body: String,
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Box(Modifier.size(40.dp).clip(RoundedCornerShape(13.dp)).background(if (primary) Color.Black.copy(alpha = .06f) else Color.White.copy(alpha = .06f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = if (primary) Color.Black else Color.White, modifier = Modifier.size(19.dp)) }
-        Column { Text(title, color = if (primary) Color.Black else Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp); Text(body, color = if (primary) Color.Black.copy(alpha = .48f) else QuietText, fontSize = 10.sp) }
+        Column { Text(title, color = if (primary) Color.Black else Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp); Text(body, color = if (primary) Color.Black.copy(alpha = .55f) else QuietText, fontSize = 11.sp) }
     }
 }
 
@@ -220,9 +221,9 @@ private fun ActiveGroupRow(group: Group, balance: Long, onClick: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 Text(group.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(3.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) { AvatarStack(group.members, group.memberProfiles, size = 20, max = 3); Spacer(Modifier.width(8.dp)); Text(group.updatedAt.takeIf { it.isNotBlank() }?.let(::shortDate) ?: "${group.members.size} members", color = QuietText, fontSize = 9.sp) }
+                Row(verticalAlignment = Alignment.CenterVertically) { AvatarStack(group.members, group.memberProfiles, size = 20, max = 3); Spacer(Modifier.width(8.dp)); Text(group.updatedAt.takeIf { it.isNotBlank() }?.let(::shortDate) ?: "${group.members.size} members", color = QuietText, fontSize = 11.sp) }
             }
-            Column(horizontalAlignment = Alignment.End) { Text(when { balance < -1 -> "You owe"; balance > 1 -> "You are owed"; else -> "Settled" }, color = QuietText, fontSize = 9.sp); Text(Money.format(abs(balance)), color = when { balance < -1 -> Negative; balance > 1 -> Positive; else -> Color.White.copy(alpha = .7f) }, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+            Column(horizontalAlignment = Alignment.End) { Text(when { balance < -1 -> "You owe"; balance > 1 -> "You are owed"; else -> "Settled" }, color = QuietText, fontSize = 11.sp); Text(Money.format(abs(balance)), color = when { balance < -1 -> Negative; balance > 1 -> Positive; else -> Color.White.copy(alpha = .7f) }, fontWeight = FontWeight.Bold, fontSize = 14.sp, style = TextStyle(fontFeatureSettings = "tnum")) }
         }
     }
 }
@@ -246,10 +247,10 @@ private fun MonthCard(state: PayMatrixState) {
 @Composable
 private fun MonthMetric(label: String, value: String, supporting: String, modifier: Modifier = Modifier) {
     Column(modifier.clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = .035f)).padding(13.dp)) {
-        Text(label, color = QuietText, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = .9.sp)
+        Text(label, color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = .9.sp)
         Spacer(Modifier.height(6.dp))
         Text(value, color = Color.White.copy(alpha = .82f), fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (supporting.isNotBlank()) Text(supporting, color = QuietText, fontSize = 9.sp, maxLines = 1)
+        if (supporting.isNotBlank()) Text(supporting, color = QuietText, fontSize = 11.sp, maxLines = 1)
     }
 }
 
@@ -261,6 +262,6 @@ private fun CalmStateCard(icon: ImageVector, title: String, body: String) {
     ) {
         Box(Modifier.size(42.dp).clip(CircleShape).background(Positive.copy(alpha = .11f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = Positive, modifier = Modifier.size(19.dp)) }
         Spacer(Modifier.width(13.dp))
-        Column { Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp); Text(body, color = MutedText, fontSize = 10.sp, lineHeight = 14.sp) }
+        Column { Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp); Text(body, color = MutedText, fontSize = 12.sp, lineHeight = 16.sp) }
     }
 }

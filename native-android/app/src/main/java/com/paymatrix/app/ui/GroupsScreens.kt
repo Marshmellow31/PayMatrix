@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -95,15 +96,23 @@ private fun GroupListCard(group: Group, balance: Long, onClick: () -> Unit) {
                 Text(group.name, color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
+                    Row(
                         Modifier.clip(RoundedCornerShape(6.dp))
                             .background(categoryColor(group.category).copy(alpha = 0.16f))
-                            .padding(horizontal = 7.dp, vertical = 3.dp)
+                            .padding(horizontal = 7.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Icon(
+                            categoryIcon(group.category),
+                            null,
+                            tint = categoryColor(group.category),
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
                         Text(
                             group.category.uppercase(),
                             color = categoryColor(group.category),
-                            fontSize = 8.sp,
+                            fontSize = 10.5.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
@@ -112,7 +121,7 @@ private fun GroupListCard(group: Group, balance: Long, onClick: () -> Unit) {
                     Text(
                         "•  ${group.members.size} members",
                         color = QuietText,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         softWrap = false
@@ -121,13 +130,14 @@ private fun GroupListCard(group: Group, balance: Long, onClick: () -> Unit) {
             }
             Spacer(Modifier.width(10.dp))
             Column(horizontalAlignment = Alignment.End) {
-                Text("YOUR BALANCE", color = Color.White.copy(alpha = .65f), fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text("YOUR BALANCE", color = Color.White.copy(alpha = .65f), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "${if (balance >= 0) "+" else "−"}${Money.format(kotlin.math.abs(balance))}",
                     color = if (balance < 0) Color(0xFFFF737B) else if (balance > 0) Positive else Color.White,
                     fontWeight = FontWeight.Black,
-                    fontSize = 20.sp
+                    fontSize = 20.sp,
+                    style = TextStyle(fontFeatureSettings = "tnum")
                 )
             }
         }
@@ -358,10 +368,12 @@ private fun GroupHero(
                             Modifier.clip(CircleShape).background(categoryColor(snapshot.group.category).copy(alpha = .14f))
                                 .padding(horizontal = 8.dp, vertical = 2.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Icon(categoryIcon(snapshot.group.category), null, tint = categoryColor(snapshot.group.category), modifier = Modifier.size(10.dp))
-                                Text(snapshot.group.category.uppercase(), color = categoryColor(snapshot.group.category), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                            }
+                            Text(
+                                snapshot.group.category.uppercase(),
+                                color = categoryColor(snapshot.group.category),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                     Spacer(Modifier.height(3.dp))
@@ -419,27 +431,35 @@ private fun GroupHero(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Settings cog button
-                        Box(
-                            Modifier.size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color.White.copy(alpha = .06f))
-                                .border(1.dp, Hairline, RoundedCornerShape(10.dp))
-                                .clickable(onClick = onSettings),
-                            contentAlignment = Alignment.Center
+                        IconButton(
+                            onClick = onSettings,
+                            modifier = Modifier.size(48.dp)
                         ) {
-                            Icon(Icons.Default.Settings, "Settings", tint = Color.White.copy(alpha = .8f), modifier = Modifier.size(16.dp))
+                            Box(
+                                Modifier.size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color.White.copy(alpha = .06f))
+                                    .border(1.dp, Hairline, RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Settings, "Settings", tint = Color.White.copy(alpha = .8f), modifier = Modifier.size(17.dp))
+                            }
                         }
 
                         // Delete button
-                        Box(
-                            Modifier.size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Negative.copy(alpha = .12f))
-                                .border(1.dp, Negative.copy(alpha = .25f), RoundedCornerShape(10.dp))
-                                .clickable(onClick = onDelete),
-                            contentAlignment = Alignment.Center
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(48.dp)
                         ) {
-                            Icon(Icons.Default.DeleteOutline, "Delete", tint = Color(0xFFFF737B), modifier = Modifier.size(16.dp))
+                            Box(
+                                Modifier.size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Negative.copy(alpha = .12f))
+                                    .border(1.dp, Negative.copy(alpha = .25f), RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.DeleteOutline, "Delete", tint = Color(0xFFFF737B), modifier = Modifier.size(17.dp))
+                            }
                         }
                     }
                 }
@@ -534,7 +554,7 @@ private fun GroupHero(
 }
 
 @Composable private fun GroupMetric(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier) {
-    ObsidianCard(modifier) { Icon(icon, null, tint = MutedText, modifier = Modifier.size(18.dp)); Text(label, color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); Text(value, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+    ObsidianCard(modifier) { Icon(icon, null, tint = MutedText, modifier = Modifier.size(18.dp)); Text(label, color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp); Text(value, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp, style = TextStyle(fontFeatureSettings = "tnum")) }
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.overviewItems(snapshot: GroupSnapshot, state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController, settlementsEnabled: Boolean, onSettle: () -> Unit) {
@@ -542,7 +562,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.overviewItems(snapsho
     if (settlementsEnabled && snapshot.debts.isEmpty()) item { ObsidianCard { Text("All clear", color = Color.White, fontWeight = FontWeight.Bold); Text("There are no outstanding balances.", color = QuietText) } }
     if (settlementsEnabled) items(snapshot.debts, key = { "${it.from}_${it.to}" }) { debt ->
         ObsidianCard(Modifier.clickable { if (debt.from == state.user?.uid) onSettle() }) {
-            Row(verticalAlignment = Alignment.CenterVertically) { UserAvatar(snapshot.profiles[debt.from], 38); Spacer(Modifier.width(10.dp)); Column(Modifier.weight(1f)) { Text("${snapshot.profiles[debt.from]?.name ?: "Member"} pays", color = QuietText, fontSize = 11.sp); Text(snapshot.profiles[debt.to]?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Bold) }; Text(Money.format(debt.amountPaise), color = Color.White, fontWeight = FontWeight.Bold) }
+            Row(verticalAlignment = Alignment.CenterVertically) { UserAvatar(snapshot.profiles[debt.from], 38); Spacer(Modifier.width(10.dp)); Column(Modifier.weight(1f)) { Text("${snapshot.profiles[debt.from]?.name ?: "Member"} pays", color = QuietText, fontSize = 11.sp); Text(snapshot.profiles[debt.to]?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Bold) }; Text(Money.format(debt.amountPaise), color = Color.White, fontWeight = FontWeight.Bold, style = TextStyle(fontFeatureSettings = "tnum")) }
         }
     }
     item { SectionTitle("Expense timeline", "Recent first") }
@@ -641,7 +661,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.memberItems(snapshot:
                         Text(profile?.name ?: "Member", color = Color.White, fontWeight = FontWeight.Bold)
                         if (memberUid == snapshot.group.admin) {
                             Spacer(Modifier.width(6.dp))
-                            Text("ADMIN", color = PrimaryBlue, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                            Text("ADMIN", color = PrimaryBlue, fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
                     }
                     Text(if (memberUid == state.user?.uid) "You" else profile?.email.orEmpty().ifBlank { "Member" }, color = QuietText, fontSize = 11.sp)
@@ -649,7 +669,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.memberItems(snapshot:
                 Text(
                     text = "${if (balance >= 0) "+" else "−"}${Money.format(kotlin.math.abs(balance))}",
                     color = if (balance < 0) Negative else if (balance > 0) Positive else Color.White,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    style = TextStyle(fontFeatureSettings = "tnum")
                 )
             }
         }
@@ -668,9 +689,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.insightItems(snapshot
     val total = active.sumOf { it.amountPaise }
     item {
         ObsidianCard {
-            Text("TOTAL GROUP SPEND", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
+            Text("TOTAL GROUP SPEND", color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
             Spacer(Modifier.height(4.dp))
-            Text(Money.format(total), color = Color.White, fontWeight = FontWeight.Black, fontSize = 26.sp)
+            Text(Money.format(total), color = Color.White, fontWeight = FontWeight.Black, fontSize = 26.sp, style = TextStyle(fontFeatureSettings = "tnum"))
         }
     }
     val categoriesMap = active.groupBy { it.category }.mapValues { it.value.sumOf(Expense::amountPaise) }.toList().sortedByDescending { it.second }
@@ -752,7 +773,7 @@ private fun CreateGroupDialog(state: PayMatrixState, onDismiss: () -> Unit, onCo
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 FormField(name, { name = it.take(100) }, "Group name")
                 FormField(description, { description = it.take(300) }, "Description (optional)", singleLine = false)
-                Text("CATEGORY", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                Text("CATEGORY", color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                 val chunked = allGroupCategories.chunked(3)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     chunked.forEach { rowItems ->
@@ -778,7 +799,7 @@ private fun CreateGroupDialog(state: PayMatrixState, onDismiss: () -> Unit, onCo
                                             Icon(cat.icon, null, tint = if (isSelected) Color.Black else cat.color, modifier = Modifier.size(15.dp))
                                         }
                                         Spacer(Modifier.height(4.dp))
-                                        Text(cat.name, color = if (isSelected) Color.Black else Color.White.copy(alpha = 0.85f), fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(cat.name, color = if (isSelected) Color.Black else Color.White.copy(alpha = 0.85f), fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                             }
@@ -786,7 +807,7 @@ private fun CreateGroupDialog(state: PayMatrixState, onDismiss: () -> Unit, onCo
                     }
                 }
                 if (state.friends.isNotEmpty()) {
-                    Text("ADD FRIENDS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                    Text("ADD FRIENDS", color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     state.friends.forEach { friend ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(selected[friend.uid] == true, { selected[friend.uid] = it })
@@ -894,7 +915,7 @@ private fun EditGroupDialog(group: Group, onDismiss: () -> Unit, onConfirm: (Str
                                             cat.name,
                                             color = if (isSelected) Color.Black else Color.White.copy(alpha = 0.85f),
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            fontSize = 9.sp,
+                                            fontSize = 11.sp,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -933,7 +954,7 @@ private fun EditGroupDialog(group: Group, onDismiss: () -> Unit, onConfirm: (Str
 @Composable
 private fun AddMemberDialog(snapshot: GroupSnapshot, friends: List<UserProfile>, onDismiss: () -> Unit, onAdd: (String) -> Unit) {
     val available = friends.filter { it.uid !in snapshot.group.members }
-    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Add member") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { Text("SELECT FROM FRIENDS", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); if (available.isEmpty()) Text("No available friends. Connect on the Friends page first.", color = MutedText) else available.forEach { friend -> Row(Modifier.fillMaxWidth().clickable { onAdd(friend.uid) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { UserAvatar(friend, 38); Spacer(Modifier.width(10.dp)); Text(friend.name, Modifier.weight(1f)); Icon(Icons.Default.Add, null) } }; HorizontalDivider(color = Hairline); Text("Invite code", color = QuietText, fontSize = 9.sp, fontWeight = FontWeight.Bold); Text(snapshot.group.inviteCode.chunked(4).joinToString(" "), color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 2.sp) } }, confirmButton = {}, dismissButton = { TextButton(enabled = !LocalActionBusy.current, onClick = onDismiss) { Text("Done") } })
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ModalSurface, shape = RoundedCornerShape(28.dp), title = { Text("Add member") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { Text("SELECT FROM FRIENDS", color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Bold); if (available.isEmpty()) Text("No available friends. Connect on the Friends page first.", color = MutedText) else available.forEach { friend -> Row(Modifier.fillMaxWidth().clickable { onAdd(friend.uid) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { UserAvatar(friend, 38); Spacer(Modifier.width(10.dp)); Text(friend.name, Modifier.weight(1f)); Icon(Icons.Default.Add, null) } }; HorizontalDivider(color = Hairline); Text("Invite code", color = QuietText, fontSize = 11.sp, fontWeight = FontWeight.Bold); Text(snapshot.group.inviteCode.chunked(4).joinToString(" "), color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 2.sp) } }, confirmButton = {}, dismissButton = { TextButton(enabled = !LocalActionBusy.current, onClick = onDismiss) { Text("Done") } })
 }
 
 private data class UpiQrTarget(
@@ -1173,9 +1194,9 @@ private fun SettlementDialog(
                                         Text(
                                             if (hasUpi) "READY" else "NO ID",
                                             color = if (hasUpi) MintGreen else Color(0xFFFBBF24),
-                                            fontSize = 8.sp,
+                                            fontSize = 10.sp,
                                             fontWeight = FontWeight.Black,
-                                            letterSpacing = 1.sp
+                                            letterSpacing = 0.8.sp
                                         )
                                     }
                                 }

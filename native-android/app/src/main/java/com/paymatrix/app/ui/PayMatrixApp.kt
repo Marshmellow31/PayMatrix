@@ -8,10 +8,14 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -28,12 +32,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -99,7 +109,11 @@ fun PayMatrixApp(viewModel: PayMatrixViewModel, deepLink: Uri?) {
     }
 
     CompositionLocalProvider(LocalActionBusy provides state.loading) {
-    Scaffold(containerColor = CanvasBlack, snackbarHost = { SnackbarHost(snackbar) }) { outer ->
+    Scaffold(
+        containerColor = CanvasBlack,
+        contentWindowInsets = WindowInsets.statusBars,
+        snackbarHost = { SnackbarHost(snackbar) }
+    ) { outer ->
         Box(Modifier.fillMaxSize().padding(outer).background(CanvasBlack)) {
             NavHost(navController = nav, startDestination = "gate") {
                 composable("gate") { GateScreen(state, nav) }
@@ -180,7 +194,7 @@ private fun LoginScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavH
             Spacer(Modifier.weight(1f))
             Row(Modifier.clip(CircleShape).background(Positive.copy(alpha = .08f)).padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.VerifiedUser, null, tint = Positive, modifier = Modifier.size(13.dp))
-                Spacer(Modifier.width(5.dp)); Text("Private by design", color = Positive.copy(alpha = .86f), fontWeight = FontWeight.SemiBold, fontSize = 9.sp)
+                Spacer(Modifier.width(5.dp)); Text("Private by design", color = Positive.copy(alpha = .86f), fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
             }
         }
         if (state.verificationEmail.isNotBlank()) {
@@ -189,7 +203,7 @@ private fun LoginScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavH
                 Icon(Icons.Outlined.MarkEmailRead, null, tint = Positive, modifier = Modifier.size(27.dp))
             }
             Spacer(Modifier.height(22.dp))
-            Text("ONE LAST STEP", color = Positive.copy(alpha = .78f), fontWeight = FontWeight.Black, fontSize = 9.sp, letterSpacing = 1.6.sp)
+            Text("ONE LAST STEP", color = Positive.copy(alpha = .78f), fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 1.4.sp)
             Spacer(Modifier.height(8.dp))
             Text("Check your email.", color = Color.White, fontWeight = FontWeight.Black, fontSize = 31.sp, letterSpacing = (-1).sp)
             Spacer(Modifier.height(11.dp))
@@ -200,7 +214,7 @@ private fun LoginScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavH
             ObsidianCard(contentPadding = PaddingValues(16.dp)) {
                 listOf("Open the email from paymatrix", "Tap Verify email", "Return and continue").forEachIndexed { index, instruction ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(22.dp).clip(CircleShape).background(Color.White.copy(alpha = .06f)), contentAlignment = Alignment.Center) { Text("${index + 1}", color = Color.White.copy(alpha = .65f), fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                        Box(Modifier.size(22.dp).clip(CircleShape).background(Color.White.copy(alpha = .06f)), contentAlignment = Alignment.Center) { Text("${index + 1}", color = Color.White.copy(alpha = .65f), fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                         Spacer(Modifier.width(11.dp)); Text(instruction, color = Color.White.copy(alpha = .62f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
@@ -208,7 +222,7 @@ private fun LoginScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavH
             Spacer(Modifier.height(22.dp))
             PrimaryAction(if (state.loading) "Checking..." else "I've verified my email", { vm.checkEmailVerification() }, Modifier.fillMaxWidth(), enabled = !state.loading)
             TextButton(onClick = { vm.resendEmailVerification() }, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) { Text("Resend verification email", color = MutedText, fontWeight = FontWeight.Bold, fontSize = 12.sp) }
-            TextButton(onClick = { vm.useAnotherAccount(context) }, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) { Text("Use another account", color = QuietText, fontWeight = FontWeight.Bold, fontSize = 10.sp) }
+            TextButton(onClick = { vm.useAnotherAccount(context) }, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) { Text("Use another account", color = QuietText, fontWeight = FontWeight.Bold, fontSize = 11.sp) }
             return@Column
         }
 
@@ -232,7 +246,7 @@ private fun LoginScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavH
             Text("Continue with Google", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp)
         }
         Spacer(Modifier.height(17.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) { HorizontalDivider(Modifier.weight(1f), color = Hairline); Text("  OR USE EMAIL  ", color = QuietText, fontWeight = FontWeight.Black, fontSize = 8.sp, letterSpacing = 1.2.sp); HorizontalDivider(Modifier.weight(1f), color = Hairline) }
+        Row(verticalAlignment = Alignment.CenterVertically) { HorizontalDivider(Modifier.weight(1f), color = Hairline); Text("  OR USE EMAIL  ", color = QuietText, fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 1.2.sp); HorizontalDivider(Modifier.weight(1f), color = Hairline) }
         Spacer(Modifier.height(15.dp))
         if (createMode) {
             OutlinedTextField(value = name, onValueChange = { name = it.take(50) }, label = { Text("Your name") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next))
@@ -293,83 +307,201 @@ private fun LoginFeature(icon: ImageVector, title: String, body: String, modifie
 @Composable
 private fun MainShell(route: String, state: PayMatrixState, nav: NavHostController, content: @Composable (PaddingValues) -> Unit) {
     val online = rememberNetworkAvailable()
+    val haptic = LocalHapticFeedback.current
     val visibleNavItems = mainNavItems.filter { it.route != "logs" || state.flags.logs }
     Scaffold(
         containerColor = CanvasBlack,
         topBar = { PayMatrixHeader(state.user, state.notifications.count { !it.isRead }, syncPending = state.syncStatus.pendingWrites > 0, { nav.navigate("activity") }, { if (route != "profile") nav.navigate("profile") }) },
-        bottomBar = {
-            Surface(
-                color = ObsidianSurface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.07f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .height(58.dp)
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    visibleNavItems.forEach { item ->
-                        val selected = route == item.route
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable {
-                                    if (!selected) {
-                                        if (item.route == "dashboard") {
-                                            nav.navigate("dashboard") { popUpTo("dashboard") { inclusive = true }; launchSingleTop = true }
-                                        } else {
-                                            nav.navigate(item.route) { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true }
-                                        }
-                                    }
-                                }
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .width(20.dp)
-                                    .height(2.5.dp)
-                                    .clip(CircleShape)
-                                    .background(if (selected) Color.White else Color.Transparent)
-                            )
-                            Spacer(Modifier.height(4.dp))
+        content = { padding ->
+            Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+                Column(Modifier.fillMaxSize()) {
+                    if (state.syncStatus.lastError.isNotBlank()) StatusBanner("Sync needs attention · ${state.syncStatus.lastError}", Negative)
+                    if (state.flags.maintenanceMode) StatusBanner("Maintenance mode · some cloud actions may be temporarily unavailable", Color(0xFFF6C85F))
+                    Box(Modifier.weight(1f)) { content(PaddingValues(0.dp)) }
+                }
+
+                // Subtle floating offline / sync pill above navbar
+                if (!online || state.syncStatus.pendingWrites > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(bottom = 80.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xF218181D))
+                            .border(1.dp, Color(0xFFF6C85F).copy(alpha = 0.35f), CircleShape)
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = if (selected) item.selected else item.idle,
-                                contentDescription = item.label,
-                                tint = if (selected) Color.White else Color.White.copy(alpha = 0.38f),
-                                modifier = Modifier.size(20.dp)
+                                if (!online) Icons.Default.WifiOff else Icons.Default.CloudUpload,
+                                contentDescription = null,
+                                tint = Color(0xFFF6C85F),
+                                modifier = Modifier.size(13.dp)
                             )
-                            Spacer(Modifier.height(3.dp))
+                            Spacer(Modifier.width(6.dp))
                             Text(
-                                text = item.label,
-                                fontSize = 10.sp,
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                                color = if (selected) Color.White else Color.White.copy(alpha = 0.38f),
-                                maxLines = 1
+                                if (!online) "Offline" else "${state.syncStatus.pendingWrites} sync pending",
+                                color = Color(0xFFF6C85F),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
-            }
-        },
-        content = { padding ->
-            Column(Modifier.fillMaxSize().padding(padding)) {
-                if (state.syncStatus.pendingWrites > 0) StatusBanner(
-                    "${state.syncStatus.pendingWrites} change${if (state.syncStatus.pendingWrites == 1) "" else "s"} pending secure sync",
-                    Color(0xFFF6C85F),
-                ) else if (!online) StatusBanner("Offline · cached data is available; payments and account changes require a connection", Color(0xFFF6C85F))
-                if (state.syncStatus.lastError.isNotBlank()) StatusBanner("Sync needs attention · ${state.syncStatus.lastError}", Negative)
-                if (state.flags.maintenanceMode) StatusBanner("Maintenance mode · some cloud actions may be temporarily unavailable", Color(0xFFF6C85F))
-                Box(Modifier.weight(1f)) { content(PaddingValues(0.dp)) }
+
+                // Apple Liquid Glass Floating Pill Navigation Bar
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(start = 20.dp, end = 20.dp, bottom = 12.dp)
+                ) {
+                    LiquidGlassNavBar(
+                        items = visibleNavItems,
+                        currentRoute = route,
+                        onNavigate = { targetRoute ->
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            if (targetRoute == "dashboard") {
+                                nav.navigate("dashboard") { popUpTo("dashboard") { inclusive = true }; launchSingleTop = true }
+                            } else {
+                                nav.navigate(targetRoute) { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true }
+                            }
+                        }
+                    )
+                }
             }
         },
     )
+}
+
+@Composable
+private fun LiquidGlassNavBar(
+    items: List<MainNavItem>,
+    currentRoute: String,
+    onNavigate: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val pillShape = RoundedCornerShape(32.dp)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(60.dp)
+            .shadow(
+                elevation = 20.dp,
+                shape = pillShape,
+                clip = false,
+                spotColor = Color.Black.copy(alpha = 0.85f),
+                ambientColor = Color.Black.copy(alpha = 0.50f)
+            )
+            .clip(pillShape)
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xF01E1E24), // ~94% dark slate glass
+                        Color(0xE0111116), // ~88% deep obsidian glass
+                    )
+                )
+            )
+            .border(
+                width = 1.dp,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.22f), // Apple specular top light catch
+                        Color.White.copy(alpha = 0.08f),
+                        Color.White.copy(alpha = 0.03f)  // Faded bottom rim
+                    )
+                ),
+                shape = pillShape
+            )
+    ) {
+        // Upper subtle specular frosted sheen
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        0.0f to Color.White.copy(alpha = 0.06f),
+                        1.0f to Color.Transparent
+                    )
+                )
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items.forEach { item ->
+                val selected = currentRoute == item.route
+
+                val itemColor by animateColorAsState(
+                    targetValue = if (selected) Color.White else Color.White.copy(alpha = 0.48f),
+                    animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                    label = "itemColor"
+                )
+                val capsuleBg by animateColorAsState(
+                    targetValue = if (selected) Color.White.copy(alpha = 0.12f) else Color.Transparent,
+                    animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                    label = "capsuleBg"
+                )
+                val capsuleBorder by animateColorAsState(
+                    targetValue = if (selected) Color.White.copy(alpha = 0.09f) else Color.Transparent,
+                    animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                    label = "capsuleBorder"
+                )
+
+                val itemShape = RoundedCornerShape(26.dp)
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(itemShape)
+                        .background(capsuleBg)
+                        .border(1.dp, capsuleBorder, itemShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) {
+                            if (!selected) {
+                                onNavigate(item.route)
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = if (selected) item.selected else item.idle,
+                            contentDescription = item.label,
+                            tint = itemColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = item.label,
+                            color = itemColor,
+                            fontSize = 10.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                            maxLines = 1,
+                            letterSpacing = (-0.2).sp,
+                            style = TextStyle(
+                                platformStyle = @Suppress("DEPRECATION") PlatformTextStyle(includeFontPadding = false)
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -419,6 +551,7 @@ private fun rememberNetworkAvailable(): Boolean {
 
 @Composable
 fun BackBar(title: String, nav: NavHostController, subtitle: String? = null, actions: @Composable RowScope.() -> Unit = {}) {
+    val haptic = LocalHapticFeedback.current
     Surface(
         color = ObsidianSurface.copy(alpha = .98f),
         modifier = Modifier.fillMaxWidth()
@@ -427,22 +560,25 @@ fun BackBar(title: String, nav: NavHostController, subtitle: String? = null, act
             modifier = Modifier
                 .fillMaxWidth()
                 .height(60.dp)
-                .padding(horizontal = 18.dp),
+                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = { nav.popBackStack() },
-                modifier = Modifier.size(34.dp)
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    nav.popBackStack()
+                },
+                modifier = Modifier.size(48.dp)
             ) {
-                Icon(Icons.Default.ArrowBack, "Back", tint = Color.White.copy(alpha = .9f), modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.ArrowBack, "Back", tint = Color.White.copy(alpha = .95f), modifier = Modifier.size(22.dp))
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(6.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    fontSize = 17.sp,
+                    fontSize = 18.sp,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
@@ -450,7 +586,7 @@ fun BackBar(title: String, nav: NavHostController, subtitle: String? = null, act
                     Text(
                         text = subtitle,
                         color = QuietText,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
