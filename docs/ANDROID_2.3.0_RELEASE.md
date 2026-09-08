@@ -38,6 +38,7 @@ The widget deliberately provides shortcuts rather than cached financial data. Ri
 - Lint: 0 errors, 65 warnings. Remaining warnings include dependency-update suggestions, launcher asset conventions, KTX suggestions, widget button styling and an existing credential exception-handling recommendation. They were not suppressed to claim a clean audit.
 - APK metadata verified: com.paymatrix.app, 2.3.0, 23000, min SDK 24, target SDK 36. APK alignment passed. Certificate SHA256 matches 2.2.2: `77bc53c8e4c6eeb17449750b0bd1d83901682030219e8a363963428e9820659f`.
 - On the isolated API 36 emulator, release 2.2.2 installed and upgraded in place to release 2.3.0 successfully. Cold launch completed; crash log was empty at inspection.
+- The first launch screenshot included a System UI ANR dialog. After stopping the build daemon and restarting the isolated emulator, the app opened cleanly and sign-in → registration navigation passed using actual touch input. The cause of the System UI interruption was not established; the QA archive retains both captures.
 - Physical-device Google/email login, UPI/camera behavior, long-duration reminder delivery under vendor battery restrictions, TalkBack traversal and frame-time benchmarks remain unverified. No Play Console submission is included.
 
 ## Source and recovery
