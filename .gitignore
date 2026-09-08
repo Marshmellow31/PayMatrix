@@ -60,3 +60,16 @@ vitest.config.js.timestamp-*.mjs
 paymatrix-launch/
 next flagship launch/
 version3.md
+
+# Android apps & local non-web assets (kept local on PC, omitted from web repo)
+android app/
+native-android/
+releases/
+stitch_authentication/
+FIREBASE_CONSOLE_CHANGES.md
+PAYMATRIX_SCALING_AND_GROWTH_PLAN.md
+PayMatrix_Gemini_Carousel_Prompt.md
+advertisement.md
+brain.md
+login_new.md
+report.md

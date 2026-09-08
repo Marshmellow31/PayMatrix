@@ -1,5 +1,0 @@
-<resources>
-    <style name="Theme.PayMatrix" parent="android:style/Theme.Material.NoActionBar">
-        <item name="android:fontFamily">sans</item>
-    </style>
-</resources>

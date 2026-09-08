@@ -1,5 +1,0 @@
-# Copy to android/key.properties and keep the real file private.
-storeFile=../keystores/paymatrix-upload.jks
-storePassword=replace-with-secret
-keyAlias=paymatrix-upload
-keyPassword=replace-with-secret
