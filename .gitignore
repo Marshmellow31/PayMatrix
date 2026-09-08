@@ -44,3 +44,14 @@ scripts/serviceAccountKey.json
 
 # Vitest transient config timestamps
 vitest.config.js.timestamp-*.mjs
+
+# Android release binaries & artifacts (published on GitHub Releases, not tracked in git)
+*.apk
+*.aab
+*-mapping.txt
+*.sha256
+
+# Advertisement & launch media assets
+paymatrix-launch/
+next flagship launch/
+version3.md
