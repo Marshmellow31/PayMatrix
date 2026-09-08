@@ -9,16 +9,32 @@ import App from './App.jsx';
 import Loader from './components/common/Loader.jsx';
 import './index.css';
 
-// Purge ALL old avatar caches from the service worker.
-// Avatars are no longer SW-cached (cross-origin opaque responses caused failures).
-if (typeof window !== 'undefined' && 'caches' in window) {
-  ['google-avatars-cache', 'google-avatars-v2'].forEach((name) =>
-    caches.delete(name).catch(() => {})
-  );
+// Development environment cleanup: prevent service workers from intercepting localhost/HMR
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      regs.forEach((reg) => reg.unregister());
+    });
+  }
+  if ('caches' in window) {
+    caches.keys().then((names) => {
+      names.forEach((name) => caches.delete(name));
+    });
+  }
 }
 
-// The Service Worker is now registered and managed by PwaUpdatePrompt.jsx
-// inside the React component tree to allow for UI update prompts.
+// Purge obsolete cache buckets across versions
+if (typeof window !== 'undefined' && 'caches' in window) {
+  [
+    'google-avatars-cache',
+    'google-avatars-v2',
+    'paymatrix-lazy-scripts-v1',
+    'paymatrix-navigation-v2',
+  ].forEach((name) => caches.delete(name).catch(() => {}));
+}
+
+// The Service Worker is registered and managed by PwaUpdatePrompt.jsx
+// inside the React component tree to provide a smooth update UI.
 
 // App-like behaviors: Disable context menu and specific gestures
 if (typeof window !== 'undefined') {
@@ -40,17 +56,58 @@ if (typeof window !== 'undefined') {
     { passive: true }
   );
 
-  // Auto-recover from outdated deployment chunk misses
+  // Self-healing: if an outdated cached index.html or service worker fails to load chunks,
+  // unregister service workers, clear caches, and reload the fresh deployment.
+  const triggerSelfHealing = () => {
+    const key = 'pm_auto_recovery_ts';
+    const last = sessionStorage.getItem(key);
+    const now = Date.now();
+    if (!last || now - parseInt(last, 10) > 15000) {
+      sessionStorage.setItem(key, String(now));
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          regs.forEach((reg) => reg.unregister());
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then((names) => {
+          names.forEach((name) => caches.delete(name));
+        });
+      }
+      setTimeout(() => {
+        window.location.reload();
+      }, 150);
+    }
+  };
+
+  // Vite specific chunk reload hook
   window.addEventListener('vite:preloadError', (event) => {
     event.preventDefault();
-    const reloadKey = 'pm_chunk_reload';
-    const lastReload = sessionStorage.getItem(reloadKey);
-    const now = Date.now();
-    if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
-      sessionStorage.setItem(reloadKey, String(now));
-      window.location.reload();
-    }
+    triggerSelfHealing();
   });
+
+  // Global window error hook (e.g. dynamic import MIME type failure, missing stylesheet/script)
+  window.addEventListener(
+    'error',
+    (e) => {
+      const msg = e && e.message ? String(e.message) : '';
+      const target = e && e.target;
+      const isChunkOrMimeError =
+        msg.includes('Expected a JavaScript-or-Wasm module script') ||
+        msg.includes('Strict MIME type') ||
+        msg.includes('Failed to fetch dynamically imported module') ||
+        (target &&
+          target.tagName === 'LINK' &&
+          target.rel === 'stylesheet' &&
+          target.href &&
+          target.href.includes('/assets/')) ||
+        (target && target.tagName === 'SCRIPT' && target.src && target.src.includes('/assets/'));
+      if (isChunkOrMimeError) {
+        triggerSelfHealing();
+      }
+    },
+    true
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(

@@ -1,8 +1,13 @@
 # Dependencies
 node_modules/
 
-# Agents
+# Agents & Skills
 .agents/
+.claude/
+.codex/
+.github/agents/
+.github/hooks/
+.github/skills/
 
 # Environment
 .env

@@ -12,7 +12,7 @@
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 import { clientsClaim } from 'workbox-core';
-import { CacheFirst, NetworkFirst } from 'workbox-strategies';
+import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
@@ -25,13 +25,10 @@ precacheAndRoute(self.__WB_MANIFEST);
 // Remove caches from older SW versions on activation
 cleanupOutdatedCaches();
 
-// Activate a newly deployed worker immediately. Combined with network-first
-// navigation below, this prevents an old HTML shell from requesting bundle
-// filenames that no longer exist after a Vercel deployment.
-self.skipWaiting();
+// Take control of uncontrolled clients once activated
 clientsClaim();
 
-// Allow the client to force the new SW to take control immediately
+// Allow the client (via PwaUpdatePrompt) to force the new SW to take control
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
@@ -52,8 +49,8 @@ try {
 }
 
 const onlineNavigation = new NetworkFirst({
-  cacheName: 'paymatrix-navigation-v2',
-  networkTimeoutSeconds: 5,
+  cacheName: 'paymatrix-navigation-v3',
+  networkTimeoutSeconds: 1.5,
   plugins: [new CacheableResponsePlugin({ statuses: [0, 200] })],
 });
 
@@ -69,13 +66,21 @@ registerRoute(
   })
 );
 
-// Large lazy feature bundles (reports/charts) are cached after first use,
-// keeping initial installation fast without giving up repeat/offline access.
+// Large lazy feature bundles (reports/charts/pdf) are cached on demand with
+// StaleWhileRevalidate, keeping initial installation fast without serving broken/stale chunks.
 registerRoute(
-  ({ request, url }) => url.origin === self.location.origin && request.destination === 'script',
-  new CacheFirst({
-    cacheName: 'paymatrix-lazy-scripts-v1',
-    plugins: [new ExpirationPlugin({ maxEntries: 24, maxAgeSeconds: 60 * 60 * 24 * 30 })],
+  ({ request, url }) =>
+    url.origin === self.location.origin &&
+    request.destination === 'script' &&
+    (url.pathname.includes('vendor-pdf') ||
+      url.pathname.includes('vendor-charts') ||
+      url.pathname.includes('html2canvas')),
+  new StaleWhileRevalidate({
+    cacheName: 'paymatrix-lazy-vendor-v2',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 7 }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
   })
 );
 

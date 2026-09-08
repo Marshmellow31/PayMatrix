@@ -4,11 +4,13 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
   const [hasError, setHasError] = useState(false);
 
   const sizes = {
+    xs: 'w-6 h-6 text-[10px]',
     sm: 'w-8 h-8 text-xs',
     md: 'w-10 h-10 text-sm',
     lg: 'w-14 h-14 text-lg',
     xl: 'w-20 h-20 text-2xl',
   };
+  const sizeClass = sizes[size] || sizes.md;
 
   const getInitials = (n) => {
     if (!n) return '?';
@@ -44,13 +46,13 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
     if (!name) {
       return (
         <div
-          className={`${sizes[size]} rounded-full bg-white/5 shrink-0 ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')}`}
+          className={`${sizeClass} rounded-full bg-white/5 shrink-0 ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')}`}
         />
       );
     }
     return (
       <div
-        className={`${sizes[size]} rounded-full flex items-center justify-center font-manrope font-black text-white shrink-0 shadow-lg ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')}`}
+        className={`${sizeClass} rounded-full flex items-center justify-center font-manrope font-black text-white shrink-0 shadow-lg ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')}`}
         style={{
           background: getBackgroundColor(name),
           textShadow: '0 1px 2px rgba(0,0,0,0.2)',
@@ -64,7 +66,7 @@ const Avatar = memo(({ name = '', src = '', size = 'md', className = '' }) => {
   // Attempt to load the image
   return (
     <div
-      className={`${sizes[size]} rounded-full shrink-0 relative ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')} overflow-hidden shadow-lg bg-white/5`}
+      className={`${sizeClass} rounded-full shrink-0 relative ${className.replace(/border(-\w+)?(\/[0-9]+)?/g, '')} overflow-hidden shadow-lg bg-white/5`}
     >
       <img
         src={src}

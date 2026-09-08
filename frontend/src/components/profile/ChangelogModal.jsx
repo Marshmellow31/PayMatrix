@@ -4,9 +4,22 @@ import { CheckCircle2 } from 'lucide-react';
 
 const releases = [
   {
-    version: '2.2.1',
+    version: '2.2.2',
     date: 'September 2026',
     tag: 'Latest Production Release',
+    highlights: [
+      'Apple Liquid Glass floating pill navigation bar with dynamic active capsules and specular highlights.',
+      'Android 15 edge-to-edge enforcement migration: deprecated window parameters removed, full backward compatibility.',
+      'Adaptive member selection grid: dynamic row filling and column-wise scrolling for large groups.',
+      'Solid avatar cutouts with 12-tone deterministic palette eliminating overlap opacity bleed.',
+      'Floating compact offline & sync status indicator pill positioned gracefully above the navbar.',
+      'Group category badge icons and clean non-redundant hero headers.',
+    ],
+  },
+  {
+    version: '2.2.1',
+    date: 'September 2026',
+    tag: 'Production Release',
     highlights: [
       'Multi-payer expense engine: divide paid amount equally or unequally (₹ Exact / % Percent) among multiple payers.',
       '3-step expense creation workflow with snug header and pinned action controls.',

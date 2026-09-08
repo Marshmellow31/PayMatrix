@@ -27,28 +27,30 @@ const GroupCard = ({ group, balance = 0 }) => {
         transition={{ type: 'spring', damping: 25, stiffness: 400 }}
       >
         <div className="flex justify-between items-start mb-6 relative z-10">
-          <div>
-            <h3 className="font-headline text-xl font-bold text-white mb-1.5 group-hover:text-primary transition-colors tracking-tight">
+          <div className="min-w-0 flex-1 pr-3">
+            <h3 className="font-headline text-xl font-bold text-white mb-1.5 group-hover:text-primary transition-colors tracking-tight truncate">
               {group.name || group.title}
             </h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border"
+                className="inline-flex items-center justify-center gap-1 p-1 sm:px-2 sm:py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border shrink-0"
                 style={{
                   backgroundColor: `${categoryMeta.color}12`,
                   borderColor: `${categoryMeta.color}25`,
                   color: categoryMeta.color,
                 }}
+                title={categoryMeta.label}
+                aria-label={categoryMeta.label}
               >
-                <IconComponent size={10} />
-                <span>{categoryMeta.label}</span>
+                <IconComponent size={11} className="shrink-0" />
+                <span className="hidden sm:inline">{categoryMeta.label}</span>
               </span>
-              <span className="text-on-surface-variant text-[10px] font-bold tracking-[0.15em] uppercase opacity-60">
+              <span className="text-on-surface-variant text-[10px] font-bold tracking-[0.15em] uppercase opacity-60 shrink-0">
                 • {uniqueMembers.length} {uniqueMembers.length === 1 ? 'Member' : 'Members'}
               </span>
             </div>
           </div>
-          <div className="text-right">
+          <div className="text-right shrink-0">
             <p className="text-on-surface-variant text-[10px] font-black tracking-[0.2em] uppercase mb-1 flex items-center justify-end gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
               Your Balance

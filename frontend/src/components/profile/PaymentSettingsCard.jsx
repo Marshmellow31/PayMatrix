@@ -249,25 +249,9 @@ const PaymentSettingsCard = ({ isOwnProfile, currentUser, targetUser, isOnline, 
                 </div>
 
                 {/* Compatible Apps Footer Row */}
-                <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 px-1 pt-1 text-[11px] text-white/40">
-                  <div className="flex items-center gap-1.5">
-                    <Smartphone size={13} className="text-white/30 shrink-0" />
-                    <span>Works with all UPI apps</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/5 text-[10px] font-medium text-white/60">
-                      GPay
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/5 text-[10px] font-medium text-white/60">
-                      PhonePe
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/5 text-[10px] font-medium text-white/60">
-                      Paytm
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/5 text-[10px] font-medium text-white/60">
-                      BHIM
-                    </span>
-                  </div>
+                <div className="flex items-center gap-1.5 px-1 pt-1 text-[11px] text-white/40">
+                  <Smartphone size={13} className="text-white/30 shrink-0" />
+                  <span>Works with all UPI apps</span>
                 </div>
               </div>
             ) : (

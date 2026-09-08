@@ -5,6 +5,7 @@ import {
   Calendar,
   Check,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   CircleCheck,
   Divide,
@@ -188,18 +189,22 @@ const ExpenseForm = ({
     if (onGroupChange) onGroupChange(group);
 
     if (group && !initialData) {
+      const allMemberIds = group.members.map((m) => (m.user?._id || m.user).toString());
+      const uniqueMemberIds = Array.from(new Set(allMemberIds));
       // For NEW expenses: Default to all members if none selected yet
       if (participants.length === 0) {
-        const allMemberIds = group.members.map((m) => (m.user?._id || m.user).toString());
-        const uniqueMemberIds = Array.from(new Set(allMemberIds));
         setParticipants(uniqueMemberIds);
+      }
 
-        // Default PaidBy to current user if in group
-        const currentUserId = user?._id?.toString();
+      // Default PaidBy to current user if in group
+      const currentUserId = user?._id?.toString();
+      if (selectedPayers.length === 0) {
         if (uniqueMemberIds.includes(currentUserId)) {
           setForm((prev) => ({ ...prev, paidBy: currentUserId }));
+          setSelectedPayers([currentUserId]);
         } else if (uniqueMemberIds.length > 0) {
           setForm((prev) => ({ ...prev, paidBy: uniqueMemberIds[0] }));
+          setSelectedPayers([uniqueMemberIds[0]]);
         }
       }
     }
@@ -449,13 +454,115 @@ const ExpenseForm = ({
     ).values()
   );
 
+  const totalAmountValue = parseFloat(form.amount || 0);
+  const totalPaiseVal = Math.round(totalAmountValue * 100);
+
+  // Multi-payer calculation and validation
+  const activePayersList = selectedPayers.filter(Boolean);
+
+  const calculatedPayerAmounts = {};
+  if (activePayersList.length === 1) {
+    calculatedPayerAmounts[activePayersList[0]] = totalAmountValue;
+  } else if (payerDivisionMode === 'equal') {
+    const perPerson = Math.floor(totalPaiseVal / (activePayersList.length || 1));
+    const rem = totalPaiseVal % (activePayersList.length || 1);
+    activePayersList.forEach((uid, idx) => {
+      calculatedPayerAmounts[uid] = (perPerson + (idx < rem ? 1 : 0)) / 100;
+    });
+  } else if (payerDivisionMode === 'exact') {
+    activePayersList.forEach((uid) => {
+      calculatedPayerAmounts[uid] = parseFloat(payerValues[uid] || 0);
+    });
+  } else if (payerDivisionMode === 'percentage') {
+    activePayersList.forEach((uid) => {
+      const pct = parseFloat(payerValues[uid] || 0);
+      calculatedPayerAmounts[uid] = Math.round((pct / 100) * totalPaiseVal) / 100;
+    });
+  }
+
+  const payerTotalPaid = Object.values(calculatedPayerAmounts).reduce((a, b) => a + b, 0);
+  const isPayerPercentageValid =
+    payerDivisionMode === 'percentage'
+      ? Math.abs(
+          activePayersList.reduce((s, uid) => s + (parseFloat(payerValues[uid]) || 0), 0) - 100
+        ) < 0.01
+      : true;
+  const isPayerBalanced =
+    activePayersList.length > 0 &&
+    (activePayersList.length === 1 ||
+      (payerDivisionMode === 'percentage'
+        ? isPayerPercentageValid && Math.abs(payerTotalPaid - totalAmountValue) < 0.02
+        : Math.abs(payerTotalPaid - totalAmountValue) < 0.01));
+
+  const effectivePaidByName = (() => {
+    if (activePayersList.length === 0) return 'No one';
+    if (activePayersList.length > 1) return `${activePayersList.length} members`;
+    const singleUid = activePayersList[0];
+    if (singleUid === (user?._id?.toString() || user?.uid)) return 'You';
+    const member = uniqueMembers.find(
+      (m) => (m.user?._id || m.user || '').toString() === singleUid
+    );
+    return member?.user?.name || 'Member';
+  })();
+
+  const totalDistributedValue =
+    splitType === 'exact'
+      ? participants.reduce((sum, id) => sum + parseFloat(splitData.exactAmounts[id] || 0), 0)
+      : 0;
+  const leftValue = totalAmountValue - totalDistributedValue;
+
+  // Percentage split validation
+  const totalPercentage =
+    splitType === 'percentage'
+      ? participants.reduce((sum, id) => sum + (parseFloat(splitData.percentages[id]) || 0), 0)
+      : 0;
+  const leftPercentage = 100 - totalPercentage;
+  const isPercentageValid = Math.abs(leftPercentage) < 0.01;
+
+  // Shares split validation
+  const totalShares =
+    splitType === 'shares'
+      ? participants.reduce((sum, id) => sum + (parseInt(splitData.shares[id]) || 0), 0)
+      : 0;
+  const isSharesValid = totalShares > 0;
+
+  // Itemized (restaurant/GST) split
+  const itemizedSubtotal = participants.reduce(
+    (sum, id) => sum + (parseFloat(splitData.dishAmounts[id]) || 0),
+    0
+  );
+  const itemizedGst = totalAmountValue - itemizedSubtotal;
+  const itemizedGstPct = itemizedSubtotal > 0 ? (itemizedGst / itemizedSubtotal) * 100 : 0;
+  const isItemizedValid = itemizedSubtotal > 0 && totalAmountValue > 0;
+
+  const isSplitValid =
+    isPayerBalanced &&
+    (splitType === 'exact'
+      ? Math.abs(leftValue) < 0.01
+      : splitType === 'percentage'
+        ? isPercentageValid
+        : splitType === 'shares'
+          ? isSharesValid
+          : splitType === 'itemized'
+            ? isItemizedValid
+            : true);
+
+  // Scanned-bill dish assignment state
+  const hasScannedItems = scannedItems.length > 0;
+  const unassignedCount = hasScannedItems
+    ? scannedItems.filter(
+        (_, idx) =>
+          (itemAssignments[idx] || []).filter((uid) => participants.includes(uid)).length === 0
+      ).length
+    : 0;
+
   const calculatePreviewAmount = (userId) => {
-    const total = parseFloat(form.amount || 0);
+    const total = totalAmountValue;
     if (!participants.includes(userId)) return 0;
 
     switch (splitType) {
       case 'equal':
-        return total / participants.length;
+        return participants.length > 0 ? total / participants.length : 0;
       case 'percentage': {
         const pct = parseFloat(splitData.percentages[userId] || 0);
         return (total * pct) / 100;
@@ -464,20 +571,12 @@ const ExpenseForm = ({
         return parseFloat(splitData.exactAmounts[userId] || 0);
       case 'shares': {
         const userShares = parseInt(splitData.shares[userId] || 0);
-        const totalShares = participants.reduce(
-          (sum, id) => sum + parseInt(splitData.shares[id] || 0),
-          0
-        );
         return totalShares > 0 ? (total * userShares) / totalShares : 0;
       }
       case 'itemized': {
-        const subtotal = participants.reduce(
-          (sum, id) => sum + (parseFloat(splitData.dishAmounts[id]) || 0),
-          0
-        );
-        if (subtotal <= 0) return total / participants.length;
+        if (itemizedSubtotal <= 0) return participants.length > 0 ? total / participants.length : 0;
         const dish = parseFloat(splitData.dishAmounts[userId]) || 0;
-        return (total * dish) / subtotal;
+        return (total * dish) / itemizedSubtotal;
       }
       default:
         return 0;
@@ -683,645 +782,686 @@ const ExpenseForm = ({
         <Button
           type="button"
           onClick={handleNext}
-          disabled={!form.groupId || !form.amount || !form.title}
-          className="w-full h-16 rounded-3xl font-manrope font-black text-lg bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl"
+          disabled={!form.groupId || !form.amount || parseFloat(form.amount || 0) <= 0 || !form.title?.trim()}
+          className="w-full h-16 rounded-3xl font-manrope font-black text-lg bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl disabled:opacity-50 disabled:bg-white/10 disabled:text-white/20"
         >
-          Next
-          <ChevronRight size={24} />
+          Next: Who Paid
+          <ChevronRight size={22} />
         </Button>
       </div>
     </motion.div>
   );
 
   const renderStep2 = () => {
-    const totalAmountValue = parseFloat(form.amount || 0);
-    const totalDistributedValue =
-      splitType === 'exact'
-        ? participants.reduce((sum, id) => sum + parseFloat(splitData.exactAmounts[id] || 0), 0)
-        : 0;
-    const leftValue = totalAmountValue - totalDistributedValue;
-
-    // Percentage split validation
-    const totalPercentage =
-      splitType === 'percentage'
-        ? participants.reduce((sum, id) => sum + (parseFloat(splitData.percentages[id]) || 0), 0)
-        : 0;
-    const leftPercentage = 100 - totalPercentage;
-    const isPercentageValid = Math.abs(leftPercentage) < 0.01;
-
-    // Shares split validation
-    const totalShares =
-      splitType === 'shares'
-        ? participants.reduce((sum, id) => sum + (parseInt(splitData.shares[id]) || 0), 0)
-        : 0;
-    const isSharesValid = totalShares > 0;
-
-    // Itemized (restaurant/GST) split: dishes are pre-tax, the leftover up to the
-    // bill total is GST/charges distributed by dish ratio.
-    const itemizedSubtotal = participants.reduce(
-      (sum, id) => sum + (parseFloat(splitData.dishAmounts[id]) || 0),
-      0
-    );
-    // Gap between bill total and dish subtotal. Positive = GST/charges added on
-    // top; negative = a net discount (dishes cost more than the final payable).
-    const itemizedGst = totalAmountValue - itemizedSubtotal;
-    const itemizedGstPct = itemizedSubtotal > 0 ? (itemizedGst / itemizedSubtotal) * 100 : 0;
-    // Discounts are legitimate: the split engine scales each dish by total/subtotal,
-    // so a net discount is shared in the same ratio as dishes (and as GST). Only an
-    // empty subtotal or a discount that wipes out the whole bill is invalid.
-    const isItemizedValid = itemizedSubtotal > 0 && totalAmountValue > 0;
-
-    // Multi-payer calculation and validation
-    const activePayersList = selectedPayers.filter(Boolean);
-    const totalPaiseVal = Math.round(totalAmountValue * 100);
-
-    const calculatedPayerAmounts = {};
-    if (activePayersList.length === 1) {
-      calculatedPayerAmounts[activePayersList[0]] = totalAmountValue;
-    } else if (payerDivisionMode === 'equal') {
-      const perPerson = Math.floor(totalPaiseVal / activePayersList.length);
-      const rem = totalPaiseVal % activePayersList.length;
-      activePayersList.forEach((uid, idx) => {
-        calculatedPayerAmounts[uid] = (perPerson + (idx < rem ? 1 : 0)) / 100;
-      });
-    } else if (payerDivisionMode === 'exact') {
-      activePayersList.forEach((uid) => {
-        calculatedPayerAmounts[uid] = parseFloat(payerValues[uid] || 0);
-      });
-    } else if (payerDivisionMode === 'percentage') {
-      activePayersList.forEach((uid) => {
-        const pct = parseFloat(payerValues[uid] || 0);
-        calculatedPayerAmounts[uid] = Math.round((pct / 100) * totalPaiseVal) / 100;
-      });
-    }
-
-    const payerTotalPaid = Object.values(calculatedPayerAmounts).reduce((a, b) => a + b, 0);
-    const isPayerPercentageValid =
-      payerDivisionMode === 'percentage'
-        ? Math.abs(
-            activePayersList.reduce((s, uid) => s + (parseFloat(payerValues[uid]) || 0), 0) - 100
-          ) < 0.01
-        : true;
-    const isPayerBalanced =
-      activePayersList.length > 0 &&
-      (activePayersList.length === 1 ||
-        (payerDivisionMode === 'percentage'
-          ? isPayerPercentageValid && Math.abs(payerTotalPaid - totalAmountValue) < 0.02
-          : Math.abs(payerTotalPaid - totalAmountValue) < 0.01));
-
-    const isSplitValid =
-      isPayerBalanced &&
-      (splitType === 'exact'
-        ? Math.abs(leftValue) < 0.01
-        : splitType === 'percentage'
-          ? isPercentageValid
-          : splitType === 'shares'
-            ? isSharesValid
-            : splitType === 'itemized'
-              ? isItemizedValid
-              : true);
-
-    // Scanned-bill dish assignment state
-    const hasScannedItems = scannedItems.length > 0;
-    const unassignedCount = hasScannedItems
-      ? scannedItems.filter(
-          (_, idx) =>
-            (itemAssignments[idx] || []).filter((uid) => participants.includes(uid)).length === 0
-        ).length
-      : 0;
-
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 1.05 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
+        key="step-2"
+        initial={{ opacity: 0, x: 10 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -10 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
         className="flex flex-col gap-6 w-full"
       >
-        {/* Desktop: 3-column layout */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-start">
-          {/* Column 1: Split Method */}
-          <div className="flex flex-col gap-6">
-            <div className="space-y-4">
-              <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60 px-1">
-                Split Method
-              </label>
-              <div className="grid grid-cols-5 md:flex md:flex-col gap-2">
-                {[
-                  { id: 'equal', icon: Divide, label: 'Equal' },
-                  { id: 'percentage', icon: Percent, label: 'Percent' },
-                  { id: 'exact', icon: Target, label: 'Exact' },
-                  { id: 'shares', icon: PieChart, label: 'Shares' },
-                  { id: 'itemized', icon: Receipt, label: 'GST' },
-                ].map((type) => {
-                  const Icon = type.icon;
-                  const isSelected = splitType === type.id;
-                  return (
-                    <button
-                      key={type.id}
-                      type="button"
-                      onClick={() => handleSplitTypeChange(type.id)}
-                      className={`flex flex-col md:flex-row items-center md:justify-start justify-center gap-1 md:gap-3 py-1.5 md:py-3.5 md:px-4 rounded-xl md:rounded-2xl border transition-all ${
-                        isSelected
-                          ? 'bg-white text-black border-white shadow-xl scale-[1.02]'
-                          : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
-                      }`}
-                    >
-                      <Icon size={18} className="shrink-0" />
-                      <span className="text-[9px] md:text-xs font-bold uppercase tracking-wider leading-none">
-                        {type.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+        {/* Step 2 Context Summary Banner */}
+        <div className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-surface-container-low/60 border border-white/5">
+          <div className="flex flex-col min-w-0 pr-3">
+            <span className="font-manrope font-black text-white text-base truncate">
+              {form.title || 'Untitled Expense'}
+            </span>
+            <span className="font-manrope font-bold text-xs text-primary">
+              {form.category} · ₹{totalAmountValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-all text-xs font-bold shrink-0 border border-white/5"
+          >
+            <PenTool size={13} />
+            Edit
+          </button>
+        </div>
+
+        {/* Who Paid Section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <div>
+              <h3 className="font-manrope font-bold text-white text-base sm:text-lg">Who paid?</h3>
+              <p className="text-xs text-on-surface-variant font-inter opacity-60">
+                Select the person or people who paid for this expense.
+              </p>
             </div>
-
-            {/* Indicators container for split methods */}
-            <div className="relative">
-              <AnimatePresence mode="wait">
-                {splitType === 'percentage' && (
-                  <motion.div
-                    key="percentage-indicator"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className={`flex items-center justify-between px-4 py-3 rounded-2xl border transition-all ${
-                      isSplitValid
-                        ? 'bg-primary/10 border-primary/20'
-                        : leftPercentage > 0
-                          ? 'bg-white/5 border-white/10'
-                          : 'bg-red-500/10 border-red-500/20'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Info
-                        size={14}
-                        className={
-                          isSplitValid
-                            ? 'text-primary'
-                            : leftPercentage > 0
-                              ? 'text-on-surface-variant'
-                              : 'text-red-400'
-                        }
-                      />
-                      <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
-                        {isSplitValid
-                          ? '100% Balanced'
-                          : leftPercentage > 0
-                            ? 'Remaining'
-                            : 'Over 100%'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`font-manrope font-black text-sm ${isSplitValid ? 'text-primary' : leftPercentage > 0 ? 'text-white' : 'text-red-400'}`}
-                      >
-                        {Math.abs(leftPercentage).toFixed(1)}%
-                      </span>
-                      {isSplitValid && <CheckCircle2 size={14} className="text-primary" />}
-                    </div>
-                  </motion.div>
-                )}
-
-                {splitType === 'shares' && (
-                  <motion.div
-                    key="shares-indicator"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className="flex items-center justify-between px-4 py-3 rounded-2xl border bg-primary/10 border-primary/20 transition-all"
-                  >
-                    <div className="flex items-center gap-2">
-                      <PieChart size={14} className="text-primary" />
-                      <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
-                        Total Shares
-                      </span>
-                    </div>
-                    <span className="font-manrope font-black text-sm text-primary">
-                      {totalShares} {totalShares === 1 ? 'Share' : 'Shares'}
-                    </span>
-                  </motion.div>
-                )}
-
-                {splitType === 'exact' && (
-                  <motion.div
-                    key="exact-indicator"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className={`flex items-center justify-between px-4 py-3 rounded-2xl border transition-all ${
-                      isSplitValid
-                        ? 'bg-primary/10 border-primary/20'
-                        : leftValue > 0
-                          ? 'bg-white/5 border-white/10'
-                          : 'bg-red-500/10 border-red-500/20'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Info
-                        size={14}
-                        className={
-                          isSplitValid
-                            ? 'text-primary'
-                            : leftValue > 0
-                              ? 'text-on-surface-variant'
-                              : 'text-red-400'
-                        }
-                      />
-                      <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
-                        {isSplitValid
-                          ? 'Split Balanced'
-                          : leftValue > 0
-                            ? 'Remaining'
-                            : 'Over Limit'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`font-manrope font-black text-sm ${isSplitValid ? 'text-primary' : leftValue > 0 ? 'text-white' : 'text-red-400'}`}
-                      >
-                        ₹{Math.abs(leftValue).toFixed(2)}
-                      </span>
-                      {isSplitValid && <CheckCircle2 size={14} className="text-primary" />}
-                    </div>
-                  </motion.div>
-                )}
-
-                {splitType === 'itemized' && (
-                  <motion.div
-                    key="itemized-indicator"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className={`rounded-2xl border px-4 py-3 transition-all ${
-                      !isItemizedValid && itemizedGst < 0
-                        ? 'bg-red-500/10 border-red-500/20'
-                        : 'bg-primary/[0.07] border-primary/20'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Receipt
-                          size={14}
-                          className={itemizedGst < -0.01 ? 'text-red-400' : 'text-primary'}
-                        />
-                        <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
-                          Dishes
-                        </span>
-                      </div>
-                      <span className="font-manrope font-black text-sm text-white">
-                        ₹{itemizedSubtotal.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
-                          {itemizedGst < -0.01 ? 'Discount' : 'GST / Charges'}
-                        </span>
-                        {itemizedSubtotal > 0 && (
-                          <span className="text-[9px] font-bold text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-md">
-                            {Math.abs(itemizedGstPct).toFixed(1)}%
-                          </span>
-                        )}
-                      </div>
-                      <span
-                        className={`font-manrope font-black text-sm ${itemizedGst < -0.01 ? 'text-emerald-400' : 'text-primary'}`}
-                      >
-                        {itemizedGst < -0.01 ? '−' : '+'}₹{Math.abs(itemizedGst).toFixed(2)}
-                      </span>
-                    </div>
-                    <p className="text-[9px] text-on-surface-variant font-inter opacity-40 mt-2 leading-snug">
-                      {itemizedSubtotal <= 0
-                        ? "Enter what each person's dish cost \u2014 the leftover up to the bill total becomes shared GST."
-                        : itemizedGst < -0.01
-                          ? 'A bill discount is shared by dish price — pricier dishes get a bigger discount.'
-                          : 'GST is shared by dish price \u2014 pricier dishes pay proportionally more.'}
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            <span className="text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full shrink-0">
+              {activePayersList.length} Selected
+            </span>
           </div>
 
-          {/* Column 2: Paid By */}
-          <div className="flex flex-col gap-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
-                  Paid By
-                </label>
-                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
-                  {activePayersList.length} Selected
-                </span>
-              </div>
-              <div className="relative w-full">
-                <div className="flex gap-2.5 pt-1 overflow-x-auto no-scrollbar pb-2 w-full">
-                  {(() => {
-                    const allMemberNames = uniqueMembers.map((m) => m.user?.name).filter(Boolean);
-                    return uniqueMembers.map((member) => {
-                      const userId = (member.user?._id || member.user || '').toString();
-                      const isSelected = selectedPayers.includes(userId);
-                      const u = member.user || member;
-                      return (
-                        <button
-                          key={`payer-${userId}`}
-                          type="button"
-                          onClick={() => {
-                            setSelectedPayers((prev) => {
-                              if (prev.includes(userId)) {
-                                if (prev.length <= 1) return prev; // Keep at least one
-                                return prev.filter((id) => id !== userId);
-                              }
-                              return [...prev, userId];
-                            });
-                          }}
-                          className={`flex-shrink-0 flex items-center gap-2 md:gap-3 px-3 py-1.5 md:px-4 md:py-3 rounded-xl md:rounded-2xl border transition-all ${
-                            isSelected
-                              ? 'bg-white text-black border-white shadow-lg'
-                              : 'bg-surface-container-low/30 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
-                          }`}
-                        >
-                          <Avatar
-                            name={u?.name}
-                            src={u?.avatar}
-                            size="sm"
-                            className={`w-6 h-6 ${isSelected ? 'border border-black/10' : 'border border-white/5'}`}
-                          />
-                          <span className="font-manrope font-bold text-xs whitespace-nowrap">
-                            {getShortName(u?.name, allMemberNames)}
-                          </span>
-                          {isSelected && <Check size={14} className="shrink-0" />}
-                        </button>
-                      );
+          {/* Members Selection Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 pt-1">
+            {uniqueMembers.map((member) => {
+              const userId = (member.user?._id || member.user || '').toString();
+              const isSelected = selectedPayers.includes(userId);
+              const u = member.user || member;
+              const isCurrentUser = userId === (user?._id?.toString() || user?.uid);
+              return (
+                <button
+                  key={`payer-btn-${userId}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedPayers((prev) => {
+                      if (prev.includes(userId)) {
+                        if (prev.length <= 1) return prev; // Keep at least one
+                        return prev.filter((id) => id !== userId);
+                      }
+                      return [...prev, userId];
                     });
-                  })()}
-                </div>
-                {uniqueMembers.length > 3 && (
-                  <div className="absolute right-0 top-0 bottom-2 w-10 bg-gradient-to-l from-[#1a1a1a] to-transparent pointer-events-none z-10" />
-                )}
-              </div>
-
-              {/* If 2+ payers, division mode and individual payer inputs */}
-              {activePayersList.length >= 2 && (
-                <div className="space-y-3 pt-2">
-                  <div className="flex gap-2">
-                    {[
-                      { id: 'equal', label: 'Equal' },
-                      { id: 'exact', label: '₹ Exact' },
-                      { id: 'percentage', label: '% Percent' },
-                    ].map((mode) => (
-                      <button
-                        key={mode.id}
-                        type="button"
-                        onClick={() => {
-                          setPayerDivisionMode(mode.id);
-                          if (mode.id === 'exact') {
-                            const pVals = {};
-                            activePayersList.forEach((uid) => {
-                              pVals[uid] = (calculatedPayerAmounts[uid] || 0).toFixed(2);
-                            });
-                            setPayerValues(pVals);
-                          } else if (mode.id === 'percentage') {
-                            const pVals = {};
-                            const equalPct = (100 / activePayersList.length).toFixed(1);
-                            activePayersList.forEach((uid) => {
-                              pVals[uid] = equalPct;
-                            });
-                            setPayerValues(pVals);
-                          }
-                        }}
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
-                          payerDivisionMode === mode.id
-                            ? 'bg-primary/20 text-primary border-primary/40'
-                            : 'bg-white/5 text-on-surface-variant border-white/5 hover:bg-white/10'
-                        }`}
-                      >
-                        {mode.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="space-y-2">
-                    {activePayersList.map((uid) => {
-                      const member = uniqueMembers.find(
-                        (m) => (m.user?._id || m.user || '').toString() === uid
-                      );
-                      const u = member?.user || member;
-                      return (
-                        <div
-                          key={`payer-input-${uid}`}
-                          className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-surface-container-low/50 border border-white/5"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Avatar name={u?.name} src={u?.avatar} size="xs" />
-                            <span className="text-xs font-bold text-white truncate">
-                              {u?.name || 'Member'}
-                            </span>
-                          </div>
-                          {payerDivisionMode === 'equal' ? (
-                            <span className="text-xs font-bold font-manrope text-primary">
-                              ₹{(calculatedPayerAmounts[uid] || 0).toFixed(2)}
-                            </span>
-                          ) : payerDivisionMode === 'exact' ? (
-                            <div className="flex items-center gap-1 w-24">
-                              <span className="text-xs text-on-surface-variant">₹</span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                className="w-full bg-transparent border border-white/10 rounded-lg px-2 py-1 text-xs text-right font-bold text-white focus:outline-none focus:border-primary"
-                                value={payerValues[uid] || ''}
-                                onChange={(e) =>
-                                  setPayerValues((prev) => ({ ...prev, [uid]: e.target.value }))
-                                }
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1 w-24">
-                              <input
-                                type="number"
-                                step="0.1"
-                                className="w-full bg-transparent border border-white/10 rounded-lg px-2 py-1 text-xs text-right font-bold text-white focus:outline-none focus:border-primary"
-                                value={payerValues[uid] || ''}
-                                onChange={(e) =>
-                                  setPayerValues((prev) => ({ ...prev, [uid]: e.target.value }))
-                                }
-                              />
-                              <span className="text-xs text-on-surface-variant">%</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Payer status badge */}
-                  <div
-                    className={`flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-bold ${
-                      isPayerBalanced
-                        ? 'bg-primary/10 border-primary/20 text-primary'
-                        : 'bg-red-500/10 border-red-500/20 text-red-400'
-                    }`}
-                  >
-                    <span>
-                      {isPayerBalanced
-                        ? 'Paid Balanced'
-                        : payerTotalPaid < totalAmountValue
-                          ? `Remaining: ₹${(totalAmountValue - payerTotalPaid).toFixed(2)}`
-                          : `Over: ₹${(payerTotalPaid - totalAmountValue).toFixed(2)}`}
-                    </span>
-                    <span>Total: ₹{payerTotalPaid.toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Column 3: Distribution Preview */}
-          <div className="flex flex-col gap-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
-                  Distribution Preview
-                </label>
-                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
-                  {participants.length} Active
-                </span>
-              </div>
-              <div className="flex flex-col gap-2 max-h-none md:max-h-[450px] md:overflow-y-auto pr-1 custom-scrollbar">
-                {uniqueMembers.map((member) => {
-                  const u = member.user || (typeof member === 'string' ? null : member);
-                  const userId = (u?._id || u?.uid || member._id || member).toString();
-                  const isSelected = participants.includes(userId);
-                  const previewAmt = calculatePreviewAmount(userId);
-                  return (
-                    <motion.div
-                      layout="position"
-                      key={userId}
-                      className={`flex flex-col gap-2 p-3 rounded-2xl border transition-all ${
-                        isSelected
-                          ? 'bg-white/5 border-white/10'
-                          : 'bg-transparent border-transparent opacity-30'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <button
-                          type="button"
-                          onClick={() => toggleParticipant(userId)}
-                          className="flex items-center gap-3 flex-1 text-left"
-                        >
-                          <Avatar
-                            name={u?.name}
-                            src={u?.avatar}
-                            size="sm"
-                            className="border border-white/10"
-                          />
-                          <div>
-                            <p className="font-manrope font-bold text-xs text-white">{u?.name}</p>
-                            <p className="text-[10px] text-on-surface-variant font-inter">
-                              ₹{previewAmt.toFixed(2)}
-                            </p>
-                          </div>
-                        </button>
-                        <CheckCircle2
-                          size={16}
-                          className={`transition-colors shrink-0 ${isSelected ? 'text-primary' : 'text-white/20'}`}
-                        />
+                  }}
+                  className={`flex items-center gap-2.5 p-2.5 sm:p-3 rounded-2xl border transition-all text-left group ${
+                    isSelected
+                      ? 'bg-white text-black border-white shadow-lg'
+                      : 'bg-surface-container-low/40 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+                >
+                  <div className="relative shrink-0">
+                    <Avatar
+                      name={u?.name}
+                      src={u?.avatar}
+                      size="sm"
+                      className={isSelected ? 'border border-black/10' : 'border border-white/10'}
+                    />
+                    {isSelected && (
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-primary flex items-center justify-center text-black shadow-sm">
+                        <Check size={10} strokeWidth={3} />
                       </div>
-                      <AnimatePresence mode="wait">
-                        {isSelected &&
-                          (splitType === 'percentage' ||
-                            splitType === 'shares' ||
-                            splitType === 'exact' ||
-                            (splitType === 'itemized' && scannedItems.length === 0)) && (
-                            <motion.div
-                              key={`split-input-${userId}-${splitType}`}
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.95 }}
-                              transition={{ duration: 0.2, ease: 'easeOut' }}
-                              className="w-full pt-1"
-                            >
-                              {splitType === 'percentage' && (
-                                <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5 w-full">
-                                  <span className="text-[10px] opacity-40 font-bold">Share</span>
-                                  <input
-                                    type="number"
-                                    step="0.1"
-                                    className="flex-1 bg-transparent border-none outline-none text-right font-manrope font-bold text-xs p-0 focus:ring-0"
-                                    value={splitData.percentages[userId] || ''}
-                                    placeholder="0.0"
-                                    onChange={(e) =>
-                                      handleSplitDataChange(userId, e.target.value, 'percentages')
-                                    }
-                                  />
-                                  <span className="text-[10px] opacity-40 font-bold">%</span>
-                                </div>
-                              )}
-                              {splitType === 'shares' && (
-                                <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5 w-full">
-                                  <span className="text-[10px] opacity-40 font-bold">Shares</span>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    className="flex-1 bg-transparent border-none outline-none text-right font-manrope font-bold text-xs p-0 focus:ring-0"
-                                    value={splitData.shares[userId] || '1'}
-                                    placeholder="1"
-                                    onChange={(e) =>
-                                      handleSplitDataChange(userId, e.target.value, 'shares')
-                                    }
-                                  />
-                                  <span className="text-[10px] opacity-40 font-bold">×</span>
-                                </div>
-                              )}
-                              {splitType === 'exact' && (
-                                <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5 w-full">
-                                  <span className="text-[10px] opacity-40 font-bold">Amount</span>
-                                  <span className="text-[10px] opacity-40 font-bold">₹</span>
-                                  <input
-                                    type="number"
-                                    className="flex-1 bg-transparent border-none outline-none text-right font-manrope font-bold text-xs p-0 focus:ring-0"
-                                    value={splitData.exactAmounts[userId] || ''}
-                                    placeholder="0.00"
-                                    onChange={(e) =>
-                                      handleSplitDataChange(userId, e.target.value, 'exactAmounts')
-                                    }
-                                  />
-                                </div>
-                              )}
-                              {splitType === 'itemized' && (
-                                <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5 w-full">
-                                  <span className="text-[9px] opacity-40 font-bold uppercase tracking-wider">
-                                    Dish Cost
-                                  </span>
-                                  <span className="text-[10px] opacity-40 font-bold">₹</span>
-                                  <input
-                                    type="number"
-                                    className="flex-1 bg-transparent border-none outline-none text-right font-manrope font-bold text-xs p-0 focus:ring-0"
-                                    value={splitData.dishAmounts[userId] || ''}
-                                    placeholder="0.00"
-                                    onChange={(e) =>
-                                      handleSplitDataChange(userId, e.target.value, 'dishAmounts')
-                                    }
-                                  />
-                                </div>
-                              )}
-                            </motion.div>
-                          )}
-                      </AnimatePresence>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className={`font-manrope font-bold text-xs truncate ${isSelected ? 'text-black' : 'text-white'}`}>
+                      {u?.name || 'Member'}
+                    </p>
+                    <p className={`text-[10px] font-inter truncate ${isSelected ? 'text-neutral-600' : 'text-on-surface-variant opacity-60'}`}>
+                      {isCurrentUser ? 'You' : 'Member'}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
-        {/* end desktop grid */}
+
+        {/* Multi-Payer Breakdown if 2+ Selected */}
+        {activePayersList.length >= 2 && (
+          <div className="flex flex-col gap-3 p-4 rounded-2xl bg-surface-container-low/40 border border-white/5">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
+                Paid Split Method
+              </label>
+              <span className="text-[10px] font-bold text-on-surface-variant opacity-40">
+                Split how ₹{totalAmountValue.toFixed(2)} was paid
+              </span>
+            </div>
+
+            <div className="flex gap-2">
+              {[
+                { id: 'equal', label: 'Equally' },
+                { id: 'exact', label: 'Unequally (₹)' },
+                { id: 'percentage', label: 'Unequally (%)' },
+              ].map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => {
+                    setPayerDivisionMode(mode.id);
+                    if (mode.id === 'exact') {
+                      const pVals = {};
+                      activePayersList.forEach((uid) => {
+                        pVals[uid] = (calculatedPayerAmounts[uid] || 0).toFixed(2);
+                      });
+                      setPayerValues(pVals);
+                    } else if (mode.id === 'percentage') {
+                      const pVals = {};
+                      const equalPct = (100 / activePayersList.length).toFixed(1);
+                      activePayersList.forEach((uid) => {
+                        pVals[uid] = equalPct;
+                      });
+                      setPayerValues(pVals);
+                    }
+                  }}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
+                    payerDivisionMode === mode.id
+                      ? 'bg-primary/20 text-primary border-primary/40 shadow-sm'
+                      : 'bg-white/5 text-on-surface-variant border-white/5 hover:bg-white/10'
+                  }`}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+
+            {/* List of Payers with Inputs */}
+            <div className="space-y-2 pt-1">
+              {activePayersList.map((uid) => {
+                const member = uniqueMembers.find(
+                  (m) => (m.user?._id || m.user || '').toString() === uid
+                );
+                const u = member?.user || member;
+                const isCurrentUser = uid === (user?._id?.toString() || user?.uid);
+                return (
+                  <div
+                    key={`payer-row-${uid}`}
+                    className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl bg-surface-container-low/70 border border-white/5"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar name={u?.name} src={u?.avatar} size="xs" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-bold text-white truncate">
+                          {u?.name || 'Member'}
+                        </span>
+                        {isCurrentUser && (
+                          <span className="text-[10px] text-primary font-medium">You</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {payerDivisionMode === 'equal' ? (
+                      <span className="text-sm font-bold font-manrope text-primary tabular-nums">
+                        ₹{(calculatedPayerAmounts[uid] || 0).toFixed(2)}
+                      </span>
+                    ) : payerDivisionMode === 'exact' ? (
+                      <div className="flex items-center gap-1.5 w-32 bg-white/5 px-2.5 py-1.5 rounded-xl border border-white/10 focus-within:border-primary transition-all">
+                        <span className="text-xs text-on-surface-variant font-bold">₹</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          className="w-full bg-transparent border-none outline-none text-xs text-right font-bold text-white focus:ring-0 p-0"
+                          value={payerValues[uid] ?? ''}
+                          onChange={(e) =>
+                            setPayerValues((prev) => ({ ...prev, [uid]: e.target.value }))
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 w-28 bg-white/5 px-2.5 py-1.5 rounded-xl border border-white/10 focus-within:border-primary transition-all">
+                        <input
+                          type="number"
+                          step="0.1"
+                          placeholder="0.0"
+                          className="w-full bg-transparent border-none outline-none text-xs text-right font-bold text-white focus:ring-0 p-0"
+                          value={payerValues[uid] ?? ''}
+                          onChange={(e) =>
+                            setPayerValues((prev) => ({ ...prev, [uid]: e.target.value }))
+                          }
+                        />
+                        <span className="text-xs text-on-surface-variant font-bold">%</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Paid Balanced Badge */}
+            <div
+              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                isPayerBalanced
+                  ? 'bg-primary/10 border-primary/20 text-primary'
+                  : 'bg-red-500/10 border-red-500/20 text-red-400'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {isPayerBalanced ? <CheckCircle2 size={16} /> : <Info size={16} />}
+                <span>
+                  {isPayerBalanced
+                    ? 'Paid Balanced'
+                    : payerDivisionMode === 'percentage'
+                      ? `Total: ${activePayersList.reduce((s, uid) => s + (parseFloat(payerValues[uid]) || 0), 0).toFixed(1)}% · ${
+                          payerTotalPaid < totalAmountValue ? 'Remaining' : 'Over'
+                        }`
+                      : payerTotalPaid < totalAmountValue
+                        ? `Remaining: ₹${(totalAmountValue - payerTotalPaid).toFixed(2)}`
+                        : `Over by: ₹${(payerTotalPaid - totalAmountValue).toFixed(2)}`}
+                </span>
+              </div>
+              <span className="font-manrope font-black tabular-nums">Total: ₹{payerTotalPaid.toFixed(2)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2 Actions */}
+        <div className="flex gap-4 mt-2">
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() => setStep(1)}
+            className="flex-1 h-14 rounded-3xl font-manrope font-bold text-white border-white/20 bg-transparent hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+          >
+            <ChevronLeft size={20} />
+            Back
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              if (isPayerBalanced && activePayersList.length > 0) setStep(3);
+            }}
+            disabled={!isPayerBalanced || activePayersList.length === 0}
+            className="flex-[2] h-14 rounded-3xl font-manrope font-black text-base bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-2xl disabled:opacity-50 disabled:bg-white/10 disabled:text-white/20"
+          >
+            Next: Split Details
+            <ChevronRight size={20} />
+          </Button>
+        </div>
+      </motion.div>
+    );
+  };
+
+  const renderStep3 = () => {
+    const allSelected = uniqueMembers.length > 0 && participants.length === uniqueMembers.length;
+
+    return (
+      <motion.div
+        key="step-3"
+        initial={{ opacity: 0, x: 10 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -10 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+        className="flex flex-col gap-6 w-full"
+      >
+        {/* Step 3 Context Summary Banner */}
+        <div className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-surface-container-low/60 border border-white/5">
+          <div className="flex flex-col min-w-0 pr-3">
+            <span className="font-manrope font-black text-white text-base truncate">
+              {form.title || 'Untitled Expense'}
+            </span>
+            <span className="font-manrope font-bold text-xs text-primary">
+              {form.category} · ₹{totalAmountValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · Paid by {effectivePaidByName}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStep(2)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-all text-xs font-bold shrink-0 border border-white/5"
+          >
+            <PenTool size={13} />
+            Edit
+          </button>
+        </div>
+
+        {/* Split With Participants Selection */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <div>
+              <h3 className="font-manrope font-bold text-white text-base sm:text-lg">Split with</h3>
+              <p className="text-xs text-on-surface-variant font-inter opacity-60">
+                Select who shares in this expense.
+              </p>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  if (allSelected) {
+                    const fallback = user?._id
+                      ? [user._id.toString()]
+                      : [uniqueMembers[0]?._id?.toString() || ''];
+                    setParticipants(fallback.filter(Boolean));
+                  } else {
+                    setParticipants(
+                      uniqueMembers.map((m) => (m.user?._id || m.user || m._id).toString())
+                    );
+                  }
+                }}
+                className="text-[10px] font-black text-primary hover:text-primary/80 uppercase tracking-widest transition-colors py-1 px-2 rounded-lg hover:bg-primary/10"
+              >
+                {allSelected ? 'DESELECT ALL' : 'SELECT ALL'}
+              </button>
+              <span className="text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full shrink-0">
+                {participants.length} Active
+              </span>
+            </div>
+          </div>
+
+          {/* Members Selection Grid for Split */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 pt-1">
+            {uniqueMembers.map((member) => {
+              const u = member.user || (typeof member === 'string' ? null : member);
+              const userId = (u?._id || u?.uid || member._id || member).toString();
+              const isSelected = participants.includes(userId);
+              const isCurrentUser = userId === (user?._id?.toString() || user?.uid);
+              return (
+                <button
+                  key={`split-member-${userId}`}
+                  type="button"
+                  onClick={() => toggleParticipant(userId)}
+                  className={`flex items-center gap-2.5 p-2.5 sm:p-3 rounded-2xl border transition-all text-left group ${
+                    isSelected
+                      ? 'bg-white text-black border-white shadow-lg'
+                      : 'bg-surface-container-low/40 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+                >
+                  <div className="relative shrink-0">
+                    <Avatar
+                      name={u?.name}
+                      src={u?.avatar}
+                      size="sm"
+                      className={isSelected ? 'border border-black/10' : 'border border-white/10'}
+                    />
+                    {isSelected && (
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-primary flex items-center justify-center text-black shadow-sm">
+                        <Check size={10} strokeWidth={3} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className={`font-manrope font-bold text-xs truncate ${isSelected ? 'text-black' : 'text-white'}`}>
+                      {u?.name || 'Member'}
+                    </p>
+                    <p className={`text-[10px] font-inter truncate ${isSelected ? 'text-neutral-600' : 'text-on-surface-variant opacity-60'}`}>
+                      {isCurrentUser ? 'You' : 'Member'}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Split Method Selector */}
+        <div className="space-y-3 pt-2">
+          <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60 px-1">
+            Split Method
+          </label>
+          <div className="grid grid-cols-5 gap-2">
+            {[
+              { id: 'equal', icon: Divide, label: 'Equal' },
+              { id: 'percentage', icon: Percent, label: 'Percent' },
+              { id: 'exact', icon: Target, label: 'Exact' },
+              { id: 'shares', icon: PieChart, label: 'Shares' },
+              { id: 'itemized', icon: Receipt, label: 'GST' },
+            ].map((type) => {
+              const Icon = type.icon;
+              const isSelected = splitType === type.id;
+              return (
+                <button
+                  key={type.id}
+                  type="button"
+                  onClick={() => handleSplitTypeChange(type.id)}
+                  className={`flex flex-col items-center justify-center gap-1.5 py-2.5 px-2 rounded-2xl border transition-all ${
+                    isSelected
+                      ? 'bg-white text-black border-white shadow-xl scale-[1.02]'
+                      : 'bg-surface-container-low/40 border-white/5 text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+                >
+                  <Icon size={18} className="shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
+                    {type.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Status Indicator for Split Method */}
+          <div className="relative pt-1">
+            <AnimatePresence mode="wait">
+              {splitType === 'percentage' && (
+                <motion.div
+                  key="percentage-indicator"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className={`flex items-center justify-between px-4 py-3 rounded-2xl border transition-all ${
+                    isSplitValid
+                      ? 'bg-primary/10 border-primary/20'
+                      : leftPercentage > 0
+                        ? 'bg-white/5 border-white/10'
+                        : 'bg-red-500/10 border-red-500/20'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Info
+                      size={14}
+                      className={
+                        isSplitValid
+                          ? 'text-primary'
+                          : leftPercentage > 0
+                            ? 'text-on-surface-variant'
+                            : 'text-red-400'
+                      }
+                    />
+                    <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
+                      {isSplitValid
+                        ? '100% Balanced'
+                        : leftPercentage > 0
+                          ? 'Remaining'
+                          : 'Over 100%'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`font-manrope font-black text-sm ${isSplitValid ? 'text-primary' : leftPercentage > 0 ? 'text-white' : 'text-red-400'}`}
+                    >
+                      {Math.abs(leftPercentage).toFixed(1)}%
+                    </span>
+                    {isSplitValid && <CheckCircle2 size={14} className="text-primary" />}
+                  </div>
+                </motion.div>
+              )}
+
+              {splitType === 'shares' && (
+                <motion.div
+                  key="shares-indicator"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="flex items-center justify-between px-4 py-3 rounded-2xl border bg-primary/10 border-primary/20 transition-all"
+                >
+                  <div className="flex items-center gap-2">
+                    <PieChart size={14} className="text-primary" />
+                    <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
+                      Total Shares
+                    </span>
+                  </div>
+                  <span className="font-manrope font-black text-sm text-primary">
+                    {totalShares} {totalShares === 1 ? 'Share' : 'Shares'}
+                  </span>
+                </motion.div>
+              )}
+
+              {splitType === 'exact' && (
+                <motion.div
+                  key="exact-indicator"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className={`flex items-center justify-between px-4 py-3 rounded-2xl border transition-all ${
+                    isSplitValid
+                      ? 'bg-primary/10 border-primary/20'
+                      : leftValue > 0
+                        ? 'bg-white/5 border-white/10'
+                        : 'bg-red-500/10 border-red-500/20'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Info
+                      size={14}
+                      className={
+                        isSplitValid
+                          ? 'text-primary'
+                          : leftValue > 0
+                            ? 'text-on-surface-variant'
+                            : 'text-red-400'
+                      }
+                    />
+                    <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
+                      {isSplitValid
+                        ? 'Split Balanced'
+                        : leftValue > 0
+                          ? 'Remaining'
+                          : 'Over Limit'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`font-manrope font-black text-sm ${isSplitValid ? 'text-primary' : leftValue > 0 ? 'text-white' : 'text-red-400'}`}
+                    >
+                      ₹{Math.abs(leftValue).toFixed(2)}
+                    </span>
+                    {isSplitValid && <CheckCircle2 size={14} className="text-primary" />}
+                  </div>
+                </motion.div>
+              )}
+
+              {splitType === 'itemized' && (
+                <motion.div
+                  key="itemized-indicator"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className={`rounded-2xl border px-4 py-3 transition-all ${
+                    !isItemizedValid && itemizedGst < 0
+                      ? 'bg-red-500/10 border-red-500/20'
+                      : 'bg-primary/[0.07] border-primary/20'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Receipt
+                        size={14}
+                        className={itemizedGst < -0.01 ? 'text-red-400' : 'text-primary'}
+                      />
+                      <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
+                        Dishes Subtotal
+                      </span>
+                    </div>
+                    <span className="font-manrope font-black text-sm text-white">
+                      ₹{itemizedSubtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
+                        {itemizedGst < -0.01 ? 'Discount' : 'GST / Charges'}
+                      </span>
+                      {itemizedSubtotal > 0 && (
+                        <span className="text-[9px] font-bold text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-md">
+                          {Math.abs(itemizedGstPct).toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className={`font-manrope font-black text-sm ${itemizedGst < -0.01 ? 'text-emerald-400' : 'text-primary'}`}
+                    >
+                      {itemizedGst < -0.01 ? '−' : '+'}₹{Math.abs(itemizedGst).toFixed(2)}
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Member Input Rows when Not Equal Split */}
+        {splitType !== 'equal' && (
+          <div className="space-y-2 pt-1">
+            <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60 px-1">
+              {splitType === 'exact' && 'Exact Amounts per Person'}
+              {splitType === 'percentage' && 'Percentage Share per Person'}
+              {splitType === 'shares' && 'Share Multipliers per Person'}
+              {splitType === 'itemized' && 'Dish Subtotal per Person'}
+            </label>
+            <div className="space-y-2">
+              {participants.map((userId) => {
+                const member = uniqueMembers.find(
+                  (m) => (m.user?._id || m.user || m._id || '').toString() === userId
+                );
+                const u = member?.user || member;
+                return (
+                  <div
+                    key={`split-row-${userId}`}
+                    className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl bg-surface-container-low/70 border border-white/5"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar name={u?.name} src={u?.avatar} size="xs" />
+                      <span className="text-xs font-bold text-white truncate">
+                        {u?.name || 'Member'}
+                      </span>
+                    </div>
+
+                    {splitType === 'percentage' && (
+                      <div className="flex items-center gap-1.5 w-28 bg-white/5 px-2.5 py-1.5 rounded-xl border border-white/10 focus-within:border-primary transition-all">
+                        <input
+                          type="number"
+                          step="0.1"
+                          placeholder="0.0"
+                          className="w-full bg-transparent border-none outline-none text-xs text-right font-bold text-white focus:ring-0 p-0"
+                          value={splitData.percentages[userId] || ''}
+                          onChange={(e) =>
+                            handleSplitDataChange(userId, e.target.value, 'percentages')
+                          }
+                        />
+                        <span className="text-xs text-on-surface-variant font-bold">%</span>
+                      </div>
+                    )}
+
+                    {splitType === 'shares' && (
+                      <div className="flex items-center gap-1.5 w-24 bg-white/5 px-2.5 py-1.5 rounded-xl border border-white/10 focus-within:border-primary transition-all">
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          placeholder="1"
+                          className="w-full bg-transparent border-none outline-none text-xs text-right font-bold text-white focus:ring-0 p-0"
+                          value={splitData.shares[userId] || '1'}
+                          onChange={(e) =>
+                            handleSplitDataChange(userId, e.target.value, 'shares')
+                          }
+                        />
+                        <span className="text-xs text-on-surface-variant font-bold">×</span>
+                      </div>
+                    )}
+
+                    {splitType === 'exact' && (
+                      <div className="flex items-center gap-1.5 w-32 bg-white/5 px-2.5 py-1.5 rounded-xl border border-white/10 focus-within:border-primary transition-all">
+                        <span className="text-xs text-on-surface-variant font-bold">₹</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          className="w-full bg-transparent border-none outline-none text-xs text-right font-bold text-white focus:ring-0 p-0"
+                          value={splitData.exactAmounts[userId] || ''}
+                          onChange={(e) =>
+                            handleSplitDataChange(userId, e.target.value, 'exactAmounts')
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {splitType === 'itemized' && (
+                      <div className="flex items-center gap-1.5 w-32 bg-white/5 px-2.5 py-1.5 rounded-xl border border-white/10 focus-within:border-primary transition-all">
+                        <span className="text-xs text-on-surface-variant font-bold">₹</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          className="w-full bg-transparent border-none outline-none text-xs text-right font-bold text-white focus:ring-0 p-0"
+                          value={splitData.dishAmounts[userId] || ''}
+                          onChange={(e) =>
+                            handleSplitDataChange(userId, e.target.value, 'dishAmounts')
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Dish assignment — appears when the bill was scanned (itemized split) */}
         {hasScannedItems && splitType === 'itemized' && (
@@ -1418,15 +1558,11 @@ const ExpenseForm = ({
             </div>
 
             {(() => {
-              // Dishes are shown at their printed price; the bill total may differ
-              // because of GST/charges (added on) or a bill discount (taken off).
-              // Either way the gap is shared by dish ratio, so a bigger eater gets
-              // a bigger slice of the discount (or pays more tax).
               const dishesSubtotal = scannedItems.reduce(
                 (sum, it) => sum + (parseFloat(it.price) || 0),
                 0
               );
-              const scanGap = totalAmountValue - dishesSubtotal; // negative ⇒ discount
+              const scanGap = totalAmountValue - dishesSubtotal;
               const hasDiscount = scanGap < -0.01;
               const hasCharge = scanGap > 0.01;
               return (
@@ -1462,27 +1598,66 @@ const ExpenseForm = ({
                 </div>
               );
             })()}
-
-            <p className="text-[9px] text-on-surface-variant font-inter opacity-40 px-1 leading-snug">
-              Tap who shared each dish — split equally between them. Tax &amp; charges (or a bill
-              discount) are shared by what each person ate.
-            </p>
           </motion.div>
         )}
 
+        {/* Live Distribution Preview */}
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between px-1">
+            <label className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
+              Distribution Preview
+            </label>
+            <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
+              {participants.length} Active
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+            {uniqueMembers
+              .filter((m) => {
+                const uid = (m.user?._id || m.user || m._id || '').toString();
+                return participants.includes(uid);
+              })
+              .map((member) => {
+                const u = member.user || member;
+                const userId = (u?._id || u?.uid || member._id || member).toString();
+                const previewAmt = calculatePreviewAmount(userId);
+                return (
+                  <div
+                    key={`preview-${userId}`}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-surface-container-low/50 border border-white/5"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar name={u?.name} src={u?.avatar} size="xs" />
+                      <span className="font-manrope font-bold text-xs text-white truncate">
+                        {u?.name}
+                      </span>
+                    </div>
+                    <span className="font-manrope font-black text-xs text-primary tabular-nums">
+                      ₹{previewAmt.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+
+        {/* Step 3 Actions */}
         <div className="flex gap-4 mt-2">
           <Button
             variant="outline"
-            onClick={() => setStep(1)}
-            className="flex-1 h-14 rounded-3xl font-manrope font-bold text-white border-white/20 bg-transparent hover:bg-white/5 transition-all"
+            type="button"
+            onClick={() => setStep(2)}
+            className="flex-1 h-14 rounded-3xl font-manrope font-bold text-white border-white/20 bg-transparent hover:bg-white/5 transition-all flex items-center justify-center gap-2"
           >
+            <ChevronLeft size={20} />
             Back
           </Button>
           <Button
             type="button"
             onClick={handleSubmit}
             loading={loading || isSubmitting}
-            disabled={!isSplitValid}
+            disabled={!isSplitValid || participants.length === 0}
             className="flex-[2] h-14 rounded-3xl font-manrope font-black text-base bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl disabled:opacity-50 disabled:bg-white/10 disabled:text-white/20"
           >
             <CircleCheck size={20} />
@@ -1494,9 +1669,44 @@ const ExpenseForm = ({
   };
 
   return (
-    <div className="w-full">
-      <AnimatePresence mode="popLayout" initial={false}>
-        {step === 1 ? renderStep1() : renderStep2()}
+    <div className="w-full flex flex-col">
+      {/* 3-Step Stepper Progress Bar */}
+      <div className="flex flex-col gap-2 mb-6 w-full shrink-0">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[11px] font-black uppercase tracking-[0.18em] text-primary">
+            {step === 1 && 'STEP 1 OF 3 · ESSENTIALS'}
+            {step === 2 && 'STEP 2 OF 3 · WHO PAID?'}
+            {step === 3 && 'STEP 3 OF 3 · SPLIT WITH'}
+          </span>
+          <span className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider">
+            {step === 1 && 'Amount & Details'}
+            {step === 2 && `${activePayersList.length} Payer${activePayersList.length === 1 ? '' : 's'}`}
+            {step === 3 && `${participants.length} Split with`}
+          </span>
+        </div>
+        <div className="flex gap-2 w-full">
+          <div
+            className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+              step >= 1 ? 'bg-primary shadow-[0_0_8px_rgba(20,241,149,0.3)]' : 'bg-white/10'
+            }`}
+          />
+          <div
+            className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+              step >= 2 ? 'bg-primary shadow-[0_0_8px_rgba(20,241,149,0.3)]' : 'bg-white/10'
+            }`}
+          />
+          <div
+            className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+              step >= 3 ? 'bg-primary shadow-[0_0_8px_rgba(20,241,149,0.3)]' : 'bg-white/10'
+            }`}
+          />
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait" initial={false}>
+        {step === 1 && renderStep1()}
+        {step === 2 && renderStep2()}
+        {step === 3 && renderStep3()}
       </AnimatePresence>
     </div>
   );

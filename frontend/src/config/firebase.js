@@ -30,6 +30,7 @@ const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: isNativeRuntime() ? persistentSingleTabManager() : persistentMultipleTabManager(),
   }),
+  experimentalAutoDetectLongPolling: true,
   ...(import.meta.env.VITE_FIREBASE_FORCE_LONG_POLLING === 'true'
     ? { experimentalForceLongPolling: true }
     : {}),
