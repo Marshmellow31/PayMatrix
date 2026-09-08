@@ -18,9 +18,12 @@ const PwaUpdatePrompt = () => {
         }
       };
       document.addEventListener('visibilitychange', onVisibility);
-      const interval = setInterval(() => {
-        r.update().catch(() => {});
-      }, 30 * 60 * 1000);
+      const interval = setInterval(
+        () => {
+          r.update().catch(() => {});
+        },
+        30 * 60 * 1000
+      );
       return () => {
         document.removeEventListener('visibilitychange', onVisibility);
         clearInterval(interval);
@@ -76,7 +79,8 @@ const PwaUpdatePrompt = () => {
             <div className="text-xs text-white/70 leading-relaxed font-inter flex flex-col gap-1.5 bg-white/[0.02] border border-white/5 p-3 rounded-2xl">
               <span className="font-bold text-white/90 mb-0.5">PayMatrix Update</span>
               <p className="text-white/60">
-                A new version is ready with performance improvements, UI updates, and bug fixes. Tap Update Now to refresh.
+                A new version is ready with performance improvements, UI updates, and bug fixes. Tap
+                Update Now to refresh.
               </p>
             </div>
 

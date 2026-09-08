@@ -782,7 +782,12 @@ const ExpenseForm = ({
         <Button
           type="button"
           onClick={handleNext}
-          disabled={!form.groupId || !form.amount || parseFloat(form.amount || 0) <= 0 || !form.title?.trim()}
+          disabled={
+            !form.groupId ||
+            !form.amount ||
+            parseFloat(form.amount || 0) <= 0 ||
+            !form.title?.trim()
+          }
           className="w-full h-16 rounded-3xl font-manrope font-black text-lg bg-white text-black hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-2xl disabled:opacity-50 disabled:bg-white/10 disabled:text-white/20"
         >
           Next: Who Paid
@@ -809,7 +814,11 @@ const ExpenseForm = ({
               {form.title || 'Untitled Expense'}
             </span>
             <span className="font-manrope font-bold text-xs text-primary">
-              {form.category} · ₹{totalAmountValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {form.category} · ₹
+              {totalAmountValue.toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </span>
           </div>
           <button
@@ -876,10 +885,14 @@ const ExpenseForm = ({
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className={`font-manrope font-bold text-xs truncate ${isSelected ? 'text-black' : 'text-white'}`}>
+                    <p
+                      className={`font-manrope font-bold text-xs truncate ${isSelected ? 'text-black' : 'text-white'}`}
+                    >
                       {u?.name || 'Member'}
                     </p>
-                    <p className={`text-[10px] font-inter truncate ${isSelected ? 'text-neutral-600' : 'text-on-surface-variant opacity-60'}`}>
+                    <p
+                      className={`text-[10px] font-inter truncate ${isSelected ? 'text-neutral-600' : 'text-on-surface-variant opacity-60'}`}
+                    >
                       {isCurrentUser ? 'You' : 'Member'}
                     </p>
                   </div>
@@ -1023,7 +1036,9 @@ const ExpenseForm = ({
                         : `Over by: ₹${(payerTotalPaid - totalAmountValue).toFixed(2)}`}
                 </span>
               </div>
-              <span className="font-manrope font-black tabular-nums">Total: ₹{payerTotalPaid.toFixed(2)}</span>
+              <span className="font-manrope font-black tabular-nums">
+                Total: ₹{payerTotalPaid.toFixed(2)}
+              </span>
             </div>
           </div>
         )}
@@ -1074,7 +1089,12 @@ const ExpenseForm = ({
               {form.title || 'Untitled Expense'}
             </span>
             <span className="font-manrope font-bold text-xs text-primary">
-              {form.category} · ₹{totalAmountValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · Paid by {effectivePaidByName}
+              {form.category} · ₹
+              {totalAmountValue.toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{' '}
+              · Paid by {effectivePaidByName}
             </span>
           </div>
           <button
@@ -1153,10 +1173,14 @@ const ExpenseForm = ({
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className={`font-manrope font-bold text-xs truncate ${isSelected ? 'text-black' : 'text-white'}`}>
+                    <p
+                      className={`font-manrope font-bold text-xs truncate ${isSelected ? 'text-black' : 'text-white'}`}
+                    >
                       {u?.name || 'Member'}
                     </p>
-                    <p className={`text-[10px] font-inter truncate ${isSelected ? 'text-neutral-600' : 'text-on-surface-variant opacity-60'}`}>
+                    <p
+                      className={`text-[10px] font-inter truncate ${isSelected ? 'text-neutral-600' : 'text-on-surface-variant opacity-60'}`}
+                    >
                       {isCurrentUser ? 'You' : 'Member'}
                     </p>
                   </div>
@@ -1297,11 +1321,7 @@ const ExpenseForm = ({
                       }
                     />
                     <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant font-inter opacity-60">
-                      {isSplitValid
-                        ? 'Split Balanced'
-                        : leftValue > 0
-                          ? 'Remaining'
-                          : 'Over Limit'}
+                      {isSplitValid ? 'Split Balanced' : leftValue > 0 ? 'Remaining' : 'Over Limit'}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -1417,9 +1437,7 @@ const ExpenseForm = ({
                           placeholder="1"
                           className="w-full bg-transparent border-none outline-none text-xs text-right font-bold text-white focus:ring-0 p-0"
                           value={splitData.shares[userId] || '1'}
-                          onChange={(e) =>
-                            handleSplitDataChange(userId, e.target.value, 'shares')
-                          }
+                          onChange={(e) => handleSplitDataChange(userId, e.target.value, 'shares')}
                         />
                         <span className="text-xs text-on-surface-variant font-bold">×</span>
                       </div>
@@ -1680,7 +1698,8 @@ const ExpenseForm = ({
           </span>
           <span className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider">
             {step === 1 && 'Amount & Details'}
-            {step === 2 && `${activePayersList.length} Payer${activePayersList.length === 1 ? '' : 's'}`}
+            {step === 2 &&
+              `${activePayersList.length} Payer${activePayersList.length === 1 ? '' : 's'}`}
             {step === 3 && `${participants.length} Split with`}
           </span>
         </div>
