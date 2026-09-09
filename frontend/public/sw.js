@@ -12,7 +12,7 @@
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 import { clientsClaim } from 'workbox-core';
-import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies';
+import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
@@ -48,23 +48,12 @@ try {
   offlineSpaHandler = () => caches.match('/index.html');
 }
 
-const onlineNavigation = new NetworkFirst({
-  cacheName: 'paymatrix-navigation-v3',
-  networkTimeoutSeconds: 1.5,
-  plugins: [new CacheableResponsePlugin({ statuses: [0, 200] })],
-});
-
-registerRoute(
-  new NavigationRoute(async (context) => {
-    try {
-      const response = await onlineNavigation.handle(context);
-      if (response) return response;
-    } catch {
-      // Fall through to the precached SPA shell when the device is offline.
-    }
-    return offlineSpaHandler(context);
-  })
-);
+// Serve HTML and its hashed bundles from the SAME installed release immediately.
+// Registration checks download the next release in the background; activation
+// remains user-controlled so an update cannot discard an open expense form.
+registerRoute(new NavigationRoute(offlineSpaHandler, {
+  denylist: [/^\/api\//, /^\/__\//, /^\/\.well-known\//],
+}));
 
 // Large lazy feature bundles (reports/charts/pdf) are cached on demand with
 // StaleWhileRevalidate, keeping initial installation fast without serving broken/stale chunks.
@@ -145,18 +134,25 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const targetUrl = event.notification.data?.url || '/dashboard';
+  const data = event.notification.data || {};
+  const fallback = ['friend_request', 'friend_accepted'].includes(data.type)
+    ? '/friends'
+    : data.groupId ? `/groups/${encodeURIComponent(data.groupId)}` : '/dashboard';
+  let targetUrl = new URL(fallback, self.location.origin).href;
+  try {
+    const candidate = new URL(data.url || fallback, self.location.origin);
+    if (candidate.origin === self.location.origin) targetUrl = candidate.href;
+  } catch { /* Use the safe in-app fallback for malformed URLs. */ }
 
   event.waitUntil(
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })
-      .then((windowClients) => {
+      .then(async (windowClients) => {
         // If there is already a PayMatrix window open, reuse it
         for (const client of windowClients) {
-          if ('focus' in client) {
-            client.focus();
-            if ('navigate' in client) client.navigate(targetUrl);
-            return;
+          if ('focus' in client && new URL(client.url).origin === self.location.origin) {
+            const navigated = 'navigate' in client ? await client.navigate(targetUrl) : client;
+            return (navigated || client).focus();
           }
         }
         // No open window — open a new one

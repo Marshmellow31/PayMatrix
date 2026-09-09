@@ -24,6 +24,11 @@ const appReducer = combineReducers({
 
 const rootReducer = (state, action) => {
   if (action.type === 'auth/logoutUser/fulfilled') return appReducer(undefined, action);
+  if (action.type === 'auth/setUser') {
+    const previousUid = state?.auth?.user?.uid || state?.auth?.user?._id;
+    const nextUid = action.payload?.uid || action.payload?._id;
+    if (previousUid !== nextUid) return appReducer(undefined, action);
+  }
   return appReducer(state, action);
 };
 

@@ -74,19 +74,37 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!user?._id && !user?.uid) return;
+    let active = true;
     const updateSummary = async () => {
-      if (!summary) setLoadingSummary(true);
+      // Paint the local snapshot first, then refresh without covering it in a loader.
       try {
-        const response = await expenseService.getSummary();
-        setSummary(response.data.data);
+        const saved = await expenseService.getSummary({ cachedOnly: true });
+        if (active) { setSummary(saved.data.data); setLoadingSummary(false); }
+      } catch { /* A first-time account has no saved snapshot. */ }
+      try {
+        const response = await expenseService.getSummary({ force: true });
+        if (active) setSummary(response.data.data);
       } catch (error) {
-        console.warn('Silent refresh of summary failed (likely offline):', error);
+        console.warn('Summary refresh unavailable; retaining saved data:', error);
       } finally {
-        setLoadingSummary(false);
+        if (active) setLoadingSummary(false);
       }
     };
     updateSummary();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const reconnect = () => updateSummary();
+    let refreshTimer;
+    const backgroundRefresh = () => {
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(updateSummary, 250);
+    };
+    window.addEventListener('online', reconnect);
+    window.addEventListener('paymatrix:display-refreshed', backgroundRefresh);
+    return () => {
+      active = false;
+      clearTimeout(refreshTimer);
+      window.removeEventListener('online', reconnect);
+      window.removeEventListener('paymatrix:display-refreshed', backgroundRefresh);
+    };
   }, [groupsUpdatedHash, user?._id, user?.uid]);
 
   const sortedGroups = useMemo(
@@ -168,7 +186,7 @@ const Dashboard = () => {
   return (
     <div className="mx-auto w-full max-w-md pb-32 pt-2 lg:max-w-6xl">
       <AnimatePresence>
-        {isOffline && (
+        {(isOffline || summary?.fromCache) && (
           <motion.div
             initial={{ opacity: 0, y: reduceMotion ? 0 : -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -177,7 +195,7 @@ const Dashboard = () => {
             className="mb-4 flex justify-center"
           >
             <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-[#171717] px-3 py-1.5 text-xs font-medium text-white/[0.55]">
-              <WifiOff size={13} /> Offline · changes will sync later
+              <WifiOff size={13} /> {isOffline ? 'Offline · showing saved data' : 'Saved balances · refreshing in background'}
             </span>
           </motion.div>
         )}

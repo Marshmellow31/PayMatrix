@@ -128,6 +128,10 @@ function App() {
     let _unsubscribeNotifs = null;
 
     const unsubscribeAuth = onIdTokenChanged(auth, (firebaseUser) => {
+      if (_unsubscribeProfile) _unsubscribeProfile();
+      if (_unsubscribeNotifs) _unsubscribeNotifs();
+      _unsubscribeProfile = null;
+      _unsubscribeNotifs = null;
       if (firebaseUser) {
         if (needsEmailVerification(firebaseUser)) {
           if (_unsubscribeProfile) _unsubscribeProfile();
@@ -139,6 +143,17 @@ function App() {
           setInitializing(false);
           return;
         }
+        // Firebase Auth restores the verified local session without a profile
+        // network round trip. Profile snapshots enrich this shell from disk,
+        // then the server; never trust an unrelated persisted Redux user.
+        dispatch(setUser({
+          _id: firebaseUser.uid,
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName || 'Member',
+          email: firebaseUser.email,
+          avatar: firebaseUser.photoURL,
+        }));
+        setInitializing(false);
         _unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
           if (docSnap.exists()) {
             const userData = serializeFirestoreData({
@@ -159,11 +174,14 @@ function App() {
             );
           }
           setInitializing(false);
+        }, (error) => {
+          console.error('Profile snapshot error:', error);
+          setInitializing(false);
         });
 
         const qNotifs = query(
           collection(db, 'notifications'),
-          where('recipient', '==', firebaseUser.uid)
+          where('to', '==', firebaseUser.uid)
         );
         _unsubscribeNotifs = onSnapshot(
           qNotifs,

@@ -10,13 +10,16 @@
  * internally and will never crash the app or block the user.
  */
 
-import { useEffect, useRef } from 'react';
+import { createElement, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import toast from 'react-hot-toast';
 import fcmService from '../services/fcmService.js';
+import { notificationDestination } from '../utils/notificationDestination.js';
 
 export const usePushNotifications = () => {
   const { user } = useSelector((state) => state.auth);
+  const navigate = useNavigate();
   // Track initialization so we only run once per login session
   const initialized = useRef(false);
 
@@ -39,7 +42,14 @@ export const usePushNotifications = () => {
       const body = notification.body || '';
 
       // Show an in-app toast so the user doesn't miss the event
-      toast((_t) => `${title}${body ? ': ' + body : ''}`, {
+      toast((item) => createElement('button', {
+        type: 'button',
+        style: { textAlign: 'left', minHeight: '44px' },
+        onClick: () => {
+          toast.dismiss(item.id);
+          navigate(notificationDestination(payload.data));
+        },
+      }, `${title}${body ? ': ' + body : ''}`), {
         icon: '🔔',
         duration: 5000,
         style: {
@@ -56,5 +66,5 @@ export const usePushNotifications = () => {
       if (typeof unsubscribe === 'function') unsubscribe();
       initialized.current = false;
     };
-  }, [user?._id]);
+  }, [user?._id, navigate]);
 };

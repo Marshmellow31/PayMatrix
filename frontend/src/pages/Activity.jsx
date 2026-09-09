@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom';
+import { notificationDestination } from '../utils/notificationDestination.js';
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchNotifications, markAsRead, markAllRead } from '../redux/notificationSlice.js';
@@ -6,6 +8,7 @@ import Button from '../components/common/Button.jsx';
 
 const Activity = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
   const { notifications, unreadCount, loading } = useSelector((state) => state.notifications);
 
@@ -54,7 +57,18 @@ const Activity = () => {
             <div
               key={notif._id}
               className={`relative pl-8 cursor-pointer group`}
-              onClick={() => !notif.read && dispatch(markAsRead(notif._id))}
+              role="link"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  if (!notif.read) dispatch(markAsRead(notif._id));
+                  navigate(notificationDestination(notif));
+                }
+              }}
+              onClick={() => {
+                if (!notif.read) dispatch(markAsRead(notif._id));
+                navigate(notificationDestination(notif));
+              }}
             >
               <div
                 className={`absolute left-0 top-1.5 w-6 h-6 rounded-full border-[4px] border-surface flex items-center justify-center transition-colors ${!notif.read ? 'bg-primary' : 'bg-surface-container-high'}`}

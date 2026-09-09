@@ -1,3 +1,4 @@
+import { getDisplayDocs } from './displayReads.js';
 import { db, auth } from '../config/firebase.js';
 import {
   collection,
@@ -599,14 +600,13 @@ const expenseService = {
     return wrap({ settlement: { _id: docRef.id, ...settlementData } }, 'Settlement recorded');
   },
 
-  getSummary: async () => {
+  getSummary: async ({ cachedOnly = false, force = false } = {}) => {
     const userId = auth.currentUser?.uid;
-    if (!userId)
-      return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [], groupBalances: {} });
+    if (!userId) throw new Error('Authentication required');
 
     const now = Date.now();
     // Use a 30s TTL for the summary to prevent heavy fan-out reads on rapid sequential updates
-    if (summaryCache.data && summaryCache.hash === userId && now - summaryCache.timestamp < 30000) {
+    if (!cachedOnly && !force && summaryCache.data && summaryCache.hash === userId && now - summaryCache.timestamp < 30000) {
       return wrap(summaryCache.data);
     }
 
@@ -615,17 +615,12 @@ const expenseService = {
       const groupCol = collection(db, 'groups');
       const q = query(groupCol, where('members', 'array-contains', userId));
 
-      let groupSnap;
-      try {
-        groupSnap = await getDocs(q);
-      } catch (err) {
-        console.warn('[OFFLINE_FALLBACK] getSummary: fetching groups from cache');
-        const { getDocsFromCache } = await import('firebase/firestore');
-        groupSnap = await getDocsFromCache(q);
-      }
+      const groupSnap = await getDisplayDocs(q, { cachedOnly });
 
       const activeGroupDocs = groupSnap.docs.filter((d) => d.data()?.status !== 'deleted');
+      if (cachedOnly && activeGroupDocs.length === 0) throw new Error("No saved groups available");
       const groupIds = activeGroupDocs.map((d) => d.id);
+      let fromCache = groupSnap.metadata?.fromCache ?? cachedOnly;
       let totalOwed = 0;
       let totalOwe = 0;
       const categoryTotals = {};
@@ -635,22 +630,15 @@ const expenseService = {
 
       // 2. Process each cohort's financials
       for (const groupId of groupIds) {
-        let expSnap, stlSnap;
         const expCol = collection(db, 'groups', groupId, 'expenses');
         const stlCol = collection(db, 'groups', groupId, 'settlements');
 
-        try {
-          // eslint-disable-next-line no-await-in-loop
-          [expSnap, stlSnap] = await Promise.all([getDocs(expCol), getDocs(stlCol)]);
-        } catch (err) {
-          const { getDocsFromCache } = await import('firebase/firestore'); // eslint-disable-line no-await-in-loop
-          // eslint-disable-next-line no-await-in-loop
-          [expSnap, stlSnap] = await Promise.all([
-            getDocsFromCache(expCol).catch(() => ({ docs: [] })),
-            getDocsFromCache(stlCol).catch(() => ({ docs: [] })),
-          ]);
-        }
+        // eslint-disable-next-line no-await-in-loop
+        const [expSnap, stlSnap] = await Promise.all([
+          getDisplayDocs(expCol, { cachedOnly }), getDisplayDocs(stlCol, { cachedOnly }),
+        ]);
 
+        fromCache ||= Boolean(expSnap.metadata?.fromCache || stlSnap.metadata?.fromCache);
         const expenses = expSnap.docs.map((d) => ({ _id: d.id, ...d.data() }));
         const settlements = stlSnap.docs.map((d) => ({ _id: d.id, ...d.data() }));
 
@@ -695,6 +683,7 @@ const expenseService = {
         .sort((a, b) => b.value - a.value);
 
       const finalData = {
+        fromCache,
         totalOwed,
         totalOwe,
         netBalance: totalOwed - totalOwe,
@@ -703,7 +692,7 @@ const expenseService = {
       };
 
       // Save to cache
-      summaryCache = {
+      if (!cachedOnly) summaryCache = {
         data: finalData,
         timestamp: Date.now(),
         hash: userId,
@@ -711,8 +700,8 @@ const expenseService = {
 
       return wrap(finalData);
     } catch (error) {
-      console.error('[CRITICAL] Summary engine error:', error);
-      return wrap({ totalOwed: 0, totalOwe: 0, netBalance: 0, categories: [], groupBalances: {} });
+      if (!cachedOnly) console.error('[CRITICAL] Summary engine error:', error);
+      throw error;
     }
   },
 
