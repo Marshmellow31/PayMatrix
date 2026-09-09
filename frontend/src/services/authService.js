@@ -77,8 +77,12 @@ export const ensureUserProfile = async (firebaseUser, preferredName = '') => {
 
   const userDocRef = doc(db, 'users', firebaseUser.uid);
   const userDoc = await getDoc(userDocRef);
-  const resolvedName =
-    preferredName.trim() || firebaseUser.displayName?.trim() || userDoc.data()?.name || 'Member';
+  const resolvedName = (
+    preferredName.trim() ||
+    firebaseUser.displayName?.trim() ||
+    userDoc.data()?.name ||
+    'Member'
+  ).slice(0, 50);
   const now = new Date().toISOString();
   let userData = {
     _id: firebaseUser.uid,

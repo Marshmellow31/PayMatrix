@@ -13,7 +13,7 @@ service cloud.firestore {
     // Platform-level admin via Firebase Custom Claims only.
     // UID fallback removed — grant admin via Admin Panel > Users > Grant Admin Claims.
     function isGlobalAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
+      return isSignedIn() && request.auth.token.get('admin', false) == true;
     }
 
     function isMember(groupId) {
@@ -105,9 +105,42 @@ service cloud.firestore {
         return (avatarUnchanged || validAvatar(request.resource.data.get('avatar', ''))) &&
                (photoUnchanged || validAvatar(request.resource.data.get('photoURL', '')));
       }
+      function identityFieldsMatchAuthAfterUpdate(userId) {
+        let authEmail = request.auth.token.get('email', '');
+        return request.resource.data.get('uid', '') == userId &&
+               (
+                 (!('_id' in resource.data) &&
+                  (!('_id' in request.resource.data) || request.resource.data.get('_id', '') == userId)) ||
+                 ('_id' in request.resource.data && request.resource.data.get('_id', '') == userId)
+               ) &&
+               (
+                 (!('email' in resource.data) &&
+                  (!('email' in request.resource.data) || request.resource.data.get('email', '') == authEmail)) ||
+                 ('email' in request.resource.data && request.resource.data.get('email', '') == authEmail)
+               );
+      }
+      function validPrivateProfileShape(userId) {
+        let authEmail = request.auth.token.get('email', '');
+        return request.resource.data.keys().hasOnly([
+                 '_id', 'uid', 'email', 'name', 'displayName', 'nameLowerCase',
+                 'avatar', 'photoURL', 'friends', 'friendCode', 'upiId', 'phone',
+                 'fcmToken', 'createdAt', 'updatedAt'
+               ]) &&
+               request.resource.data.get('uid', '') == userId &&
+               request.resource.data.get('_id', '') == userId &&
+               authEmail != '' &&
+               request.resource.data.get('email', '') == authEmail &&
+               isValidString(request.resource.data.get('name', ''), 50) &&
+               isValidString(request.resource.data.get('displayName', ''), 50) &&
+               isValidString(request.resource.data.get('nameLowerCase', ''), 50) &&
+               isValidString(request.resource.data.get('upiId', ''), 100) &&
+               isValidString(request.resource.data.get('phone', ''), 30) &&
+               request.resource.data.get('friends', []) == [] &&
+               validAvatar(request.resource.data.get('avatar', request.resource.data.get('photoURL', ''))) &&
+               validAvatar(request.resource.data.get('photoURL', request.resource.data.get('avatar', '')));
+      }
       allow create: if isSignedIn() && request.auth.uid == userId &&
-                    isValidString(request.resource.data.get('displayName', ''), 50) &&
-                    validAvatar(request.resource.data.get('avatar', request.resource.data.get('photoURL', '')));
+                    validPrivateProfileShape(userId);
       allow update: if isGlobalAdmin() || (isSignedIn() && (
         (request.auth.uid == userId &&
          request.resource.data.keys().hasOnly([
@@ -125,10 +158,17 @@ service cloud.firestore {
          request.resource.data.get('deletedAt', null) == request.time &&
          existsAfter(/databases/$(database)/documents/accountDeletionRequests/$(userId))) ||
         (request.auth.uid == userId &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+           '_id', 'email', 'name', 'displayName', 'nameLowerCase', 'avatar', 'photoURL',
+           'upiId', 'phone', 'updatedAt', 'friendCode', 'fcmToken'
+         ]) &&
+         identityFieldsMatchAuthAfterUpdate(userId) &&
+         isValidString(request.resource.data.get('name', ''), 50) &&
          isValidString(request.resource.data.get('displayName', ''), 50) &&
+         isValidString(request.resource.data.get('nameLowerCase', ''), 50) &&
          isValidString(request.resource.data.get('upiId', ''), 100) &&
+         isValidString(request.resource.data.get('phone', ''), 30) &&
          validAvatarAfterUpdate() &&
-         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email', 'createdAt', 'friends', 'deletion']) &&
          // Friend code is write-once — set by the client on first backfill, never changed after.
          (!('friendCode' in resource.data) ||
           request.resource.data.get('friendCode', '') == resource.data.get('friendCode', ''))
@@ -313,6 +353,15 @@ service cloud.firestore {
     // ─── Groups ───────────────────────────────────────────────────────────────
 
     match /groups/{groupId} {
+      function validHistoricalMembershipAfterUpdate() {
+        let oldHistory = resource.data.get('historicalMembers', []);
+        let newHistory = request.resource.data.get('historicalMembers', []);
+        let addedMembers = request.resource.data.get('members', []).removeAll(resource.data.get('members', []));
+        let addedHistory = newHistory.removeAll(oldHistory);
+        return newHistory.hasAll(oldHistory) &&
+               addedHistory.hasOnly(addedMembers) &&
+               newHistory.hasAll(request.resource.data.get('members', []));
+      }
       allow read: if isGlobalAdmin() || (isSignedIn() && (
         request.auth.uid in resource.data.members ||
         request.auth.uid in resource.data.get('historicalMembers', [])
@@ -338,6 +387,7 @@ service cloud.firestore {
              'name', 'title', 'description', 'category', 'members', 'historicalMembers',
              'admin', 'status', 'deletedAt', 'updatedAt'
            ]) &&
+           validHistoricalMembershipAfterUpdate() &&
            request.resource.data.get('admin', '') in request.resource.data.get('members', []) &&
            request.resource.data.get('members', []).removeAll(resource.data.get('members', [])).size() <= 1 &&
            resource.data.get('members', []).removeAll(request.resource.data.get('members', [])).size() <= 1 &&
@@ -346,6 +396,7 @@ service cloud.firestore {
              request.auth.uid in get(/databases/$(database)/documents/users/$(request.resource.data.get('members', []).removeAll(resource.data.get('members', []))[0])).data.get('friends', [])
            )) ||
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'historicalMembers', 'updatedAt']) &&
+           validHistoricalMembershipAfterUpdate() &&
            request.resource.data.get('members', []).removeAll(resource.data.get('members', [])) == [request.auth.uid] &&
            resource.data.get('members', []).removeAll(request.resource.data.get('members', [])).size() == 0 &&
            exists(/databases/$(database)/documents/groupInvites/$(resource.data.get('inviteCode', ''))) &&
@@ -376,6 +427,7 @@ service cloud.firestore {
                       request.resource.data.get('version', 0) == 1 &&
                       request.resource.data.get('lastMutationType', '') == 'expense_added' &&
                       request.resource.data.get('lastMutationAt', null) == request.time &&
+                      !exists(/databases/$(database)/documents/groups/$(groupId)/logs/$(request.resource.data.get('lastMutationId', ''))) &&
                       existsAfter(/databases/$(database)/documents/groups/$(groupId)/logs/$(request.resource.data.get('lastMutationId', '')));
         // Collaborative editing is a product rule: every current member may edit
         // financial content. Actor/payer/creator identities remain immutable and
@@ -403,6 +455,7 @@ service cloud.firestore {
                       request.resource.data.get('lastMutationAt', null) == request.time &&
                       (!(resource.data.get('lastMutationAt', null) is timestamp) ||
                        request.time > resource.data.get('lastMutationAt', request.time) + duration.value(1, 's')) &&
+                      !exists(/databases/$(database)/documents/groups/$(groupId)/logs/$(request.resource.data.get('lastMutationId', ''))) &&
                       existsAfter(/databases/$(database)/documents/groups/$(groupId)/logs/$(request.resource.data.get('lastMutationId', '')));
         allow delete: if false;
       }
@@ -427,6 +480,7 @@ service cloud.firestore {
                       request.resource.data.get('version', 0) == 1 &&
                       request.resource.data.get('lastMutationType', '') == 'settlement_added' &&
                       request.resource.data.get('lastMutationAt', null) == request.time &&
+                      !exists(/databases/$(database)/documents/groups/$(groupId)/logs/$(request.resource.data.get('lastMutationId', ''))) &&
                       existsAfter(/databases/$(database)/documents/groups/$(groupId)/logs/$(request.resource.data.get('lastMutationId', '')));
         // Only the payer or group admin can reverse/restore a payer-confirmed settlement.
         allow update: if isMember(groupId) &&
@@ -441,6 +495,7 @@ service cloud.firestore {
                       request.resource.data.get('lastMutationAt', null) == request.time &&
                       (!(resource.data.get('lastMutationAt', null) is timestamp) ||
                        request.time > resource.data.get('lastMutationAt', request.time) + duration.value(1, 's')) &&
+                      !exists(/databases/$(database)/documents/groups/$(groupId)/logs/$(request.resource.data.get('lastMutationId', ''))) &&
                       existsAfter(/databases/$(database)/documents/groups/$(groupId)/logs/$(request.resource.data.get('lastMutationId', '')));
         allow delete: if false;
       }

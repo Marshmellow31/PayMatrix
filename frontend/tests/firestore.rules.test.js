@@ -9,6 +9,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   arrayUnion,
+  deleteField,
   doc,
   deleteDoc,
   getDoc,
@@ -133,6 +134,90 @@ describe('verified authentication boundary', () => {
       .firestore();
     await assertSucceeds(getDoc(doc(db, 'groups', 'group-1')));
   });
+
+  test('binds a new private profile to the authenticated Firebase identity', async () => {
+    const db = environment
+      .authenticatedContext('new-user', {
+        email: 'new-user@example.com',
+        email_verified: true,
+        firebase: { sign_in_provider: 'password', identities: {} },
+      })
+      .firestore();
+    const profile = {
+      _id: 'new-user',
+      uid: 'new-user',
+      email: 'new-user@example.com',
+      name: 'New User',
+      displayName: 'New User',
+      nameLowerCase: 'new user',
+      avatar: '',
+      photoURL: '',
+      friends: [],
+      createdAt: 'now',
+    };
+    await assertSucceeds(setDoc(doc(db, 'users', 'new-user'), profile));
+    await assertFails(
+      setDoc(doc(db, 'users', 'forged-email'), {
+        ...profile,
+        _id: 'forged-email',
+        uid: 'forged-email',
+      })
+    );
+    await assertFails(
+      setDoc(doc(db, 'users', 'new-user'), { ...profile, email: 'victim@example.com' })
+    );
+    await assertFails(setDoc(doc(db, 'users', 'new-user'), { ...profile, admin: true }));
+    await assertFails(updateDoc(doc(db, 'users', 'new-user'), { _id: deleteField() }));
+    await assertFails(updateDoc(doc(db, 'users', 'new-user'), { email: deleteField() }));
+    await assertFails(updateDoc(doc(db, 'users', 'new-user'), { createdAt: 'forged' }));
+
+    const missingDb = environment
+      .authenticatedContext('missing-id', {
+        email: 'missing@example.com',
+        email_verified: true,
+        firebase: { sign_in_provider: 'password', identities: {} },
+      })
+      .firestore();
+    const { _id: _omitted, ...missingIdProfile } = {
+      ...profile,
+      uid: 'missing-id',
+      email: 'missing@example.com',
+    };
+    await assertFails(setDoc(doc(missingDb, 'users', 'missing-id'), missingIdProfile));
+  });
+
+  test('allows provider profile refresh only with the token email', async () => {
+    await environment.withSecurityRulesDisabled((context) =>
+      setDoc(doc(context.firestore(), 'users', 'linked'), {
+        uid: 'linked',
+        email: 'old@example.com',
+        name: 'Linked User',
+        displayName: 'Linked User',
+        nameLowerCase: 'linked user',
+        avatar: '',
+        photoURL: '',
+        friends: [],
+        createdAt: 'old',
+      })
+    );
+    const db = environment
+      .authenticatedContext('linked', {
+        email: 'linked@gmail.com',
+        email_verified: true,
+        firebase: { sign_in_provider: 'google.com', identities: {} },
+      })
+      .firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'users', 'linked'), {
+        email: 'linked@gmail.com',
+        avatar: 'https://lh3.googleusercontent.com/profile-photo',
+        photoURL: 'https://lh3.googleusercontent.com/profile-photo',
+        updatedAt: 'new',
+      })
+    );
+    await assertFails(updateDoc(doc(db, 'users', 'linked'), { email: 'victim@example.com' }));
+    await assertFails(updateDoc(doc(db, 'users', 'linked'), { admin: true }));
+  });
 });
 
 after(async () => environment?.cleanup());
@@ -141,6 +226,16 @@ describe('PayMatrix Firestore authorization', () => {
   test('rejects group takeover by a signed-in nonmember', async () => {
     const db = environment.authenticatedContext('attacker').firestore();
     await assertFails(updateDoc(doc(db, 'groups', 'group-1'), { admin: 'attacker' }));
+  });
+
+  test('rejects fabricated historical membership without a real member addition', async () => {
+    const db = environment.authenticatedContext('owner').firestore();
+    await assertFails(
+      updateDoc(doc(db, 'groups', 'group-1'), {
+        historicalMembers: arrayUnion('attacker'),
+        updatedAt: 'now',
+      })
+    );
   });
 
   test('rejects unilateral friendship and permits accepted-request atomic friendship', async () => {
@@ -225,6 +320,32 @@ describe('PayMatrix Firestore authorization', () => {
       createdAt: serverTimestamp(),
     });
     await assertSucceeds(batch.commit());
+  });
+
+  test('rejects reuse of an existing audit ID for a new financial mutation', async () => {
+    await environment.withSecurityRulesDisabled((context) =>
+      setDoc(doc(context.firestore(), 'groups', 'group-1', 'logs', 'reused-log'), {
+        type: 'expense_updated',
+        message: 'Old event',
+        actorId: 'member',
+        actorName: 'Member',
+        relatedId: 'expense-1',
+        groupId: 'group-1',
+        createdAt: Timestamp.fromMillis(1),
+      })
+    );
+    const db = environment.authenticatedContext('member').firestore();
+    await assertFails(
+      updateDoc(doc(db, 'groups', 'group-1', 'expenses', 'expense-1'), {
+        title: 'Rewritten without a fresh event',
+        lastEditedBy: 'member',
+        lastMutationId: 'reused-log',
+        lastMutationType: 'expense_updated',
+        lastMutationAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        version: 2,
+      })
+    );
   });
 
   test('rejects a stale collaborative edit even when its audit record is present', async () => {

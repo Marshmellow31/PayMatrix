@@ -3,6 +3,28 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 admin.initializeApp();
 
+function isVerifiedAuth(auth) {
+  if (!auth) return false;
+  const provider = auth.token?.firebase?.sign_in_provider;
+  return provider !== "password" || auth.token?.email_verified === true;
+}
+
+function requireVerifiedAuth(request) {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in.");
+  }
+  if (!isVerifiedAuth(request.auth)) {
+    throw new HttpsError("permission-denied", "Verify your email before continuing.");
+  }
+}
+
+function requireVerifiedAdmin(request) {
+  requireVerifiedAuth(request);
+  if (request.auth.token?.admin !== true) {
+    throw new HttpsError("permission-denied", "Admin access required.");
+  }
+}
+
 // FIX SEC-02: FALLBACK_ADMIN_UID removed. All admin checks now rely solely on
 // Custom Claims (token.admin === true). Grant claims via Admin Panel → Users → Grant Admin.
 
@@ -145,9 +167,7 @@ exports.sendPushOnNotification = onDocumentCreated(
 exports.adminManageUser = onCall(
   { memory: "128MiB" },
   async (request) => {
-    if (!request.auth?.token?.admin) {
-      throw new HttpsError("permission-denied", "Admin access required.");
-    }
+    requireVerifiedAdmin(request);
 
     const { uid, action } = request.data || {};
     if (!uid || !action) throw new HttpsError("invalid-argument", "uid and action are required.");
@@ -187,9 +207,7 @@ exports.adminManageUser = onCall(
 exports.getAdminStats = onCall(
   { memory: "512MiB", timeoutSeconds: 60 },
   async (request) => {
-    if (!request.auth?.token?.admin) {
-      throw new HttpsError("permission-denied", "Admin access required.");
-    }
+    requireVerifiedAdmin(request);
 
     const db = admin.firestore();
 
@@ -263,9 +281,7 @@ exports.getAdminStats = onCall(
 exports.broadcastNotification = onCall(
   { memory: "512MiB", timeoutSeconds: 120 },
   async (request) => {
-    if (!request.auth?.token?.admin) {
-      throw new HttpsError("permission-denied", "Admin access required.");
-    }
+    requireVerifiedAdmin(request);
 
     const { title, body, url, targetUid } = request.data || {};
     if (!title || !body) throw new HttpsError("invalid-argument", "title and body are required.");
@@ -352,9 +368,7 @@ exports.broadcastNotification = onCall(
 exports.createCrossUserNotification = onCall(
   { memory: "128MiB" },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in.");
-    }
+    requireVerifiedAuth(request);
 
     const { to, type, relatedId, groupId } = request.data || {};
     if (!to || !type) {
@@ -445,9 +459,7 @@ exports.createCrossUserNotification = onCall(
 exports.adminListGroups = onCall(
   { memory: "256MiB" },
   async (request) => {
-    if (!request.auth?.token?.admin) {
-      throw new HttpsError("permission-denied", "Admin access required.");
-    }
+    requireVerifiedAdmin(request);
 
     const { pageSize = 20, startAfterId } = request.data || {};
     const db = admin.firestore();
@@ -475,9 +487,7 @@ exports.adminListGroups = onCall(
 exports.adminGetGroupDetails = onCall(
   { memory: "256MiB" },
   async (request) => {
-    if (!request.auth?.token?.admin) {
-      throw new HttpsError("permission-denied", "Admin access required.");
-    }
+    requireVerifiedAdmin(request);
 
     const { groupId } = request.data || {};
     if (!groupId) throw new HttpsError("invalid-argument", "groupId is required.");
@@ -503,9 +513,7 @@ exports.adminGetGroupDetails = onCall(
 exports.adminArchiveGroup = onCall(
   { memory: "128MiB" },
   async (request) => {
-    if (!request.auth?.token?.admin) {
-      throw new HttpsError("permission-denied", "Admin access required.");
-    }
+    requireVerifiedAdmin(request);
 
     const { groupId } = request.data || {};
     if (!groupId) throw new HttpsError("invalid-argument", "groupId is required.");
@@ -525,9 +533,7 @@ exports.adminArchiveGroup = onCall(
 exports.adminDeleteGroup = onCall(
   { memory: "128MiB" },
   async (request) => {
-    if (!request.auth?.token?.admin) {
-      throw new HttpsError("permission-denied", "Admin access required.");
-    }
+    requireVerifiedAdmin(request);
 
     const { groupId } = request.data || {};
     if (!groupId) throw new HttpsError("invalid-argument", "groupId is required.");
