@@ -7,6 +7,8 @@ export function notificationDestination({ type, groupId, url } = {}) {
     if (/^\/(friends|groups|dashboard|activity)(\/[^/]+)?$/.test(parsed.pathname)) {
       return parsed.pathname + parsed.search;
     }
-  } catch { /* Unknown notifications open the dashboard. */ }
+  } catch {
+    /* Unknown notifications open the dashboard. */
+  }
   return '/dashboard';
 }

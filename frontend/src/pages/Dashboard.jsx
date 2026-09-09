@@ -79,8 +79,13 @@ const Dashboard = () => {
       // Paint the local snapshot first, then refresh without covering it in a loader.
       try {
         const saved = await expenseService.getSummary({ cachedOnly: true });
-        if (active) { setSummary(saved.data.data); setLoadingSummary(false); }
-      } catch { /* A first-time account has no saved snapshot. */ }
+        if (active) {
+          setSummary(saved.data.data);
+          setLoadingSummary(false);
+        }
+      } catch {
+        /* A first-time account has no saved snapshot. */
+      }
       try {
         const response = await expenseService.getSummary({ force: true });
         if (active) setSummary(response.data.data);
@@ -195,7 +200,10 @@ const Dashboard = () => {
             className="mb-4 flex justify-center"
           >
             <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-[#171717] px-3 py-1.5 text-xs font-medium text-white/[0.55]">
-              <WifiOff size={13} /> {isOffline ? 'Offline · showing saved data' : 'Saved balances · refreshing in background'}
+              <WifiOff size={13} />{' '}
+              {isOffline
+                ? 'Offline · showing saved data'
+                : 'Saved balances · refreshing in background'}
             </span>
           </motion.div>
         )}

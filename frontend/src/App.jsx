@@ -146,43 +146,46 @@ function App() {
         // Firebase Auth restores the verified local session without a profile
         // network round trip. Profile snapshots enrich this shell from disk,
         // then the server; never trust an unrelated persisted Redux user.
-        dispatch(setUser({
-          _id: firebaseUser.uid,
-          uid: firebaseUser.uid,
-          name: firebaseUser.displayName || 'Member',
-          email: firebaseUser.email,
-          avatar: firebaseUser.photoURL,
-        }));
-        setInitializing(false);
-        _unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
-          if (docSnap.exists()) {
-            const userData = serializeFirestoreData({
-              _id: docSnap.id,
-              uid: docSnap.id,
-              ...docSnap.data(),
-            });
-            dispatch(setUser(userData));
-          } else {
-            dispatch(
-              setUser({
-                _id: firebaseUser.uid,
-                uid: firebaseUser.uid,
-                name: firebaseUser.displayName || 'Anonymous',
-                email: firebaseUser.email,
-                avatar: firebaseUser.photoURL,
-              })
-            );
-          }
-          setInitializing(false);
-        }, (error) => {
-          console.error('Profile snapshot error:', error);
-          setInitializing(false);
-        });
-
-        const qNotifs = query(
-          collection(db, 'notifications'),
-          where('to', '==', firebaseUser.uid)
+        dispatch(
+          setUser({
+            _id: firebaseUser.uid,
+            uid: firebaseUser.uid,
+            name: firebaseUser.displayName || 'Member',
+            email: firebaseUser.email,
+            avatar: firebaseUser.photoURL,
+          })
         );
+        setInitializing(false);
+        _unsubscribeProfile = onSnapshot(
+          doc(db, 'users', firebaseUser.uid),
+          (docSnap) => {
+            if (docSnap.exists()) {
+              const userData = serializeFirestoreData({
+                _id: docSnap.id,
+                uid: docSnap.id,
+                ...docSnap.data(),
+              });
+              dispatch(setUser(userData));
+            } else {
+              dispatch(
+                setUser({
+                  _id: firebaseUser.uid,
+                  uid: firebaseUser.uid,
+                  name: firebaseUser.displayName || 'Anonymous',
+                  email: firebaseUser.email,
+                  avatar: firebaseUser.photoURL,
+                })
+              );
+            }
+            setInitializing(false);
+          },
+          (error) => {
+            console.error('Profile snapshot error:', error);
+            setInitializing(false);
+          }
+        );
+
+        const qNotifs = query(collection(db, 'notifications'), where('to', '==', firebaseUser.uid));
         _unsubscribeNotifs = onSnapshot(
           qNotifs,
           (snapshot) => {

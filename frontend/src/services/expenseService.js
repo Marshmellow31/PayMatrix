@@ -606,7 +606,13 @@ const expenseService = {
 
     const now = Date.now();
     // Use a 30s TTL for the summary to prevent heavy fan-out reads on rapid sequential updates
-    if (!cachedOnly && !force && summaryCache.data && summaryCache.hash === userId && now - summaryCache.timestamp < 30000) {
+    if (
+      !cachedOnly &&
+      !force &&
+      summaryCache.data &&
+      summaryCache.hash === userId &&
+      now - summaryCache.timestamp < 30000
+    ) {
       return wrap(summaryCache.data);
     }
 
@@ -618,7 +624,7 @@ const expenseService = {
       const groupSnap = await getDisplayDocs(q, { cachedOnly });
 
       const activeGroupDocs = groupSnap.docs.filter((d) => d.data()?.status !== 'deleted');
-      if (cachedOnly && activeGroupDocs.length === 0) throw new Error("No saved groups available");
+      if (cachedOnly && activeGroupDocs.length === 0) throw new Error('No saved groups available');
       const groupIds = activeGroupDocs.map((d) => d.id);
       let fromCache = groupSnap.metadata?.fromCache ?? cachedOnly;
       let totalOwed = 0;
@@ -635,7 +641,8 @@ const expenseService = {
 
         // eslint-disable-next-line no-await-in-loop
         const [expSnap, stlSnap] = await Promise.all([
-          getDisplayDocs(expCol, { cachedOnly }), getDisplayDocs(stlCol, { cachedOnly }),
+          getDisplayDocs(expCol, { cachedOnly }),
+          getDisplayDocs(stlCol, { cachedOnly }),
         ]);
 
         fromCache ||= Boolean(expSnap.metadata?.fromCache || stlSnap.metadata?.fromCache);
@@ -692,11 +699,12 @@ const expenseService = {
       };
 
       // Save to cache
-      if (!cachedOnly) summaryCache = {
-        data: finalData,
-        timestamp: Date.now(),
-        hash: userId,
-      };
+      if (!cachedOnly)
+        summaryCache = {
+          data: finalData,
+          timestamp: Date.now(),
+          hash: userId,
+        };
 
       return wrap(finalData);
     } catch (error) {

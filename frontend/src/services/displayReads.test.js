@@ -3,7 +3,10 @@ vi.mock('firebase/firestore', () => ({ getDocs: vi.fn(), getDocsFromCache: vi.fn
 import { getDocs, getDocsFromCache } from 'firebase/firestore';
 import { getDisplayDocs } from './displayReads.js';
 
-afterEach(() => { vi.useRealTimers(); vi.resetAllMocks(); });
+afterEach(() => {
+  vi.useRealTimers();
+  vi.resetAllMocks();
+});
 describe('display reads', () => {
   it('reads disk without waiting for the network for cached startup', async () => {
     const saved = { docs: [{ id: 'saved' }], empty: false };
@@ -23,10 +26,17 @@ describe('display reads', () => {
   it('does not invent an empty result when no local data exists', async () => {
     vi.useFakeTimers();
     let complete;
-    getDocs.mockReturnValue(new Promise((resolve) => { complete = resolve; }));
+    getDocs.mockReturnValue(
+      new Promise((resolve) => {
+        complete = resolve;
+      })
+    );
     getDocsFromCache.mockResolvedValue({ docs: [], empty: true });
     let settled = false;
-    const pending = getDisplayDocs('query').then((value) => { settled = true; return value; });
+    const pending = getDisplayDocs('query').then((value) => {
+      settled = true;
+      return value;
+    });
     await vi.advanceTimersByTimeAsync(1500);
     expect(settled).toBe(false);
     const fresh = { docs: [{ id: 'fresh' }] };

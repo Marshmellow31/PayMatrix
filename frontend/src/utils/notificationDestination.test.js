@@ -12,7 +12,12 @@ describe('notification destinations', () => {
     expect(notificationDestination({ url: '/groups/trip1' })).toBe('/groups/trip1');
   });
   it('rejects external, script and unknown destinations', () => {
-    for (const url of ['https://example.com/friends', '//evil.test/groups/a', 'javascript:alert(1)', '/admin']) {
+    for (const url of [
+      'https://example.com/friends',
+      '//evil.test/groups/a',
+      'javascript:alert(1)',
+      '/admin',
+    ]) {
       expect(notificationDestination({ url })).toBe('/dashboard');
     }
   });
