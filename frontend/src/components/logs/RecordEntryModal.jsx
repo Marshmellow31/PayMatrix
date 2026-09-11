@@ -4,7 +4,7 @@ import Modal from '../common/Modal.jsx';
 import LogEntryModal from './LogEntryModal.jsx';
 import PickTransactionModal from './PickTransactionModal.jsx';
 
-const RecordEntryModal = ({ isOpen, onClose, onSaved, groupId, existingEntries = [] }) => {
+const RecordEntryModal = ({ isOpen, onClose, onSaved, groupId, existingEntries = [], catalog }) => {
   const [mode, setMode] = useState('choose');
 
   useEffect(() => {
@@ -29,6 +29,8 @@ const RecordEntryModal = ({ isOpen, onClose, onSaved, groupId, existingEntries =
         onSaved={handleSaved}
         groupId={groupId}
         entry={null}
+        catalog={catalog}
+        recentEntries={existingEntries}
       />
     );
   }

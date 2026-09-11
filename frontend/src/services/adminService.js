@@ -12,7 +12,6 @@ import {
   where,
   setDoc,
   getCountFromServer,
-  writeBatch,
   deleteDoc,
 } from 'firebase/firestore';
 
@@ -149,13 +148,41 @@ const adminService = {
     return { data: { success: true } };
   },
 
-  bootstrapAdmin: () => Promise.resolve({ data: { success: true } }),
+  // ─── Entitlements ──────────────────────────────────────────────────────────
+  listUsersWithEntitlements: async (pageSize = 20, lastDocId = null, search = '') => {
+    const callable = httpsCallable(functions, 'adminListUsersWithEntitlements');
+    const res = await callable({ pageSize, startAfterId: lastDocId, search });
+    return res.data;
+  },
+
+  grantAdminEntitlement: async ({ targetUid, duration, customExpiry, reason }) => {
+    const callable = httpsCallable(functions, 'adminManageEntitlement');
+    const res = await callable({
+      targetUid,
+      action: 'grant',
+      duration,
+      customExpiry,
+      reason,
+    });
+    return res.data;
+  },
+
+  revokeAdminEntitlement: async ({ targetUid, reason }) => {
+    const callable = httpsCallable(functions, 'adminManageEntitlement');
+    const res = await callable({
+      targetUid,
+      action: 'revoke',
+      reason,
+    });
+    return res.data;
+  },
+
+  bootstrapAdmin: () =>
+    Promise.reject(new Error('Manual bootstrap is not supported. Use admin claim scripts.')),
 
   // ─── Broadcast Notifications ────────────────────────────────────────────────
   // Routed through the admin-gated `broadcastNotification` Cloud Function, which
   // fans out FCM web-push and records the history entry with admin privileges.
-  // (Client-side batch writes to other users' notifications are now blocked by
-  // the tightened Firestore rules, and never delivered a real push anyway.)
   broadcastNotification: async ({ title, body, url, targetUid }) => {
     const res = await httpsCallable(
       functions,
@@ -191,43 +218,8 @@ const adminService = {
   },
 
   deleteNotificationHistoryItem: async (id) => {
-    // 1. Get the admin notification details first
-    const adminNotifSnap = await getDoc(doc(db, 'admin_notifications', id));
-    if (!adminNotifSnap.exists()) {
-      await deleteDoc(doc(db, 'admin_notifications', id));
-      return;
-    }
-
-    const adminNotifData = adminNotifSnap.data();
-    const { body, targetUid } = adminNotifData;
-
-    // 2. Query all user notifications linked to this admin notification ID
-    const q = query(collection(db, 'notifications'), where('parentAdminNotificationId', '==', id));
-    let userNotifsSnap = await getDocs(q);
-
-    // 3. Fallback for older notifications that don't have the parentAdminNotificationId field
-    if (userNotifsSnap.empty && body) {
-      let fallbackQuery = query(collection(db, 'notifications'), where('message', '==', body));
-      if (targetUid) {
-        fallbackQuery = query(
-          collection(db, 'notifications'),
-          where('message', '==', body),
-          where('to', '==', targetUid)
-        );
-      }
-      userNotifsSnap = await getDocs(fallbackQuery);
-    }
-
-    // 4. Batch delete the user notifications
-    if (!userNotifsSnap.empty) {
-      const batch = writeBatch(db);
-      userNotifsSnap.docs.forEach((d) => {
-        batch.delete(d.ref);
-      });
-      await batch.commit();
-    }
-
-    // 5. Delete the admin history log document itself
+    // Delete the admin history log document directly without performing
+    // heavy unbounded scans over other collections.
     await deleteDoc(doc(db, 'admin_notifications', id));
   },
 

@@ -1,7 +1,7 @@
 import { formatCurrency } from '../../utils/formatCurrency.js';
 import Avatar from '../common/Avatar.jsx';
 
-const BalanceSummary = ({ balances = [] }) => {
+const BalanceSummary = ({ balances = [], currency = 'INR' }) => {
   return (
     <div className="flex flex-col gap-3">
       {balances.map((item) => {
@@ -22,7 +22,7 @@ const BalanceSummary = ({ balances = [] }) => {
               }`}
             >
               {isPositive ? '+' : ''}
-              {formatCurrency(balance)}
+              {formatCurrency(balance, currency)}
             </p>
           </div>
         );

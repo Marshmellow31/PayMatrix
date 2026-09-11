@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Fingerprint, ScanLine, ShieldCheck, Users, ReceiptText } from 'lucide-react';
+import { ArrowRight, ScanLine, ShieldCheck, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import OnboardingShell from '../components/onboarding/OnboardingShell.jsx';
 import TrialWorkspace from '../components/onboarding/TrialWorkspace.jsx';
 import FeatureShowcase from '../components/onboarding/FeatureShowcase.jsx';
+import WelcomeSheet from '../components/onboarding/WelcomeSheet.jsx';
 import { markOnboardingSeen } from '../hooks/useOnboardingState.js';
 
 const Onboarding = () => {
@@ -22,139 +23,7 @@ const Onboarding = () => {
   return (
     <OnboardingShell step={step} totalSteps={4} onBack={back} onSkip={() => finish()}>
       <AnimatePresence mode="wait">
-        {step === 0 && (
-          <motion.div
-            key="step-0"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="flex flex-col gap-8 sm:gap-10 lg:grid lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-14 my-auto w-full max-w-6xl"
-          >
-            <div className="max-w-xl">
-              <h1 className="font-manrope text-4xl font-black leading-[0.94] tracking-[-0.06em] sm:text-7xl">
-                Split a bill.
-                <br />
-                <span className="text-white/35">See what’s fair.</span>
-              </h1>
-              <p className="mt-4 max-w-lg text-sm leading-6 text-white/50 sm:mt-6 sm:text-base sm:leading-7">
-                PayMatrix keeps every group expense, balance, and settlement in one shared place.
-              </p>
-              <div className="hidden lg:flex mt-5 flex-col gap-2 sm:mt-8 sm:flex-row sm:gap-3">
-                <button
-                  onClick={next}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[0_10px_35px_rgba(255,255,255,0.12)] transition hover:scale-[1.02] sm:py-4"
-                >
-                  See how it works <ArrowRight size={16} />
-                </button>
-                <button
-                  onClick={() => finish()}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 px-6 py-3 text-xs font-black uppercase tracking-[0.14em] text-white/60 transition hover:border-white/25 hover:text-white sm:py-4"
-                >
-                  Sign in now
-                </button>
-              </div>
-              <div className="hidden lg:flex mt-4 flex-wrap gap-x-5 gap-y-1 text-[10px] font-bold text-white/30 sm:mt-7 sm:text-[11px]">
-                <span className="inline-flex items-center gap-2">
-                  <Fingerprint size={13} /> Private by default
-                </span>
-                <span className="inline-flex items-center gap-2">
-                  <Users size={13} /> Built for real groups
-                </span>
-              </div>
-            </div>
-            <motion.div
-              initial={{ rotate: -2, y: 12 }}
-              animate={{ rotate: 1, y: 0 }}
-              transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="relative mx-auto w-full max-w-xl rounded-[1.5rem] border border-white/10 bg-[#171717]/95 p-3.5 shadow-[0_30px_100px_rgba(0,0,0,0.5)] sm:rounded-[1.75rem] sm:p-6"
-            >
-              <div className="mb-3.5 flex items-center justify-between border-b border-white/[0.08] pb-3 sm:mb-5 sm:pb-5">
-                <div>
-                  <p className="text-base font-black tracking-tight sm:text-lg">Goa Weekend</p>
-                  <p className="mt-1 text-[10px] text-white/35 sm:text-xs">
-                    3 members · shared group
-                  </p>
-                </div>
-                <div className="flex -space-x-2">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#171717] bg-orange-200 text-[8px] font-black text-orange-950 sm:h-8 sm:w-8 sm:text-[9px]">
-                    🦊
-                  </span>
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#171717] bg-amber-300 text-[8px] font-black text-amber-950 sm:h-8 sm:w-8 sm:text-[9px]">
-                    🐨
-                  </span>
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#171717] bg-sky-300 text-[8px] font-black text-sky-950 sm:h-8 sm:w-8 sm:text-[9px]">
-                    🐳
-                  </span>
-                </div>
-              </div>
-              <div className="mb-3 flex items-center justify-between sm:mb-4">
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35 sm:text-[10px]">
-                  Balances
-                </p>
-                <span className="text-[9px] font-bold text-emerald-300 sm:text-[10px]">
-                  You are owed ₹420
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5 sm:p-3">
-                  <p className="text-[9px] text-white/45 sm:text-[10px]">You</p>
-                  <p className="mt-2 text-xs font-black text-emerald-300 sm:mt-3 sm:text-sm">
-                    +₹420
-                  </p>
-                </div>
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5 sm:p-3">
-                  <p className="text-[9px] text-white/45 sm:text-[10px]">Maya</p>
-                  <p className="mt-2 text-xs font-black text-rose-300 sm:mt-3 sm:text-sm">−₹180</p>
-                </div>
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-2.5 sm:p-3">
-                  <p className="text-[9px] text-white/45 sm:text-[10px]">Leo</p>
-                  <p className="mt-2 text-xs font-black text-rose-300 sm:mt-3 sm:text-sm">−₹240</p>
-                </div>
-              </div>
-              <div className="mt-3.5 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 sm:mt-4 sm:p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ReceiptText size={14} className="text-amber-200" />
-                    <span className="text-[11px] font-bold sm:text-xs">Beach shack dinner</span>
-                  </div>
-                  <span className="text-[11px] font-black sm:text-xs">₹2,460</span>
-                </div>
-                <p className="mt-1 text-[9px] text-white/35 sm:text-[10px]">
-                  Paid by Maya · split unevenly
-                </p>
-              </div>
-              <button
-                onClick={next}
-                className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.07] py-3 text-[10px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-white/[0.12] sm:mt-4 sm:py-3 sm:text-[11px]"
-              >
-                Record an expense <ArrowRight size={14} />
-              </button>
-            </motion.div>
-            <div className="flex lg:hidden mt-6 sm:mt-8 flex-col gap-3.5 w-full max-w-xl mx-auto">
-              <button
-                onClick={next}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-xs font-black uppercase tracking-[0.14em] text-black shadow-[0_10px_35px_rgba(255,255,255,0.12)] transition hover:scale-[1.02] sm:py-4"
-              >
-                See how it works <ArrowRight size={16} />
-              </button>
-              <button
-                onClick={() => finish()}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 px-6 py-3.5 text-xs font-black uppercase tracking-[0.14em] text-white/60 transition hover:border-white/25 hover:text-white sm:py-4"
-              >
-                Sign in now
-              </button>
-            </div>
-            <div className="flex lg:hidden mt-4 sm:mt-6 justify-center flex-wrap gap-x-6 gap-y-2 text-[11px] font-bold text-white/35">
-              <span className="inline-flex items-center gap-2">
-                <Fingerprint size={13} /> Private by default
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <Users size={13} /> Built for real groups
-              </span>
-            </div>
-          </motion.div>
-        )}
+        {step === 0 && <WelcomeSheet onContinue={() => finish('/login')} onExploreDemo={next} />}
         {step === 1 && (
           <motion.div
             key="step-1"

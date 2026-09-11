@@ -17,6 +17,8 @@ import friendService from '../services/friendService.js';
 import expenseService from '../services/expenseService.js';
 import { getInitials } from '../utils/nameUtils.js';
 import LiveUpdate from '../components/common/LiveUpdate.jsx';
+import { useEntitlement } from '../hooks/useEntitlement.js';
+import { getLimit } from '../config/proFeatures.js';
 
 const Groups = () => {
   const dispatch = useDispatch();
@@ -27,18 +29,43 @@ const Groups = () => {
   const { user } = useSelector((state) => state.auth);
   const isOnline = useOnlineStatus();
   const flags = useFeatureFlags();
+  const entitlement = useEntitlement();
+  const groupLimit = getLimit(entitlement, 'groups');
+  const isAtLimit = !entitlement.isPro && groups.length >= groupLimit;
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', category: 'Other', members: [] });
+  const [form, setForm] = useState({
+    name: '',
+    category: 'Other',
+    currency: user?.defaultCurrency || 'INR',
+    members: [],
+  });
   const [friends, setFriends] = useState([]);
   const [summary, setSummary] = useState(null);
   const [_loadingSummary, setLoadingSummary] = useState(true);
 
+  const handleOpenCreateModal = () => {
+    if (!isOnline) return;
+    if (isAtLimit) {
+      toast.error(
+        `Free plan limit reached (${groupLimit} groups). Upgrade to Pro for unlimited groups.`
+      );
+      return;
+    }
+    setShowModal(true);
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('add') === 'true' && flags.groupCreation) {
-      setShowModal(true);
+      if (isAtLimit) {
+        toast.error(
+          `Free plan limit reached (${groupLimit} groups). Upgrade to Pro for unlimited groups.`
+        );
+      } else {
+        setShowModal(true);
+      }
     }
-  }, [location.search, flags.groupCreation]);
+  }, [location.search, flags.groupCreation, isAtLimit, groupLimit]);
 
   const groupsUpdatedHash = useMemo(
     () => JSON.stringify(groups.map((g) => g.updatedAt || g._id)),
@@ -90,12 +117,23 @@ const Groups = () => {
       toast.error('Identity sync in progress... please wait a moment.');
       return;
     }
+    if (isAtLimit) {
+      toast.error(
+        `Free plan limit reached (${groupLimit} groups). Upgrade to Pro for unlimited groups.`
+      );
+      return;
+    }
     // Prepare data: self is added automatically by backend, but we send selected friends
     const result = await dispatch(createGroup(form));
     if (result.meta.requestStatus === 'fulfilled') {
       toast.success('Group Created!');
       setShowModal(false);
-      setForm({ name: '', category: 'Other', members: [] });
+      setForm({
+        name: '',
+        category: 'Other',
+        currency: user?.defaultCurrency || 'INR',
+        members: [],
+      });
     } else {
       toast.error(result.payload || 'Failed to create group');
     }
@@ -120,7 +158,7 @@ const Groups = () => {
           <h1 className="font-headline text-3xl font-bold text-white tracking-tight">Groups</h1>
           {flags.groupCreation && (
             <button
-              onClick={() => isOnline && setShowModal(true)}
+              onClick={handleOpenCreateModal}
               disabled={!isOnline}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${!isOnline ? 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed opacity-50 grayscale' : 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/20'}`}
             >
@@ -152,7 +190,7 @@ const Groups = () => {
           </p>
           {flags.groupCreation ? (
             <Button
-              onClick={() => isOnline && setShowModal(true)}
+              onClick={handleOpenCreateModal}
               disabled={!isOnline}
               className={`h-12 px-8 rounded-xl font-bold ${!isOnline ? 'bg-white/5 text-white/20 cursor-not-allowed opacity-50' : 'bg-primary text-on-primary'}`}
             >
@@ -237,6 +275,30 @@ const Groups = () => {
                 );
               })}
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <label
+              htmlFor="group-currency"
+              className="block text-[10px] uppercase tracking-[0.2em] font-black text-white/30 font-label"
+            >
+              Ledger currency
+            </label>
+            <select
+              id="group-currency"
+              value={form.currency}
+              onChange={(event) => setForm({ ...form, currency: event.target.value })}
+              className="h-12 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-sm font-bold text-white outline-none focus:border-primary/50"
+            >
+              <option value="INR">INR · Indian rupee</option>
+              <option value="USD">USD · US dollar</option>
+              <option value="EUR">EUR · Euro</option>
+              <option value="GBP">GBP · British pound</option>
+            </select>
+            <p className="text-[11px] leading-relaxed text-white/30">
+              All expenses in this group use one currency. Existing groups continue to default to
+              INR.
+            </p>
           </div>
 
           <div className="space-y-4">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import Loader from '../components/common/Loader.jsx';
@@ -9,17 +9,19 @@ import Button from '../components/common/Button.jsx';
 import groupService from '../services/groupService.js';
 
 const JoinGroup = () => {
-  const { code } = useParams();
+  const { code, token } = useParams();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
   const [status, setStatus] = useState('processing'); // processing, success, error
   const [error, setError] = useState('');
   const [groupData, setGroupData] = useState(null);
+  const joinAttemptedRef = useRef(false);
 
   useEffect(() => {
     // 1. If not authenticated, store code and redirect to login
     // We trim the code here to ensure it's clean before saving/using
-    const cleanCode = code?.trim();
+    const rawCode = code || token;
+    const cleanCode = rawCode?.trim();
     if (!cleanCode) {
       setStatus('error');
       setError('Invalid invite link.');
@@ -34,6 +36,9 @@ const JoinGroup = () => {
       }, 500);
       return () => clearTimeout(timeout);
     }
+
+    if (joinAttemptedRef.current) return;
+    joinAttemptedRef.current = true;
 
     // 2. Perform the actual join operation
     const joinGroup = async () => {
@@ -51,7 +56,7 @@ const JoinGroup = () => {
     };
 
     joinGroup();
-  }, [code, user, navigate]);
+  }, [code, token, user, navigate]);
 
   if (status === 'processing') {
     return (

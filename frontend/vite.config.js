@@ -17,8 +17,8 @@ const createPwaPlugin = () =>
       filename: 'sw.js',
       includeAssets: ['logo.png', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'PayMatrix',
-        short_name: 'PayMatrix',
+        name: 'paymatrix',
+        short_name: 'paymatrix',
         description: 'Smart Expense Sharing — Simplified.',
         theme_color: '#000000',
         background_color: '#000000',

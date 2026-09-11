@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, UserX, UserCheck, WifiOff, ChevronRight, X, Loader2 } from 'lucide-react';
+import { Search, UserX, UserCheck, WifiOff, ChevronRight, X, Loader2, Crown } from 'lucide-react';
 import adminService from '../../services/adminService.js';
 import Avatar from '../../components/common/Avatar.jsx';
 import Loader from '../../components/common/Loader.jsx';
@@ -18,6 +18,204 @@ const ActionBtn = ({ onClick, icon: Icon, label, accent, loading }) => (
   </button>
 );
 
+const EntitlementBadge = ({ entitlement }) => {
+  const isPro = entitlement?.isPro;
+  const state = entitlement?.state || 'free';
+  const sources = entitlement?.sources || [];
+  const hasLifetime = sources.some((s) => s.lifetime);
+  const hasAdmin = sources.some((s) => s.provider === 'admin');
+
+  if (hasLifetime) {
+    return (
+      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+        <Crown size={10} /> Lifetime
+      </span>
+    );
+  }
+
+  if (isPro) {
+    return (
+      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30 flex items-center gap-1">
+        <Crown size={10} /> {hasAdmin ? 'Admin Pro' : 'Pro Active'}
+      </span>
+    );
+  }
+
+  if (state === 'grace_period') {
+    return (
+      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">
+        Grace
+      </span>
+    );
+  }
+
+  if (state === 'cancelled') {
+    return (
+      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-500/15 text-zinc-300 border border-zinc-500/30">
+        Cancelled
+      </span>
+    );
+  }
+
+  if (state === 'expired') {
+    return (
+      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">
+        Expired
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10">
+      Free
+    </span>
+  );
+};
+
+const GrantProModal = ({ isOpen, onClose, user, onCompleted }) => {
+  const [duration, setDuration] = useState('30d');
+  const [reason, setReason] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  if (!isOpen || !user) return null;
+
+  const hasAdminGrant = user.entitlement?.sources?.some((s) => s.provider === 'admin');
+
+  const handleGrant = async () => {
+    setLoading(true);
+    try {
+      await adminService.grantAdminEntitlement({
+        targetUid: user._id,
+        duration,
+        reason,
+      });
+      toast.success('Admin Pro grant applied');
+      onCompleted();
+      onClose();
+    } catch (err) {
+      toast.error(err.message || 'Failed to apply grant');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRevoke = async () => {
+    setLoading(true);
+    try {
+      await adminService.revokeAdminEntitlement({
+        targetUid: user._id,
+        reason: 'Revoked by admin',
+      });
+      toast.success('Admin Pro grant revoked');
+      onCompleted();
+      onClose();
+    } catch (err) {
+      toast.error(err.message || 'Failed to revoke grant');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="glass-panel w-full max-w-md rounded-2xl border border-white/10 p-6 shadow-2xl">
+        <div className="flex items-center justify-between pb-4 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <Crown size={18} className="text-primary" />
+            <h3 className="font-bold text-white font-manrope">Manage Pro Entitlement</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="py-4 space-y-4">
+          <p className="text-xs text-white/60">
+            Managing entitlement for{' '}
+            <span className="text-white font-medium">{user.name || user.email}</span>
+          </p>
+
+          <div>
+            <label className="block text-[10px] font-bold text-white/70 uppercase tracking-wider mb-2">
+              Duration
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { id: '7d', label: '7 Days' },
+                { id: '30d', label: '30 Days' },
+                { id: '1y', label: '1 Year' },
+                { id: 'lifetime', label: 'Lifetime' },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setDuration(item.id)}
+                  className={`py-2 px-2 rounded-xl text-xs font-semibold border transition-all ${
+                    duration === item.id
+                      ? 'bg-primary text-black border-primary font-bold'
+                      : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-white/70 uppercase tracking-wider mb-2">
+              Reason (Audited)
+            </label>
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Beta tester, customer support, manual promo"
+              className="w-full px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-primary transition-colors"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-4 border-t border-white/10">
+          {hasAdminGrant ? (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={handleRevoke}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+            >
+              Revoke Admin Grant
+            </button>
+          ) : (
+            <div />
+          )}
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="px-3 py-1.5 rounded-xl text-xs text-white/60 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleGrant}
+              disabled={loading}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-black hover:brightness-110 disabled:opacity-50 transition-all"
+            >
+              {loading ? 'Saving…' : 'Apply Grant'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const UserDetailDrawer = ({ user, onClose }) => {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,6 +227,8 @@ const UserDetailDrawer = ({ user, onClose }) => {
       .catch(() => setDetails(null))
       .finally(() => setLoading(false));
   }, [user._id]);
+
+  const sources = user.entitlement?.sources || [];
 
   return (
     <motion.div
@@ -61,9 +261,11 @@ const UserDetailDrawer = ({ user, onClose }) => {
               src={details?.user?.avatar || details?.user?.photoURL || user.avatar || user.photoURL}
               size="md"
             />
-            <div>
-              <p className="font-bold text-white text-sm">{details?.user?.name || '—'}</p>
-              <p className="text-xs text-white/40">{details?.user?.email}</p>
+            <div className="min-w-0">
+              <p className="font-bold text-white text-sm truncate">
+                {details?.user?.name || user.name || '—'}
+              </p>
+              <p className="text-xs text-white/40 truncate">{details?.user?.email || user.email}</p>
             </div>
           </div>
 
@@ -78,7 +280,7 @@ const UserDetailDrawer = ({ user, onClose }) => {
                 : '—',
             },
             { label: 'Friends', value: `${details?.user?.friends?.length ?? 0} connections` },
-            { label: 'Status', value: details?.user?.suspended ? 'Suspended' : 'Active' },
+            { label: 'Status', value: user.suspended ? 'Suspended' : 'Active' },
           ].map((row) => (
             <div
               key={row.label}
@@ -90,6 +292,42 @@ const UserDetailDrawer = ({ user, onClose }) => {
               </span>
             </div>
           ))}
+
+          {/* Entitlement Section */}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-white/30 mb-2">
+              Entitlement Sources ({sources.length})
+            </p>
+            <div className="space-y-2">
+              {sources.map((s, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-xl p-3 border border-white/[0.05] bg-white/[0.02] text-xs space-y-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white uppercase tracking-wider text-[10px]">
+                      {s.provider}
+                    </span>
+                    <span className="text-primary text-[10px] uppercase font-bold">{s.state}</span>
+                  </div>
+                  {s.validUntil && (
+                    <p className="text-white/40 text-[11px]">
+                      Expires: {new Date(s.validUntil).toLocaleDateString('en-IN')}
+                    </p>
+                  )}
+                  {s.lifetime && <p className="text-amber-400/80 text-[11px]">Lifetime grant</p>}
+                  {s.reason && (
+                    <p className="text-white/50 text-[11px] italic">Reason: {s.reason}</p>
+                  )}
+                </div>
+              ))}
+              {sources.length === 0 && (
+                <p className="text-xs text-white/25 italic">
+                  Standard Free Account (No active paid sources)
+                </p>
+              )}
+            </div>
+          </div>
 
           {/* Groups */}
           <div>
@@ -127,24 +365,37 @@ const AdminUsers = () => {
   const [hasMore, setHasMore] = useState(false);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
+  const [grantingUser, setGrantingUser] = useState(null);
   const [acting, setActing] = useState({});
 
   const loadUsers = useCallback(
     async (reset = false) => {
       try {
         reset ? setLoading(true) : setLoadingMore(true);
-        const res = await adminService.getAllUsers(20, reset ? null : lastDoc);
+        const res = await adminService.listUsersWithEntitlements(
+          20,
+          reset ? null : lastDoc,
+          search
+        );
         setUsers((prev) => (reset ? res.users : [...prev, ...res.users]));
-        setLastDoc(res.lastDoc);
+        setLastDoc(res.lastDocId);
         setHasMore(res.hasMore);
       } catch (e) {
-        toast.error('Failed to load users');
+        // Graceful fallback to legacy user list if callable is not yet deployed
+        try {
+          const fallback = await adminService.getAllUsers(20, reset ? null : lastDoc);
+          setUsers((prev) => (reset ? fallback.users : [...prev, ...fallback.users]));
+          setLastDoc(fallback.lastDoc);
+          setHasMore(fallback.hasMore);
+        } catch {
+          toast.error('Failed to load users');
+        }
       } finally {
         setLoading(false);
         setLoadingMore(false);
       }
     },
-    [lastDoc]
+    [lastDoc, search]
   );
 
   useEffect(() => {
@@ -200,9 +451,10 @@ const AdminUsers = () => {
       ) : (
         <div className="rounded-2xl overflow-hidden bg-surface-container-low border border-white/5 shadow-xl">
           {/* Table header */}
-          <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white/25 border-b border-white/[0.04] bg-white/[0.01]">
+          <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white/25 border-b border-white/[0.04] bg-white/[0.01]">
             <span className="w-9" />
             <span>User</span>
+            <span>Plan</span>
             <span className="hidden sm:block">Joined</span>
             <span>Actions</span>
           </div>
@@ -213,7 +465,7 @@ const AdminUsers = () => {
                 key={user._id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center px-4 py-3 hover:bg-white/[0.02] transition-colors"
+                className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 items-center px-4 py-3 hover:bg-white/[0.02] transition-colors"
               >
                 <Avatar name={user.name} src={user.avatar || user.photoURL} size="sm" />
                 <div className="min-w-0">
@@ -229,6 +481,11 @@ const AdminUsers = () => {
                   </div>
                   <p className="text-xs text-white/35 truncate">{user.email}</p>
                 </div>
+
+                <div>
+                  <EntitlementBadge entitlement={user.entitlement} />
+                </div>
+
                 <span className="hidden sm:block text-xs text-white/30 whitespace-nowrap">
                   {user.createdAt
                     ? new Date(user.createdAt).toLocaleDateString('en-IN', {
@@ -238,7 +495,15 @@ const AdminUsers = () => {
                       })
                     : '—'}
                 </span>
+
                 <div className="flex items-center gap-1.5">
+                  <ActionBtn
+                    onClick={() => setGrantingUser(user)}
+                    icon={Crown}
+                    label="Manage Pro Entitlement"
+                    accent="#a855f7"
+                  />
+
                   {user.suspended ? (
                     <ActionBtn
                       onClick={() =>
@@ -260,6 +525,7 @@ const AdminUsers = () => {
                       loading={acting[`${user._id}_suspend`]}
                     />
                   )}
+
                   <ActionBtn
                     onClick={() =>
                       act(user._id, 'clearFCM', () => adminService.clearUserFCM(user._id))
@@ -269,6 +535,7 @@ const AdminUsers = () => {
                     accent="#eab308"
                     loading={acting[`${user._id}_clearFCM`]}
                   />
+
                   <button
                     onClick={() => setSelected(user)}
                     className="p-2 rounded-xl hover:bg-white/8 text-white/30 hover:text-white/60 transition-colors"
@@ -297,6 +564,14 @@ const AdminUsers = () => {
           )}
         </div>
       )}
+
+      {/* Grant/Revoke Pro Modal */}
+      <GrantProModal
+        isOpen={Boolean(grantingUser)}
+        user={grantingUser}
+        onClose={() => setGrantingUser(null)}
+        onCompleted={() => loadUsers(true)}
+      />
 
       {/* Detail drawer */}
       <AnimatePresence>

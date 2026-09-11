@@ -1,0 +1,555 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
+package com.paymatrix.app.ui
+
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
+import com.paymatrix.app.PayMatrixState
+import com.paymatrix.app.PayMatrixViewModel
+import com.paymatrix.app.data.ActivityItem
+import com.paymatrix.app.data.AppNotification
+import com.paymatrix.app.data.UserProfile
+import androidx.activity.compose.BackHandler
+import com.paymatrix.app.domain.Money
+
+@Composable
+fun FriendsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
+    var code by remember { mutableStateOf("") }
+    var remove by remember { mutableStateOf<UserProfile?>(null) }
+    var selectedFriend by remember { mutableStateOf<UserProfile?>(null) }
+    var inviteOpen by remember { mutableStateOf(false) }
+    var tab by remember { mutableIntStateOf(0) }
+    val clipboard = LocalClipboardManager.current
+    val pendingRequestsCount = state.friendRequests.count { it.to == state.user?.uid }
+
+    BackHandler(enabled = inviteOpen || selectedFriend != null || remove != null) {
+        when {
+            remove != null -> remove = null
+            selectedFriend != null -> selectedFriend = null
+            inviteOpen -> inviteOpen = false
+        }
+    }
+
+    LaunchedEffect(state.user?.uid) { vm.observeFriends() }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = AppSpacing.pagePadding,
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Friends", style = MaterialTheme.typography.headlineLarge, color = Ink)
+                    Spacer(Modifier.height(3.dp))
+                    Text("People you share expenses with", color = QuietText, style = MaterialTheme.typography.bodyMedium)
+                }
+                Button(
+                    enabled = !LocalActionBusy.current,
+                    onClick = { inviteOpen = !inviteOpen },
+                    shape = RoundedCornerShape(999.dp),
+                    colors = if (inviteOpen) ButtonDefaults.buttonColors(containerColor = ActionContainer, contentColor = ActionContent)
+                             else ButtonDefaults.buttonColors(containerColor = RaisedSurface, contentColor = Ink),
+                    border = if (inviteOpen) null else androidx.compose.foundation.BorderStroke(1.dp, Hairline),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 7.dp)
+                ) {
+                    Icon(if (inviteOpen) Icons.Default.Close else Icons.Default.Add, null, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text(if (inviteOpen) "HIDE" else "ADD FRIEND", fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 0.5.sp)
+                }
+            }
+        }
+
+        if (inviteOpen) item {
+            ObsidianCard(contentPadding = PaddingValues(18.dp)) {
+                Text("YOUR FRIEND CODE", color = QuietText, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                        .background(Ink.copy(alpha = .04f))
+                        .border(1.dp, Hairline, RoundedCornerShape(16.dp))
+                        .clickable { clipboard.setText(AnnotatedString(state.user?.friendCode.orEmpty())) }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        state.user?.friendCode?.chunked(4)?.joinToString(" ")?.ifBlank { "GENERATING" } ?: "GENERATING",
+                        Modifier.weight(1f),
+                        color = Ink,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 20.sp,
+                        letterSpacing = 2.sp
+                    )
+                    Icon(Icons.Default.ContentCopy, "Copy code", tint = Ink.copy(alpha = .6f), modifier = Modifier.size(18.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Shield, null, tint = Positive, modifier = Modifier.size(13.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Peer-to-peer friend code active", color = Positive.copy(alpha = .8f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+                HorizontalDivider(color = Hairline)
+                Text("ADD FRIEND BY CODE", color = QuietText, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                FormField(
+                    value = code,
+                    onValueChange = { code = it.uppercase().filter { ch -> ch.isLetterOrDigit() }.take(8) },
+                    label = "Enter their 8-character code",
+                    leading = { Icon(Icons.Default.Tag, null, tint = MutedText) }
+                )
+                PrimaryAction(
+                    label = "Send connection request",
+                    onClick = { vm.sendFriendRequest(code); code = "" },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = code.length == 8,
+                    icon = { Icon(Icons.Default.Send, null, Modifier.size(16.dp)) }
+                )
+            }
+        }
+
+        item {
+            Spacer(Modifier.height(AppSpacing.section))
+            TabRow(
+                selectedTabIndex = tab,
+                containerColor = Color.Transparent,
+                contentColor = Ink,
+                divider = { HorizontalDivider(color = Hairline) },
+                indicator = { tabPositions ->
+                    if (tab < tabPositions.size) {
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[tab]),
+                            color = Ink,
+                            height = 2.5.dp
+                        )
+                    }
+                }
+            ) {
+                Tab(
+                    selected = tab == 0,
+                    onClick = { tab = 0 },
+                    text = {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Friends",
+                                fontSize = 14.sp,
+                                fontWeight = if (tab == 0) FontWeight.Bold else FontWeight.Medium,
+                                color = if (tab == 0) Ink else Ink.copy(alpha = .4f)
+                            )
+                            Box(
+                                Modifier.clip(RoundedCornerShape(8.dp))
+                                    .background(if (tab == 0) Ink.copy(alpha = .12f) else Ink.copy(alpha = .04f))
+                                    .border(1.dp, Hairline, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 7.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    state.friends.size.toString(),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (tab == 0) Ink else QuietText
+                                )
+                            }
+                        }
+                    }
+                )
+                Tab(
+                    selected = tab == 1,
+                    onClick = { tab = 1 },
+                    text = {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Requests",
+                                fontSize = 14.sp,
+                                fontWeight = if (tab == 1) FontWeight.Bold else FontWeight.Medium,
+                                color = if (tab == 1) Ink else Ink.copy(alpha = .4f)
+                            )
+                            Box(
+                                Modifier.clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (pendingRequestsCount > 0) PrimaryBlue
+                                        else if (tab == 1) Ink.copy(alpha = .12f)
+                                        else Ink.copy(alpha = .04f)
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (pendingRequestsCount > 0) PrimaryBlue else Hairline,
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(horizontal = 7.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    state.friendRequests.size.toString(),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (pendingRequestsCount > 0) Ink else if (tab == 1) Ink else QuietText
+                                )
+                            }
+                        }
+                    }
+                )
+            }
+        }
+
+        if (tab == 1) {
+            listOf(true, false).forEach { incoming ->
+                val requests = state.friendRequests.filter { (it.to == state.user?.uid) == incoming }
+                item {
+                    Spacer(Modifier.height(14.dp))
+                    SectionTitle(if (incoming) "Incoming requests" else "Outgoing requests", "${requests.size} pending")
+                }
+                if (requests.isEmpty()) item {
+                    Text("No ${if (incoming) "incoming" else "outgoing"} requests", color = QuietText, fontSize = 13.sp, modifier = Modifier.padding(vertical = 10.dp))
+                }
+                items(requests, key = { it.id }) { request ->
+                    ObsidianCard(contentPadding = PaddingValues(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            UserAvatar(request.profile, 44)
+                            Spacer(Modifier.width(14.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(request.profile?.name ?: "Member", color = Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    if (incoming) "Wants to connect" else "Outgoing request pending",
+                                    color = QuietText,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            if (incoming) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    // Accept: Circular White Pill
+                                    Box(
+                                        Modifier.size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White)
+                                            .clickable(enabled = !LocalActionBusy.current) { vm.respond(request, true) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Check, "Accept request", tint = Color(0xFF09090B), modifier = Modifier.size(20.dp))
+                                    }
+                                    // Decline: Circular Dark Pill
+                                    Box(
+                                        Modifier.size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(RaisedSurface)
+                                            .border(1.dp, Hairline, CircleShape)
+                                            .clickable(enabled = !LocalActionBusy.current) { vm.respond(request, false) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Close, "Decline request", tint = Ink.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            } else {
+                                Box(
+                                    Modifier.size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(RaisedSurface)
+                                        .border(1.dp, Hairline, CircleShape)
+                                        .clickable(enabled = !LocalActionBusy.current) { vm.cancelFriendRequest(request) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Close, "Cancel request", tint = Ink.copy(alpha = 0.6f), modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            if (state.friends.isEmpty()) item {
+                EmptyState("No friends added yet", "Tap 'ADD FRIEND' above to share your code or connect with friends.")
+            }
+            item {
+                Spacer(Modifier.height(10.dp))
+            }
+            items(state.friends, key = { it.uid }) { friend ->
+                val sharedGroups = state.groups.count { friend.uid in it.members }
+                ObsidianCard(
+                    modifier = Modifier.clickable { selectedFriend = friend }.padding(bottom = 8.dp),
+                    contentPadding = PaddingValues(16.dp)
+                ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        UserAvatar(friend, 44)
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(friend.name, color = Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(3.dp))
+                            Text("$sharedGroups shared group${if (sharedGroups == 1) "" else "s"}", color = QuietText, fontSize = 12.sp)
+                        }
+                        Icon(Icons.Default.ChevronRight, "View friend details", tint = Ink.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+        }
+    }
+
+    selectedFriend?.let { friend ->
+        FriendDetailDialog(
+            friend = friend,
+            state = state,
+            nav = nav,
+            onDismiss = { selectedFriend = null },
+            onRemove = {
+                selectedFriend = null
+                remove = friend
+            }
+        )
+    }
+
+    remove?.let { friend ->
+        ConfirmDialog(
+            title = "Remove friend?",
+            message = "Remove ${friend.name} from your friends? Shared group history remains intact.",
+            confirm = "Remove",
+            onDismiss = { remove = null },
+            destructive = true
+        ) {
+            vm.removeFriend(friend.uid) { remove = null }
+        }
+    }
+}
+
+@Composable
+private fun FriendDetailDialog(
+    friend: UserProfile,
+    state: PayMatrixState,
+    nav: NavHostController,
+    onDismiss: () -> Unit,
+    onRemove: () -> Unit
+) {
+    val sharedGroups = state.groups.filter { friend.uid in it.members }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = ModalSurface,
+        shape = RoundedCornerShape(28.dp),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                UserAvatar(friend, 48)
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(friend.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Ink)
+                    if (friend.friendCode.isNotBlank()) {
+                        Text("Code: ${friend.friendCode}", color = QuietText, fontSize = 12.sp)
+                    }
+                }
+            }
+        },
+        text = {
+            Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                HorizontalDivider(color = Hairline)
+                Text("SHARED GROUPS & SETTLEMENTS", color = QuietText, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                if (sharedGroups.isEmpty()) {
+                    Text("No shared groups with ${friend.name} yet.", color = MutedText, fontSize = 12.sp)
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        sharedGroups.forEach { group ->
+                            val balance = state.summary.groupBalances[group.id] ?: 0L
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                                    .background(Ink.copy(alpha = .04f))
+                                    .border(1.dp, Hairline, RoundedCornerShape(14.dp))
+                                    .clickable {
+                                        onDismiss()
+                                        nav.navigate("group/${group.id}")
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    Modifier.size(34.dp).clip(CircleShape).background(categoryColor(group.category).copy(alpha = .12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(categoryIcon(group.category), null, tint = categoryColor(group.category), modifier = Modifier.size(16.dp))
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(group.name, color = Ink, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text("${group.members.size} members", color = QuietText, fontSize = 12.sp)
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = when {
+                                            balance > 0 -> "+${Money.format(balance)}"
+                                            balance < 0 -> "−${Money.format(kotlin.math.abs(balance))}"
+                                            else -> "₹0.00"
+                                        },
+                                        color = when {
+                                            balance > 0 -> Positive
+                                            balance < 0 -> Negative
+                                            else -> QuietText
+                                        },
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                Spacer(Modifier.width(6.dp))
+                                Icon(Icons.Default.ChevronRight, null, tint = QuietText, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+                HorizontalDivider(color = Hairline)
+                OutlinedButton(enabled = !LocalActionBusy.current,
+                    onClick = onRemove,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Negative.copy(alpha = .4f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Negative)
+                ) {
+                    Icon(Icons.Default.PersonRemove, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Remove friend", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(enabled = !LocalActionBusy.current, onClick = onDismiss) {
+                Text("Close", color = Ink.copy(alpha = .7f))
+            }
+        }
+    )
+}
+
+@Composable
+fun ActivityScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
+    LaunchedEffect(Unit) { vm.loadActivity() }
+    var loadingEarlierNotifs by remember { mutableStateOf(false) }
+    var hasMoreNotifs by remember { mutableStateOf(true) }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = AppSpacing.pagePadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { PageTitle("Activity", "Your financial narrative, curated.") { IconButton(enabled = !LocalActionBusy.current, onClick = { vm.loadActivity() }) { Icon(Icons.Default.Refresh, "Refresh") } } }
+        if (state.notifications.isEmpty() && state.activity.isEmpty()) item { EmptyState("Nothing here yet", "Expenses, settlements, members, and alerts will appear here.") }
+        if (state.notifications.any { !it.isRead }) item { TextButton(enabled = !LocalActionBusy.current, onClick = { vm.markAllRead() }) { Text("Mark all notifications read") } }
+        items(state.notifications, key = { "notification_${it.id}" }) { notification -> NotificationTimelineRow(notification) { if (!notification.isRead) vm.markRead(notification.id); nav.navigate(com.paymatrix.app.data.NotificationDestination.resolve(notification.type, notification.groupId, notification.url)) { launchSingleTop = true } } }
+        if (state.notifications.isNotEmpty() && hasMoreNotifs) item {
+            Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                OutlinedButton(
+                    onClick = {
+                        loadingEarlierNotifs = true
+                        vm.loadEarlierNotifications { more ->
+                            loadingEarlierNotifs = false
+                            hasMoreNotifs = more
+                        }
+                    },
+                    enabled = !loadingEarlierNotifs && !LocalActionBusy.current,
+                    shape = RoundedCornerShape(999.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Hairline),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink)
+                ) {
+                    Text(if (loadingEarlierNotifs) "Loading earlier…" else "Load earlier notifications", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+        items(state.activity, key = { "audit_${it.id}_${it.groupId}" }) { activity -> AuditTimelineRow(activity) { activity.groupId.takeIf { it.isNotBlank() }?.let { nav.navigate("group/$it") } } }
+    }
+}
+
+@Composable private fun NotificationTimelineRow(item: AppNotification, onClick: () -> Unit) {
+    ObsidianCard(Modifier.clickable(onClick = onClick)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(CircleShape).background(if (item.isRead) Ink.copy(alpha = .05f) else Ink), contentAlignment = Alignment.Center) { Icon(Icons.Default.Notifications, null, tint = if (item.isRead) MutedText else CanvasBlack, modifier = Modifier.size(18.dp)) }
+            Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(item.title.ifBlank { "paymatrix" }, color = Ink, fontWeight = FontWeight.Bold); Text(item.message, color = MutedText, maxLines = 2, overflow = TextOverflow.Ellipsis); Text(shortDate(item.createdAt), color = QuietText, fontSize = 12.sp) }
+            if (!item.isRead) Box(Modifier.size(7.dp).clip(CircleShape).background(Ink))
+        }
+    }
+}
+
+@Composable private fun AuditTimelineRow(item: ActivityItem, onClick: () -> Unit) {
+    ObsidianCard(Modifier.clickable(onClick = onClick)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(CircleShape).background(Ink.copy(alpha = .08f)), contentAlignment = Alignment.Center) { Icon(if (item.type.contains("settlement")) Icons.Default.Payments else if (item.type.contains("member")) Icons.Default.GroupAdd else Icons.Default.ReceiptLong, null, tint = MutedText, modifier = Modifier.size(18.dp)) }
+            Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(item.message, color = Ink, fontWeight = FontWeight.SemiBold); Text(shortDate(item.createdAt), color = QuietText, fontSize = 12.sp) }; Icon(Icons.Default.ChevronRight, null, tint = QuietText)
+        }
+    }
+}
+
+@Composable
+fun AnalyticsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
+    LaunchedEffect(Unit) { vm.loadAnalytics() }
+    val analytics = state.analytics
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = AppSpacing.pagePadding, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { PageTitle("Analytics", "Your spending intelligence") { IconButton(enabled = !LocalActionBusy.current, onClick = { vm.loadAnalytics() }) { Icon(Icons.Default.Refresh, "Refresh") } } }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { BalanceCard("Total shared", analytics.summary.totalSharedPaise, true, Modifier.weight(1f)); BalanceCard("Net balance", analytics.summary.netBalancePaise, true, Modifier.weight(1f)) } }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { MetricTile("EXPENSES", analytics.expenseCount.toString(), Modifier.weight(1f)); MetricTile("SETTLEMENTS", analytics.settlementCount.toString(), Modifier.weight(1f)) } }
+        item { SectionTitle("Spending trend", "Recent months") }
+        item { ObsidianCard { SpendingBars(analytics.trends.map { it.label to it.amountPaise }) } }
+        item { SectionTitle("Categories", "Your actual share") }
+        val max = analytics.summary.categories.maxOfOrNull { it.amountPaise }?.coerceAtLeast(1L) ?: 1L
+        items(analytics.summary.categories, key = { it.name }) { category -> ObsidianCard { Row { Icon(categoryIcon(category.name), null, tint = MutedText); Spacer(Modifier.width(10.dp)); Text(category.name, Modifier.weight(1f), color = Ink, fontWeight = FontWeight.SemiBold); Text(Money.format(category.amountPaise), color = Ink, style = TextStyle(fontFeatureSettings = "tnum")) }; LinearProgressIndicator({ category.amountPaise.toFloat() / max }, Modifier.fillMaxWidth(), color = Ink, trackColor = Ink.copy(alpha = .08f)) } }
+    }
+}
+
+@Composable private fun MetricTile(label: String, value: String, modifier: Modifier) { ObsidianCard(modifier) { Text(label, color = QuietText, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp); Text(value, color = Ink, fontWeight = FontWeight.Black, fontSize = 28.sp, style = TextStyle(fontFeatureSettings = "tnum")) } }
+
+@Composable private fun SpendingBars(points: List<Pair<String, Long>>) {
+    val max = points.maxOfOrNull { it.second }?.coerceAtLeast(1L) ?: 1L
+    if (points.isEmpty()) { EmptyState("Not enough data", "Add expenses to reveal a trend."); return }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { points.takeLast(6).forEach { (label, value) -> Row(verticalAlignment = Alignment.CenterVertically) { Text(label, color = QuietText, fontSize = 12.sp, modifier = Modifier.width(44.dp)); Box(Modifier.weight(1f).height(8.dp).clip(CircleShape).background(Ink.copy(alpha = .06f))) { Box(Modifier.fillMaxHeight().fillMaxWidth(value.toFloat() / max).clip(CircleShape).background(Ink)) }; Spacer(Modifier.width(8.dp)); Text(Money.format(value), color = MutedText, fontSize = 12.sp, style = TextStyle(fontFeatureSettings = "tnum")) } } }
+}
+
+@Composable
+fun NotificationsScreen(state: PayMatrixState, vm: PayMatrixViewModel, nav: NavHostController) {
+    val context = LocalContext.current
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) vm.enablePush(context) }
+    LaunchedEffect(Unit) { vm.loadNotifications() }
+    var loadingEarlier by remember { mutableStateOf(false) }
+    var hasMore by remember { mutableStateOf(true) }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = AppSpacing.pagePadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { PageTitle("Notifications", "Device and account alerts") }
+        item { PrimaryAction("Enable push on this device", { if (Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS) else vm.enablePush(context) }, Modifier.fillMaxWidth(), icon = { Icon(Icons.Default.NotificationsActive, null, Modifier.size(17.dp)) }) }
+        if (state.notifications.any { !it.isRead }) item { SecondaryAction("Mark all read", { vm.markAllRead() }, Modifier.fillMaxWidth()) }
+        items(state.notifications, key = { it.id }) { item -> NotificationTimelineRow(item) { if (!item.isRead) vm.markRead(item.id); nav.navigate(com.paymatrix.app.data.NotificationDestination.resolve(item.type, item.groupId, item.url)) { launchSingleTop = true } } }
+        if (state.notifications.isNotEmpty() && hasMore) item {
+            Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                OutlinedButton(
+                    onClick = {
+                        loadingEarlier = true
+                        vm.loadEarlierNotifications { more ->
+                            loadingEarlier = false
+                            hasMore = more
+                        }
+                    },
+                    enabled = !loadingEarlier && !LocalActionBusy.current,
+                    shape = RoundedCornerShape(999.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Hairline),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink)
+                ) {
+                    Text(if (loadingEarlier) "Loading earlier…" else "Load earlier", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+}

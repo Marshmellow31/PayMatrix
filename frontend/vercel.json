@@ -4,6 +4,15 @@
   ],
   "headers": [
     {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store, max-age=0"
+        }
+      ]
+    },
+    {
       "source": "/assets/(.*)",
       "headers": [
         {
@@ -42,7 +51,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' https://apis.google.com https://www.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com wss://*.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https://*.googleusercontent.com https://uxwing.com; frame-src https://paymatrix-174b5.firebaseapp.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'none'; script-src 'self' https://apis.google.com https://www.gstatic.com https://checkout.razorpay.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com wss://*.googleapis.com https://fonts.gstatic.com https://*.razorpay.com; img-src 'self' data: https://*.googleusercontent.com https://uxwing.com https://*.razorpay.com; frame-src https://paymatrix-174b5.firebaseapp.com https://apis.google.com https://*.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
         }
       ]
     }

@@ -11,8 +11,7 @@
  * - Field validation happens server-side, so clients can't inject bad data.
  */
 import { useState, useCallback } from 'react';
-import { db, auth } from '../config/firebase.js';
-import { collection, addDoc } from 'firebase/firestore';
+import { auth } from '../config/firebase.js';
 
 const SCAN_API_URL = import.meta.env.VITE_SCAN_API_URL || '/api/scan-bill';
 
@@ -66,12 +65,12 @@ const fileToCompressedBase64 = async (file) => {
 
 export const useBillScanner = () => {
   const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState(null);
+  const [usage, setUsage] = useState(null);
 
   const scanBill = useCallback(async (files) => {
     setScanning(true);
-    const started = Date.now();
-    let errorMsg = null;
-    let parsed = null;
+    setError(null);
 
     try {
       const fileArray = Array.isArray(files) ? files : [files];
@@ -90,12 +89,18 @@ export const useBillScanner = () => {
       });
 
       if (!response.ok) {
-        const errText = await response.text().catch(() => '');
-        throw new Error(errText || `Server responded with status ${response.status}`);
+        const payload = await response.json().catch(() => ({}));
+        const failure = new Error(
+          payload.error || `Server responded with status ${response.status}`
+        );
+        failure.code = payload.code || 'SCAN_FAILED';
+        failure.usage = payload.usage || null;
+        throw failure;
       }
 
-      parsed = await response.json();
+      const parsed = await response.json();
       if (!parsed) return null;
+      setUsage(parsed.usage || null);
 
       return {
         amount: parsed.amount,
@@ -106,29 +111,19 @@ export const useBillScanner = () => {
         items: parsed.items || [],
       };
     } catch (err) {
-      errorMsg = err?.message ?? String(err);
-      console.error('[useBillScanner] scanBill failed:', errorMsg);
-      return null;
+      const failure = {
+        code: err?.code || 'SCAN_FAILED',
+        message: err?.message || 'Bill scanning failed. Please try again.',
+        usage: err?.usage || null,
+      };
+      setError(failure);
+      if (failure.usage) setUsage(failure.usage);
+      console.error('[useBillScanner] scanBill failed:', failure.code);
+      return { error: failure };
     } finally {
-      // Log requests directly to Firestore (Spark free plan allows direct writes)
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        const duration = Date.now() - started;
-        addDoc(collection(db, 'ai_requests'), {
-          uid: currentUser.uid,
-          status: errorMsg ? 'failed' : 'passed',
-          duration,
-          timestamp: new Date().toISOString(),
-          parsedAmount: parsed?.amount ?? null,
-          itemsCount: parsed?.items?.length ?? 0,
-          error: errorMsg ?? null,
-          model: 'gemini-3.1-flash-lite',
-        }).catch((e) => console.error('[useBillScanner] Failed to write ai_requests log:', e));
-      }
-
       setScanning(false);
     }
   }, []);
 
-  return { scanBill, scanning };
+  return { scanBill, scanning, error, usage };
 };

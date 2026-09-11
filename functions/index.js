@@ -197,7 +197,210 @@ exports.adminManageUser = onCall(
         throw new HttpsError("invalid-argument", `Unknown action: ${action}`);
     }
 
+    await db.collection("admin_security_audit").add({
+      actorUid: request.auth.uid,
+      targetUid: uid,
+      action,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
     console.log(`[ADMIN_MANAGE] uid=${uid} action=${action} by=${request.auth.uid}`);
+    return { success: true };
+  }
+);
+
+// ─── Admin: Entitlement Management ──────────────────────────────────────────
+
+function resolveAdminEffectiveEntitlement(sources, now = Date.now()) {
+  const list = Array.isArray(sources) ? sources : [];
+  const valid = list.filter((s) => {
+    if (!s || s.revokedAt) return false;
+    if (s.lifetime === true) return true;
+    if (s.validUntil) return new Date(s.validUntil).getTime() > now;
+    return s.state === 'active';
+  });
+  if (valid.length > 0) {
+    const allCancelled = valid.every((s) => s.state === 'cancelled' || s.cancelAtPeriodEnd);
+    return { isPro: true, state: allCancelled ? 'cancelled' : 'active' };
+  }
+  const grace = list.filter((s) => {
+    if (!s || s.revokedAt) return false;
+    return s.state === 'grace_period' && s.graceUntil && new Date(s.graceUntil).getTime() > now;
+  });
+  if (grace.length > 0) return { isPro: true, state: 'grace_period' };
+  const hasCancelled = list.some((s) => s.state === 'cancelled' && !s.revokedAt);
+  if (hasCancelled) return { isPro: false, state: 'cancelled' };
+  const hasExpired = list.some((s) => (s.state === 'expired' || s.state === 'grace_period') && !s.revokedAt);
+  if (hasExpired) return { isPro: false, state: 'expired' };
+  return { isPro: false, state: 'free' };
+}
+
+exports.adminListUsersWithEntitlements = onCall(
+  { memory: '256MiB' },
+  async (request) => {
+    requireVerifiedAdmin(request);
+
+    const { pageSize = 20, startAfterId = null, search = '' } = request.data || {};
+    const db = admin.firestore();
+    const limitCount = Math.min(Math.max(1, Number(pageSize) || 20), 50);
+
+    let q = db.collection('users').orderBy('createdAt', 'desc').limit(limitCount);
+    if (startAfterId) {
+      const startAfterSnap = await db.collection('users').doc(startAfterId).get();
+      if (startAfterSnap.exists) {
+        q = q.startAfter(startAfterSnap);
+      }
+    }
+
+    const snap = await q.get();
+    const rawUsers = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
+
+    const queryTerm = String(search || '').trim().toLowerCase();
+    const filteredUsers = queryTerm
+      ? rawUsers.filter(
+          (u) =>
+            (u.name || '').toLowerCase().includes(queryTerm) ||
+            (u.email || '').toLowerCase().includes(queryTerm)
+        )
+      : rawUsers;
+
+    const userSummaries = await Promise.all(
+      filteredUsers.map(async (u) => {
+        const entSnap = await db.doc(`entitlements/${u._id}`).get();
+        const entData = entSnap.exists ? entSnap.data() : null;
+        const sources = Array.isArray(entData?.sources) ? entData.sources : [];
+        const effective = resolveAdminEffectiveEntitlement(sources);
+
+        return {
+          _id: u._id,
+          name: u.name || u.displayName || 'Unknown',
+          email: u.email || '',
+          createdAt: u.createdAt || null,
+          suspended: Boolean(u.suspended),
+          entitlement: {
+            isPro: effective.isPro,
+            state: effective.state,
+            sources: sources.map((s) => ({
+              provider: s.provider,
+              providerId: s.providerId || '',
+              state: s.state,
+              validUntil: s.validUntil || null,
+              lifetime: Boolean(s.lifetime),
+              grantedAt: s.grantedAt || null,
+              reason: s.reason || '',
+            })),
+          },
+        };
+      })
+    );
+
+    const lastDocId = rawUsers[rawUsers.length - 1]?._id || null;
+    const hasMore = rawUsers.length === limitCount;
+
+    return { users: userSummaries, lastDocId, hasMore };
+  }
+);
+
+exports.adminManageEntitlement = onCall(
+  { memory: '256MiB' },
+  async (request) => {
+    requireVerifiedAdmin(request);
+
+    const { targetUid, action, duration, customExpiry, reason } = request.data || {};
+    if (!targetUid) throw new HttpsError('invalid-argument', 'targetUid is required.');
+    if (!['grant', 'revoke'].includes(action)) {
+      throw new HttpsError('invalid-argument', "action must be 'grant' or 'revoke'.");
+    }
+
+    const db = admin.firestore();
+    const userRef = db.doc(`users/${targetUid}`);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) throw new HttpsError('not-found', 'Target user not found.');
+
+    const now = Date.now();
+    let expiryTimestamp = null;
+    let isLifetime = false;
+
+    if (action === 'grant') {
+      if (duration === '7d') {
+        expiryTimestamp = now + 7 * 86400000;
+      } else if (duration === '30d') {
+        expiryTimestamp = now + 30 * 86400000;
+      } else if (duration === '1y') {
+        expiryTimestamp = now + 365 * 86400000;
+      } else if (duration === 'lifetime') {
+        isLifetime = true;
+      } else if (duration === 'custom') {
+        const parsed = new Date(customExpiry).getTime();
+        if (!Number.isFinite(parsed) || parsed <= now) {
+          throw new HttpsError('invalid-argument', 'Valid future customExpiry date is required.');
+        }
+        expiryTimestamp = parsed;
+      } else {
+        throw new HttpsError('invalid-argument', 'Invalid grant duration.');
+      }
+    }
+
+    const entRef = db.doc(`entitlements/${targetUid}`);
+
+    await db.runTransaction(async (transaction) => {
+      const entDoc = await transaction.get(entRef);
+      const current = entDoc.exists ? entDoc.data() : {};
+      const sources = Array.isArray(current.sources) ? [...current.sources] : [];
+
+      if (action === 'grant') {
+        const adminSource = {
+          provider: 'admin',
+          providerId: 'admin_grant',
+          state: 'active',
+          status: 'active',
+          grantedBy: request.auth.uid,
+          grantedAt: new Date(now).toISOString(),
+          lifetime: isLifetime,
+          validUntil: isLifetime ? null : new Date(expiryTimestamp).toISOString(),
+          reason: String(reason || '').trim().slice(0, 200),
+          updatedAt: new Date(now).toISOString(),
+        };
+
+        const existingAdminIndex = sources.findIndex((s) => s.provider === 'admin');
+        if (existingAdminIndex >= 0) {
+          sources[existingAdminIndex] = adminSource;
+        } else {
+          sources.push(adminSource);
+        }
+      } else if (action === 'revoke') {
+        const existingAdminIndex = sources.findIndex((s) => s.provider === 'admin');
+        if (existingAdminIndex >= 0) {
+          sources.splice(existingAdminIndex, 1);
+        }
+      }
+
+      const effective = resolveAdminEffectiveEntitlement(sources, now);
+
+      transaction.set(
+        entRef,
+        {
+          state: effective.state,
+          isPro: effective.isPro,
+          sources,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      const auditRef = db.collection('admin_entitlement_audit').doc();
+      transaction.create(auditRef, {
+        actorUid: request.auth.uid,
+        targetUid,
+        action,
+        duration: duration || null,
+        expiry: isLifetime ? 'lifetime' : (expiryTimestamp ? new Date(expiryTimestamp).toISOString() : null),
+        reason: String(reason || '').trim().slice(0, 200),
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+
+    console.log(`[ADMIN_ENTITLEMENT] target=${targetUid} action=${action} by=${request.auth.uid}`);
     return { success: true };
   }
 );
@@ -227,6 +430,7 @@ exports.getAdminStats = onCall(
       activeGroups,
       recentSecurity,
       recentNotifs,
+      proUsersCount,
     ] = await Promise.all([
       db.collection("users").count().get(),
       db.collection("groups").count().get(),
@@ -238,6 +442,7 @@ exports.getAdminStats = onCall(
       db.collection("groups").where("status", "==", "active").count().get(),
       db.collection("security_logs").where("timestamp", ">=", sevenDaysAgo.toISOString()).count().get(),
       db.collection("notifications").where("createdAt", ">=", thirtyDaysAgo.toISOString()).count().get(),
+      db.collection("entitlements").where("isPro", "==", true).count().get(),
     ]);
 
     // User signup trend — one count per day for the last 7 days
@@ -260,8 +465,14 @@ exports.getAdminStats = onCall(
       });
     }
 
+    const totalUsers = usersCount.data().count;
+    const totalPro = proUsersCount.data().count;
+    const totalFree = Math.max(0, totalUsers - totalPro);
+
     return {
-      totalUsers:             usersCount.data().count,
+      totalUsers,
+      totalProUsers:          totalPro,
+      totalFreeUsers:         totalFree,
       totalGroups:            groupsCount.data().count,
       activeGroups:           activeGroups.data().count,
       totalNotifications:     notifCount.data().count,

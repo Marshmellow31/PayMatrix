@@ -1,0 +1,27 @@
+{
+  "name": "paymatrix-launch",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "remotion preview src/index.ts",
+    "build": "remotion render src/index.ts paymatrix-Shared-Moments renders/paymatrix-Shared-Moments.mp4 --crf=17 --image-format=png --color-space=bt709",
+    "render": "remotion render src/index.ts paymatrix-Shared-Moments renders/paymatrix-Shared-Moments.mp4 --crf=17 --image-format=png --color-space=bt709",
+    "render:legacy": "remotion render src/index.ts PayMatrix-Launch renders/PayMatrix-Launch.mp4",
+    "typecheck": "tsc --noEmit",
+    "audio": "python scripts/make-soundtrack.py",
+    "still": "remotion still src/index.ts"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.521",
+    "lucide-react": "^1.16.0",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.521"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

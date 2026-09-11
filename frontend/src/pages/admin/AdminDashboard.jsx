@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Activity,
   AlertTriangle,
+  Crown,
 } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -147,7 +148,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
         <StatCard
           label="Total Users"
           value={stats?.totalUsers}
@@ -156,24 +157,38 @@ const AdminDashboard = () => {
           delay={0}
         />
         <StatCard
+          label="Pro Users"
+          value={stats?.totalProUsers ?? 0}
+          icon={Crown}
+          sub="Active Pro"
+          delay={0.03}
+        />
+        <StatCard
+          label="Free Users"
+          value={stats?.totalFreeUsers ?? stats?.totalUsers ?? 0}
+          icon={Users}
+          sub="Standard"
+          delay={0.06}
+        />
+        <StatCard
           label="Total Groups"
           value={stats?.totalGroups}
           icon={LayoutGrid}
           sub={`${stats?.activeGroups ?? 0} active`}
-          delay={0.05}
+          delay={0.09}
         />
         <StatCard
           label="Notifications"
           value={stats?.recentNotifications}
           icon={Bell}
           sub="last 30 days"
-          delay={0.1}
+          delay={0.12}
         />
         <StatCard
           label="AI Scans"
           value={stats?.totalAiRequests}
           icon={Brain}
-          sub="total bill scans"
+          sub="total scans"
           delay={0.15}
         />
       </div>

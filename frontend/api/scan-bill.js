@@ -1,3 +1,6 @@
+import { requireFirebaseUser } from '../server/firebaseAdmin.js';
+import { consumeReceiptScan, recordReceiptScan } from '../server/proAccess.js';
+
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
 const ALLOWED_ORIGINS = new Set([
   "https://pay-matrix.vercel.app",
@@ -5,8 +8,6 @@ const ALLOWED_ORIGINS = new Set([
 ]);
 const MAX_IMAGES = 4;
 const MAX_TOTAL_BASE64_LENGTH = 12_000_000;
-const MAX_SCANS_PER_HOUR = 10;
-const RATE_WINDOW_MS = 60 * 60 * 1000;
 
 const setCorsHeaders = (request, response) => {
   const origin = request.headers.origin;
@@ -16,75 +17,6 @@ const setCorsHeaders = (request, response) => {
   }
   response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
-};
-
-const verifyFirebaseUser = async (request) => {
-  const authorization = request.headers.authorization || "";
-  const idToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
-  if (!idToken) return null;
-
-  const apiKey = process.env.FIREBASE_WEB_API_KEY || process.env.VITE_FIREBASE_API_KEY;
-  if (!apiKey) throw new Error("Firebase token verification is not configured.");
-
-  const verifyResponse = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken }),
-    },
-  );
-  if (!verifyResponse.ok) return null;
-
-  const payload = await verifyResponse.json();
-  const user = payload.users?.[0] || null;
-  return user ? { user, idToken } : null;
-};
-
-const parseInteger = (field) => Number(field?.integerValue || 0);
-const parseTimestamp = (field) => Date.parse(field?.timestampValue || 0);
-
-const consumeScanQuota = async ({ uid, idToken }) => {
-  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
-  if (!projectId) throw new Error('Firebase project ID is not configured.');
-
-  const documentUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/rate_limits/${encodeURIComponent(uid)}`;
-  const headers = { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' };
-  const currentResponse = await fetch(documentUrl, { headers, signal: AbortSignal.timeout(8000) });
-  const now = new Date();
-  const nowIso = now.toISOString();
-
-  let count = 1;
-  let windowStart = nowIso;
-  let precondition = 'currentDocument.exists=false';
-
-  if (currentResponse.ok) {
-    const current = await currentResponse.json();
-    const currentWindow = parseTimestamp(current.fields?.windowStart);
-    const inCurrentWindow = Number.isFinite(currentWindow) && now.getTime() - currentWindow < RATE_WINDOW_MS;
-    count = inCurrentWindow ? parseInteger(current.fields?.count) + 1 : 1;
-    windowStart = inCurrentWindow ? new Date(currentWindow).toISOString() : nowIso;
-    if (count > MAX_SCANS_PER_HOUR) return false;
-    precondition = `currentDocument.updateTime=${encodeURIComponent(current.updateTime)}`;
-  } else if (currentResponse.status !== 404) {
-    throw new Error(`Rate-limit lookup failed (${currentResponse.status}).`);
-  }
-
-  const fields = {
-    uid: { stringValue: uid },
-    count: { integerValue: String(count) },
-    windowStart: { timestampValue: windowStart },
-    lastRequestAt: { timestampValue: nowIso },
-  };
-  const writeResponse = await fetch(`${documentUrl}?${precondition}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify({ fields }),
-    signal: AbortSignal.timeout(8000),
-  });
-  if (writeResponse.status === 409) return false;
-  if (!writeResponse.ok) throw new Error(`Rate-limit update failed (${writeResponse.status}).`);
-  return true;
 };
 
 const RECEIPT_SCHEMA = {
@@ -131,19 +63,16 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: 'Method not allowed' });
   }
 
+  let uid;
+  const startedAt = Date.now();
   try {
-    const firebaseIdentity = await verifyFirebaseUser(request);
-    if (!firebaseIdentity) return response.status(401).json({ error: "Authentication required." });
-    const withinQuota = await consumeScanQuota({
-      uid: firebaseIdentity.user.localId,
-      idToken: firebaseIdentity.idToken,
-    });
-    if (!withinQuota) {
-      return response.status(429).json({ error: `Bill scanning is limited to ${MAX_SCANS_PER_HOUR} requests per hour.` });
-    }
+    const firebaseIdentity = await requireFirebaseUser(request);
+    uid = firebaseIdentity.uid;
   } catch (error) {
     console.error("[scan-bill] auth verification failed:", error.message);
-    return response.status(503).json({ error: "Authentication service is unavailable." });
+    return response.status(error.statusCode || 503).json({
+      error: error.statusCode ? error.message : 'Authentication service is unavailable.',
+    });
   }
 
   const { images } = request.body || {};
@@ -160,10 +89,32 @@ export default async function handler(request, response) {
     return response.status(413).json({ error: "Image payload is invalid or too large." });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.error("[scan-bill] GEMINI_API_KEY environment variable not set.");
-    return response.status(500).json({ error: "AI service is not configured." });
+    return response.status(503).json({ error: "AI service is not configured." });
+  }
+
+  let quota;
+  try {
+    quota = await consumeReceiptScan(uid);
+    if (!quota.allowed) {
+      if (quota.reason === 'monthly_quota') {
+        return response.status(402).json({
+          code: 'PRO_REQUIRED',
+          error: `Free receipt scans used (${quota.used}/${quota.limit}). Upgrade to paymatrix Pro to continue.`,
+          usage: { used: quota.used, limit: quota.limit, remaining: 0, period: quota.period },
+        });
+      }
+      response.setHeader('Retry-After', String(quota.retryAfterSeconds || 3600));
+      return response.status(429).json({
+        code: 'RATE_LIMITED',
+        error: 'Too many receipt scans. Please try again later.',
+      });
+    }
+  } catch (error) {
+    console.error('[scan-bill] quota service failed:', error.message);
+    return response.status(503).json({ error: 'Receipt scanning is temporarily unavailable.' });
   }
 
   const imageParts = images.map(img => ({
@@ -220,9 +171,31 @@ export default async function handler(request, response) {
         : [],
     };
 
-    return response.status(200).json(parsed);
+    await recordReceiptScan({
+      uid,
+      status: 'passed',
+      durationMs: Date.now() - startedAt,
+      itemCount: parsed.items.length,
+    }).catch((logError) => console.error('[scan-bill] audit write failed:', logError.message));
+
+    return response.status(200).json({
+      ...parsed,
+      usage: {
+        used: quota.used,
+        limit: quota.limit,
+        remaining: quota.remaining,
+        period: quota.period,
+      },
+    });
   } catch (err) {
     console.error("[scan-bill] error:", err);
+    await recordReceiptScan({
+      uid,
+      status: 'failed',
+      durationMs: Date.now() - startedAt,
+      itemCount: 0,
+      errorCode: 'PROVIDER_FAILURE',
+    }).catch((logError) => console.error('[scan-bill] audit write failed:', logError.message));
     return response.status(500).json({ error: "Bill scanning failed. Please try again." });
   }
 }

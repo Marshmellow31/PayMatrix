@@ -8,6 +8,9 @@ import { useFeatureFlags } from '../hooks/useFeatureFlags.js';
 import Loader from '../components/common/Loader.jsx';
 import LiveUpdate from '../components/common/LiveUpdate.jsx';
 import SpendingBars from '../components/charts/SpendingBars.jsx';
+import toast from 'react-hot-toast';
+import { useEntitlement } from '../hooks/useEntitlement.js';
+import { hasFeature } from '../config/proFeatures.js';
 
 const periods = [
   { days: 7, label: '7 days' },
@@ -52,6 +55,7 @@ const Analytics = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const reduceMotion = useReducedMotion();
+  const entitlement = useEntitlement();
   const [days, setDays] = useState(30);
   const [snapshots, setSnapshots] = useState({});
   const [loadingPeriod, setLoadingPeriod] = useState(30);
@@ -133,28 +137,45 @@ const Analytics = () => {
       </header>
 
       <div className="mb-6 flex w-full rounded-2xl border border-white/[0.07] bg-white/[0.025] p-1 sm:w-fit">
-        {periods.map((period) => (
-          <button
-            key={period.days}
-            type="button"
-            onClick={() => {
-              if (!snapshots[period.days]) setLoadingPeriod(period.days);
-              setDays(period.days);
-            }}
-            className={`relative min-h-10 flex-1 rounded-xl px-4 text-xs font-semibold sm:flex-none ${
-              days === period.days ? 'text-black' : 'text-white/35 hover:text-white/70'
-            }`}
-          >
-            {days === period.days && (
-              <motion.span
-                layoutId="analytics-period"
-                className="absolute inset-0 rounded-xl bg-white"
-                transition={reduceMotion ? { duration: 0.12 } : spring}
-              />
-            )}
-            <span className="relative z-10">{period.label}</span>
-          </button>
-        ))}
+        {periods.map((period) => {
+          const isProPeriod = period.days > 30;
+          const isPro = hasFeature(entitlement, 'advancedAnalytics');
+          return (
+            <button
+              key={period.days}
+              type="button"
+              onClick={() => {
+                if (isProPeriod && !isPro) {
+                  toast('90-day history is included with PayMatrix Pro', { icon: '✨' });
+                  return;
+                }
+                if (!snapshots[period.days]) setLoadingPeriod(period.days);
+                setDays(period.days);
+              }}
+              className={`relative min-h-10 flex-1 rounded-xl px-4 text-xs font-semibold sm:flex-none flex items-center justify-center gap-1.5 ${
+                days === period.days ? 'text-black' : 'text-white/35 hover:text-white/70'
+              }`}
+            >
+              {days === period.days && (
+                <motion.span
+                  layoutId="analytics-period"
+                  className="absolute inset-0 rounded-xl bg-white"
+                  transition={reduceMotion ? { duration: 0.12 } : spring}
+                />
+              )}
+              <span className="relative z-10">{period.label}</span>
+              {isProPeriod && (
+                <span
+                  className={`relative z-10 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                    days === period.days ? 'bg-black/10 text-black' : 'bg-primary/20 text-primary'
+                  }`}
+                >
+                  PRO
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <AnimatePresence mode="popLayout" initial={false}>

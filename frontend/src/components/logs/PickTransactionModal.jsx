@@ -78,7 +78,8 @@ const PickTransactionModal = ({ isOpen, onClose, onSaved, groupId, existingEntri
                         {share.title}
                       </p>
                       <p className="text-[9px] text-white/30 font-black uppercase tracking-widest truncate">
-                        {share.sourceGroupName} · {formatCurrency(share.amount)}
+                        {share.sourceGroupName} ·{' '}
+                        {formatCurrency(share.amount, share.currency || 'INR')}
                       </p>
                     </div>
                   </div>

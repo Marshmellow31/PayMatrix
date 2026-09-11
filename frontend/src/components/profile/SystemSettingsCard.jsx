@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Copy, Download, Settings, Trash2, KeyRound } from 'lucide-react';
+import { Bell, Copy, Download, Globe, Settings, Trash2, KeyRound } from 'lucide-react';
 import fcmService from '../../services/fcmService.js';
 import toast from 'react-hot-toast';
 
@@ -9,6 +9,7 @@ const SystemSettingsCard = ({
   onOpenChangelog,
   onExportData,
   onDeleteAccount,
+  onUpdateCurrency,
 }) => {
   const [pushEnabled, setPushEnabled] = useState(fcmService.isExplicitlyEnabled());
   const [savingPush, setSavingPush] = useState(false);
@@ -103,6 +104,39 @@ const SystemSettingsCard = ({
           </div>
         )}
 
+        {/* Default Currency */}
+        {isOwnProfile && (
+          <div className="flex items-center justify-between pt-4">
+            <div className="flex items-center gap-3">
+              <Globe size={16} className="text-white/40" />
+              <div>
+                <p className="text-sm font-bold text-white/80">Default Currency</p>
+                <p className="text-[11px] text-white/30">
+                  Preferred currency for balance and expense formatting.
+                </p>
+              </div>
+            </div>
+            <select
+              value={currentUser?.defaultCurrency || 'INR'}
+              onChange={(e) => onUpdateCurrency?.(e.target.value)}
+              className="h-8 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white focus:outline-none focus:border-white/30 transition-all cursor-pointer"
+            >
+              <option value="INR" className="bg-[#18181b] text-white">
+                INR (₹)
+              </option>
+              <option value="USD" className="bg-[#18181b] text-white">
+                USD ($)
+              </option>
+              <option value="EUR" className="bg-[#18181b] text-white">
+                EUR (€)
+              </option>
+              <option value="GBP" className="bg-[#18181b] text-white">
+                GBP (£)
+              </option>
+            </select>
+          </div>
+        )}
+
         {/* Export Data */}
         {isOwnProfile && (
           <div className="flex items-center justify-between pt-4">
@@ -128,12 +162,20 @@ const SystemSettingsCard = ({
             <p className="text-sm font-bold text-white/80">PayMatrix Version</p>
             <p className="text-[11px] text-white/30 font-inter">v2.2.2 · Web & PWA Release</p>
           </div>
-          <button
-            onClick={onOpenChangelog}
-            className="text-[11px] font-bold text-primary hover:underline uppercase tracking-wider"
-          >
-            Changelog
-          </button>
+          <div className="flex items-center gap-3">
+            <a
+              href="/developer"
+              className="text-[11px] font-bold text-white/40 hover:text-primary uppercase tracking-wider"
+            >
+              Dev Tools
+            </a>
+            <button
+              onClick={onOpenChangelog}
+              className="text-[11px] font-bold text-primary hover:underline uppercase tracking-wider"
+            >
+              Changelog
+            </button>
+          </div>
         </div>
 
         {/* Danger Zone: Account Deletion */}

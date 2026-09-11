@@ -73,3 +73,9 @@ advertisement.md
 brain.md
 login_new.md
 report.md
+.vercel
+.env*
+
+# Browser validation artifacts
+frontend/test-results/
+frontend/playwright-report/

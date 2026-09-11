@@ -59,7 +59,7 @@ const GroupCard = ({ group, balance = 0 }) => {
               className={`font-headline text-2xl font-black ${balance >= 0 ? 'text-white' : 'text-red-400'}`}
             >
               {balance >= 0 ? '+' : '-'}
-              {group.currency || '₹'}
+              {group.currency || 'INR'}
               {Math.abs(balance).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,

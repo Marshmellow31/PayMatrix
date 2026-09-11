@@ -7,7 +7,13 @@ import { formatCurrency } from '../../utils/formatCurrency.js';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 import { format } from 'date-fns';
 
-const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
+const ExpenseCard = ({
+  expense,
+  currentUserId,
+  onDelete,
+  onEdit,
+  currency = expense?.currency || 'INR',
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const category = EXPENSE_CATEGORIES.find((c) => c.value === expense.category);
   const userSplit = expense.splits?.find((s) => (s.user?._id || s.user) === currentUserId);
@@ -80,11 +86,11 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
         {/* Amount and Share */}
         <div className="text-right flex flex-col items-end min-w-[80px] sm:min-w-[100px]">
           <p className="text-base font-black text-white font-manrope tracking-tight leading-none whitespace-nowrap">
-            {formatCurrency(expense.amount)}
+            {formatCurrency(expense.amount, currency)}
           </p>
           {userSplit && (
             <p className="text-[9px] font-black text-white/20 mt-1.5 font-inter uppercase tracking-wider whitespace-nowrap">
-              You: {formatCurrency(userSplit.amount)}
+              You: {formatCurrency(userSplit.amount, currency)}
             </p>
           )}
           {isItemized && gstTotal > 0.01 && (
@@ -111,7 +117,7 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
                     Dishes subtotal
                   </span>
                   <span className="text-xs font-manrope font-bold text-white">
-                    {formatCurrency(dishSubtotal)}
+                    {formatCurrency(dishSubtotal, currency)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -119,16 +125,17 @@ const ExpenseCard = ({ expense, currentUserId, onDelete, onEdit }) => {
                     GST / charges
                   </span>
                   <span className="text-xs font-manrope font-bold text-primary">
-                    +{formatCurrency(gstTotal)}
+                    +{formatCurrency(gstTotal, currency)}
                   </span>
                 </div>
                 {userSplit && (
                   <div className="flex items-center justify-between pt-2 border-t border-white/5">
                     <span className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold opacity-40">
-                      Your dish {formatCurrency(userDish)} + GST {formatCurrency(userGst)}
+                      Your dish {formatCurrency(userDish, currency)} + GST{' '}
+                      {formatCurrency(userGst, currency)}
                     </span>
                     <span className="text-xs font-manrope font-black text-white">
-                      {formatCurrency(userSplit.amount)}
+                      {formatCurrency(userSplit.amount, currency)}
                     </span>
                   </div>
                 )}

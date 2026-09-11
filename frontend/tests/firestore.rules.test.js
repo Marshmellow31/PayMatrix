@@ -730,6 +730,19 @@ describe('PayMatrix Firestore authorization', () => {
     );
   });
 
+  test('keeps Pro usage counters server-owned', async () => {
+    const db = environment.authenticatedContext('member').firestore();
+    const usage = doc(db, 'proUsage', 'member', 'periods', '2026-09');
+    await assertFails(getDoc(usage));
+    await assertFails(
+      setDoc(usage, {
+        uid: 'member',
+        period: '2026-09',
+        receiptScans: 0,
+      })
+    );
+  });
+
   test('permits atomic anonymization only with a 30-day deletion receipt', async () => {
     const db = environment.authenticatedContext('owner').firestore();
     const batch = writeBatch(db);
@@ -757,5 +770,17 @@ describe('PayMatrix Firestore authorization', () => {
       deleteAfter: Timestamp.fromMillis(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
     await assertSucceeds(batch.commit());
+  });
+});
+
+describe('server-owned billing records', () => {
+  test('clients cannot forge checkout ownership, paid access or webhook receipts', async () => {
+    const db = environment.authenticatedContext('member').firestore();
+    for (const collection of ['billingAccounts', 'entitlements', 'billingEvents']) {
+      await assertFails(
+        setDoc(doc(db, collection, 'member'), { isPro: true, subscriptionId: 'sub_forged' })
+      );
+      await assertFails(getDoc(doc(db, collection, 'member')));
+    }
   });
 });

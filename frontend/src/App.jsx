@@ -4,8 +4,8 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { onIdTokenChanged } from 'firebase/auth';
 import { auth, db } from './config/firebase.js';
 import { setUser } from './redux/authSlice.js';
-import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
-import { setNotifications } from './redux/notificationSlice.js';
+import { doc, onSnapshot, collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { setNotifications, clearNotifications } from './redux/notificationSlice.js';
 import Loader from './components/common/Loader.jsx';
 import { usePushNotifications } from './hooks/usePushNotifications.js';
 import InstallPrompt from './components/common/InstallPrompt.jsx';
@@ -15,6 +15,8 @@ import { isNativeRuntime } from '#paymatrix-runtime';
 import { useNativeAppBridge } from './platform/useNativeAppBridge.js';
 import { serializeFirestoreData } from './utils/firestoreSerialization.js';
 import { needsEmailVerification } from './services/authService.js';
+import { instrumentation } from './services/instrumentation.js';
+import { PAGE_SIZES } from './utils/cursorPagination.js';
 
 // Layout & Pages
 const AppLayout = lazy(() => import('./components/layout/AppLayout.jsx'));
@@ -45,6 +47,7 @@ const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 const DeleteAccount = lazy(() => import('./pages/DeleteAccount.jsx'));
 const Privacy = lazy(() => import('./pages/Privacy.jsx'));
 const Terms = lazy(() => import('./pages/Terms.jsx'));
+const DeveloperInstrumentation = lazy(() => import('./pages/DeveloperInstrumentation.jsx'));
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
@@ -126,20 +129,38 @@ function App() {
   useEffect(() => {
     let _unsubscribeProfile = null;
     let _unsubscribeNotifs = null;
+    let _unregProfileInst = null;
+    let _unregNotifsInst = null;
+
+    const cleanupListeners = () => {
+      if (_unsubscribeProfile) {
+        _unsubscribeProfile();
+        _unsubscribeProfile = null;
+      }
+      if (_unsubscribeNotifs) {
+        _unsubscribeNotifs();
+        _unsubscribeNotifs = null;
+      }
+      if (_unregProfileInst) {
+        _unregProfileInst();
+        _unregProfileInst = null;
+      }
+      if (_unregNotifsInst) {
+        _unregNotifsInst();
+        _unregNotifsInst = null;
+      }
+    };
 
     const unsubscribeAuth = onIdTokenChanged(auth, (firebaseUser) => {
-      if (_unsubscribeProfile) _unsubscribeProfile();
-      if (_unsubscribeNotifs) _unsubscribeNotifs();
-      _unsubscribeProfile = null;
-      _unsubscribeNotifs = null;
+      cleanupListeners();
+
       if (firebaseUser) {
+        instrumentation.setInstrumentationUser(firebaseUser.uid);
+
         if (needsEmailVerification(firebaseUser)) {
-          if (_unsubscribeProfile) _unsubscribeProfile();
-          if (_unsubscribeNotifs) _unsubscribeNotifs();
-          _unsubscribeProfile = null;
-          _unsubscribeNotifs = null;
+          cleanupListeners();
           dispatch(setUser(null));
-          dispatch(setNotifications([]));
+          dispatch(clearNotifications());
           setInitializing(false);
           return;
         }
@@ -156,9 +177,16 @@ function App() {
           })
         );
         setInitializing(false);
+
+        _unregProfileInst = instrumentation.registerListener('users:uid');
         _unsubscribeProfile = onSnapshot(
           doc(db, 'users', firebaseUser.uid),
           (docSnap) => {
+            instrumentation.recordRead({
+              count: 1,
+              fromCache: Boolean(docSnap.metadata?.fromCache),
+              signature: 'users:uid',
+            });
             if (docSnap.exists()) {
               const userData = serializeFirestoreData({
                 _id: docSnap.id,
@@ -185,47 +213,46 @@ function App() {
           }
         );
 
-        const qNotifs = query(collection(db, 'notifications'), where('to', '==', firebaseUser.uid));
+        // Web app-level recent notification listener: newest 30
+        _unregNotifsInst = instrumentation.registerListener('notifications:to');
+        const qNotifs = query(
+          collection(db, 'notifications'),
+          where('to', '==', firebaseUser.uid),
+          orderBy('createdAt', 'desc'),
+          limit(PAGE_SIZES.NOTIFICATIONS.initial)
+        );
+        let notificationsInitialized = false;
         _unsubscribeNotifs = onSnapshot(
           qNotifs,
           (snapshot) => {
-            const liveNotifs = snapshot.docs
-              .map((docSnap) =>
-                serializeFirestoreData({
-                  _id: docSnap.id,
-                  ...docSnap.data(),
-                })
-              )
-              .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+            instrumentation.recordRead({
+              count: notificationsInitialized ? snapshot.docChanges().length : snapshot.docs.length,
+              fromCache: Boolean(snapshot.metadata?.fromCache),
+              signature: 'notifications:to:recent',
+            });
+            notificationsInitialized = true;
+            const liveNotifs = snapshot.docs.map((docSnap) =>
+              serializeFirestoreData({
+                _id: docSnap.id,
+                ...docSnap.data(),
+              })
+            );
             dispatch(setNotifications(liveNotifs));
           },
           (err) => console.error('Notification snapshot error:', err)
         );
       } else {
-        if (_unsubscribeProfile) {
-          _unsubscribeProfile();
-          _unsubscribeProfile = null;
-        }
-        if (_unsubscribeNotifs) {
-          _unsubscribeNotifs();
-          _unsubscribeNotifs = null;
-        }
+        cleanupListeners();
+        instrumentation.setInstrumentationUser(null);
         dispatch(setUser(null));
-        dispatch(setNotifications([]));
+        dispatch(clearNotifications());
         setInitializing(false);
       }
     });
 
     return () => {
       unsubscribeAuth();
-      if (_unsubscribeProfile) {
-        _unsubscribeProfile();
-        _unsubscribeProfile = null;
-      }
-      if (_unsubscribeNotifs) {
-        _unsubscribeNotifs();
-        _unsubscribeNotifs = null;
-      }
+      cleanupListeners();
     };
   }, [dispatch]);
 
@@ -270,6 +297,7 @@ function App() {
           />
 
           <Route path="/join/:code" element={<JoinGroup />} />
+          <Route path="/invite/:token" element={<JoinGroup />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/delete-account" element={<DeleteAccount />} />
@@ -296,6 +324,8 @@ function App() {
             <Route path="/logs/:groupId" element={<LogGroupDetail />} />
             <Route path="/friends/:id" element={<Profile />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/developer" element={<DeveloperInstrumentation />} />
+            <Route path="/dev/instrumentation" element={<DeveloperInstrumentation />} />
           </Route>
 
           {/* Admin Panel */}

@@ -60,16 +60,17 @@ const CreateLogGroupModal = ({ isOpen, onClose, onCreated }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create Log Group">
+    <Modal isOpen={isOpen} onClose={onClose} title="Create log">
       <form onSubmit={handleSubmit} className="space-y-5">
         <Input
-          label="Group Name"
+          label="Log name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Parents"
+          placeholder="e.g. Personal spending"
           autoFocus
         />
 
+        <p className="text-sm text-white/65">Leave members unselected to keep this log private.</p>
         <div>
           <label className="block text-sm font-medium text-on-surface-variant mb-2 font-inter">
             Add Members (optional)

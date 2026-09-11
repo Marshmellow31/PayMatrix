@@ -39,16 +39,16 @@ const LogGroups = () => {
     >
       <div className="flex flex-col sm:flex-row sm:items-end justify-between px-1 gap-6 sm:gap-0">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl sm:text-4xl font-black font-manrope text-white tracking-tighter leading-tight italic">
+          <h1 className="text-2xl sm:text-3xl font-semibold font-manrope text-white tracking-tight leading-tight">
             Logs
           </h1>
           <p className="text-[10px] sm:text-[12px] text-white/40 font-black uppercase tracking-[0.3em]">
-            Shared Spending Timelines
+            Personal and shared transactions
           </p>
         </div>
 
         <Button variant="primary" className="rounded-2xl" onClick={() => setCreateModalOpen(true)}>
-          <Plus size={16} strokeWidth={3} /> Create Group
+          <Plus size={16} strokeWidth={3} /> Create log
         </Button>
       </div>
 
@@ -58,10 +58,9 @@ const LogGroups = () => {
         <div className="py-24 flex flex-col items-center justify-center gap-4 border border-dashed border-white/10 rounded-2xl bg-white/[0.01] text-center px-6">
           <ScrollText size={36} className="text-white/10" />
           <div className="space-y-1">
-            <p className="text-sm text-white/40 font-inter">No log groups yet</p>
+            <p className="text-sm text-white/40 font-inter">Start your transaction log</p>
             <p className="text-xs text-white/20 font-inter max-w-xs">
-              Create one for your parents or family so they can see where your money goes — no
-              explaining needed.
+              Create a private log for yourself, or invite people to a shared timeline.
             </p>
           </div>
         </div>
@@ -79,7 +78,7 @@ const LogGroups = () => {
               >
                 <Link
                   to={`/logs/${group._id}`}
-                  className="group px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.07] hover:border-white/20 flex items-center justify-between transition-all duration-300 shadow-xl"
+                  className="group px-5 py-4 rounded-2xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.07] hover:border-white/20 flex items-center justify-between transition-colors duration-200"
                 >
                   <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black font-manrope text-sm border shrink-0 bg-white/10 text-white/60 border-white/10">

@@ -1,7 +1,7 @@
 import Avatar from '../common/Avatar.jsx';
 import { formatCurrency } from '../../utils/formatCurrency.js';
 
-const DebtCard = ({ from, to, amount }) => {
+const DebtCard = ({ from, to, amount, currency = 'INR' }) => {
   return (
     <div className="flex items-center justify-between gap-3 py-3">
       <div className="flex items-center gap-3 min-w-0">
@@ -15,7 +15,9 @@ const DebtCard = ({ from, to, amount }) => {
       </div>
 
       <div className="flex-shrink-0 text-center">
-        <p className="text-sm font-bold text-error font-manrope">{formatCurrency(amount)}</p>
+        <p className="text-sm font-bold text-error font-manrope">
+          {formatCurrency(amount, currency)}
+        </p>
         <div className="w-8 h-px bg-outline-variant mx-auto mt-1" />
       </div>
 

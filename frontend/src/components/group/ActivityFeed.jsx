@@ -12,21 +12,15 @@ import {
   deleteSettlement,
 } from '../../redux/expenseSlice.js';
 import Modal from '../common/Modal.jsx';
+import Button from '../common/Button.jsx';
+import { compareCursorRecords, deduplicateById, PAGE_SIZES } from '../../utils/cursorPagination.js';
+import { instrumentation } from '../../services/instrumentation.js';
 
-const createdAtMillis = (activity) => {
-  const value = activity?.createdAt || activity?.updatedAt;
-  if (!value) return 0;
-  if (typeof value.toMillis === 'function') return value.toMillis();
-  if (typeof value.toDate === 'function') return value.toDate().getTime();
-  const parsed = new Date(value).getTime();
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const newestFirst = (items = []) =>
-  [...items].sort((a, b) => createdAtMillis(b) - createdAtMillis(a));
+const sortLogs = (items = []) => [...deduplicateById(items)].sort(compareCursorRecords);
 
 const ActivityFeed = ({ groupId, externalLogs }) => {
-  const [activities, setActivities] = useState(() => newestFirst(externalLogs));
+  const [activities, setActivities] = useState(() => sortLogs(externalLogs));
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZES.LOGS.initial);
   const [loading, setLoading] = useState(!externalLogs);
   const [settlementToDelete, setSettlementToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -34,7 +28,7 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
 
   useEffect(() => {
     if (externalLogs) {
-      setActivities(newestFirst(externalLogs));
+      setActivities(sortLogs(externalLogs));
       setLoading(false);
       return;
     }
@@ -42,21 +36,26 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
 
     setLoading(true);
 
-    // Set up real-time listener for logs (Activity Feed)
+    const unreg = instrumentation.registerListener('groups:groupId:feedLogs');
     const q = query(
       collection(db, 'groups', groupId, 'logs'),
       orderBy('createdAt', 'desc'),
-      limit(50)
+      limit(PAGE_SIZES.LOGS.initial)
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        instrumentation.recordRead({
+          count: snapshot.docs.length,
+          fromCache: Boolean(snapshot.metadata?.fromCache),
+          signature: 'groups:groupId:feedLogs',
+        });
         const liveActivities = snapshot.docs.map((docSnap) => ({
           _id: docSnap.id,
           ...docSnap.data(),
         }));
-        setActivities(newestFirst(liveActivities));
+        setActivities(sortLogs(liveActivities));
         setLoading(false);
       },
       (err) => {
@@ -65,7 +64,10 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unreg();
+    };
   }, [groupId, externalLogs]);
 
   const handleRestore = async (expenseId) => {
@@ -170,7 +172,7 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
   return (
     <>
       <div className="relative space-y-2 sm:space-y-3">
-        {activities.map((activity, index) => {
+        {activities.slice(0, visibleCount).map((activity, index) => {
           const isUpdate = activity.type === 'expense_updated';
           return (
             <motion.div
@@ -243,6 +245,17 @@ const ActivityFeed = ({ groupId, externalLogs }) => {
           );
         })}
       </div>
+
+      {visibleCount < activities.length && (
+        <div className="flex justify-center pt-4">
+          <Button
+            variant="outline"
+            onClick={() => setVisibleCount((prev) => prev + PAGE_SIZES.LOGS.page)}
+          >
+            Load earlier
+          </Button>
+        </div>
+      )}
 
       <Modal
         isOpen={!!settlementToDelete}

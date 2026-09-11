@@ -1,13 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus,
-  Check,
-  X,
   Users,
   Loader2,
-  Clock,
   ExternalLink,
   ChevronRight,
   Layers,
@@ -15,7 +12,7 @@ import {
   ShieldCheck,
   Search,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Avatar from '../components/common/Avatar';
 import { onSnapshot, doc, collection, query, where } from 'firebase/firestore';
 import { auth, db } from '../config/firebase.js';
@@ -43,8 +40,18 @@ const RELATIONSHIP_LABELS = {
 
 const Friends = () => {
   const navigate = useNavigate();
+  const isActive = useLocation().pathname === '/friends';
+  const groups = useSelector((state) => state.groups.groups);
+  const groupsRevision = JSON.stringify(
+    (groups || []).map((group) => [group._id, group.updatedAt])
+  );
+  const fetchRevision = useRef(0);
+  const refreshTimer = useRef();
   const flags = useFeatureFlags();
   const { user } = useSelector((state) => state.auth);
+  const requestSnapshots = useRef({});
+  const [requestBusy, setRequestBusy] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [friends, setFriends] = useState([]);
   const [_totalSharedBalance, setTotalSharedBalance] = useState(0);
   const [requests, setRequests] = useState({ incoming: [], outgoing: [] });
@@ -64,17 +71,23 @@ const Friends = () => {
   const [selectedFriendForSettle, setSelectedFriendForSettle] = useState(null);
 
   const fetchData = useCallback(async (isInitial = true) => {
+    const uid = auth.currentUser?.uid;
+    const revision = ++fetchRevision.current;
     try {
       if (isInitial) setIsLoading(true);
       const [analyticsRes, requestsRes] = await Promise.all([
         friendService.getNetworkAnalytics(),
-        friendService.getRequests(),
+        friendService.getRequests(requestSnapshots.current),
       ]);
+      if (auth.currentUser?.uid !== uid || revision !== fetchRevision.current) return;
+      setLoadError('');
       setFriends(analyticsRes.data.data?.networkAnalytics || []);
       setTotalSharedBalance(analyticsRes.data.data?.totalSharedBalance || 0);
       setRequests(requestsRes.data.data || { incoming: [], outgoing: [] });
     } catch (error) {
       console.error('Fetch Data Error:', error);
+      if (auth.currentUser?.uid === uid && revision === fetchRevision.current)
+        setLoadError('Could not refresh connections. Your saved view may be out of date.');
       // Only toast on initial error to avoid noise
       if (isInitial) toast.error('Failed to load network intelligence');
     } finally {
@@ -83,71 +96,66 @@ const Friends = () => {
   }, []);
 
   useEffect(() => {
-    const unsubs = [];
-
-    const setupListeners = () => {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      // 1. Initial snapshot of all data
-      fetchData(true);
-
-      // 2. Listen to user document (friend list changes)
-      unsubs.push(
-        onSnapshot(doc(db, 'users', user.uid), () => {
-          fetchData(false);
-        })
-      );
-
-      // 3. Listen to incoming requests
-      const qReq = query(
-        collection(db, 'friendRequests'),
-        where('to', '==', user.uid),
-        where('status', '==', 'pending')
-      );
-      unsubs.push(
-        onSnapshot(qReq, () => {
-          fetchData(false);
-        })
-      );
-
-      // 4. Listen to outgoing requests
-      const qReqOut = query(
-        collection(db, 'friendRequests'),
-        where('from', '==', user.uid),
-        where('status', '==', 'pending')
-      );
-      unsubs.push(
-        onSnapshot(qReqOut, () => {
-          fetchData(false);
-        })
-      );
-
-      // 5. Listen to groups user is in
-      // Due to 'touch' mechanism in expenseService, any subcollection change
-      // will update the group doc, triggering this listener.
-      const qGroups = query(collection(db, 'groups'), where('members', 'array-contains', user.uid));
-      unsubs.push(
-        onSnapshot(qGroups, () => {
-          fetchData(false);
-        })
+    if (!isActive) return undefined;
+    let unsubs = [];
+    const schedule = () => {
+      clearTimeout(refreshTimer.current);
+      refreshTimer.current = setTimeout(
+        () => fetchData(false).finally(() => setIsLoading(false)),
+        180
       );
     };
-
-    // Give auth a moment to initialize if needed
-    const authUnsub = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setupListeners();
-      } else {
+    const authUnsub = auth.onAuthStateChanged((currentUser) => {
+      unsubs.forEach((unsubscribe) => unsubscribe());
+      clearTimeout(refreshTimer.current);
+      requestSnapshots.current = {};
+      setFriends([]);
+      setRequests({ incoming: [], outgoing: [] });
+      if (!currentUser) {
         setIsLoading(false);
+        return;
       }
+      setIsLoading(true);
+      const uid = currentUser.uid;
+      const failed = () => {
+        toast.error('Could not refresh connections.');
+        setIsLoading(false);
+      };
+      unsubs = [
+        onSnapshot(doc(db, 'users', uid), schedule, failed),
+        ...['incoming', 'outgoing'].map((direction) =>
+          onSnapshot(
+            query(
+              collection(db, 'friendRequests'),
+              where(direction === 'incoming' ? 'to' : 'from', '==', uid),
+              where('status', '==', 'pending')
+            ),
+            (snapshot) => {
+              requestSnapshots.current[direction] = snapshot;
+              schedule();
+            },
+            failed
+          )
+        ),
+      ];
     });
-
     return () => {
+      fetchRevision.current += 1;
       authUnsub();
-      unsubs.forEach((u) => u());
+      clearTimeout(refreshTimer.current);
+      unsubs.forEach((unsubscribe) => unsubscribe());
     };
-  }, [fetchData]);
+  }, [fetchData, isActive]);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+    clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(
+      () => fetchData(false).finally(() => setIsLoading(false)),
+      250
+    );
+    return () => clearTimeout(refreshTimer.current);
+  }, [fetchData, groupsRevision, isActive]);
 
   const copyMyCode = () => {
     if (!user?.friendCode) return;
@@ -197,12 +205,22 @@ const Friends = () => {
   };
 
   const respondToRequest = async (requestId, status) => {
+    if (requestBusy) return;
+    setRequestBusy(requestId);
     try {
-      await friendService.respondToRequest(requestId, status);
-      toast.success(status === 'accepted' ? 'Network bridged' : 'Signal dissolved');
-      fetchData();
+      if (status === 'cancelled') await friendService.cancelRequest(requestId);
+      else await friendService.respondToRequest(requestId, status);
+      toast.success(
+        status === 'accepted'
+          ? 'Friend added'
+          : status === 'cancelled'
+            ? 'Request cancelled'
+            : 'Request declined'
+      );
     } catch (error) {
-      toast.error('Action failed');
+      toast.error(error.message || 'Action failed');
+    } finally {
+      setRequestBusy(null);
     }
   };
 
@@ -416,51 +434,89 @@ const Friends = () => {
         ))}
       </div>
 
+      {loadError && (
+        <div
+          role="alert"
+          className="flex items-center gap-3 rounded-xl border border-white/10 p-3 text-sm text-white/70"
+        >
+          <p className="flex-1">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => fetchData(false)}
+            className="min-h-11 px-3 text-white underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div className="space-y-6">
         {activeTab === 'pending' && (
-          <div className="space-y-4">
-            {requests.incoming.length === 0 && (
-              <div className="py-24 text-center border border-dashed border-white/10 rounded-[2.5rem] bg-white/[0.01]">
-                <Clock size={32} className="mx-auto mb-4 text-white/5" />
-                <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.4em]">
-                  No incoming friend requests
-                </p>
-              </div>
-            )}
-
-            {requests.incoming.map((req) => (
-              <motion.div
-                key={req._id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-4 rounded-2xl"
-              >
-                <div className="flex items-center gap-4">
-                  <Avatar name={req.from?.name} src={req.from?.avatar} size="sm" />
-                  <div>
-                    <p className="text-sm font-bold text-white font-manrope">
-                      {req.from?.name || 'User'}
+          <div className="space-y-6">
+            {['incoming', 'outgoing'].map((direction) => (
+              <section key={direction} aria-label={`${direction} requests`}>
+                <h2 className="mb-3 text-sm font-semibold text-white/80">
+                  {direction === 'incoming' ? 'Incoming' : 'Outgoing'}{' '}
+                  <span className="ml-2 text-white/50">{requests[direction].length}</span>
+                </h2>
+                <div className="space-y-3">
+                  {requests[direction].length === 0 && (
+                    <p className="rounded-2xl border border-white/10 px-4 py-6 text-sm text-white/60">
+                      No {direction} requests.
                     </p>
-                    <p className="text-[10px] text-white/20 font-medium uppercase tracking-widest">
-                      Wants to connect
-                    </p>
-                  </div>
+                  )}
+                  {requests[direction].map((req) => {
+                    const person = direction === 'incoming' ? req.from : req.to;
+                    return (
+                      <div
+                        key={req._id}
+                        className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/5 bg-surface-container-high/40 p-3 sm:p-4"
+                      >
+                        <Avatar
+                          name={person?.name}
+                          src={person?.avatar}
+                          size="md"
+                          className="rounded-xl"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-white">
+                            {person?.name || 'Member'}
+                          </p>
+                          <p className="mt-1 text-xs text-white/60">
+                            {direction === 'incoming' ? 'Wants to connect' : 'Awaiting a response'}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          {direction === 'incoming' && (
+                            <button
+                              disabled={!!requestBusy}
+                              onClick={() => respondToRequest(req._id, 'accepted')}
+                              className="min-h-11 rounded-xl bg-white px-3 text-xs font-semibold text-black disabled:opacity-50"
+                            >
+                              Accept
+                            </button>
+                          )}
+                          <button
+                            disabled={!!requestBusy}
+                            onClick={() =>
+                              respondToRequest(
+                                req._id,
+                                direction === 'incoming' ? 'declined' : 'cancelled'
+                              )
+                            }
+                            className="min-h-11 rounded-xl border border-white/10 px-3 text-xs font-medium text-white/75 hover:bg-white/5 disabled:opacity-50"
+                          >
+                            {requestBusy === req._id
+                              ? 'Saving…'
+                              : direction === 'incoming'
+                                ? 'Decline'
+                                : 'Cancel request'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => respondToRequest(req._id, 'accepted')}
-                    className="w-10 h-10 rounded-xl bg-white text-black flex items-center justify-center hover:bg-white/90 active:scale-95 transition-all shadow-lg shadow-white/5"
-                  >
-                    <Check size={16} strokeWidth={3} />
-                  </button>
-                  <button
-                    onClick={() => respondToRequest(req._id, 'declined')}
-                    className="w-10 h-10 rounded-xl bg-white/5 text-white/40 border border-white/5 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all"
-                  >
-                    <X size={16} strokeWidth={2} />
-                  </button>
-                </div>
-              </motion.div>
+              </section>
             ))}
           </div>
         )}

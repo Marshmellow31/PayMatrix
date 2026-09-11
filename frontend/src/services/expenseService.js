@@ -9,6 +9,7 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   getDocFromCache,
   getDocFromServer,
   getDocsFromCache,
@@ -25,6 +26,14 @@ import { fromPaise, toPaise } from '../utils/money.js';
 import syncTracker from './syncTracker.js';
 import { serializeFirestoreData } from '../utils/firestoreSerialization.js';
 import { buildAnalyticsSnapshot } from '../utils/analyticsEngine.js';
+import {
+  compareCursorRecords,
+  deduplicateById,
+  PAGE_SIZES,
+  getItemId,
+  getCreatedAtMillis,
+} from '../utils/cursorPagination.js';
+import { instrumentation } from './instrumentation.js';
 
 // Helper to mimic Axios response structure expected by Redux Thunks
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -108,11 +117,46 @@ let summaryCache = {
   timestamp: 0,
   hash: '',
 };
+const SUMMARY_STORAGE_PREFIX = 'paymatrix_summary_v1_';
+
+const summaryStorageKey = (uid) => `${SUMMARY_STORAGE_PREFIX}${uid}`;
+
+const readStoredSummary = (uid) => {
+  try {
+    const raw = globalThis.localStorage?.getItem(summaryStorageKey(uid));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.version !== 1 || parsed?.uid !== uid || !parsed?.data?.groupBalances) return null;
+    return { ...parsed.data, fromCache: true, cachedAt: parsed.savedAt };
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredSummary = (uid, data) => {
+  try {
+    globalThis.localStorage?.setItem(
+      summaryStorageKey(uid),
+      JSON.stringify({ version: 1, uid, savedAt: new Date().toISOString(), data })
+    );
+  } catch {
+    // Display acceleration only; storage availability must never affect ledger behavior.
+  }
+};
+
+const removeStoredSummary = (uid) => {
+  try {
+    if (uid) globalThis.localStorage?.removeItem(summaryStorageKey(uid));
+  } catch {
+    // Best-effort cache invalidation.
+  }
+};
 const analyticsCache = new Map();
 const analyticsRequests = new Map();
 const ANALYTICS_CACHE_TTL = 30000;
 
 const invalidateFinancialCaches = () => {
+  removeStoredSummary(auth.currentUser?.uid);
   summaryCache.data = null;
   summaryCache.timestamp = 0;
   summaryCache.hash = '';
@@ -126,8 +170,24 @@ export const clearSummaryCache = () => {
 };
 
 const expenseService = {
-  getExpenses: async (groupId, _page = 1) => {
-    const q = query(collection(db, 'groups', groupId, 'expenses'), orderBy('createdAt', 'desc'));
+  getExpenses: async (groupId, options = {}) => {
+    const isOptionsObj = typeof options === 'object' && options !== null;
+    const cursor = isOptionsObj ? options.cursor : null;
+    const pageSize = isOptionsObj
+      ? options.limit || PAGE_SIZES.EXPENSES.initial
+      : PAGE_SIZES.EXPENSES.initial;
+
+    const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const constraints = [orderBy('createdAt', 'desc')];
+    if (cursor) {
+      const cursorId = typeof cursor === 'object' ? getItemId(cursor) : String(cursor);
+      const cursorDoc = cursorId
+        ? await getDoc(doc(db, 'groups', groupId, 'expenses', cursorId))
+        : null;
+      if (cursorDoc?.exists()) constraints.push(startAfter(cursorDoc));
+    }
+    constraints.push(limit(pageSize));
+    const q = query(collection(db, 'groups', groupId, 'expenses'), ...constraints);
     let querySnapshot;
     try {
       querySnapshot = await getDocs(q);
@@ -136,12 +196,32 @@ const expenseService = {
       const { getDocsFromCache } = await import('firebase/firestore');
       querySnapshot = await getDocsFromCache(q);
     }
-    const expenses = querySnapshot.docs
+    const elapsed = Math.round(
+      (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime
+    );
+    instrumentation.recordRead({
+      count: querySnapshot?.docs?.length || 0,
+      fromCache: Boolean(querySnapshot?.metadata?.fromCache),
+      latencyMs: elapsed,
+      signature: 'groups:groupId:expenses',
+    });
+
+    const rawExpenses = querySnapshot.docs
       .map((doc) => serializeFirestoreData({ _id: doc.id, ...doc.data() }))
       .filter((exp) => exp.status !== 'deleted' && exp.status !== 'archived');
 
+    const deduplicated = deduplicateById(rawExpenses);
+    deduplicated.sort(compareCursorRecords);
+
+    const expenses = deduplicated;
+    const lastItem = expenses[expenses.length - 1];
+    const nextCursor = lastItem
+      ? { id: getItemId(lastItem), createdAt: getCreatedAtMillis(lastItem) }
+      : null;
+    const hasMore = querySnapshot.docs.length === pageSize;
+
     // Mimic the backend pagination signature
-    return wrap({ expenses, totalPages: 1, currentPage: 1 });
+    return wrap({ expenses, totalPages: 1, currentPage: 1, nextCursor, hasMore });
   },
 
   getExpense: async (groupId, id) => {
@@ -440,8 +520,24 @@ const expenseService = {
     return wrap({ balances });
   },
 
-  getSettlements: async (groupId) => {
-    const q = query(collection(db, 'groups', groupId, 'settlements'), orderBy('createdAt', 'desc'));
+  getSettlements: async (groupId, options = {}) => {
+    const isOptionsObj = typeof options === 'object' && options !== null;
+    const cursor = isOptionsObj ? options.cursor : null;
+    const pageSize = isOptionsObj
+      ? options.limit || PAGE_SIZES.SETTLEMENTS.initial
+      : PAGE_SIZES.SETTLEMENTS.initial;
+
+    const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const constraints = [orderBy('createdAt', 'desc')];
+    if (cursor) {
+      const cursorId = typeof cursor === 'object' ? getItemId(cursor) : String(cursor);
+      const cursorDoc = cursorId
+        ? await getDoc(doc(db, 'groups', groupId, 'settlements', cursorId))
+        : null;
+      if (cursorDoc?.exists()) constraints.push(startAfter(cursorDoc));
+    }
+    constraints.push(limit(pageSize));
+    const q = query(collection(db, 'groups', groupId, 'settlements'), ...constraints);
     let querySnapshot;
     try {
       querySnapshot = await getDocs(q);
@@ -450,10 +546,31 @@ const expenseService = {
       const { getDocsFromCache } = await import('firebase/firestore');
       querySnapshot = await getDocsFromCache(q);
     }
-    const settlements = querySnapshot.docs
+    const elapsed = Math.round(
+      (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime
+    );
+    instrumentation.recordRead({
+      count: querySnapshot?.docs?.length || 0,
+      fromCache: Boolean(querySnapshot?.metadata?.fromCache),
+      latencyMs: elapsed,
+      signature: 'groups:groupId:settlements',
+    });
+
+    const rawSettlements = querySnapshot.docs
       .map((doc) => ({ _id: doc.id, ...doc.data() }))
       .filter((s) => s.status !== 'deleted');
-    return wrap({ settlements });
+
+    const deduplicated = deduplicateById(rawSettlements);
+    deduplicated.sort(compareCursorRecords);
+
+    const settlements = deduplicated;
+    const lastItem = settlements[settlements.length - 1];
+    const nextCursor = lastItem
+      ? { id: getItemId(lastItem), createdAt: getCreatedAtMillis(lastItem) }
+      : null;
+    const hasMore = querySnapshot.docs.length === pageSize;
+
+    return wrap({ settlements, nextCursor, hasMore });
   },
 
   deleteSettlement: async (id, groupId, userId) => {
@@ -605,6 +722,10 @@ const expenseService = {
     if (!userId) throw new Error('Authentication required');
 
     const now = Date.now();
+    if (cachedOnly) {
+      const stored = readStoredSummary(userId);
+      if (stored) return wrap(stored);
+    }
     // Use a 30s TTL for the summary to prevent heavy fan-out reads on rapid sequential updates
     if (
       !cachedOnly &&
@@ -705,6 +826,7 @@ const expenseService = {
           timestamp: Date.now(),
           hash: userId,
         };
+      if (!cachedOnly) writeStoredSummary(userId, finalData);
 
       return wrap(finalData);
     } catch (error) {

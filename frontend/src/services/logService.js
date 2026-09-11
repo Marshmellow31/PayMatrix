@@ -1,3 +1,4 @@
+import { transactionFields } from '../utils/logTransactions.js';
 import { db, auth } from '../config/firebase.js';
 import {
   collection,
@@ -7,6 +8,9 @@ import {
   addDoc,
   updateDoc,
   query,
+  orderBy,
+  limit,
+  startAfter,
   where,
   arrayUnion,
   arrayRemove,
@@ -14,8 +18,16 @@ import {
   writeBatch,
   serverTimestamp,
 } from 'firebase/firestore';
-import { withRetry } from '../utils/retryOperation.js';
 import validationService, { LogEntrySchema } from './validationService.js';
+import {
+  compareCursorRecords,
+  deduplicateById,
+  PAGE_SIZES,
+  getItemId,
+  getCreatedAtMillis,
+} from '../utils/cursorPagination.js';
+import { instrumentation } from './instrumentation.js';
+import { withRetry } from '../utils/retryOperation.js';
 
 // Helper to mimic Axios response
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -137,8 +149,15 @@ const logService = {
 
     const payload = {
       type: 'manual',
+      ...(data.sourceGroupId
+        ? {
+            sourceGroupId: data.sourceGroupId,
+            sourceGroupName: data.sourceGroupName || '',
+            sourceExpenseId: data.sourceExpenseId || '',
+          }
+        : {}),
       title: data.title,
-      amount: parseFloat(data.amount),
+      ...transactionFields(data),
       category: data.category || 'Other',
       place: data.place || '',
       note: data.note || '',
@@ -181,7 +200,7 @@ const logService = {
 
     const payload = {
       title: data.title,
-      amount: parseFloat(data.amount),
+      ...transactionFields(data),
       category: data.category || 'Other',
       place: data.place || '',
       note: data.note || '',
@@ -243,13 +262,21 @@ const logService = {
     return wrap({ message: 'Entry deleted' });
   },
 
-  getEntries: async (groupId) => {
+  getEntries: async (groupId, { pageSize = 100, lastDoc = null } = {}) => {
+    let q = query(entriesCol(groupId), orderBy('date', 'desc'), limit(pageSize));
+    if (lastDoc) {
+      q = query(entriesCol(groupId), orderBy('date', 'desc'), startAfter(lastDoc), limit(pageSize));
+    }
     let snap;
     try {
-      snap = await getDocs(entriesCol(groupId));
+      snap = await getDocs(q);
     } catch (err) {
-      console.warn('[OFFLINE_FALLBACK] getEntries: fetching from cache');
-      snap = await getDocsFromCache(entriesCol(groupId)).catch(() => ({ docs: [] }));
+      console.warn('[OFFLINE_FALLBACK] getEntries: fetching from cache or fallback', err);
+      try {
+        snap = await getDocsFromCache(q);
+      } catch {
+        snap = await getDocs(entriesCol(groupId)).catch(() => ({ docs: [] }));
+      }
     }
 
     const entries = snap.docs
@@ -257,25 +284,58 @@ const logService = {
       .filter((entry) => entry.status !== 'deleted')
       .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
-    return wrap({ entries });
+    const lastVisible = snap.docs[snap.docs.length - 1] || null;
+    const hasMore = snap.docs.length >= pageSize;
+
+    return wrap({ entries, lastDoc: lastVisible, hasMore });
   },
 
-  getActivity: async (groupId) => {
+  getActivity: async (groupId, options = {}) => {
+    const isOptionsObj = typeof options === 'object' && options !== null;
+    const cursor = isOptionsObj ? options.cursor : null;
+    const pageSize = isOptionsObj
+      ? options.limit || PAGE_SIZES.LOGS.initial
+      : PAGE_SIZES.LOGS.initial;
+
+    const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
     let snap;
     try {
-      snap = await getDocs(activityCol(groupId));
+      snap = await getDocs(query(activityCol(groupId), orderBy('createdAt', 'desc'), limit(100)));
     } catch (err) {
       console.warn('[OFFLINE_FALLBACK] getActivity: fetching from cache');
-      snap = await getDocsFromCache(activityCol(groupId)).catch(() => ({ docs: [] }));
+      snap = await getDocsFromCache(
+        query(activityCol(groupId), orderBy('createdAt', 'desc'), limit(100))
+      ).catch(() => ({ docs: [] }));
     }
-    const activity = snap.docs
-      .map((item) => ({ _id: item.id, ...item.data() }))
-      .sort((a, b) => {
-        const time = (value) => value?.toMillis?.() || new Date(value || 0).getTime();
-        return time(b.createdAt) - time(a.createdAt);
-      })
-      .slice(0, 50);
-    return wrap({ activity });
+    const elapsed = Math.round(
+      (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime
+    );
+    instrumentation.recordRead({
+      count: snap?.docs?.length || 0,
+      fromCache: Boolean(snap?.metadata?.fromCache),
+      latencyMs: elapsed,
+      signature: 'logGroups:groupId:activity',
+    });
+
+    const rawActivity = snap.docs.map((item) => ({ _id: item.id, ...item.data() }));
+    const deduplicated = deduplicateById(rawActivity);
+    deduplicated.sort(compareCursorRecords);
+
+    let startIndex = 0;
+    if (cursor) {
+      const cursorId = typeof cursor === 'object' ? getItemId(cursor) : String(cursor);
+      const idx = deduplicated.findIndex((a) => getItemId(a) === cursorId);
+      if (idx !== -1) startIndex = idx + 1;
+    }
+
+    const activity = deduplicated.slice(startIndex, startIndex + pageSize);
+    const lastItem = activity[activity.length - 1];
+    const nextCursor = lastItem
+      ? { id: getItemId(lastItem), createdAt: getCreatedAtMillis(lastItem) }
+      : null;
+    const hasMore = startIndex + pageSize < deduplicated.length;
+
+    return wrap({ activity, nextCursor, hasMore });
   },
 
   /** Reads the current user's share across their real expense groups, for the transaction picker. */
@@ -288,13 +348,24 @@ const logService = {
     );
     const groups = groupsSnap.docs
       .map((d) => ({ _id: d.id, ...d.data() }))
-      .filter((g) => g.status !== 'deleted');
+      .filter((g) => g.status !== 'deleted')
+      .sort((a, b) => {
+        const time = (val) => val?.toMillis?.() || new Date(val || 0).getTime();
+        return time(b.updatedAt || b.createdAt) - time(a.updatedAt || a.createdAt);
+      })
+      .slice(0, 10);
 
     const shares = [];
 
     await Promise.all(
       groups.map(async (group) => {
-        const expSnap = await getDocs(collection(db, 'groups', group._id, 'expenses'));
+        const expSnap = await getDocs(
+          query(
+            collection(db, 'groups', group._id, 'expenses'),
+            orderBy('createdAt', 'desc'),
+            limit(25)
+          )
+        ).catch(() => getDocs(collection(db, 'groups', group._id, 'expenses')));
         expSnap.docs.forEach((expDoc) => {
           const exp = expDoc.data();
           if (exp.status === 'deleted' || exp.status === 'archived') return;
@@ -312,6 +383,8 @@ const logService = {
             sourceExpenseId: expDoc.id,
             title: exp.title || 'Expense',
             amount,
+            amountPaise: exp.amountPaise != null ? exp.amountPaise : undefined,
+            currency: exp.currency || group.currency || 'INR',
             category: exp.category || 'Other',
             date: exp.date || exp.createdAt || new Date().toISOString(),
           });
@@ -333,7 +406,7 @@ const logService = {
     const payload = {
       type: 'expense',
       title: share.title,
-      amount: share.amount,
+      ...transactionFields({ amount: share.amount, category: share.category }),
       category: share.category || 'Other',
       place: '',
       note: '',

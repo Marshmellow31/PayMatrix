@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import useLogCatalog from '../hooks/useLogCatalog.js';
+import LogCatalogModal from '../components/logs/LogCatalogModal.jsx';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
@@ -8,7 +10,8 @@ import logService from '../services/logService.js';
 import Button from '../components/common/Button.jsx';
 import Loader from '../components/common/Loader.jsx';
 import Avatar from '../components/common/Avatar.jsx';
-import LogTimeline from '../components/logs/LogTimeline.jsx';
+import LogTransactions from '../components/logs/LogTransactions.jsx';
+import { entryPaise, transactionKind } from '../utils/logTransactions.js';
 import RecordEntryModal from '../components/logs/RecordEntryModal.jsx';
 import ManageLogGroupModal from '../components/logs/ManageLogGroupModal.jsx';
 import LogEntryModal from '../components/logs/LogEntryModal.jsx';
@@ -16,6 +19,9 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 
 const LogGroupDetail = () => {
   const { groupId } = useParams();
+  const catalog = useLogCatalog();
+  const loadRevision = useRef(0);
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const { user } = useSelector((state) => state.auth);
   const currentUid = user?._id || user?.uid;
 
@@ -26,28 +32,38 @@ const LogGroupDetail = () => {
   const [notFound, setNotFound] = useState(false);
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [manageModalOpen, setManageModalOpen] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
 
   const load = useCallback(async () => {
+    const revision = ++loadRevision.current;
+    setNotFound(false);
     try {
       const [groupRes, entriesRes, activityRes] = await Promise.all([
         logService.getLogGroup(groupId),
         logService.getEntries(groupId),
         logService.getActivity(groupId),
       ]);
+      if (revision !== loadRevision.current) return;
       setGroup(groupRes.data.data.group);
       setEntries(entriesRes.data.data.entries || []);
       setActivity(activityRes.data.data.activity || []);
     } catch (err) {
       console.error('Failed to load log group:', err);
-      setNotFound(true);
+      if (revision === loadRevision.current) setNotFound(true);
     } finally {
-      setLoading(false);
+      if (revision === loadRevision.current) setLoading(false);
     }
   }, [groupId]);
 
   useEffect(() => {
+    setLoading(true);
+    setEditingEntry(null);
+    setRecordModalOpen(false);
     load();
+    return () => {
+      loadRevision.current += 1;
+    };
   }, [load]);
 
   const handleDelete = async (entry) => {
@@ -55,21 +71,29 @@ const LogGroupDetail = () => {
       await logService.deleteEntry(groupId, entry._id);
       toast.success('Entry deleted');
       setEntries((prev) => prev.filter((e) => e._id !== entry._id));
-      const activityRes = await logService.getActivity(groupId);
-      setActivity(activityRes.data.data.activity || []);
+      logService
+        .getActivity(groupId)
+        .then((result) => setActivity(result.data.data.activity || []))
+        .catch(() => {});
+      return true;
     } catch (err) {
       toast.error(err.message || 'Failed to delete entry');
+      return false;
     }
   };
 
   const isOwner = group?.ownerId === currentUid;
-  const thisMonthTotal = entries
-    .filter((e) => {
-      const d = new Date(e.date);
-      const now = new Date();
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    })
-    .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+  const thisMonthTotal =
+    entries
+      .filter((e) => {
+        const d = new Date(e.date);
+        const now = new Date();
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .filter(
+        (entry) => transactionKind(entry) === 'expense' && (entry.currency || 'INR') === 'INR'
+      )
+      .reduce((sum, entry) => sum + entryPaise(entry), 0) / 100;
 
   if (loading) return <Loader className="py-20" />;
 
@@ -104,7 +128,7 @@ const LogGroupDetail = () => {
 
       <div className="flex flex-col sm:flex-row sm:items-end justify-between px-1 gap-6 sm:gap-0">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl sm:text-4xl font-black font-manrope text-white tracking-tighter leading-tight italic">
+          <h1 className="text-2xl sm:text-3xl font-semibold font-manrope text-white tracking-tight leading-tight">
             {group.name}
           </h1>
           <div className="flex items-center gap-2">
@@ -127,13 +151,14 @@ const LogGroupDetail = () => {
         <div className="flex items-center gap-3">
           <div className="flex flex-col items-start sm:items-end gap-1">
             <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">
-              This Month
+              Spent this month
             </span>
             <span className="text-xl sm:text-2xl font-black font-manrope text-white tracking-tight">
               {formatCurrency(thisMonthTotal)}
             </span>
           </div>
           <button
+            aria-label="Manage log"
             onClick={() => setManageModalOpen(true)}
             className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/50 hover:text-white transition-colors shrink-0"
           >
@@ -142,18 +167,35 @@ const LogGroupDetail = () => {
         </div>
       </div>
 
-      <Button variant="primary" className="rounded-2xl" onClick={() => setRecordModalOpen(true)}>
-        <Plus size={16} strokeWidth={3} /> Record
-      </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="primary" className="rounded-2xl" onClick={() => setRecordModalOpen(true)}>
+          <Plus size={16} strokeWidth={3} /> Record
+        </Button>
+        <Button variant="secondary" onClick={() => setCatalogOpen(true)}>
+          Accounts & categories
+        </Button>
+      </div>
+      <LogCatalogModal
+        isOpen={catalogOpen}
+        onClose={() => setCatalogOpen(false)}
+        catalog={catalog}
+      />
 
       <div className="h-px bg-white/10 w-full" />
 
-      <LogTimeline
+      <LogTransactions
         entries={entries}
         currentUid={currentUid}
         isOwner={isOwner}
         showAuthor={(group.members || []).length > 1}
-        onEdit={(entry) => setEditingEntry(entry)}
+        onEdit={(entry) => {
+          setDuplicating(false);
+          setEditingEntry(entry);
+        }}
+        onDuplicate={(entry) => {
+          setDuplicating(true);
+          setEditingEntry(entry);
+        }}
         onDelete={handleDelete}
       />
 
@@ -205,6 +247,7 @@ const LogGroupDetail = () => {
         onSaved={load}
         groupId={groupId}
         existingEntries={entries}
+        catalog={catalog}
       />
 
       <LogEntryModal
@@ -213,6 +256,9 @@ const LogGroupDetail = () => {
         onSaved={load}
         groupId={groupId}
         entry={editingEntry}
+        duplicate={duplicating}
+        catalog={catalog}
+        recentEntries={entries}
       />
 
       <ManageLogGroupModal

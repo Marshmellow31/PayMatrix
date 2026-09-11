@@ -37,16 +37,6 @@ const AppLayout = () => {
 
   useEffect(() => {
     dispatch(fetchGroups());
-
-    // Pre-warm the Render backend to reduce cold-start latency.
-    // Render's free tier sleeps after ~15min; this fires a silent ping
-    // so subsequent API calls don't wait for the backend to wake up.
-    const apiBase = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || '';
-    if (apiBase) {
-      fetch(`${apiBase}/api/health`, { method: 'GET' }).catch(() => {
-        /* silent */
-      });
-    }
   }, [dispatch]);
 
   // One shared live group feed powers every retained tab. This avoids opening

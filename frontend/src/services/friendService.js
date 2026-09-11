@@ -6,6 +6,7 @@ import {
   getDocs,
   setDoc,
   writeBatch,
+  runTransaction,
   updateDoc,
   deleteDoc,
   query,
@@ -17,6 +18,7 @@ import {
 import { createNotification } from '../utils/notificationHelper.js';
 import validationService, { FriendRequestSchema } from './validationService.js';
 import { withRetry } from '../utils/retryOperation.js';
+import { getDisplayDocs } from './displayReads.js';
 
 // Helper to mimic Axios response
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -95,7 +97,7 @@ const friendService = {
     return wrap({ message: 'Friend request sent' });
   },
 
-  getRequests: async () => {
+  getRequests: async (snapshots = {}) => {
     const userId = auth.currentUser?.uid;
     if (!userId) return wrap({ incoming: [], outgoing: [] });
 
@@ -111,8 +113,8 @@ const friendService = {
     );
 
     const [incomingSnap, outgoingSnap] = await Promise.all([
-      getDocs(incomingQ),
-      getDocs(outgoingQ),
+      snapshots.incoming || getDocs(incomingQ),
+      snapshots.outgoing || getDocs(outgoingQ),
     ]);
 
     const incoming = await Promise.all(
@@ -134,6 +136,20 @@ const friendService = {
     );
 
     return wrap({ incoming, outgoing });
+  },
+
+  cancelRequest: async (requestId) => {
+    const user = await requireAuthenticatedUser();
+    const ref = doc(db, 'friendRequests', requestId);
+    await runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists()) return;
+      if (snapshot.data().from !== user.uid || snapshot.data().status !== 'pending') {
+        throw new Error('Only your pending outgoing requests can be cancelled.');
+      }
+      transaction.delete(ref);
+    });
+    return wrap({ message: 'Request cancelled' });
   },
 
   respondToRequest: async (requestId, status) => {
@@ -199,18 +215,23 @@ const friendService = {
 
       // 2. Get all groups user is in
       const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
-      const groupSnap = await getDocs(q);
+      const groupSnap = await getDisplayDocs(q);
       const myGroups = groupSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((g) => g.status !== 'deleted');
 
-      // 3. Pre-fetch all group data to avoid redundant calls in the friend loop
+      // Filter groups to only those containing at least one mutual friend
+      const mutualGroupsPool = myGroups.filter((g) =>
+        g.members?.some((m) => friendIds.includes(m))
+      );
+
+      // 3. Pre-fetch group data only for groups with mutual friends
       const groupDataCache = {};
       await Promise.all(
-        myGroups.map(async (group) => {
+        mutualGroupsPool.map(async (group) => {
           const [expSnap, stlSnap] = await Promise.all([
-            getDocs(collection(db, 'groups', group.id, 'expenses')),
-            getDocs(collection(db, 'groups', group.id, 'settlements')),
+            getDisplayDocs(collection(db, 'groups', group.id, 'expenses')),
+            getDisplayDocs(collection(db, 'groups', group.id, 'settlements')),
           ]);
           groupDataCache[group.id] = {
             expenses: expSnap.docs
@@ -231,14 +252,18 @@ const friendService = {
           if (!fDoc || !fDoc.exists()) fDoc = await getDoc(doc(db, 'users', fId)).catch(() => null);
           const fData = { _id: fId, ..._normalize(fDoc?.exists() ? fDoc.data() : null) };
 
-          const mutualGroups = myGroups.filter((g) => g.members?.includes(fId));
+          const mutualGroups = mutualGroupsPool.filter((g) => g.members?.includes(fId));
 
           let netBalance = 0;
           let totalTurnover = 0;
           const mutualGroupsEx = [];
 
           for (const group of mutualGroups) {
-            const { expenses, settlements, members } = groupDataCache[group.id];
+            const { expenses, settlements, members } = groupDataCache[group.id] || {
+              expenses: [],
+              settlements: [],
+              members: [],
+            };
 
             let groupSpecificBalance = 0;
 

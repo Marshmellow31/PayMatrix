@@ -29,6 +29,7 @@ const MemberList = ({
   groupId,
   onMemberRemoved,
   currentUserId,
+  currency = 'INR',
 }) => {
   const flags = useFeatureFlags();
   // Store only the selected user ID — not a snapshot of the balance.
@@ -197,7 +198,7 @@ const MemberList = ({
                   className={`text-xs font-bold font-manrope whitespace-nowrap ${balance > 0 ? 'text-green-400' : balance < 0 ? 'text-red-400' : 'text-on-surface-variant opacity-40'}`}
                 >
                   {balance !== 0 && (balance > 0 ? '+' : '')}
-                  {balance !== 0 ? formatCurrency(balance) : 'Settled'}
+                  {balance !== 0 ? formatCurrency(balance, currency) : 'Settled'}
                 </p>
                 {ChevronRight && (
                   <ChevronRight
@@ -288,7 +289,7 @@ const MemberList = ({
                       className={`text-base font-bold font-manrope ${selectedMember.balance > 0 ? 'text-green-400' : selectedMember.balance < 0 ? 'text-red-400' : 'text-[#e5e2e1]'}`}
                     >
                       {selectedMember.balance !== 0
-                        ? formatCurrency(selectedMember.balance)
+                        ? formatCurrency(selectedMember.balance, currency)
                         : 'Neutral Delta'}
                     </span>
                   </div>

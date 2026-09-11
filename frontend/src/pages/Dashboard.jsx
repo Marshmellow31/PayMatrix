@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Activity,
@@ -44,6 +44,7 @@ const shortDate = (value) => {
 
 const Dashboard = () => {
   const reduceMotion = useReducedMotion();
+  const isActive = useLocation().pathname === '/dashboard';
   const syncStatus = useSyncStatus();
   const { openAddExpense } = useOutletContext();
   const { user } = useSelector((state) => state.auth);
@@ -55,6 +56,11 @@ const Dashboard = () => {
   const [isOffline, setIsOffline] = useState(
     typeof window !== 'undefined' ? !navigator.onLine : false
   );
+
+  useEffect(() => {
+    setSummary(null);
+    setLoadingSummary(true);
+  }, [user?._id, user?.uid]);
 
   const groupsUpdatedHash = useMemo(
     () => JSON.stringify(groups.map((group) => group.updatedAt || group._id)),
@@ -73,7 +79,7 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (!user?._id && !user?.uid) return;
+    if (!isActive || (!user?._id && !user?.uid)) return;
     let active = true;
     const updateSummary = async () => {
       // Paint the local snapshot first, then refresh without covering it in a loader.
@@ -110,7 +116,7 @@ const Dashboard = () => {
       window.removeEventListener('online', reconnect);
       window.removeEventListener('paymatrix:display-refreshed', backgroundRefresh);
     };
-  }, [groupsUpdatedHash, user?._id, user?.uid]);
+  }, [groupsUpdatedHash, user?._id, user?.uid, isActive]);
 
   const sortedGroups = useMemo(
     () =>
@@ -189,9 +195,9 @@ const Dashboard = () => {
   if (groupsLoading && groups.length === 0 && loadingSummary && !isOffline) return <Loader />;
 
   return (
-    <div className="mx-auto w-full max-w-md pb-32 pt-2 lg:max-w-6xl">
+    <div className="mx-auto w-full max-w-md pb-32 pt-2 md:max-w-3xl lg:max-w-6xl">
       <AnimatePresence>
-        {(isOffline || summary?.fromCache) && (
+        {isOffline && (
           <motion.div
             initial={{ opacity: 0, y: reduceMotion ? 0 : -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -200,10 +206,7 @@ const Dashboard = () => {
             className="mb-4 flex justify-center"
           >
             <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-[#171717] px-3 py-1.5 text-xs font-medium text-white/[0.55]">
-              <WifiOff size={13} />{' '}
-              {isOffline
-                ? 'Offline · showing saved data'
-                : 'Saved balances · refreshing in background'}
+              <WifiOff size={13} /> Offline · showing saved data
             </span>
           </motion.div>
         )}
@@ -211,8 +214,8 @@ const Dashboard = () => {
 
       <motion.header {...entrance} className="mb-6 flex items-center justify-between gap-4 lg:mb-8">
         <div className="min-w-0">
-          <p className="text-xs font-medium text-white/35">Welcome back</p>
-          <h1 className="mt-0.5 truncate font-manrope text-[1.75rem] font-black tracking-[-0.045em] text-white sm:text-3xl">
+          <p className="text-xs font-medium text-white/60">Welcome back</p>
+          <h1 className="mt-0.5 truncate font-manrope text-[1.75rem] font-black tracking-[-0.035em] text-white sm:text-3xl">
             {firstName}
           </h1>
         </div>
@@ -220,41 +223,42 @@ const Dashboard = () => {
           <span
             className={`h-2 w-2 rounded-full ${isOffline ? 'bg-red-300' : syncStatus.pending > 0 ? 'bg-amber-300' : 'bg-emerald-300'}`}
           />
-          <span className="text-[10px] font-semibold text-white/45">{syncLabel}</span>
+          <span className="text-xs font-semibold text-white/65">{syncLabel}</span>
         </div>
       </motion.header>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:gap-6">
         <motion.section
           {...entrance}
-          className="relative overflow-hidden rounded-[1.85rem] border border-white/[0.1] bg-[linear-gradient(145deg,#101010_0%,#1b1b1b_55%,#242424_100%)] p-6 shadow-[0_24px_65px_rgba(0,0,0,0.3)] lg:col-span-7 lg:p-8"
+          className="relative overflow-hidden rounded-3xl border border-white/[0.12] bg-surface-container-high/60 p-6 shadow-[0_8px_24px_rgba(0,0,0,0.16)] lg:col-span-7 lg:p-8"
         >
           <div className="relative z-10">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-white/25">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/60">
                   Your position
                 </p>
-                <p className="mt-2 text-xs text-white/45">
-                  {netBalance > 0.005
-                    ? 'Overall, you are owed'
-                    : netBalance < -0.005
-                      ? 'Overall, you owe'
-                      : 'You are settled'}
+                <p className="mt-2 text-xs text-white/65">
+                  {!summary
+                    ? 'Balance unavailable'
+                    : netBalance > 0.005
+                      ? 'Overall, you are owed'
+                      : netBalance < -0.005
+                        ? 'Overall, you owe'
+                        : 'You are settled'}
                 </p>
               </div>
-              <WalletCards size={22} className="text-white/25" />
+              <WalletCards size={22} className="text-white/60" />
             </div>
-            <p className="mt-8 font-manrope text-[2.6rem] font-black leading-none tracking-[-0.065em] text-white tabular-nums sm:text-5xl">
-              <span className="mr-1 text-[0.58em] font-semibold text-white/35">₹</span>
-              {formatAmount(Math.abs(netBalance))}
+            <p className="mt-8 font-manrope text-[clamp(1.75rem,8vw,2.6rem)] font-black leading-none tracking-[-0.035em] text-white tabular-nums sm:text-5xl">
+              <span className="mr-1 text-[0.58em] font-semibold text-white/60">₹</span>
+              {summary ? formatAmount(Math.abs(netBalance)) : '—'}
             </p>
             <div className="mt-8 grid grid-cols-2 divide-x divide-white/[0.08] border-t border-white/[0.08] pt-5">
               <PositionMetric label="You owe" value={summary?.totalOwe} tone="red" />
               <PositionMetric label="You are owed" value={summary?.totalOwed} tone="green" inset />
             </div>
           </div>
-          <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-white/[0.055] blur-3xl" />
         </motion.section>
 
         <motion.div
@@ -297,9 +301,13 @@ const Dashboard = () => {
                 <CheckCircle2 size={19} />
               </span>
               <div>
-                <p className="text-sm font-semibold text-white/85">Everything is clear</p>
-                <p className="mt-0.5 text-[10px] leading-relaxed text-white/35">
-                  No pending sync, unread activity, or balances need your attention.
+                <p className="text-sm font-semibold text-white/85">
+                  {summary ? 'Everything is clear' : 'Waiting for balances'}
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-white/60">
+                  {summary
+                    ? 'No pending sync, unread activity, or balances need your attention.'
+                    : 'Reconnect to load your financial position.'}
                 </p>
               </div>
             </div>
@@ -321,7 +329,7 @@ const Dashboard = () => {
               >
                 <Plus size={15} />
               </Link>
-              <Link to="/groups" className="text-xs font-medium text-white/45 hover:text-white">
+              <Link to="/groups" className="text-xs font-medium text-white/65 hover:text-white">
                 See all
               </Link>
             </div>
@@ -343,7 +351,7 @@ const Dashboard = () => {
             {!sortedGroups.length && (
               <div className="rounded-[1.35rem] border border-white/[0.08] bg-[#1a1a1a] px-5 py-9 text-center">
                 <p className="text-sm font-medium text-white/55">No groups yet</p>
-                <p className="mt-1 text-xs text-white/25">
+                <p className="mt-1 text-xs text-white/60">
                   Create one when you have something to share.
                 </p>
               </div>
@@ -361,9 +369,9 @@ const Dashboard = () => {
               title="Spending overview"
               body="Your tracked share across active groups"
             />
-            <BarChart3 size={20} className="text-white/25" />
+            <BarChart3 size={20} className="text-white/60" />
           </div>
-          <p className="mt-7 font-manrope text-3xl font-black tracking-[-0.045em] text-white tabular-nums">
+          <p className="mt-7 font-manrope text-3xl font-black tracking-[-0.035em] text-white tabular-nums">
             ₹{formatAmount(trackedSpend)}
           </p>
           <div className="mt-6 grid grid-cols-2 gap-3">
@@ -387,7 +395,7 @@ const Dashboard = () => {
         >
           <div className="flex items-end justify-between">
             <SectionHeading title="Recent activity" body="Latest account updates" />
-            <Link to="/activity" className="text-xs font-medium text-white/45 hover:text-white">
+            <Link to="/activity" className="text-xs font-medium text-white/65 hover:text-white">
               View all
             </Link>
           </div>
@@ -415,18 +423,18 @@ const Dashboard = () => {
                         ? notification.message
                         : notification.message?.message || 'Account activity updated'}
                     </span>
-                    <span className="mt-1 block text-[10px] text-white/25">
+                    <span className="mt-1 block text-xs text-white/60">
                       {shortDate(notification.createdAt)}
                     </span>
                   </span>
-                  <ChevronRight size={15} className="text-white/15 group-hover:text-white/45" />
+                  <ChevronRight size={15} className="text-white/15 group-hover:text-white/65" />
                 </Link>
               </LiveUpdate>
             ))}
             {!notifications.length && (
               <div className="px-5 py-10 text-center">
                 <p className="text-sm font-medium text-white/50">Nothing new yet</p>
-                <p className="mt-1 text-xs text-white/25">
+                <p className="mt-1 text-xs text-white/60">
                   Your latest account activity will appear here.
                 </p>
               </div>
@@ -456,11 +464,11 @@ const SectionHeading = ({ title, body }) => (
 
 const PositionMetric = ({ label, value, tone, inset = false }) => (
   <div className={inset ? 'pl-5' : 'pr-5'}>
-    <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-white/25">{label}</p>
+    <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/60">{label}</p>
     <p
       className={`mt-2 font-manrope text-lg font-bold tabular-nums ${tone === 'red' ? 'text-red-300/90' : 'text-emerald-300/90'}`}
     >
-      ₹{formatAmount(value)}
+      {value == null ? '—' : `₹${formatAmount(value)}`}
     </p>
   </div>
 );
@@ -480,7 +488,7 @@ const QuickAction = ({ primary = false, icon: Icon, title, body, reduceMotion, o
     </span>
     <span>
       <span className="block text-sm font-bold">{title}</span>
-      <span className={`mt-1 block text-[10px] ${primary ? 'text-black/45' : 'text-white/30'}`}>
+      <span className={`mt-1 block text-xs ${primary ? 'text-black/45' : 'text-white/30'}`}>
         {body}
       </span>
     </span>
@@ -507,7 +515,7 @@ const AttentionRow = ({ item }) => {
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold text-white/85">{item.title}</span>
-        <span className="mt-0.5 block truncate text-[11px] text-white/35">{item.body}</span>
+        <span className="mt-0.5 block truncate text-[11px] text-white/60">{item.body}</span>
       </span>
       <ChevronRight size={16} className="text-white/20 group-hover:text-white/50" />
     </Link>
@@ -541,12 +549,12 @@ const GroupRow = ({ group, balance, index, reduceMotion }) => {
           <span className="block truncate text-sm font-bold text-white/85">
             {group.name || group.title}
           </span>
-          <span className="mt-1 block text-[10px] text-white/30">
+          <span className="mt-1 block text-xs text-white/30">
             {shortDate(group.updatedAt) || `${memberCount} member${memberCount === 1 ? '' : 's'}`}
           </span>
         </span>
         <span className="shrink-0 text-right">
-          <span className="block text-[9px] text-white/30">
+          <span className="block text-xs text-white/30">
             {balance < -0.005 ? 'You owe' : balance > 0.005 ? 'You are owed' : 'Settled'}
           </span>
           <span
@@ -555,7 +563,7 @@ const GroupRow = ({ group, balance, index, reduceMotion }) => {
             ₹{formatAmount(Math.abs(balance))}
           </span>
         </span>
-        <ChevronRight size={16} className="text-white/15 group-hover:text-white/45" />
+        <ChevronRight size={16} className="text-white/15 group-hover:text-white/65" />
       </Link>
     </motion.div>
   );
@@ -563,9 +571,9 @@ const GroupRow = ({ group, balance, index, reduceMotion }) => {
 
 const SnapshotMetric = ({ label, value, supporting }) => (
   <div className="rounded-2xl bg-white/[0.035] p-3.5">
-    <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-white/25">{label}</p>
+    <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/60">{label}</p>
     <p className="mt-2 truncate text-xs font-semibold text-white/75">{value}</p>
-    <p className="mt-1 truncate text-[10px] text-white/30">{supporting}</p>
+    <p className="mt-1 truncate text-xs text-white/30">{supporting}</p>
   </div>
 );
 

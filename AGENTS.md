@@ -40,3 +40,15 @@
 - **Notification Destination Security**: All notification links (toasts, PWA push clicks, in-app feed, Android launcher intents) must be validated via `notificationDestination()`. Enforce origin allowlisting, reject external/protocol-relative URLs, and encode route parameters.
 - **PWA Shell Caching**: The service worker must serve `offlineSpaHandler` directly for `NavigationRoute` (excluding `/api/`, `/__/`, and `/.well-known/`) to eliminate network latency stalls and asset mismatch.
 
+## 6. First-Time User Onboarding Experience (Apple-Style Feature Sheet)
+- **Visual & Structural Paradigm**: When opening the app for the first time, users must see an Apple HIG-inspired modal/sheet ("Welcome to paymatrix" / "What's New in paymatrix"):
+  - **Layout**: Dark-mode canvas, vertical content stack with safe area margins, prominent header, vertically stacked feature items with dedicated icon glyphs, privacy note, and a sticky full-width rounded pill "Continue" CTA button.
+  - **Core Value Highlights**:
+    1. *Integer-Paise Precision*: Deterministic remainder allocation down to the exact paisa with zero lost rounding.
+    2. *Smart Multi-Payer Ledgers*: Multi-person bill splits, itemization, and automated greedy debt simplification.
+    3. *Instant UPI Settlement*: One-tap UPI app deep-linking and QR fallback with unconfirmed settlement isolation.
+    4. *Privacy-First & Offline-Ready*: End-to-end ledger confidentiality, zero advertising trackers, and cached offline display reads.
+  - **Trust & Privacy Footnote**: Discreet lock/privacy badge explaining data encryption and confidentiality.
+  - **Persistence & Lifecycle**: Shown strictly once on initial install/launch (stored in `paymatrix_onboarding_seen_v1` on Web and `DevicePreferences.onboardingSeen` in Jetpack Compose). Accessible on demand via Settings/Help or `?preview=1`.
+- **Reference Asset**: Canonical design screenshot preserved at [`docs/design/onboarding_reference.png`](file:///c:/Users/1080p/Desktop/personal%20projects/PayMatrix/docs/design/onboarding_reference.png).
+

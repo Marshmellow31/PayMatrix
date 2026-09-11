@@ -34,6 +34,7 @@ export const GroupBaseSchema = z
     description: z.string().max(500).optional(),
     members: z.array(z.string().min(1)).min(1, 'Group must have at least one member'),
     category: z.string().max(50).optional(),
+    currency: z.enum(['INR', 'USD', 'EUR', 'GBP']).default('INR'),
     inviteCode: z.string().max(20).optional(),
     admin: z.string().optional(),
     status: z.enum(['active', 'archived', 'deleted']).optional(),

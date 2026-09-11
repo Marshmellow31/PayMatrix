@@ -36,6 +36,20 @@ const updateCache = (uid, userData) => {
   userCache[uid] = userData;
 };
 
+export const generateSecureInviteCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const array = new Uint8Array(8);
+    crypto.getRandomValues(array);
+    return Array.from(array, (byte) => chars[byte % chars.length]).join('');
+  }
+  let result = '';
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
 const groupService = {
   // 1. Initial Instant Extraction (Extracts raw IDs and basic document fields)
   getBasicGroup: (groupDoc) => {
@@ -275,7 +289,7 @@ const groupService = {
       const selectedMemberIds = Array.from(new Set(sanitizedMemberIds)).filter(
         (id) => id !== creatorId
       );
-      const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const inviteCode = generateSecureInviteCode();
       const groupData = {
         ...validData,
         name: validData.name || validData.title, // Standardize to 'name' for Firestore rules
@@ -465,6 +479,62 @@ const groupService = {
     });
 
     return wrap({ groupId }, 'Successfully joined the cohort!');
+  },
+
+  rotateInviteCode: async (groupId) => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error('Authentication required');
+
+    const groupRef = doc(db, 'groups', groupId);
+    const groupSnap = await getDoc(groupRef);
+    if (!groupSnap.exists()) throw new Error('Group not found');
+    const groupData = groupSnap.data();
+    if (groupData.admin !== userId) throw new Error('Only group admins can rotate invite links');
+
+    const oldCode = groupData.inviteCode;
+    const newCode = generateSecureInviteCode();
+    const batch = writeBatch(db);
+
+    if (oldCode) {
+      batch.update(doc(db, 'groupInvites', oldCode), { active: false });
+    }
+    batch.set(doc(db, 'groupInvites', newCode), {
+      groupId,
+      createdBy: userId,
+      active: true,
+      createdAt: new Date().toISOString(),
+    });
+    batch.update(groupRef, {
+      inviteCode: newCode,
+      updatedAt: new Date().toISOString(),
+    });
+
+    await batch.commit();
+    return wrap({ inviteCode: newCode }, 'Invite link rotated successfully');
+  },
+
+  revokeInviteToken: async (inviteCode) => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) throw new Error('Authentication required');
+    if (!inviteCode) throw new Error('Invite code is missing');
+
+    const normalizedCode = inviteCode.trim().toUpperCase();
+    const inviteRef = doc(db, 'groupInvites', normalizedCode);
+    const inviteSnap = await getDoc(inviteRef);
+    if (!inviteSnap.exists()) throw new Error('Invite link not found');
+    const inviteData = inviteSnap.data();
+
+    // Verify user is either invite creator or group admin
+    const groupSnap = await getDoc(doc(db, 'groups', inviteData.groupId));
+    const isAdmin = groupSnap.exists() && groupSnap.data()?.admin === userId;
+    const isCreator = inviteData.createdBy === userId;
+
+    if (!isAdmin && !isCreator) {
+      throw new Error('Only group admins or invite creators can revoke invite links');
+    }
+
+    await updateDoc(inviteRef, { active: false });
+    return wrap({ message: 'Invite link revoked successfully' });
   },
 };
 

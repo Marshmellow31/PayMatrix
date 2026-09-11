@@ -42,8 +42,17 @@ const customVariants = {
   exit: { x: '40px', opacity: 0, transition: { duration: 0.18, ease: 'easeIn' } },
 };
 
-const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPayeeId = null }) => {
+const SettleUpModal = ({
+  isOpen,
+  onClose,
+  groupId,
+  userId,
+  onSettled,
+  forcedPayeeId = null,
+  currency = null,
+}) => {
   const { currentGroup } = useSelector((state) => state.groups);
+  const activeCurrency = currency || currentGroup?.currency || 'INR';
   const flags = useFeatureFlags();
 
   const [loading, setLoading] = useState(true);
@@ -375,7 +384,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                             Total You Owe
                           </p>
                           <p className="text-3xl font-manrope font-black text-white">
-                            {formatCurrency(totalOwe)}
+                            {formatCurrency(totalOwe, activeCurrency)}
                           </p>
                         </div>
                         <Button
@@ -444,7 +453,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                                     </p>
                                     <div className="flex items-baseline gap-2 flex-wrap">
                                       <span className="text-xl font-bold text-red-300 leading-none">
-                                        {formatCurrency(debt.amount)}
+                                        {formatCurrency(debt.amount, activeCurrency)}
                                       </span>
                                       <span className="text-white/20 font-light tracking-tighter">
                                         →
@@ -785,7 +794,7 @@ const SettleUpModal = ({ isOpen, onClose, groupId, userId, onSettled, forcedPaye
                         Pay{' '}
                         <span className="text-white font-semibold">{qrModal.receiver.name}</span>{' '}
                         <span className="text-emerald-400 font-bold">
-                          {formatCurrency(qrModal.amount)}
+                          {formatCurrency(qrModal.amount, activeCurrency)}
                         </span>
                       </p>
                     </div>

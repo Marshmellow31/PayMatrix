@@ -1,8 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { notificationDestination } from '../utils/notificationDestination.js';
-import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchNotifications, markAsRead, markAllRead } from '../redux/notificationSlice.js';
+import { fetchEarlierNotifications, markAsRead, markAllRead } from '../redux/notificationSlice.js';
 import Loader from '../components/common/Loader.jsx';
 import Button from '../components/common/Button.jsx';
 
@@ -10,11 +9,9 @@ const Activity = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
-  const { notifications, unreadCount, loading } = useSelector((state) => state.notifications);
-
-  useEffect(() => {
-    if (user?.uid) dispatch(fetchNotifications(user?.uid));
-  }, [dispatch, user?.uid]);
+  const { notifications, unreadCount, loading, loadingMore, hasMore } = useSelector(
+    (state) => state.notifications
+  );
 
   return (
     <div className="max-w-3xl mx-auto animate-fade-in pb-24">
@@ -90,6 +87,27 @@ const Activity = () => {
               </div>
             </div>
           ))}
+          {hasMore && (
+            <div className="flex justify-center pt-8">
+              <Button
+                variant="outline"
+                disabled={loadingMore}
+                onClick={() => {
+                  const last = notifications[notifications.length - 1];
+                  if (user?.uid && last) {
+                    dispatch(
+                      fetchEarlierNotifications({
+                        userId: user.uid,
+                        lastId: last._id || last.id,
+                      })
+                    );
+                  }
+                }}
+              >
+                {loadingMore ? 'Loading earlier…' : 'Load earlier'}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

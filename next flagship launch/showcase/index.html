@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PayMatrix v3.0 — Interactive Staging Showcase</title>
+  <link rel="stylesheet" href="../phase-1-tactile-ui-and-soundscape/web/tactile.css">
+  <style>
+    :root {
+      --bg: #0b132b;
+      --card-bg: #1c2541;
+      --accent: #10b981;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 2rem; line-height: 1.5; }
+    .container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 2.5rem; }
+    header { text-align: center; border-bottom: 1px solid #334155; padding-bottom: 1.5rem; }
+    header h1 { font-size: 2.2rem; color: #34d399; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+    header p { color: var(--muted); margin-top: 0.5rem; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+    .card { background: var(--card-bg); border-radius: 1.25rem; padding: 1.5rem; border: 1px solid #334155; }
+    .card h2 { font-size: 1.25rem; color: #38bdf8; margin-bottom: 1rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem; }
+    .btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
+    .tag { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: bold; background: #064e3b; color: #34d399; }
+    pre { background: #0f172a; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.85rem; color: #a7f3d0; margin-top: 0.75rem; }
+    select, input { background: #0f172a; color: white; border: 1px solid #475569; padding: 0.6rem; border-radius: 0.5rem; width: 100%; margin-top: 0.3rem; margin-bottom: 0.8rem; }
+    label { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>💎 paymatrix v3.0 Showcase</h1>
+      <p>Interactive Staging & Verification Harness for all 7 Architecture Phases</p>
+    </header>
+
+    <!-- 1. Tactile UI & Audio Engine -->
+    <div class="card">
+      <h2>Phase 1: Tactile 3D Buttons & Web Audio Synthesis</h2>
+      <p style="color: var(--muted); font-size: 0.9rem;">Click the mechanical push-down buttons below to hear pure synthesized Web Audio tones (< 15ms latency):</p>
+      <div class="btn-row">
+        <button id="btnPop" class="btn-chunky-primary">Bubble Pop</button>
+        <button id="btnCoin" class="btn-chunky-primary" style="background:#f59e0b; box-shadow:0 5px 0 0 #b45309;">Coin Drop</button>
+        <button id="btnFanfare" class="btn-chunky-primary" style="background:#8b5cf6; box-shadow:0 5px 0 0 #6d28d9;">Victory Fanfare</button>
+        <button id="btnDelete" class="btn-chunky-danger">Delete Thud</button>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- 2. Mascot & Gamification -->
+      <div class="card">
+        <h2>Phase 2: Mascot ("Milo") & Streaks</h2>
+        <div style="display: flex; align-items: center; justify-content: space-around; margin-bottom: 1rem;">
+          <div id="miloContainer" style="width: 110px; height: 110px;"></div>
+          <div>
+            <div style="font-size: 1.1rem; font-weight: bold; color: #f59e0b;">🔥 14-Day Streak</div>
+            <div style="font-size: 0.85rem; color: var(--muted);">Karma XP: 420 pts</div>
+            <div style="margin-top: 0.5rem;"><span class="tag">ZERO-DEBT STATUS</span></div>
+          </div>
+        </div>
+        <label>Switch Milo Mascot State:</label>
+        <select id="miloStateSelect">
+          <option value="snooze">Snooze (All debts zero)</option>
+          <option value="party">Party (Debt settled!)</option>
+          <option value="nudge">Nudge (Overdue > 3 days)</option>
+          <option value="detective">Detective (AI OCR scanning)</option>
+        </select>
+      </div>
+
+      <!-- 3. Universal Currency Engine -->
+      <div class="card">
+        <h2>Phase 3: Subunit Math & Hare-Niemeyer Split</h2>
+        <div style="display: flex; gap: 0.5rem;">
+          <div style="flex: 2;">
+            <label>Amount:</label>
+            <input type="number" id="splitAmount" value="100">
+          </div>
+          <div style="flex: 1;">
+            <label>Currency:</label>
+            <select id="splitCurrency">
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="JPY">JPY (¥, 0-dec)</option>
+              <option value="KWD">KWD (KD, 3-dec)</option>
+            </select>
+          </div>
+        </div>
+        <button id="btnCalcSplit" class="btn-chunky-secondary" style="width: 100%;">Calculate 3-Way Equal Split</button>
+        <pre id="splitResult">Click Calculate to run Hare-Niemeyer algorithm...</pre>
+      </div>
+    </div>
+
+    <!-- 4. Global Payment Rails -->
+    <div class="card">
+      <h2>Phase 4: Global Payment Rails Dispatcher</h2>
+      <div class="grid-2">
+        <div>
+          <label>Select Rail:</label>
+          <select id="railSelect">
+            <option value="UPI">India: UPI Intent & QR</option>
+            <option value="EPC">Europe: SEPA EPC QR Standard</option>
+            <option value="PIX">Brazil: Pix EMVCo BR Code</option>
+            <option value="PAYPAL">Global: PayPal.me Link</option>
+          </select>
+          <label>Recipient Handle / IBAN / Key:</label>
+          <input type="text" id="recipientHandle" value="rohan@okhdfcbank">
+          <button id="btnDispatchRail" class="btn-chunky-primary" style="width: 100%;">Generate Payment Payload</button>
+        </div>
+        <div>
+          <label>Generated QR / Intent Payload:</label>
+          <pre id="railPayload" style="max-height: 180px;">Payload preview will appear here...</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Financial Wrapped Story -->
+    <div class="card">
+      <h2>Phase 2/7: Trip Financial Wrapped (1080x1920 9:16 Canvas)</h2>
+      <p style="color: var(--muted); font-size: 0.9rem;">Renders an Instagram-Story-ready high-res 9:16 graphic summary of group spending:</p>
+      <div class="btn-row" style="margin-bottom: 1rem;">
+        <button id="btnGenWrapped" class="btn-chunky-primary">Render Story Card</button>
+      </div>
+      <div id="wrappedCanvasPreview" style="display: flex; justify-content: center;"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { soundEngine } from '../phase-1-tactile-ui-and-soundscape/web/SoundEngine.js';
+    import { toSubunits, fromSubunits, formatSubunits, allocateSubunits } from '../phase-3-international-currency-engine/web/universalMoney.js';
+    import { dispatchPaymentRail } from '../phase-4-global-payment-rails/web/paymentRailDispatcher.js';
+    import { calculateGroupWrapped } from '../phase-2-mascot-and-gamification/web/wrappedEngine.js';
+    import { generateStoryImage } from '../phase-2-mascot-and-gamification/web/canvasStoryGenerator.js';
+
+    // 1. Audio Hooks
+    document.getElementById('btnPop').onclick = () => soundEngine.play('pop');
+    document.getElementById('btnCoin').onclick = () => soundEngine.play('coin');
+    document.getElementById('btnFanfare').onclick = () => soundEngine.play('fanfare');
+    document.getElementById('btnDelete').onclick = () => soundEngine.play('delete');
+
+    // 2. Mascot Render
+    const miloContainer = document.getElementById('miloContainer');
+    const updateMilo = (state) => {
+      const faces = {
+        snooze: '<path d="M34 46 Q38 52 42 46" stroke="#064E3B" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M58 46 Q62 52 66 46" stroke="#064E3B" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M47 56 Q50 60 53 56" stroke="#064E3B" stroke-width="2.5" stroke-linecap="round" fill="none"/><text x="72" y="32" fill="#34D399" font-size="14" font-weight="bold">z</text>',
+        party: '<rect x="26" y="40" width="22" height="14" rx="4" fill="#0F172A"/><rect x="52" y="40" width="22" height="14" rx="4" fill="#0F172A"/><line x1="48" y1="46" x2="52" y2="46" stroke="#0F172A" stroke-width="3"/><path d="M42 60 Q50 72 58 60 Z" fill="#991B1B"/><circle cx="18" cy="24" r="3" fill="#F59E0B"/><circle cx="82" cy="20" r="3" fill="#EC4899"/>',
+        nudge: '<circle cx="38" cy="46" r="4.5" fill="#064E3B"/><circle cx="62" cy="46" r="4.5" fill="#064E3B"/><line x1="45" y1="58" x2="55" y2="58" stroke="#064E3B" stroke-width="3" stroke-linecap="round"/>',
+        detective: '<circle cx="38" cy="46" r="4" fill="#064E3B"/><circle cx="62" cy="46" r="8" stroke="#F59E0B" stroke-width="2.5" fill="none"/><circle cx="62" cy="46" r="4" fill="#064E3B"/><path d="M46 58 Q54 62 58 56" stroke="#064E3B" stroke-width="2.5" stroke-linecap="round" fill="none"/>'
+      };
+      miloContainer.innerHTML = `
+        <svg viewBox="0 0 100 100" fill="none" class="w-full h-full">
+          <circle cx="50" cy="53" r="44" fill="#047857"/>
+          <circle cx="50" cy="50" r="44" fill="#10B981"/>
+          <circle cx="50" cy="50" r="38" stroke="#34D399" stroke-width="2.5" stroke-dasharray="4 2"/>
+          ${faces[state] || faces.snooze}
+        </svg>
+      `;
+    };
+    updateMilo('snooze');
+    document.getElementById('miloStateSelect').onchange = (e) => updateMilo(e.target.value);
+
+    // 3. Currency Split
+    document.getElementById('btnCalcSplit').onclick = () => {
+      soundEngine.play('pop');
+      const amt = document.getElementById('splitAmount').value;
+      const curr = document.getElementById('splitCurrency').value;
+      const subunits = toSubunits(amt, curr);
+      const participants = [
+        { id: 'Alice', weight: 1 },
+        { id: 'Bob', weight: 1 },
+        { id: 'Charlie', weight: 1 }
+      ];
+      const result = allocateSubunits(subunits, participants);
+      const lines = result.map(r => `${r.id}: ${r.subunits} subunits (${formatSubunits(r.subunits, curr)})`);
+      const sum = result.reduce((acc, r) => acc + r.subunits, 0);
+      document.getElementById('splitResult').innerText = 
+        `Total: ${subunits} subunits (${formatSubunits(subunits, curr)})\nSum Check: ${sum} (Strict Equality: ${sum === subunits})\n\n` + lines.join('\n');
+    };
+
+    // 4. Payment Rail Dispatcher
+    document.getElementById('railSelect').onchange = (e) => {
+      const handles = {
+        UPI: 'rohan@okhdfcbank',
+        EPC: 'DE89370400440532013000',
+        PIX: 'harshil@example.com',
+        PAYPAL: 'alexsmith'
+      };
+      document.getElementById('recipientHandle').value = handles[e.target.value] || '';
+    };
+
+    document.getElementById('btnDispatchRail').onclick = () => {
+      soundEngine.play('coin');
+      const rail = document.getElementById('railSelect').value;
+      const handle = document.getElementById('recipientHandle').value;
+      const recipient = {
+        name: 'PayMatrix Member',
+        vpa: handle,
+        iban: handle,
+        pixKey: handle,
+        paypalHandle: handle
+      };
+      const res = dispatchPaymentRail({ railType: rail, recipient, amount: 45.50 });
+      document.getElementById('railPayload').innerText = JSON.stringify(res, null, 2);
+    };
+
+    // 5. Canvas Wrapped Story
+    document.getElementById('btnGenWrapped').onclick = async () => {
+      soundEngine.play('fanfare');
+      const dummyGroup = { name: 'Goa Weekend 2026', currencySymbol: '₹' };
+      const dummyExpenses = [
+        { amount: 3500, paidBy: 'Harshil', category: 'Food' },
+        { amount: 4200, paidBy: 'Rohan', category: 'Stay' },
+        { amount: 1800, paidBy: 'Harshil', category: 'Transport' }
+      ];
+      const dummySettlements = [{ amount: 2000 }];
+      const dummyMembers = [{ id: 'Harshil', name: 'Harshil' }, { id: 'Rohan', name: 'Rohan' }, { id: 'Priya', name: 'Priya' }];
+
+      const wrappedData = calculateGroupWrapped(dummyGroup, dummyExpenses, dummySettlements, dummyMembers);
+      const blob = await generateStoryImage(wrappedData);
+      const url = URL.createObjectURL(blob);
+
+      const previewDiv = document.getElementById('wrappedCanvasPreview');
+      previewDiv.innerHTML = `
+        <div style="text-align:center;">
+          <img src="${url}" style="width: 270px; height: 480px; border-radius: 16px; border: 2px solid #10B981; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+          <div style="margin-top: 0.5rem;">
+            <a href="${url}" download="paymatrix-wrapped.png" class="btn-chunky-primary" style="font-size: 0.85rem; padding: 0.5rem 1rem;">Download Story Card (PNG)</a>
+          </div>
+        </div>
+      `;
+    };
+  </script>
+</body>
+</html>

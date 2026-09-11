@@ -143,7 +143,7 @@ const GroupHeader = ({
             {myBalance > 0.01 ? (
               <div>
                 <p className="text-2xl sm:text-3xl font-black font-manrope text-emerald-400">
-                  +{formatCurrency(myBalance)}
+                  +{formatCurrency(myBalance, activeGroup?.currency || 'INR')}
                 </p>
                 <p className="text-xs text-emerald-400/70 font-inter mt-0.5">
                   You are owed in this group
@@ -152,14 +152,14 @@ const GroupHeader = ({
             ) : myBalance < -0.01 ? (
               <div>
                 <p className="text-2xl sm:text-3xl font-black font-manrope text-amber-400">
-                  -{formatCurrency(Math.abs(myBalance))}
+                  -{formatCurrency(Math.abs(myBalance), activeGroup?.currency || 'INR')}
                 </p>
                 <p className="text-xs text-amber-400/70 font-inter mt-0.5">You owe in this group</p>
               </div>
             ) : (
               <div>
                 <p className="text-2xl sm:text-3xl font-black font-manrope text-white/90">
-                  {formatCurrency(0)}
+                  {formatCurrency(0, activeGroup?.currency || 'INR')}
                 </p>
                 <p className="text-xs text-white/40 font-inter mt-0.5">You are all settled up</p>
               </div>

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { HiX } from 'react-icons/hi';
 import { useBillScanner } from '../../hooks/useBillScanner.js';
+import { useEntitlement } from '../../hooks/useEntitlement.js';
 import { EXPENSE_CATEGORIES } from '../../utils/constants.js';
 
 const STAGE = { CAPTURE: 'capture', SCANNING: 'scanning', REVIEW: 'review' };
@@ -52,6 +53,7 @@ const FieldRow = ({ icon, label, value, onChange, type = 'text', placeholder }) 
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 const BillScannerModal = ({ isOpen, onClose, onFill }) => {
+  const entitlement = useEntitlement();
   const [stage, setStage] = useState(STAGE.CAPTURE);
   const [scanResult, setScanResult] = useState(null);
   // Accumulates all selected files to send in a single batch
@@ -68,7 +70,7 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
 
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
-  const { scanBill } = useBillScanner();
+  const { scanBill, error: scannerError, usage } = useBillScanner();
 
   // Reset every time the modal opens
   useEffect(() => {
@@ -110,6 +112,14 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
 
     // Scan all files in a single request to Gemini
     const result = await scanBill(newSelectedFiles);
+
+    if (result?.error) {
+      setFakeProgress(0);
+      setScanFailed(true);
+      setStage(STAGE.CAPTURE);
+      e.target.value = '';
+      return;
+    }
 
     setFakeProgress(100);
     setTimeout(() => {
@@ -199,9 +209,20 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
               {/* Header */}
               <div className="flex items-center justify-between px-6 pt-4 sm:pt-7 pb-3 shrink-0">
                 <div>
-                  <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.3em] font-inter mb-0.5">
-                    PayMatrix
-                  </p>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.3em] font-inter">
+                      PayMatrix
+                    </p>
+                    {entitlement?.isPro ? (
+                      <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded">
+                        PRO · UNLIMITED
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-medium text-white/40 font-inter">
+                        Free tier · 5 scans/mo
+                      </span>
+                    )}
+                  </div>
                   <h2 className="text-lg font-black font-manrope text-white tracking-tight uppercase">
                     {stageTitle[stage]}
                   </h2>
@@ -258,9 +279,16 @@ const BillScannerModal = ({ isOpen, onClose, onFill }) => {
                         <div className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-red-500/[0.08] border border-red-500/20">
                           <X size={14} className="text-red-400 shrink-0" />
                           <p className="text-xs font-bold text-red-400 font-inter">
-                            Couldn&apos;t read the bill. Try a clearer, well-lit photo.
+                            {scannerError?.message ||
+                              "Couldn't read the bill. Try a clearer, well-lit photo."}
                           </p>
                         </div>
+                      )}
+
+                      {usage?.limit != null && (
+                        <p className="text-center text-[11px] font-semibold text-white/35">
+                          {usage.remaining} of {usage.limit} free scans remaining this month
+                        </p>
                       )}
 
                       <div className="flex flex-col w-full gap-3">

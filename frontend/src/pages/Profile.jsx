@@ -8,6 +8,7 @@ import Button from '../components/common/Button.jsx';
 import Input from '../components/common/Input.jsx';
 import Modal from '../components/common/Modal.jsx';
 import PaymentSettingsCard from '../components/profile/PaymentSettingsCard.jsx';
+import SubscriptionSettingsCard from '../components/profile/SubscriptionSettingsCard.jsx';
 import SystemSettingsCard from '../components/profile/SystemSettingsCard.jsx';
 import ChangelogModal from '../components/profile/ChangelogModal.jsx';
 import { Mail, CheckCircle2, X, AlertTriangle, UserX, LockKeyhole } from 'lucide-react';
@@ -88,6 +89,24 @@ const Profile = () => {
     const result = await updateProfile({ upiId: newUpiId });
     if (result.meta.requestStatus !== 'fulfilled') {
       throw new Error(result.payload || 'Update failed');
+    }
+  };
+
+  const handleUpdateCurrency = async (newCurrency) => {
+    const validCurrencies = ['INR', 'USD', 'EUR', 'GBP'];
+    if (!validCurrencies.includes(newCurrency)) {
+      toast.error('Invalid currency selected');
+      return;
+    }
+    try {
+      const result = await updateProfile({ defaultCurrency: newCurrency });
+      if (result.meta.requestStatus === 'fulfilled') {
+        toast.success(`Default currency updated to ${newCurrency}`);
+      } else {
+        toast.error(result.payload || 'Failed to update currency');
+      }
+    } catch {
+      toast.error('Failed to update currency');
     }
   };
 
@@ -335,6 +354,13 @@ const Profile = () => {
         onUpdateUPI={handleUpdateUPI}
       />
 
+      {isOwnProfile && (
+        <SubscriptionSettingsCard
+          key={currentUser?.uid || currentUser?._id}
+          country={currentUser?.billingCountry || 'IN'}
+        />
+      )}
+
       {/* System Preferences */}
       <SystemSettingsCard
         isOwnProfile={isOwnProfile}
@@ -342,6 +368,7 @@ const Profile = () => {
         onOpenChangelog={() => setShowChangelog(true)}
         onExportData={handleExportData}
         onDeleteAccount={() => navigate('/delete-account')}
+        onUpdateCurrency={handleUpdateCurrency}
       />
 
       {/* Changelog Modal */}

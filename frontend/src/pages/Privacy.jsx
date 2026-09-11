@@ -78,6 +78,27 @@ const Privacy = () => (
           through that identity card.
         </p>
       </Section>
+      <Section title="Payment processing and subscription data">
+        <p>
+          When you purchase a subscription or upgrade to PayMatrix Pro, payment transactions are
+          processed securely by our third-party payment gateway provider, Razorpay (Razorpay
+          Software Private Limited).
+        </p>
+        <p>
+          <strong>No Card or Banking Data Stored:</strong> PayMatrix never collects, transmits, or
+          stores your credit card numbers, debit card numbers, CVVs, expiration dates, UPI PINs, or
+          netbanking credentials on our servers or Firestore database. All payment credentials are
+          entered directly into the payment gateway&apos;s encrypted, PCI-DSS compliant checkout
+          interface.
+        </p>
+        <p>
+          <strong>Transaction Identifiers:</strong> PayMatrix receives and stores only tokenized
+          identifiers (such as Razorpay customer IDs, subscription IDs, and payment IDs),
+          transaction statuses, plan identifiers, and entitlement dates to provision and maintain
+          your Pro access. Webhook notifications received from Razorpay are verified
+          cryptographically via HMAC signatures before updating your account entitlement status.
+        </p>
+      </Section>
       <Section title="Retention and deletion">
         <p>
           You can export your data and delete your account. Deletion removes the sign-in account and

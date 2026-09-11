@@ -113,7 +113,37 @@ const Terms = () => (
         </p>
       </Section>
 
-      <Section title="8. Disclaimer of Warranties & Limitation of Liability">
+      <Section title="8. Subscription Terms & Billing">
+        <p>
+          PayMatrix offers optional paid tiers (such as Pro) providing enhanced limits and advanced
+          features.
+        </p>
+        <p>
+          <strong>Billing Cycles & Automatic Renewal:</strong> Paid subscriptions are billed in
+          advance on a recurring cycle (Monthly or Annual) based on your selected plan. Unless
+          cancelled prior to the end of the current billing period, your subscription will
+          automatically renew under the then-current pricing.
+        </p>
+        <p>
+          <strong>Cancellation & Termination:</strong> You may cancel your subscription at any time
+          through your Account Settings. Upon cancellation, your Pro entitlement will remain active
+          until the conclusion of the current prepaid billing period, after which your account will
+          revert to the Free tier without loss of previously recorded group ledger data.
+        </p>
+        <p>
+          <strong>Refund Policy:</strong> Except where required by applicable consumer law,
+          subscription fees are non-refundable for partial billing cycles once an entitlement period
+          has commenced.
+        </p>
+        <p>
+          <strong>Non-Custodial Distinction:</strong> Subscription fees paid for PayMatrix Pro cover
+          software access, cloud synchronization, and AI processing infrastructure only.
+          Subscription payments are separate from and do not constitute peer-to-peer expense
+          settlements or funds transfer between group members.
+        </p>
+      </Section>
+
+      <Section title="9. Disclaimer of Warranties & Limitation of Liability">
         <p>
           PayMatrix is provided on an &quot;AS IS&quot; and &quot;AS AVAILABLE&quot; basis without
           warranties of any kind. We do not guarantee uninterrupted, bug-free, or 100% accurate
@@ -127,7 +157,7 @@ const Terms = () => (
         </p>
       </Section>
 
-      <Section title="9. Contact & Support">
+      <Section title="10. Contact & Support">
         <p>
           If you have questions regarding these Terms or need assistance, you can reach out via our{' '}
           <a

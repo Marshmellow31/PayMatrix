@@ -21,11 +21,13 @@ import {
 
 import { computeGroupBalances, simplifyDebts } from '../utils/balanceEngine.js';
 import Loader from '../components/common/Loader.jsx';
+import Button from '../components/common/Button.jsx';
 import { useFeatureFlags } from '../hooks/useFeatureFlags.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { useGroupRealtime } from '../hooks/useGroupRealtime.js';
 import groupService from '../services/groupService.js';
 import friendService from '../services/friendService.js';
+import { compareCursorRecords, PAGE_SIZES } from '../utils/cursorPagination.js';
 import toast from 'react-hot-toast';
 import { User } from 'lucide-react';
 
@@ -66,6 +68,11 @@ const GroupDetail = () => {
   const [updatingGroup, setUpdatingGroup] = useState(false);
   const [showOnlyMe, setShowOnlyMe] = useState(false);
   const [showBillScanner, setShowBillScanner] = useState(false);
+  const [visibleExpenseCount, setVisibleExpenseCount] = useState(PAGE_SIZES.EXPENSES.initial);
+
+  useEffect(() => {
+    setVisibleExpenseCount(PAGE_SIZES.EXPENSES.initial);
+  }, [id]);
 
   // Managed real-time subscriptions
   const { settlements, groupLogs } = useGroupRealtime(id, dispatch, deletingGroupRef, tab);
@@ -97,7 +104,11 @@ const GroupDetail = () => {
       return true;
     });
 
-    const scopedSettlements = settlements.filter((s) => s.groupId === id && s.status !== 'deleted');
+    scopedExp.sort(compareCursorRecords);
+
+    const scopedSettlements = settlements
+      .filter((s) => s.groupId === id && s.status !== 'deleted')
+      .sort(compareCursorRecords);
 
     const calculatedBalances = computeGroupBalances(
       scopedExp,
@@ -350,15 +361,30 @@ const GroupDetail = () => {
                   </p>
                 </div>
               ) : (
-                scopedExpenses.map((expense) => (
-                  <ExpenseCard
-                    key={expense._id}
-                    expense={expense}
-                    currentUserId={user?._id || user?.uid}
-                    onDelete={handleDeleteExpense}
-                    onEdit={(exp) => openAddExpense(id, exp)}
-                  />
-                ))
+                <>
+                  {scopedExpenses.slice(0, visibleExpenseCount).map((expense) => (
+                    <ExpenseCard
+                      key={expense._id}
+                      expense={expense}
+                      currentUserId={user?._id || user?.uid}
+                      onDelete={handleDeleteExpense}
+                      onEdit={(exp) => openAddExpense(id, exp)}
+                      currency={activeGroup?.currency || 'INR'}
+                    />
+                  ))}
+                  {visibleExpenseCount < scopedExpenses.length && (
+                    <div className="flex justify-center pt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          setVisibleExpenseCount((prev) => prev + PAGE_SIZES.EXPENSES.page)
+                        }
+                      >
+                        Load earlier
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -373,6 +399,7 @@ const GroupDetail = () => {
                 groupId={id}
                 onMemberRemoved={() => dispatch(fetchGroup(id))}
                 currentUserId={user?._id || user?.uid}
+                currency={activeGroup?.currency || 'INR'}
               />
             </div>
           )}
@@ -435,7 +462,9 @@ const GroupDetail = () => {
                       }`}
                     >
                       {bal > 0.01 ? '+' : ''}
-                      {Math.abs(bal) > 0.01 ? formatCurrency(bal) : 'Settled'}
+                      {Math.abs(bal) > 0.01
+                        ? formatCurrency(bal, activeGroup?.currency || 'INR')
+                        : 'Settled'}
                     </span>
                   </div>
                 );
@@ -495,6 +524,7 @@ const GroupDetail = () => {
         groupId={id}
         userId={user?.uid || user?._id}
         forcedPayeeId={selectedSettleFriendId}
+        currency={activeGroup?.currency || 'INR'}
       />
 
       <BillScannerModal

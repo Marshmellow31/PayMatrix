@@ -1,0 +1,3 @@
+-keepattributes Signature,*Annotation*
+-keep class com.paymatrix.app.data.model.** { *; }
+-dontwarn org.conscrypt.**

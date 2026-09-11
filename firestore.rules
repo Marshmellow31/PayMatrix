@@ -124,8 +124,10 @@ service cloud.firestore {
         return request.resource.data.keys().hasOnly([
                  '_id', 'uid', 'email', 'name', 'displayName', 'nameLowerCase',
                  'avatar', 'photoURL', 'friends', 'friendCode', 'upiId', 'phone',
-                 'fcmToken', 'createdAt', 'updatedAt'
+                 'fcmToken', 'defaultCurrency', 'createdAt', 'updatedAt'
                ]) &&
+               (!('defaultCurrency' in request.resource.data) ||
+                request.resource.data.get('defaultCurrency', 'INR') in ['INR', 'USD', 'EUR', 'GBP']) &&
                request.resource.data.get('uid', '') == userId &&
                request.resource.data.get('_id', '') == userId &&
                authEmail != '' &&
@@ -160,8 +162,10 @@ service cloud.firestore {
         (request.auth.uid == userId &&
          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
            '_id', 'email', 'name', 'displayName', 'nameLowerCase', 'avatar', 'photoURL',
-           'upiId', 'phone', 'updatedAt', 'friendCode', 'fcmToken'
+           'upiId', 'phone', 'updatedAt', 'friendCode', 'fcmToken', 'defaultCurrency'
          ]) &&
+         (!('defaultCurrency' in request.resource.data) ||
+          request.resource.data.get('defaultCurrency', 'INR') in ['INR', 'USD', 'EUR', 'GBP']) &&
          identityFieldsMatchAuthAfterUpdate(userId) &&
          isValidString(request.resource.data.get('name', ''), 50) &&
          isValidString(request.resource.data.get('displayName', ''), 50) &&
@@ -375,17 +379,18 @@ service cloud.firestore {
                     request.resource.data.get('inviteCode', '').matches('^[A-Z0-9]{8}$') &&
                     request.resource.data.keys().hasOnly([
                       'name', 'title', 'description', 'category', 'members', 'historicalMembers',
-                      'admin', 'createdBy', 'status', 'inviteCode', 'createdAt', 'updatedAt'
+                      'currency', 'admin', 'createdBy', 'status', 'inviteCode', 'createdAt', 'updatedAt'
                     ]);
       allow update: if isGlobalAdmin() || (isSignedIn() &&
         isValidString(request.resource.data.get('name', request.resource.data.get('title', '')), 100) &&
         request.resource.data.get('createdBy', '') == resource.data.get('createdBy', '') &&
-        request.resource.data.get('inviteCode', '') == resource.data.get('inviteCode', '') &&
+        (request.resource.data.get('inviteCode', '') == resource.data.get('inviteCode', '') ||
+         (isAdmin(groupId) && request.resource.data.get('inviteCode', '').matches('^[A-Z0-9]{8}$'))) &&
         (
           (isAdmin(groupId) &&
            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
              'name', 'title', 'description', 'category', 'members', 'historicalMembers',
-             'admin', 'status', 'deletedAt', 'updatedAt'
+             'currency', 'admin', 'status', 'deletedAt', 'updatedAt', 'inviteCode'
            ]) &&
            validHistoricalMembershipAfterUpdate() &&
            request.resource.data.get('admin', '') in request.resource.data.get('members', []) &&
@@ -697,6 +702,12 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Subscription usage counters are authoritative server-owned state. Admin
+    // SDK writes bypass these rules; clients must use authenticated API routes.
+    match /proUsage/{userId}/periods/{period} {
+      allow read, write: if false;
+    }
+
     // ─── Feature Flags (admin write, all signed-in users read) ───────────────
 
     match /config/{docId} {
@@ -754,12 +765,16 @@ service cloud.firestore {
                     request.resource.data.keys().hasOnly(['groupId', 'createdBy', 'active', 'createdAt']) &&
                     request.resource.data.get('createdBy', '') == request.auth.uid &&
                     request.resource.data.get('active', false) == true &&
-                    getAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.get('createdBy', '') == request.auth.uid &&
+                    (getAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.get('createdBy', '') == request.auth.uid ||
+                     getAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.get('admin', '') == request.auth.uid) &&
                     getAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.get('inviteCode', '') == code;
       allow update: if isSignedIn() &&
-                    request.auth.uid == resource.data.get('createdBy', '') &&
+                    (request.auth.uid == resource.data.get('createdBy', '') ||
+                     isAdmin(resource.data.get('groupId', ''))) &&
                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active']);
-      allow delete: if isSignedIn() && request.auth.uid == resource.data.get('createdBy', '');
+      allow delete: if isSignedIn() &&
+                    (request.auth.uid == resource.data.get('createdBy', '') ||
+                     isAdmin(resource.data.get('groupId', '')));
     }
   }
 }

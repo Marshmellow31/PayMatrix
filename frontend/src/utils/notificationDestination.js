@@ -4,7 +4,7 @@ export function notificationDestination({ type, groupId, url } = {}) {
   try {
     const parsed = new URL(url || '/dashboard', 'https://pay-matrix.vercel.app');
     if (parsed.origin !== 'https://pay-matrix.vercel.app') return '/dashboard';
-    if (/^\/(friends|groups|dashboard|activity)(\/[^/]+)?$/.test(parsed.pathname)) {
+    if (/^\/(friends|groups|dashboard|activity|join|invite)(\/[^/]+)?$/.test(parsed.pathname)) {
       return parsed.pathname + parsed.search;
     }
   } catch {

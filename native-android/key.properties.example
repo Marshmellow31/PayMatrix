@@ -1,0 +1,4 @@
+storeFile=C:/absolute/path/to/the-existing-paymatrix-release-keystore.jks
+storePassword=DO_NOT_COMMIT
+keyAlias=existing-paymatrix-alias
+keyPassword=DO_NOT_COMMIT

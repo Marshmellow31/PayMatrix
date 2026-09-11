@@ -1,0 +1,19 @@
+native-android
+paymatrix-launch
+android app
+scripts
+functions
+releases
+.agents
+.claude
+.github
+.codex
+stitch_authentication
+.paymatrix-migration.local
+next flagship launch
+frontend/node_modules
+frontend/dist
+frontend/dev-dist
+frontend/*.log
+frontend/.env*
+frontend/.vercel

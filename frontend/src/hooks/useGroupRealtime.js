@@ -4,6 +4,8 @@ import { db } from '../config/firebase.js';
 import { clearExpenses, setExpenses } from '../redux/expenseSlice.js';
 import groupService from '../services/groupService.js';
 import { serializeFirestoreData } from '../utils/firestoreSerialization.js';
+import { instrumentation } from '../services/instrumentation.js';
+import { PAGE_SIZES } from '../utils/cursorPagination.js';
 
 /**
  * Custom hook to manage real-time Firestore listeners for a group.
@@ -20,9 +22,15 @@ export const useGroupRealtime = (groupId, dispatch, deletingGroupRef, activeTab)
     dispatch(clearExpenses());
 
     // 2. Real-time listener for Group Metadata
+    const unregGroup = instrumentation.registerListener('groups:groupId');
     const unsubscribeGroup = onSnapshot(
       doc(db, 'groups', groupId),
       async (docSnap) => {
+        instrumentation.recordRead({
+          count: 1,
+          fromCache: Boolean(docSnap.metadata?.fromCache),
+          signature: 'groups:groupId',
+        });
         if (docSnap.exists()) {
           try {
             const groupData = await groupService.expandGroupData(docSnap);
@@ -44,13 +52,21 @@ export const useGroupRealtime = (groupId, dispatch, deletingGroupRef, activeTab)
     );
 
     // 3. Real-time listener for Expenses
+    const unregExpenses = instrumentation.registerListener('groups:groupId:expenses');
     const qExpenses = query(
       collection(db, 'groups', groupId, 'expenses'),
       orderBy('createdAt', 'desc')
     );
+    let expensesInitialized = false;
     const unsubscribeExpenses = onSnapshot(
       qExpenses,
       (snapshot) => {
+        instrumentation.recordRead({
+          count: expensesInitialized ? snapshot.docChanges().length : snapshot.docs.length,
+          fromCache: Boolean(snapshot.metadata?.fromCache),
+          signature: 'groups:groupId:expenses',
+        });
+        expensesInitialized = true;
         const liveExpenses = snapshot.docs.map((docSnap) =>
           serializeFirestoreData({
             _id: docSnap.id,
@@ -66,13 +82,21 @@ export const useGroupRealtime = (groupId, dispatch, deletingGroupRef, activeTab)
     );
 
     // 4. Real-time listener for Settlements
+    const unregSettlements = instrumentation.registerListener('groups:groupId:settlements');
     const qSettlements = query(
       collection(db, 'groups', groupId, 'settlements'),
       orderBy('createdAt', 'desc')
     );
+    let settlementsInitialized = false;
     const unsubscribeSettlements = onSnapshot(
       qSettlements,
       (snapshot) => {
+        instrumentation.recordRead({
+          count: settlementsInitialized ? snapshot.docChanges().length : snapshot.docs.length,
+          fromCache: Boolean(snapshot.metadata?.fromCache),
+          signature: 'groups:groupId:settlements',
+        });
+        settlementsInitialized = true;
         const liveSettlements = snapshot.docs.map((d) =>
           serializeFirestoreData({
             _id: d.id,
@@ -93,6 +117,9 @@ export const useGroupRealtime = (groupId, dispatch, deletingGroupRef, activeTab)
       unsubscribeGroup();
       unsubscribeExpenses();
       unsubscribeSettlements();
+      unregGroup();
+      unregExpenses();
+      unregSettlements();
     };
   }, [groupId, dispatch, deletingGroupRef]);
 
@@ -100,14 +127,22 @@ export const useGroupRealtime = (groupId, dispatch, deletingGroupRef, activeTab)
   useEffect(() => {
     if (!groupId || activeTab !== 'logs') return;
 
+    const unregLogs = instrumentation.registerListener('groups:groupId:logs');
     const qLogs = query(
       collection(db, 'groups', groupId, 'logs'),
       orderBy('createdAt', 'desc'),
-      limit(100)
+      limit(PAGE_SIZES.LOGS.initial)
     );
+    let logsInitialized = false;
     const unsubscribeLogs = onSnapshot(
       qLogs,
       (snapshot) => {
+        instrumentation.recordRead({
+          count: logsInitialized ? snapshot.docChanges().length : snapshot.docs.length,
+          fromCache: Boolean(snapshot.metadata?.fromCache),
+          signature: 'groups:groupId:logs',
+        });
+        logsInitialized = true;
         const liveLogs = snapshot.docs
           .map((docSnap) =>
             serializeFirestoreData({
@@ -131,6 +166,7 @@ export const useGroupRealtime = (groupId, dispatch, deletingGroupRef, activeTab)
     return () => {
       setGroupLogs([]);
       unsubscribeLogs();
+      unregLogs();
     };
   }, [groupId, activeTab, deletingGroupRef]);
 

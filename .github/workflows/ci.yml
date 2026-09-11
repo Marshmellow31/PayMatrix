@@ -25,7 +25,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -37,6 +37,9 @@ jobs:
 
       - name: Format check
         run: npm run format:check
+
+      - name: Release configuration check
+        run: npm run release:check
 
       - name: Unit tests
         run: npm test
@@ -64,7 +67,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Set up Java for Firebase Emulator
         uses: actions/setup-java@v5
@@ -110,7 +113,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: functions/package-lock.json
 

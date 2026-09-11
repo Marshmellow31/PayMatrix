@@ -1,0 +1,10 @@
+# Dependencies
+node_modules/
+
+# Scratch & intermediate test renders
+renders/
+*.blend1
+
+# Build caches
+.cache/
+dist/

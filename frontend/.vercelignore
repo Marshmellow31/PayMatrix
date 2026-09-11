@@ -1,0 +1,14 @@
+node_modules
+dist
+dev-dist
+coverage
+*.log
+.env*
+.vercel
+tests
+src/**/*.test.js
+src/**/*.test.jsx
+
+test-results
+playwright-report
+playwright.billing.config.js

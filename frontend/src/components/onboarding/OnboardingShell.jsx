@@ -17,7 +17,7 @@ const OnboardingShell = ({ children, step, onBack, onSkip }) => (
         </button>
         <div className="flex items-center justify-center gap-2">
           <AppLogo size="xs" decorative />
-          <span className="text-sm font-black uppercase tracking-[0.16em]">PayMatrix</span>
+          <span className="text-sm font-black tracking-[0.16em] lowercase">paymatrix</span>
         </div>
         <div className="flex justify-end">
           <button
