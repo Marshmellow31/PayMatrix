@@ -50,7 +50,7 @@ scripts/serviceAccountKey.json
 # Vitest transient config timestamps
 vitest.config.js.timestamp-*.mjs
 
-# Android release binaries & artifacts (published on GitHub Releases, not tracked in git)
+# Android release binaries & artifacts (only the current requested release is tracked)
 *.apk
 *.aab
 *-mapping.txt
@@ -61,10 +61,9 @@ paymatrix-launch/
 next flagship launch/
 version3.md
 
-# Android apps & local non-web assets (kept local on PC, omitted from web repo)
+# Legacy Android app and local non-web assets
 android app/
-native-android/
-releases/
+/releases/
 stitch_authentication/
 FIREBASE_CONSOLE_CHANGES.md
 PAYMATRIX_SCALING_AND_GROWTH_PLAN.md

@@ -5,7 +5,7 @@
 [![Firebase](https://img.shields.io/badge/Firebase-12.11-FFCA28?logo=firebase)](https://firebase.google.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
 [![PWA](https://img.shields.io/badge/PWA-Ready-00838F?logo=pwa)](https://web.dev/progressive-web-apps/)
-[![Latest release](https://img.shields.io/github/v/release/Marshmellow31/PayMatrix?label=Android%20release)](https://github.com/Marshmellow31/PayMatrix/releases/latest)
+[![Android build](https://img.shields.io/badge/Android-2.3.3-00A86B?logo=android)](./native-android/releases/paymatrix-2.3.3.apk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
 **AI-powered expense sharing with direct UPI settlements.**
@@ -17,34 +17,23 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 
 <div align="center">
 
-[![Google Play Coming Soon](https://img.shields.io/badge/Google_Play-Coming_Soon-4285F4?style=for-the-badge&logo=google-play&logoColor=white)](#-native-android-release-v216)
-[![Direct APK Download](https://img.shields.io/badge/Download_APK-v2.1.6-00C853?style=for-the-badge&logo=android&logoColor=white)](./native-android/releases/paymatrix-native-2.1.6.apk)
-[![Play Store AAB](https://img.shields.io/badge/Play_Store-AAB_v2.1.6-4285F4?style=for-the-badge&logo=google-play&logoColor=white)](./native-android/releases/paymatrix-native-2.1.6.aab)
+[![Download APK](https://img.shields.io/badge/Download_APK-2.3.3-00C853?style=for-the-badge&logo=android&logoColor=white)](./native-android/releases/paymatrix-2.3.3.apk)
+[![Download AAB](https://img.shields.io/badge/Download_AAB-2.3.3-4285F4?style=for-the-badge&logo=google-play&logoColor=white)](./native-android/releases/paymatrix-2.3.3.aab)
 
 </div>
 
-> [!TIP]
-> **🚀 Coming soon on Google Play!**
-> The modern Native Android app (100% Kotlin & Jetpack Compose) is coming soon to the Google Play Store. You can download and install the production-signed APK or inspect the Play Store `.aab` bundle directly from this repository.
+The Kotlin and Jetpack Compose client is available as a signed APK and an Android App Bundle. The AAB is an upload artifact; publishing on Google Play remains a separate step.
 
-[**🌐 Live Web App**](https://pay-matrix.vercel.app/) · [**📱 Download Android APK v2.1.7**](./native-android/releases/paymatrix-native-2.1.7.apk) · [**📦 Download Google Play AAB Bundle**](./native-android/releases/paymatrix-native-2.1.7.aab)
+[**Live Web App**](https://pay-matrix.vercel.app/) · [**Android APK 2.3.3**](./native-android/releases/paymatrix-2.3.3.apk) · [**Android AAB 2.3.3**](./native-android/releases/paymatrix-2.3.3.aab)
 
-### 📱 Native Android Release (v2.1.7)
+### Native Android build (v2.3.3)
 
-- **Version**: `2.1.7` (`versionCode 21007`)
-- **Package ID**: `com.paymatrix.app`
-- **Signed APK**: [`paymatrix-native-2.1.7.apk`](./native-android/releases/paymatrix-native-2.1.7.apk)
-  - **SHA-256**: `4E59863DF0CFC760DD25261B49567B402008752829007ABDA74E4B7F7A8CCF39`
-- **Signed AAB (Google Play)**: [`paymatrix-native-2.1.7.aab`](./native-android/releases/paymatrix-native-2.1.7.aab)
-  - **SHA-256**: `CC3DFECB61865AA7D3F50A79861E500EB6A29ECEC220EE88D63DADA8AA1B3FCA`
-- **What's New in v2.1.7**:
-  - 🔑 **Google Sign-In Reliability**: Restored `GetSignInWithGoogleOption` with auto-linked Google Play App Signing credentials and detailed diagnostic messages.
-  - 🛡️ **Native Debug Symbols**: Configured `debugSymbolLevel = "FULL"` in App Bundle for zero-warning Google Play distribution.
-  - 🎨 **Android 15 Edge-to-Edge**: Modernized system bar styling for Android 15 (API 35+) window inset standards.
-  - ✨ **Step-Wise Expense Addition**: Web-parity 2-step flow with Essentials & Category on Step 1, Split Methods, Paid By, and Live Distribution Preview on Step 2.
-  - 🔄 **Dynamic Select/Deselect All**: Instant participant toggle with adaptive button label.
-  - 💳 **Web-Parity Settle Up**: Total You Owe summary, Settle All, Recommended Payments with Ready/No ID badges, and inline Partial Settlement.
-  - 📲 **On-Device UPI QR & App Intent**: High-res ZXing QR generation, Copy UPI ID, Save QR to device gallery, and launch Google Pay / default UPI app.
+- **Version**: `2.3.3` (`versionCode 23003`), package `com.paymatrix.app`.
+- **Artifacts**: [signed APK](./native-android/releases/paymatrix-2.3.3.apk), [signed AAB](./native-android/releases/paymatrix-2.3.3.aab), and [SHA-256 checksums](./native-android/releases/SHA256SUMS-2.3.3.txt).
+- **UI update**: web-inspired light and dark surfaces, clearer card borders, tighter home and group layouts, compact Groups actions, friend request spacing, a simplified profile, and a sliding bottom-tab indicator.
+- **Balance clarity**: member details identify whom a member pays or receives money from, using the group's simplified outstanding debts.
+- **Local validation**: debug unit tests, release lint, signed APK/AAB builds, and an emulator UI preview passed. The new APK certificate matches the published 2.3.2 APK.
+- **Release boundary**: local builds and emulator checks do not establish Play-installed or physical-device behavior. The payment flow still requires the user to verify and confirm settlement.
 
 ---
 
@@ -429,18 +418,10 @@ $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 .\gradlew.bat testDebugUnitTest lintRelease assembleRelease bundleRelease
 ```
 
-The signed v2.1.0 APK upgrades earlier releases in place because package, release certificate, and Firebase
-identity are compatible and its version code is higher. The old
-[`v1.2.5` release](https://github.com/Marshmellow31/PayMatrix/releases/tag/v1.2.5) remains available.
-Follow [`native-android/README.md`](./native-android/README.md) and its learning/verification docs.
+The 2.3.3 build keeps the package and Firebase identity. Its release certificate matches the published 2.3.2 APK, and its version code is higher, enabling an in-place Android upgrade from that release. Follow the [native Android build guide](./native-android/README.md).
 
 **Firebase capacity boundary:** confirm the live billing plan in Firebase Console before launch; the
-CLI does not expose it here. If the project is still on Spark, it is suitable for a controlled launch,
-not mass adoption: Firestore's free tier is 50,000 reads/day, 20,000 writes/day, 20,000 deletes/day,
-1 GiB stored data, and 10 GiB/month outbound transfer. Version 2.1.0 removes duplicate Home refreshes
-and separates notification refreshes from balance recomputation, but exact dashboard balances still
-scale with retained ledger size. See
-[`SCALING_AND_OFFLINE.md`](./native-android/docs/SCALING_AND_OFFLINE.md) before marketing broadly.
+CLI does not expose it here. Check the current Firebase quotas, telemetry, and balance-read behavior before a broad launch.
 
 ### Granting yourself admin
 
