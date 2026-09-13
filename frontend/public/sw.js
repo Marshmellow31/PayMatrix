@@ -141,7 +141,10 @@ self.addEventListener('notificationclick', (event) => {
   let targetUrl = new URL(fallback, self.location.origin).href;
   try {
     const candidate = new URL(data.url || fallback, self.location.origin);
-    if (candidate.origin === self.location.origin) targetUrl = candidate.href;
+    if (
+      candidate.origin === self.location.origin &&
+      /^\/(friends|groups|dashboard|activity)(\/[^/]+)?$/.test(candidate.pathname)
+    ) targetUrl = candidate.href;
   } catch { /* Use the safe in-app fallback for malformed URLs. */ }
 
   event.waitUntil(

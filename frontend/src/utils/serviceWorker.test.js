@@ -86,4 +86,16 @@ describe('installed service worker', () => {
     await done;
     expect(clients.openWindow).toHaveBeenCalledWith('https://pay-matrix.vercel.app/dashboard');
   });
+  it('does not open an unapproved in-app notification route', async () => {
+    const { events, clients } = worker();
+    let done;
+    events.notificationclick({
+      notification: { close() {}, data: { url: '/admin' } },
+      waitUntil: (promise) => {
+        done = promise;
+      },
+    });
+    await done;
+    expect(clients.openWindow).toHaveBeenCalledWith('https://pay-matrix.vercel.app/dashboard');
+  });
 });

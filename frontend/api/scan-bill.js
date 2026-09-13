@@ -1,6 +1,7 @@
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
 const ALLOWED_ORIGINS = new Set([
   "https://pay-matrix.vercel.app",
+  "https://paymatrixapp.online",
   "https://localhost",
 ]);
 const MAX_IMAGES = 4;

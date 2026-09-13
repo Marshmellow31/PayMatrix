@@ -10,6 +10,12 @@ describe('notification destinations', () => {
   it('opens the related group and encodes identifiers', () => {
     expect(notificationDestination({ groupId: 'trip 1' })).toBe('/groups/trip%201');
     expect(notificationDestination({ url: '/groups/trip1' })).toBe('/groups/trip1');
+    expect(notificationDestination({ url: 'https://paymatrixapp.online/groups/trip1' })).toBe(
+      '/groups/trip1'
+    );
+    expect(notificationDestination({ url: 'https://pay-matrix.vercel.app/groups/trip1' })).toBe(
+      '/groups/trip1'
+    );
   });
   it('rejects external, script and unknown destinations', () => {
     for (const url of [

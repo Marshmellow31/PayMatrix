@@ -20,7 +20,7 @@ import { serializeFirestoreData } from '../utils/firestoreSerialization.js';
 
 const googleProvider = new GoogleAuthProvider();
 const authContinueUrl =
-  import.meta.env.VITE_AUTH_CONTINUE_URL || 'https://pay-matrix.vercel.app/login?verified=1';
+  import.meta.env.VITE_AUTH_CONTINUE_URL || 'https://paymatrixapp.online/login?verified=1';
 
 const isAllowedProfileAvatar = (value) =>
   !value ||

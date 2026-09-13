@@ -10,7 +10,6 @@ import Loader from './components/common/Loader.jsx';
 import { usePushNotifications } from './hooks/usePushNotifications.js';
 import InstallPrompt from './components/common/InstallPrompt.jsx';
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt.jsx';
-import { hasSeenOnboarding } from './hooks/useOnboardingState.js';
 import { isNativeRuntime } from '#paymatrix-runtime';
 import { useNativeAppBridge } from './platform/useNativeAppBridge.js';
 import { serializeFirestoreData } from './utils/firestoreSerialization.js';
@@ -18,7 +17,7 @@ import { needsEmailVerification } from './services/authService.js';
 
 // Layout & Pages
 const AppLayout = lazy(() => import('./components/layout/AppLayout.jsx'));
-const Onboarding = lazy(() => import('./pages/Onboarding.jsx'));
+const LandingPage = lazy(() => import('./pages/LandingPage.jsx'));
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout.jsx'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard.jsx'));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers.jsx'));
@@ -64,13 +63,10 @@ const PublicRoute = ({ children }) => {
 
 const RootRoute = () => {
   const { user } = useSelector((state) => state.auth);
-  const location = useLocation();
 
   if (user) return <Navigate to="/dashboard" replace />;
   if (isNativeRuntime()) return <Navigate to="/login" replace />;
-  if (new URLSearchParams(location.search).get('preview') === '1') return <Onboarding />;
-  if (hasSeenOnboarding()) return <Navigate to="/login" replace />;
-  return <Onboarding />;
+  return <LandingPage />;
 };
 
 const AdminRoute = ({ children }) => {
