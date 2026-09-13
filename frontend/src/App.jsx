@@ -44,6 +44,7 @@ const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 const DeleteAccount = lazy(() => import('./pages/DeleteAccount.jsx'));
 const Privacy = lazy(() => import('./pages/Privacy.jsx'));
 const Terms = lazy(() => import('./pages/Terms.jsx'));
+const Contact = lazy(() => import('./pages/Contact.jsx'));
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
@@ -266,6 +267,7 @@ function App() {
           />
 
           <Route path="/join/:code" element={<JoinGroup />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/delete-account" element={<DeleteAccount />} />

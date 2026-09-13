@@ -9,10 +9,17 @@ const PublicFooter = () => (
         <span>paymatrix</span>
       </Link>
       <nav aria-label="Legal and support">
+        <Link to="/contact">Contact</Link>
         <Link to="/privacy">Privacy</Link>
         <Link to="/terms">Terms</Link>
         <Link to="/delete-account">Delete account</Link>
-        <a href="https://github.com/Marshmellow31/PayMatrix/issues" target="_blank" rel="noopener noreferrer">Support</a>
+        <a
+          href="https://github.com/Marshmellow31/PayMatrix/issues"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Support
+        </a>
       </nav>
     </div>
   </footer>
