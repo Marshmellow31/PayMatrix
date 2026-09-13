@@ -59,6 +59,7 @@ const groupSlice = createSlice({
     },
     setGroups: (state, action) => {
       state.groups = action.payload;
+      state.loading = false;
     },
   },
   extraReducers: (builder) => {

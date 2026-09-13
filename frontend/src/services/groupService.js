@@ -26,14 +26,56 @@ const wrap = (data, message = 'Success') => ({ data: { data, message, status: 's
 // sessionStorage persistence was a PII leak (names, emails, avatars survived tab sessions).
 // Cache is cleared on logout via clearUserCache() called from authSlice.
 const userCache = {};
+const inFlightProfiles = new Map();
 
 /** Called by authSlice logout reducer to purge PII after sign-out. */
 export const clearUserCache = () => {
   Object.keys(userCache).forEach((k) => delete userCache[k]);
+  inFlightProfiles.clear();
 };
 
 const updateCache = (uid, userData) => {
   userCache[uid] = userData;
+};
+
+const fetchPublicProfile = async (uid) => {
+  if (userCache[uid]) return userCache[uid];
+  if (inFlightProfiles.has(uid)) return inFlightProfiles.get(uid);
+
+  const task = (async () => {
+    try {
+      let uSnap = await getDocFromCache(doc(db, 'publicProfiles', uid)).catch(() => null);
+      if (!uSnap) {
+        uSnap = await getDoc(doc(db, 'publicProfiles', uid)).catch(() => null);
+      }
+
+      if (!uSnap?.exists()) return null;
+
+      const uData = serializeFirestoreData(uSnap.data());
+      const profileName = String(uData.name || uData.displayName || '').trim();
+      if (!profileName || ['member', 'group member'].includes(profileName.toLowerCase())) {
+        return null;
+      }
+
+      const resolvedUser = serializeFirestoreData({
+        ...uData,
+        _id: uid,
+        uid: uid,
+        name: profileName,
+        avatar: uData.avatar || uData.photoURL,
+      });
+
+      updateCache(uid, resolvedUser);
+      return resolvedUser;
+    } catch {
+      return null;
+    } finally {
+      inFlightProfiles.delete(uid);
+    }
+  })();
+
+  inFlightProfiles.set(uid, task);
+  return task;
 };
 
 const groupService = {
@@ -86,35 +128,9 @@ const groupService = {
           return;
         }
 
-        try {
-          let uSnap = await getDocFromCache(doc(db, 'publicProfiles', uid)).catch(() => null);
-          if (!uSnap) {
-            uSnap = await getDoc(doc(db, 'publicProfiles', uid)).catch(() => null);
-          }
-
-          if (!uSnap?.exists()) {
-            return;
-          }
-
-          const uData = serializeFirestoreData(uSnap.data());
-          const profileName = String(uData.name || uData.displayName || '').trim();
-          if (!profileName || ['member', 'group member'].includes(profileName.toLowerCase())) {
-            return;
-          }
-
-          // Synthesize standard attributes
-          const resolvedUser = serializeFirestoreData({
-            ...uData,
-            _id: uid,
-            uid: uid,
-            name: profileName,
-            avatar: uData.avatar || uData.photoURL,
-          });
-
-          updateCache(uid, resolvedUser);
+        const resolvedUser = await fetchPublicProfile(uid);
+        if (resolvedUser) {
           resolvedByUid.set(uid, resolvedUser);
-        } catch (err) {
-          return;
         }
       });
 

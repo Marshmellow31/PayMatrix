@@ -63,6 +63,15 @@ const Friends = () => {
   const [settleModalOpen, setSettleModalOpen] = useState(false);
   const [selectedFriendForSettle, setSelectedFriendForSettle] = useState(null);
 
+  const refreshRequests = useCallback(async () => {
+    try {
+      const requestsRes = await friendService.getRequests();
+      setRequests(requestsRes.data.data || { incoming: [], outgoing: [] });
+    } catch (err) {
+      console.error('Fetch requests error:', err);
+    }
+  }, []);
+
   const fetchData = useCallback(async (isInitial = true) => {
     try {
       if (isInitial) setIsLoading(true);
@@ -84,6 +93,17 @@ const Friends = () => {
 
   useEffect(() => {
     const unsubs = [];
+    let debounceTimer = null;
+    let isInitialMount = true;
+
+    const debouncedRefresh = () => {
+      // Ignore initial snapshot echoes since fetchData(true) already ran on mount
+      if (isInitialMount) return;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchData(false);
+      }, 400);
+    };
 
     const setupListeners = () => {
       const user = auth.currentUser;
@@ -95,11 +115,11 @@ const Friends = () => {
       // 2. Listen to user document (friend list changes)
       unsubs.push(
         onSnapshot(doc(db, 'users', user.uid), () => {
-          fetchData(false);
+          debouncedRefresh();
         })
       );
 
-      // 3. Listen to incoming requests
+      // 3. Listen to incoming requests (isolated — does not re-query all group finances)
       const qReq = query(
         collection(db, 'friendRequests'),
         where('to', '==', user.uid),
@@ -107,11 +127,11 @@ const Friends = () => {
       );
       unsubs.push(
         onSnapshot(qReq, () => {
-          fetchData(false);
+          if (!isInitialMount) refreshRequests();
         })
       );
 
-      // 4. Listen to outgoing requests
+      // 4. Listen to outgoing requests (isolated — does not re-query all group finances)
       const qReqOut = query(
         collection(db, 'friendRequests'),
         where('from', '==', user.uid),
@@ -119,19 +139,22 @@ const Friends = () => {
       );
       unsubs.push(
         onSnapshot(qReqOut, () => {
-          fetchData(false);
+          if (!isInitialMount) refreshRequests();
         })
       );
 
       // 5. Listen to groups user is in
-      // Due to 'touch' mechanism in expenseService, any subcollection change
-      // will update the group doc, triggering this listener.
       const qGroups = query(collection(db, 'groups'), where('members', 'array-contains', user.uid));
       unsubs.push(
         onSnapshot(qGroups, () => {
-          fetchData(false);
+          debouncedRefresh();
         })
       );
+
+      // Mark initial listener registration complete after short tick
+      setTimeout(() => {
+        isInitialMount = false;
+      }, 600);
     };
 
     // Give auth a moment to initialize if needed
@@ -144,10 +167,11 @@ const Friends = () => {
     });
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       authUnsub();
       unsubs.forEach((u) => u());
     };
-  }, [fetchData]);
+  }, [fetchData, refreshRequests]);
 
   const copyMyCode = () => {
     if (!user?.friendCode) return;

@@ -103,7 +103,7 @@ export const useGroupRealtime = (groupId, dispatch, deletingGroupRef, activeTab)
     const qLogs = query(
       collection(db, 'groups', groupId, 'logs'),
       orderBy('createdAt', 'desc'),
-      limit(100)
+      limit(30)
     );
     const unsubscribeLogs = onSnapshot(
       qLogs,

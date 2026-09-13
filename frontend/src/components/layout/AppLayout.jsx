@@ -36,8 +36,6 @@ const AppLayout = () => {
   const flags = useFeatureFlags();
 
   useEffect(() => {
-    dispatch(fetchGroups());
-
     // Pre-warm the Render backend to reduce cold-start latency.
     // Render's free tier sleeps after ~15min; this fires a silent ping
     // so subsequent API calls don't wait for the backend to wake up.
@@ -47,7 +45,7 @@ const AppLayout = () => {
         /* silent */
       });
     }
-  }, [dispatch]);
+  }, []);
 
   // One shared live group feed powers every retained tab. This avoids opening
   // duplicate listeners after both Home and Groups have been visited.

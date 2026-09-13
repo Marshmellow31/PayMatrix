@@ -9,6 +9,7 @@ import {
   doc,
   writeBatch,
   orderBy,
+  limit,
 } from 'firebase/firestore';
 import { serializeFirestoreData } from '../utils/firestoreSerialization.js';
 
@@ -27,7 +28,8 @@ export const fetchNotifications = createAsyncThunk(
       const q = query(
         collection(db, 'notifications'),
         where('to', '==', userId),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        limit(30)
       );
       const snap = await getDocs(q);
       const notifications = snap.docs.map((d) =>

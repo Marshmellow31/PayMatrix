@@ -20,8 +20,10 @@ const AddExpense = () => {
   );
 
   useEffect(() => {
-    dispatch(fetchGroups());
-  }, [dispatch]);
+    if (groups.length === 0) {
+      dispatch(fetchGroups());
+    }
+  }, [dispatch, groups.length]);
 
   const handleSubmit = async (data) => {
     const groupId = data.groupId;

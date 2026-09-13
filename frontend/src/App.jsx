@@ -4,7 +4,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { onIdTokenChanged } from 'firebase/auth';
 import { auth, db } from './config/firebase.js';
 import { setUser } from './redux/authSlice.js';
-import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, limit } from 'firebase/firestore';
 import { setNotifications } from './redux/notificationSlice.js';
 import Loader from './components/common/Loader.jsx';
 import { usePushNotifications } from './hooks/usePushNotifications.js';
@@ -182,7 +182,11 @@ function App() {
           }
         );
 
-        const qNotifs = query(collection(db, 'notifications'), where('to', '==', firebaseUser.uid));
+        const qNotifs = query(
+          collection(db, 'notifications'),
+          where('to', '==', firebaseUser.uid),
+          limit(25)
+        );
         _unsubscribeNotifs = onSnapshot(
           qNotifs,
           (snapshot) => {

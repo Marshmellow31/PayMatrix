@@ -75,7 +75,7 @@ const Dashboard = () => {
   useEffect(() => {
     if (!user?._id && !user?.uid) return;
     let active = true;
-    const updateSummary = async () => {
+    const updateSummary = async (forceRefresh = false) => {
       // Paint the local snapshot first, then refresh without covering it in a loader.
       try {
         const saved = await expenseService.getSummary({ cachedOnly: true });
@@ -87,7 +87,7 @@ const Dashboard = () => {
         /* A first-time account has no saved snapshot. */
       }
       try {
-        const response = await expenseService.getSummary({ force: true });
+        const response = await expenseService.getSummary({ force: forceRefresh });
         if (active) setSummary(response.data.data);
       } catch (error) {
         console.warn('Summary refresh unavailable; retaining saved data:', error);

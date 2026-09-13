@@ -13,8 +13,11 @@ const Activity = () => {
   const { notifications, unreadCount, loading } = useSelector((state) => state.notifications);
 
   useEffect(() => {
-    if (user?.uid) dispatch(fetchNotifications(user?.uid));
-  }, [dispatch, user?.uid]);
+    // Rely on the active real-time listener in App.jsx when notifications are already populated
+    if (user?.uid && notifications.length === 0) {
+      dispatch(fetchNotifications(user?.uid));
+    }
+  }, [dispatch, user?.uid, notifications.length]);
 
   return (
     <div className="max-w-3xl mx-auto animate-fade-in pb-24">

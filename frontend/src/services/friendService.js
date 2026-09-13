@@ -17,6 +17,7 @@ import {
 import { createNotification } from '../utils/notificationHelper.js';
 import validationService, { FriendRequestSchema } from './validationService.js';
 import { withRetry } from '../utils/retryOperation.js';
+import { getDisplayDocs } from './displayReads.js';
 
 // Helper to mimic Axios response
 const wrap = (data, message = 'Success') => ({ data: { data, message, status: 'success' } });
@@ -172,8 +173,9 @@ const friendService = {
     const userId = auth.currentUser?.uid;
     if (!userId) return wrap({ friends: [] });
 
-    const uDoc = await getDoc(doc(db, 'users', userId));
-    const friendIds = uDoc.data()?.friends || [];
+    let uDoc = await getDocFromCache(doc(db, 'users', userId)).catch(() => null);
+    if (!uDoc || !uDoc.exists()) uDoc = await getDoc(doc(db, 'users', userId)).catch(() => null);
+    const friendIds = uDoc?.data()?.friends || [];
 
     const friends = await Promise.all(
       friendIds.map(async (id) => {
@@ -192,25 +194,26 @@ const friendService = {
 
     try {
       const { computeGroupBalances, simplifyDebts } = await import('../utils/balanceEngine.js');
-      // 1. Get current user's friend list
-      const uDoc = await getDoc(doc(db, 'users', userId));
-      const friendIds = uDoc.data()?.friends || [];
+      // 1. Get current user's friend list (cache-first)
+      let uDoc = await getDocFromCache(doc(db, 'users', userId)).catch(() => null);
+      if (!uDoc || !uDoc.exists()) uDoc = await getDoc(doc(db, 'users', userId)).catch(() => null);
+      const friendIds = uDoc?.data()?.friends || [];
       if (friendIds.length === 0) return wrap({ networkAnalytics: [] });
 
-      // 2. Get all groups user is in
+      // 2. Get all groups user is in (display read with bounded cache)
       const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
-      const groupSnap = await getDocs(q);
+      const groupSnap = await getDisplayDocs(q);
       const myGroups = groupSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((g) => g.status !== 'deleted');
 
-      // 3. Pre-fetch all group data to avoid redundant calls in the friend loop
+      // 3. Pre-fetch group data using display reads with cache fallback to avoid network storms
       const groupDataCache = {};
       await Promise.all(
         myGroups.map(async (group) => {
           const [expSnap, stlSnap] = await Promise.all([
-            getDocs(collection(db, 'groups', group.id, 'expenses')),
-            getDocs(collection(db, 'groups', group.id, 'settlements')),
+            getDisplayDocs(collection(db, 'groups', group.id, 'expenses')),
+            getDisplayDocs(collection(db, 'groups', group.id, 'settlements')),
           ]);
           groupDataCache[group.id] = {
             expenses: expSnap.docs
