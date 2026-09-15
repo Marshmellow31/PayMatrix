@@ -10,7 +10,7 @@
  */
 
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
-import { NavigationRoute, registerRoute } from 'workbox-routing';
+import { NavigationRoute, registerRoute, setCatchHandler } from 'workbox-routing';
 import { clientsClaim } from 'workbox-core';
 import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
@@ -75,7 +75,7 @@ registerRoute(
 
 // ── 3. Runtime Caching: Google Fonts ──────────────────────────────────────
 // Cache font CSS and font files with a 1-year expiry.
-// Inter (used by PayMatrix) will be available offline after first load.
+// Inter and Manrope (used by PayMatrix) will be available offline after first load.
 registerRoute(
   ({ url }) =>
     url.origin === 'https://fonts.googleapis.com' ||
@@ -84,13 +84,22 @@ registerRoute(
     cacheName: 'google-fonts-cache',
     plugins: [
       new ExpirationPlugin({
-        maxEntries: 10,
+        maxEntries: 60,
         maxAgeSeconds: 60 * 60 * 24 * 365, // 365 days
       }),
       new CacheableResponsePlugin({ statuses: [0, 200] }),
     ],
   })
 );
+
+// ── 3b. Offline Catch Handler ─────────────────────────────────────────────
+// Ensure document navigations always fall back to the cached offline SPA shell.
+setCatchHandler(async ({ request }) => {
+  if (request.destination === 'document') {
+    return (await caches.match('/index.html')) || Response.error();
+  }
+  return Response.error();
+});
 
 // ── 4. FCM Background Push Handler ───────────────────────────────────────
 // This fires when a push message arrives and the app is closed / backgrounded.

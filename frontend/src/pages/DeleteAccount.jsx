@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AlertTriangle, Download, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import accountService from '../services/accountService.js';
@@ -7,6 +7,10 @@ import { useSelector } from 'react-redux';
 import { auth } from '../config/firebase.js';
 
 const DeleteAccount = () => {
+  useEffect(() => {
+    document.title = 'Account Deletion & Data Rights — paymatrix';
+  }, []);
+
   const [confirmation, setConfirmation] = useState('');
   const [working, setWorking] = useState(false);
   const [password, setPassword] = useState('');

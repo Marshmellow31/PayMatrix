@@ -2,22 +2,101 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="paymatrix" />
+    <meta name="application-name" content="paymatrix" />
+    <meta name="msapplication-TileColor" content="#1a1a1a" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="description" content="Enjoy the plans. Skip the money confusion. Track shared expenses, split them fairly, and see who owes whom with paymatrix." />
+    <meta name="description" content="Enjoy the plans. Skip the money confusion. Track shared expenses, split them fairly, and settle up via UPI QR codes for trips, flatmates, and everyday plans. Exact paise arithmetic with paymatrix." />
+    <meta name="keywords" content="paymatrix, shared expense tracker, bill split app, upi expense splitter, splitwise alternative, trip expense calculator, flatmate expenses, split bills india" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="paymatrix — shared expenses made clear" />
-    <meta property="og:description" content="Track shared expenses, split them fairly, and see who owes whom—for trips, flatmates, and everyday plans." />
+    <meta property="og:title" content="paymatrix — Shared Expenses Made Clear | Bill Split & UPI Tracker" />
+    <meta property="og:description" content="Track shared expenses, split them fairly, and see who owes whom—for trips, flatmates, and everyday plans. Exact paise arithmetic and peer-to-peer UPI settlements." />
     <meta property="og:url" content="https://paymatrixapp.online/" />
     <meta property="og:image" content="https://paymatrixapp.online/landing-friends.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="canonical" href="https://paymatrixapp.online/" />
     <meta name="theme-color" content="#1a1a1a" />
+    <link rel="preload" as="image" href="/landing-friends.webp" type="image/webp" fetchpriority="high" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <title>paymatrix — shared expenses made clear</title>
+    <title>paymatrix — Shared Expenses Made Clear | Bill Split &amp; UPI Tracker</title>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebApplication",
+          "@id": "https://paymatrixapp.online/#app",
+          "name": "paymatrix",
+          "alternateName": "PayMatrix",
+          "url": "https://paymatrixapp.online/",
+          "description": "Track shared expenses, split bills fairly, and settle up with UPI QR codes for trips, roommates, and everyday plans. Features exact paise arithmetic and non-custodial group ledgers.",
+          "applicationCategory": "FinanceApplication",
+          "operatingSystem": "All",
+          "browserRequirements": "Requires JavaScript. Requires HTML5.",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "INR"
+          },
+          "author": {
+            "@type": "Person",
+            "name": "Harshil Patel",
+            "url": "https://www.harshilpatel.co.in/"
+          }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://paymatrixapp.online/#organization",
+          "name": "paymatrix",
+          "url": "https://paymatrixapp.online/",
+          "logo": "https://paymatrixapp.online/logo.png",
+          "sameAs": [
+            "https://github.com/Marshmellow31/PayMatrix"
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://paymatrixapp.online/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Does paymatrix transfer or hold user money?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No. paymatrix coordinates shared expense ledgers and generates UPI QR codes for direct peer-to-peer settlement in your preferred payment app. It does not hold, process, or move user funds."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How does paymatrix split expenses without rounding errors?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "All monetary calculations are performed in integer paise (1 INR = 100 paise). Remainder paise during odd splits are distributed deterministically across participants so the sum of parts always exactly equals the total."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can multiple friends pay for a single expense in paymatrix?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. paymatrix natively supports multi-payer expenses, allowing multiple people to contribute custom amounts to a single shared bill."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
   <body class="bg-background text-on-surface font-inter antialiased">
     <div id="root"></div>

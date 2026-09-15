@@ -10,6 +10,17 @@ const sections = [
 const PublicHeader = () => {
   const { pathname } = useLocation();
 
+  const handleSectionClick = (e, id) => {
+    if (pathname === '/') {
+      e.preventDefault();
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        window.history.replaceState(null, '', `#${id}`);
+      }
+    }
+  };
+
   return (
     <header className="landing-header">
       <div className="landing-container landing-header-inner">
@@ -19,7 +30,11 @@ const PublicHeader = () => {
         </Link>
         <nav className="landing-nav" aria-label="Public pages">
           {sections.map(([id, label]) => (
-            <Link key={id} to={pathname === '/' ? `#${id}` : `/#${id}`}>
+            <Link
+              key={id}
+              to={pathname === '/' ? `#${id}` : `/#${id}`}
+              onClick={(e) => handleSectionClick(e, id)}
+            >
               {label}
             </Link>
           ))}

@@ -6,12 +6,11 @@ const SyncStatus = () => {
   const online = useOnlineStatus();
   const { pending, error } = useSyncStatus();
 
-  if (online && pending === 0 && !error) return null;
+  // Do not show an offline banner if there are no pending mutations or errors
+  if (pending === 0 && !error) return null;
 
   const label = !online
-    ? pending > 0
-      ? `${pending} change${pending === 1 ? '' : 's'} saved on this device`
-      : 'Offline mode'
+    ? `${pending} change${pending === 1 ? '' : 's'} saved on this device`
     : error
       ? 'Some changes need attention'
       : `Syncing ${pending} change${pending === 1 ? '' : 's'}…`;

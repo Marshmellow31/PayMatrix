@@ -29,6 +29,7 @@ function worker() {
       }
     },
     registerRoute: (...args) => routes.push(args),
+    setCatchHandler: vi.fn(),
     CacheFirst: class {},
     StaleWhileRevalidate: class {},
     ExpirationPlugin: class {},

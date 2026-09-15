@@ -12,7 +12,9 @@
   background: var(--lp-bg);
   font-family: Manrope, Inter, sans-serif;
   line-height: 1.5;
-  overflow: clip;
+  overflow-x: clip;
+  overflow-y: visible;
+  scroll-behavior: smooth;
   -webkit-user-select: text;
   user-select: text;
 }
@@ -51,10 +53,13 @@
 }
 
 .landing-header {
-  position: relative;
-  z-index: 10;
+  position: sticky;
+  top: 0;
+  z-index: 100;
   height: 74px;
-  background: var(--lp-bg);
+  background: rgba(21, 21, 21, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--lp-line);
 }
 .landing-header-inner,
@@ -143,7 +148,7 @@
   position: absolute;
   inset: 0 0 0 35%;
   z-index: -2;
-  background: url('/landing-friends.png') center 46% / cover no-repeat;
+  background: url('/landing-friends.webp') center 46% / cover no-repeat;
 }
 .landing-hero-shade {
   position: absolute;
@@ -231,6 +236,7 @@
 }
 
 .landing-section {
+  scroll-margin-top: 84px;
   padding-block: clamp(80px, 10vw, 140px);
 }
 .landing h2 {

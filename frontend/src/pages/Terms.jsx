@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const Section = ({ title, children }) => (
@@ -7,7 +8,12 @@ const Section = ({ title, children }) => (
   </section>
 );
 
-const Terms = () => (
+const Terms = () => {
+  useEffect(() => {
+    document.title = 'Terms of Service — paymatrix';
+  }, []);
+
+  return (
   <main className="min-h-screen bg-[#0e0e0e] px-4 py-10 text-white selection:bg-white/10">
     <article className="mx-auto max-w-3xl space-y-8 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-10 backdrop-blur-xl">
       <header className="border-b border-white/10 pb-6">
@@ -158,6 +164,7 @@ const Terms = () => (
       </div>
     </article>
   </main>
-);
+  );
+};
 
 export default Terms;

@@ -36,10 +36,6 @@ const PwaUpdatePrompt = () => {
 
   useEffect(() => {
     if (offlineReady) {
-      toast.success('App ready to work offline', {
-        icon: '📱',
-        style: { background: '#1c1c1e', color: '#fff' },
-      });
       setOfflineReady(false);
     }
   }, [offlineReady, setOfflineReady]);

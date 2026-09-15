@@ -22,7 +22,17 @@ const expenses = [
 const LandingPage = () => {
   const { hash } = useLocation();
 
+  const handleScrollTo = (e, id) => {
+    e.preventDefault();
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.history.replaceState(null, '', `#${id}`);
+    }
+  };
+
   useEffect(() => {
+    document.title = 'paymatrix — Shared Expenses Made Clear | Bill Split & UPI Tracker';
     if (['#how-it-works', '#fair-splits', '#settle-up'].includes(hash)) {
       requestAnimationFrame(() => document.getElementById(hash.slice(1))?.scrollIntoView());
     }
@@ -30,7 +40,7 @@ const LandingPage = () => {
 
   return (
     <div className="landing">
-      <a className="landing-skip" href="#main-content">
+      <a className="landing-skip" href="#main-content" onClick={(e) => handleScrollTo(e, 'main-content')}>
         Skip to content
       </a>
 
@@ -60,7 +70,11 @@ const LandingPage = () => {
                 <Link className="landing-button" to="/register">
                   Get started <ArrowRight size={18} aria-hidden="true" />
                 </Link>
-                <a className="landing-text-link" href="#how-it-works">
+                <a
+                  className="landing-text-link"
+                  href="#how-it-works"
+                  onClick={(e) => handleScrollTo(e, 'how-it-works')}
+                >
                   See how it works <ArrowDownRight size={17} aria-hidden="true" />
                 </a>
               </div>

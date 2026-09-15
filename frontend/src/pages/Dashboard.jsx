@@ -13,7 +13,6 @@ import {
   Hash,
   Plus,
   WalletCards,
-  WifiOff,
 } from 'lucide-react';
 import { getGroupCategoryMeta } from '../utils/iconMap.js';
 import expenseService from '../services/expenseService.js';
@@ -190,25 +189,6 @@ const Dashboard = () => {
 
   return (
     <div className="mx-auto w-full max-w-md pb-32 pt-2 lg:max-w-6xl">
-      <AnimatePresence>
-        {(isOffline || summary?.fromCache) && (
-          <motion.div
-            initial={{ opacity: 0, y: reduceMotion ? 0 : -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: reduceMotion ? 0 : -8 }}
-            transition={spring}
-            className="mb-4 flex justify-center"
-          >
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-[#171717] px-3 py-1.5 text-xs font-medium text-white/[0.55]">
-              <WifiOff size={13} />{' '}
-              {isOffline
-                ? 'Offline · showing saved data'
-                : 'Saved balances · refreshing in background'}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <motion.header {...entrance} className="mb-6 flex items-center justify-between gap-4 lg:mb-8">
         <div className="min-w-0">
           <p className="text-xs font-medium text-white/35">Welcome back</p>

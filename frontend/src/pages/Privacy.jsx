@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const Section = ({ title, children }) => (
@@ -7,7 +8,12 @@ const Section = ({ title, children }) => (
   </section>
 );
 
-const Privacy = () => (
+const Privacy = () => {
+  useEffect(() => {
+    document.title = 'Privacy Policy — paymatrix';
+  }, []);
+
+  return (
   <main className="min-h-screen bg-background px-4 py-10 text-white">
     <article className="mx-auto max-w-3xl space-y-8 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-10">
       <header>
@@ -133,6 +139,7 @@ const Privacy = () => (
       </div>
     </article>
   </main>
-);
+  );
+};
 
 export default Privacy;

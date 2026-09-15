@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ArrowRight,
   Briefcase,
@@ -27,6 +27,10 @@ const INQUIRY_TYPES = [
 ];
 
 const Contact = () => {
+  useEffect(() => {
+    document.title = 'Contact & Support — paymatrix';
+  }, []);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -284,7 +288,7 @@ const Contact = () => {
                           required
                           value={formData.name}
                           onChange={handleChange}
-                          placeholder="e.g. Aanya Sharma"
+                          placeholder="e.g. Harshil Patel"
                           className="contact-input"
                           autoComplete="name"
                         />

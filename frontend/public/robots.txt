@@ -1,0 +1,30 @@
+# robots.txt for https://paymatrixapp.online
+User-agent: *
+
+# Allow public landing, informational, and legal pages
+Allow: /
+Allow: /contact
+Allow: /privacy
+Allow: /terms
+Allow: /delete-account
+
+# Disallow private authenticated application routes and APIs
+Disallow: /dashboard
+Disallow: /groups/
+Disallow: /groups/*
+Disallow: /friends
+Disallow: /friends/*
+Disallow: /add-expense
+Disallow: /settlements
+Disallow: /activity
+Disallow: /analytics
+Disallow: /logs
+Disallow: /logs/*
+Disallow: /profile
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /api/
+Disallow: /join/
+
+# Sitemap index location
+Sitemap: https://paymatrixapp.online/sitemap.xml
