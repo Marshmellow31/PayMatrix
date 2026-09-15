@@ -205,7 +205,7 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
                                 text = { Text("Share invite") },
                                 onClick = {
                                     menu = false
-                                    val link = "https://pay-matrix.vercel.app/join/${snapshot.group.inviteCode}"
+                                    val link = "https://paymatrixapp.online/join/${snapshot.group.inviteCode}"
                                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, link) }, "Share group invite"))
                                 },
                                 leadingIcon = { Icon(Icons.Default.Share, null) }
@@ -252,7 +252,7 @@ fun GroupScreen(id: String, state: PayMatrixState, vm: PayMatrixViewModel, nav: 
                                 clipboard.setText(androidx.compose.ui.text.AnnotatedString(snapshot.group.inviteCode))
                             },
                             onInvite = {
-                                val link = "https://pay-matrix.vercel.app/join/${snapshot.group.inviteCode}"
+                                val link = "https://paymatrixapp.online/join/${snapshot.group.inviteCode}"
                                 context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, link) }, "Share group invite"))
                             },
                             onSettings = { editGroup = true },

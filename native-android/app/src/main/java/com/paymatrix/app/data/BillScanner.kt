@@ -56,7 +56,7 @@ class BillScanner(
             .url(BuildConfig.SCAN_API_URL)
             .header("Authorization", "Bearer $token")
             .header("Content-Type", "application/json")
-            .header("Origin", "https://pay-matrix.vercel.app")
+            .header("Origin", "https://paymatrixapp.online")
             .post(body)
             .build()
 

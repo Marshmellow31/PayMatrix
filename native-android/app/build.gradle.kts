@@ -33,7 +33,7 @@ android {
         versionName = "2.3.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
-        buildConfigField("String", "SCAN_API_URL", "\"https://pay-matrix.vercel.app/api/scan-bill\"")
+        buildConfigField("String", "SCAN_API_URL", "\"https://paymatrixapp.online/api/scan-bill\"")
     }
 
     signingConfigs {

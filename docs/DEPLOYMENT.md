@@ -4,7 +4,7 @@ PayMatrix frontend is deployed on Vercel; Cloud Functions on Firebase.
 
 ## Frontend (Vercel)
 
-The app is live at **pay-matrix.vercel.app**.
+The app is live at **paymatrixapp.online** (with legacy redirect from `pay-matrix.vercel.app`).
 
 Vercel reads environment variables from the project settings. These must match `frontend/.env` exactly:
 

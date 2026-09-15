@@ -13,6 +13,7 @@ class NotificationDestinationTest {
         assertEquals("group/trip_1", NotificationDestination.resolve(groupId = "trip_1"))
         assertEquals("group/trip_1", NotificationDestination.resolve(url = "/groups/trip_1"))
         assertEquals("group/trip_1", NotificationDestination.resolve(url = "group/trip_1"))
+        assertEquals("friends", NotificationDestination.resolve(url = "https://paymatrixapp.online/friends"))
         assertEquals("friends", NotificationDestination.resolve(url = "https://pay-matrix.vercel.app/friends"))
     }
     @Test fun widgetActionsRetainGroupContext() {

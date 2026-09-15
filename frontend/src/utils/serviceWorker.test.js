@@ -12,7 +12,7 @@ function worker() {
     console,
     clients,
     self: {
-      location: { origin: 'https://pay-matrix.vercel.app' },
+      location: { origin: 'https://paymatrixapp.online' },
       __WB_MANIFEST: [],
       addEventListener: (name, fn) => {
         events[name] = fn;
@@ -57,7 +57,7 @@ describe('installed service worker', () => {
     const order = [];
     clients.matchAll.mockResolvedValue([
       {
-        url: 'https://pay-matrix.vercel.app/dashboard',
+        url: 'https://paymatrixapp.online/dashboard',
         navigate: (url) => {
           order.push(url);
           return Promise.resolve({ focus: () => Promise.resolve(order.push('focus')) });
@@ -73,7 +73,7 @@ describe('installed service worker', () => {
       },
     });
     await done;
-    expect(order).toEqual(['https://pay-matrix.vercel.app/friends', 'focus']);
+    expect(order).toEqual(['https://paymatrixapp.online/friends', 'focus']);
   });
   it('opens a safe fallback for external notification URLs', async () => {
     const { events, clients } = worker();
@@ -85,7 +85,7 @@ describe('installed service worker', () => {
       },
     });
     await done;
-    expect(clients.openWindow).toHaveBeenCalledWith('https://pay-matrix.vercel.app/dashboard');
+    expect(clients.openWindow).toHaveBeenCalledWith('https://paymatrixapp.online/dashboard');
   });
   it('does not open an unapproved in-app notification route', async () => {
     const { events, clients } = worker();
@@ -97,6 +97,6 @@ describe('installed service worker', () => {
       },
     });
     await done;
-    expect(clients.openWindow).toHaveBeenCalledWith('https://pay-matrix.vercel.app/dashboard');
+    expect(clients.openWindow).toHaveBeenCalledWith('https://paymatrixapp.online/dashboard');
   });
 });

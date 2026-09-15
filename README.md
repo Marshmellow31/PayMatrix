@@ -24,7 +24,7 @@ PayMatrix is a mobile-first Progressive Web App for splitting shared expenses, t
 
 The Kotlin and Jetpack Compose client is available as a signed APK and an Android App Bundle. The AAB is an upload artifact; publishing on Google Play remains a separate step.
 
-[**Live Web App**](https://pay-matrix.vercel.app/) · [**Android APK 2.3.3**](./native-android/releases/paymatrix-2.3.3.apk) · [**Android AAB 2.3.3**](./native-android/releases/paymatrix-2.3.3.aab)
+[**Live Web App**](https://paymatrixapp.online/) · [**Android APK 2.3.3**](./native-android/releases/paymatrix-2.3.3.apk) · [**Android AAB 2.3.3**](./native-android/releases/paymatrix-2.3.3.aab)
 
 ### Native Android build (v2.3.3)
 

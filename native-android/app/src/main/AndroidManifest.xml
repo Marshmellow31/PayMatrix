@@ -39,6 +39,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="paymatrixapp.online" android:pathPrefix="/join" />
                 <data android:scheme="https" android:host="pay-matrix.vercel.app" android:pathPrefix="/join" />
             </intent-filter>
             <intent-filter>

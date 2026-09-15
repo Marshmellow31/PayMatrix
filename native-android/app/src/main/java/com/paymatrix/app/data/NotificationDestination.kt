@@ -7,7 +7,7 @@ object NotificationDestination {
         if (groupId.matches(Regex("[A-Za-z0-9_-]+"))) return "group/$groupId"
         val path = runCatching {
             val uri = java.net.URI(url)
-            if (uri.isAbsolute && (uri.scheme != "https" || uri.host != "pay-matrix.vercel.app")) return@runCatching ""
+            if (uri.isAbsolute && (uri.scheme != "https" || (uri.host != "paymatrixapp.online" && uri.host != "pay-matrix.vercel.app"))) return@runCatching ""
             if (uri.rawAuthority != null && !uri.isAbsolute) return@runCatching ""
             uri.path.orEmpty().trim('/')
         }.getOrDefault("")
